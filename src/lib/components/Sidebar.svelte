@@ -15,8 +15,10 @@
   let { activeView, onNavigate, onSettingsClick, onLogout, userName = 'User', subscription = 'Qobuz' }: Props = $props();
 
   function handleViewChange(view: string) {
-    console.log('Sidebar: navigating to', view);
+    console.log('Sidebar: handleViewChange called with view:', view);
+    console.log('Sidebar: onNavigate function exists:', !!onNavigate);
     onNavigate(view);
+    console.log('Sidebar: onNavigate called');
   }
 </script>
 
@@ -24,7 +26,14 @@
   <!-- Scrollable Content Area -->
   <div class="content">
     <!-- Search Bar -->
-    <button class="search-container" onclick={() => handleViewChange('search')}>
+    <button
+      type="button"
+      class="search-container"
+      onclick={() => {
+        console.log('Search button clicked!');
+        handleViewChange('search');
+      }}
+    >
       <Search class="search-icon" size={16} />
       <span class="search-placeholder">Search</span>
     </button>
