@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Search, Home, HardDrive, Music, Disc3, Mic2, Plus, RefreshCw, ChevronDown, Heart, ListMusic } from 'lucide-svelte';
+  import { Search, Home, HardDrive, Music, Disc3, Mic2, Plus, RefreshCw, ChevronDown, ChevronUp, Heart, ListMusic } from 'lucide-svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
   import NavigationItem from './NavigationItem.svelte';
@@ -37,6 +37,7 @@
 
   let userPlaylists = $state<Playlist[]>([]);
   let playlistsLoading = $state(false);
+  let localLibraryCollapsed = $state(false);
 
   // Expose playlists to parent via binding
   export function getPlaylists(): Playlist[] {
@@ -142,14 +143,23 @@
 
     <!-- Local Library Section -->
     <div class="section">
-      <div class="section-header">Local Library</div>
-      <NavigationItem
-        label="Browse Library"
-        active={activeView === 'library'}
-        onclick={() => handleViewChange('library')}
-      >
-        {#snippet icon()}<HardDrive size={14} />{/snippet}
-      </NavigationItem>
+      <button class="section-header-btn" onclick={() => localLibraryCollapsed = !localLibraryCollapsed}>
+        <span class="section-header">Local Library</span>
+        {#if localLibraryCollapsed}
+          <ChevronDown size={12} />
+        {:else}
+          <ChevronUp size={12} />
+        {/if}
+      </button>
+      {#if !localLibraryCollapsed}
+        <NavigationItem
+          label="Browse Library"
+          active={activeView === 'library'}
+          onclick={() => handleViewChange('library')}
+        >
+          {#snippet icon()}<HardDrive size={14} />{/snippet}
+        </NavigationItem>
+      {/if}
     </div>
   </div>
 
@@ -238,6 +248,29 @@
     letter-spacing: 0.05em;
     margin-bottom: 6px;
     padding: 0 8px;
+  }
+
+  .section-header-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 8px;
+    margin-bottom: 6px;
+    color: var(--text-muted);
+    transition: color 150ms ease;
+  }
+
+  .section-header-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .section-header-btn .section-header {
+    margin-bottom: 0;
+    padding: 0;
   }
 
   .playlists-section {
