@@ -22,6 +22,8 @@
     qualityLevel?: number;
     isPlaying?: boolean;
     onTogglePlay?: () => void;
+    onSkipBack?: () => void;
+    onSkipForward?: () => void;
     currentTime?: number;
     duration?: number;
     onSeek?: (time: number) => void;
@@ -45,6 +47,8 @@
     qualityLevel = 5,
     isPlaying = false,
     onTogglePlay,
+    onSkipBack,
+    onSkipForward,
     currentTime = 201,
     duration = 345,
     onSeek,
@@ -157,7 +161,7 @@
       >
         <Shuffle size={20} />
       </button>
-      <button class="control-btn primary">
+      <button class="control-btn primary" onclick={onSkipBack}>
         <SkipBack size={24} />
       </button>
       <button class="play-btn" onclick={onTogglePlay}>
@@ -167,7 +171,7 @@
           <Play size={24} fill="white" color="white" class="play-icon" />
         {/if}
       </button>
-      <button class="control-btn primary">
+      <button class="control-btn primary" onclick={onSkipForward}>
         <SkipForward size={24} />
       </button>
       <button

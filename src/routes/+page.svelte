@@ -322,6 +322,25 @@
     showToast(isFavorite ? 'Added to favorites' : 'Removed from favorites', 'success');
   }
 
+  // Skip track handlers (will be wired to queue when implemented)
+  function handleSkipBack() {
+    if (!currentTrack) return;
+    // If more than 3 seconds in, restart track; otherwise go to previous
+    if (currentTime > 3) {
+      handleSeek(0);
+      showToast('Restarted track', 'info');
+    } else {
+      // TODO: Go to previous track in queue
+      showToast('Previous track (not implemented yet)', 'info');
+    }
+  }
+
+  function handleSkipForward() {
+    if (!currentTrack) return;
+    // TODO: Go to next track in queue
+    showToast('Next track (not implemented yet)', 'info');
+  }
+
   // Toast Functions
   function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
     toast = { message, type };
@@ -364,6 +383,18 @@
         e.preventDefault();
         togglePlay();
         break;
+      case 'ArrowLeft':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          handleSkipBack();
+        }
+        break;
+      case 'ArrowRight':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          handleSkipForward();
+        }
+        break;
       case 'f':
         if (!e.ctrlKey && !e.metaKey) {
           isFocusModeOpen = !isFocusModeOpen;
@@ -380,25 +411,52 @@
     }
   }
 
-  // Playback progress timer
-  let progressInterval: ReturnType<typeof setInterval> | null = null;
+  // Playback state polling - sync with backend every 500ms
+  interface PlaybackState {
+    is_playing: boolean;
+    position: number;
+    duration: number;
+    track_id: number;
+    volume: number;
+  }
+
+  let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+  async function pollPlaybackState() {
+    if (!currentTrack) return;
+
+    try {
+      const state = await invoke<PlaybackState>('get_playback_state');
+
+      // Only update if we have a matching track
+      if (state.track_id === currentTrack.id) {
+        currentTime = state.position;
+        isPlaying = state.is_playing;
+
+        // Check if track ended
+        if (state.duration > 0 && state.position >= state.duration && !state.is_playing) {
+          // Track finished - could trigger next track here
+          console.log('Track finished playing');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to poll playback state:', err);
+    }
+  }
 
   $effect(() => {
-    if (isPlaying && currentTrack) {
-      progressInterval = setInterval(() => {
-        if (currentTime < duration) {
-          currentTime += 1;
-        } else {
-          isPlaying = false;
-        }
-      }, 1000);
-    } else if (progressInterval) {
-      clearInterval(progressInterval);
-      progressInterval = null;
+    if (currentTrack) {
+      // Start polling when we have a track
+      pollInterval = setInterval(pollPlaybackState, 500);
+      // Also poll immediately
+      pollPlaybackState();
+    } else if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
     }
 
     return () => {
-      if (progressInterval) clearInterval(progressInterval);
+      if (pollInterval) clearInterval(pollInterval);
     };
   });
 
@@ -467,6 +525,8 @@
         quality={currentTrack.quality}
         {isPlaying}
         onTogglePlay={togglePlay}
+        onSkipBack={handleSkipBack}
+        onSkipForward={handleSkipForward}
         {currentTime}
         {duration}
         onSeek={handleSeek}
@@ -514,6 +574,8 @@
         qualityLevel={currentTrack.quality.includes('24') ? 5 : 3}
         {isPlaying}
         onTogglePlay={togglePlay}
+        onSkipBack={handleSkipBack}
+        onSkipForward={handleSkipForward}
         {currentTime}
         {duration}
         onSeek={handleSeek}

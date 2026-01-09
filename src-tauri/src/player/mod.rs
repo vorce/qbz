@@ -5,6 +5,7 @@
 //! - FLAC, MP3 decoding via symphonia
 //! - Gapless playback
 //! - Volume control
+//! - Real-time position tracking via events
 //!
 //! Uses a dedicated audio thread since rodio's OutputStream is not Send.
 
@@ -13,15 +14,14 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::Arc;
 use std::thread;
-
 use rodio::{Decoder, OutputStream, Sink, Source};
 
 use crate::api::{client::QobuzClient, models::Quality};
 
 /// Commands sent to the audio thread
 enum AudioCommand {
-    /// Play audio data with track ID
-    Play { data: Vec<u8>, track_id: u64 },
+    /// Play audio data with track ID and duration
+    Play { data: Vec<u8>, track_id: u64, duration_secs: u64 },
     /// Pause playback
     Pause,
     /// Resume playback
@@ -30,6 +30,16 @@ enum AudioCommand {
     Stop,
     /// Set volume (0.0 - 1.0)
     SetVolume(f32),
+}
+
+/// Event payload for playback state updates
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PlaybackEvent {
+    pub is_playing: bool,
+    pub position: u64,
+    pub duration: u64,
+    pub track_id: u64,
+    pub volume: f32,
 }
 
 /// Shared state between main thread and audio thread
@@ -45,6 +55,10 @@ pub struct SharedState {
     current_track_id: Arc<AtomicU64>,
     /// Volume (0.0 - 1.0 stored as 0-100)
     volume: Arc<AtomicU64>,
+    /// Playback start time (Unix timestamp millis when started/resumed)
+    playback_start_millis: Arc<AtomicU64>,
+    /// Position when playback was started/resumed (in seconds)
+    position_at_start: Arc<AtomicU64>,
 }
 
 impl Default for SharedState {
@@ -61,7 +75,51 @@ impl SharedState {
             duration: Arc::new(AtomicU64::new(0)),
             current_track_id: Arc::new(AtomicU64::new(0)),
             volume: Arc::new(AtomicU64::new(75)),
+            playback_start_millis: Arc::new(AtomicU64::new(0)),
+            position_at_start: Arc::new(AtomicU64::new(0)),
         }
+    }
+
+    /// Get current position based on elapsed time since playback started
+    pub fn current_position(&self) -> u64 {
+        if !self.is_playing.load(Ordering::SeqCst) {
+            return self.position.load(Ordering::SeqCst);
+        }
+
+        let start_millis = self.playback_start_millis.load(Ordering::SeqCst);
+        if start_millis == 0 {
+            return self.position.load(Ordering::SeqCst);
+        }
+
+        let now_millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let elapsed_secs = (now_millis.saturating_sub(start_millis)) / 1000;
+        let position_at_start = self.position_at_start.load(Ordering::SeqCst);
+        let duration = self.duration.load(Ordering::SeqCst);
+
+        // Clamp to duration
+        (position_at_start + elapsed_secs).min(duration)
+    }
+
+    /// Mark playback as started/resumed at current position
+    fn start_playback_timer(&self, position: u64) {
+        let now_millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        self.playback_start_millis.store(now_millis, Ordering::SeqCst);
+        self.position_at_start.store(position, Ordering::SeqCst);
+    }
+
+    /// Mark playback as paused, saving current position
+    fn pause_playback_timer(&self) {
+        let current_pos = self.current_position();
+        self.position.store(current_pos, Ordering::SeqCst);
+        self.playback_start_millis.store(0, Ordering::SeqCst);
     }
 
     pub fn is_playing(&self) -> bool {
@@ -141,7 +199,7 @@ impl Player {
 
             loop {
                 match rx.recv() {
-                    Ok(AudioCommand::Play { data, track_id }) => {
+                    Ok(AudioCommand::Play { data, track_id, duration_secs }) => {
                         log::info!("Audio thread: playing track {}", track_id);
 
                         // Stop existing playback
@@ -172,12 +230,11 @@ impl Player {
                             }
                         };
 
-                        // Get duration if available
-                        if let Some(duration) = source.total_duration() {
-                            thread_state
-                                .duration
-                                .store(duration.as_secs(), Ordering::SeqCst);
-                        }
+                        // Get duration from source if available, otherwise use provided duration
+                        let actual_duration = source.total_duration()
+                            .map(|d| d.as_secs())
+                            .unwrap_or(duration_secs);
+                        thread_state.duration.store(actual_duration, Ordering::SeqCst);
 
                         sink.append(source);
 
@@ -185,20 +242,24 @@ impl Player {
                         thread_state.is_playing.store(true, Ordering::SeqCst);
                         thread_state.position.store(0, Ordering::SeqCst);
                         thread_state.current_track_id.store(track_id, Ordering::SeqCst);
+                        thread_state.start_playback_timer(0);
 
                         current_sink = Some(sink);
-                        log::info!("Audio thread: playback started");
+                        log::info!("Audio thread: playback started, duration: {}s", actual_duration);
                     }
                     Ok(AudioCommand::Pause) => {
                         if let Some(ref sink) = current_sink {
                             sink.pause();
+                            thread_state.pause_playback_timer();
                             thread_state.is_playing.store(false, Ordering::SeqCst);
-                            log::info!("Audio thread: paused");
+                            log::info!("Audio thread: paused at {}s", thread_state.position.load(Ordering::SeqCst));
                         }
                     }
                     Ok(AudioCommand::Resume) => {
                         if let Some(ref sink) = current_sink {
                             sink.play();
+                            let current_pos = thread_state.position.load(Ordering::SeqCst);
+                            thread_state.start_playback_timer(current_pos);
                             thread_state.is_playing.store(true, Ordering::SeqCst);
                             log::info!("Audio thread: resumed");
                         }
@@ -209,6 +270,8 @@ impl Player {
                         }
                         thread_state.is_playing.store(false, Ordering::SeqCst);
                         thread_state.position.store(0, Ordering::SeqCst);
+                        thread_state.playback_start_millis.store(0, Ordering::SeqCst);
+                        thread_state.position_at_start.store(0, Ordering::SeqCst);
                         log::info!("Audio thread: stopped");
                     }
                     Ok(AudioCommand::SetVolume(volume)) => {
@@ -267,6 +330,7 @@ impl Player {
             .send(AudioCommand::Play {
                 data: audio_data,
                 track_id,
+                duration_secs: 0, // Will be determined by decoder
             })
             .map_err(|e| {
                 log::error!("Player: Failed to send to audio thread: {}", e);
@@ -348,15 +412,26 @@ impl Player {
         Ok(())
     }
 
-    /// Get current playback state
+    /// Get current playback state with real-time position
     pub fn get_state(&self) -> Result<PlaybackState, String> {
         Ok(PlaybackState {
             is_playing: self.state.is_playing(),
-            position: self.state.position(),
+            position: self.state.current_position(),
             duration: self.state.duration(),
             track_id: self.state.current_track_id(),
             volume: self.state.volume(),
         })
+    }
+
+    /// Get playback event for emitting to frontend
+    pub fn get_playback_event(&self) -> PlaybackEvent {
+        PlaybackEvent {
+            is_playing: self.state.is_playing(),
+            position: self.state.current_position(),
+            duration: self.state.duration(),
+            track_id: self.state.current_track_id(),
+            volume: self.state.volume(),
+        }
     }
 }
 
