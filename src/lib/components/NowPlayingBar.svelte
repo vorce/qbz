@@ -13,6 +13,7 @@
     VolumeX,
     Volume1
   } from 'lucide-svelte';
+  import QualityBadge from './QualityBadge.svelte';
 
   interface Props {
     artwork?: string;
@@ -20,6 +21,8 @@
     artist?: string;
     quality?: string;
     qualityLevel?: number;
+    bitDepth?: number;
+    samplingRate?: number;
     isPlaying?: boolean;
     onTogglePlay?: () => void;
     onSkipBack?: () => void;
@@ -45,6 +48,8 @@
     artist = '',
     quality = '',
     qualityLevel = 0,
+    bitDepth,
+    samplingRate,
     isPlaying = false,
     onTogglePlay,
     onSkipBack,
@@ -148,14 +153,9 @@
         <div class="track-title">{trackTitle}</div>
         <div class="track-artist">{artist}</div>
         <div class="track-quality">
-          <span>{quality}</span>
+          <QualityBadge {quality} {bitDepth} {samplingRate} />
           {#if quality}
-            <span>•</span>
-            <div class="quality-dots">
-              {#each Array(5) as _, i}
-                <div class="dot" class:active={i < qualityLevel}></div>
-              {/each}
-            </div>
+            <span class="quality-text">{quality}</span>
           {/if}
         </div>
       </div>
@@ -357,26 +357,12 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
-    color: #666666;
     margin-top: 2px;
   }
 
-  .quality-dots {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-  }
-
-  .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: #444444;
-  }
-
-  .dot.active {
-    background-color: #888888;
+  .quality-text {
+    font-size: 11px;
+    color: #666666;
   }
 
   /* Controls */

@@ -173,6 +173,8 @@
     artwork: string;
     duration: number;
     quality: string;
+    bitDepth?: number;
+    samplingRate?: number;
   }
 
   // Auth State
@@ -513,7 +515,9 @@
       album: track.album?.title || '',
       artwork,
       duration: track.duration,
-      quality
+      quality,
+      bitDepth: track.maximum_bit_depth,
+      samplingRate: track.maximum_sampling_rate
     };
 
     duration = track.duration;
@@ -1506,6 +1510,8 @@
         trackTitle={currentTrack.title}
         artist={currentTrack.artist}
         quality={currentTrack.quality}
+        bitDepth={currentTrack.bitDepth}
+        samplingRate={currentTrack.samplingRate}
         {isPlaying}
         onTogglePlay={togglePlay}
         onSkipBack={handleSkipBack}
@@ -1553,6 +1559,8 @@
         album={currentTrack.album}
         quality={currentTrack.quality}
         qualityLevel={currentTrack.quality.includes('24') ? 5 : 3}
+        bitDepth={currentTrack.bitDepth}
+        samplingRate={currentTrack.samplingRate}
         {isPlaying}
         onTogglePlay={togglePlay}
         onSkipBack={handleSkipBack}

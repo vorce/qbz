@@ -1,5 +1,6 @@
 <script lang="ts">
   import { X, Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Heart, List, Mic2, Maximize2, MoreHorizontal } from 'lucide-svelte';
+  import QualityBadge from './QualityBadge.svelte';
 
   interface Props {
     isOpen: boolean;
@@ -10,6 +11,8 @@
     album: string;
     quality: string;
     qualityLevel: number;
+    bitDepth?: number;
+    samplingRate?: number;
     isPlaying: boolean;
     onTogglePlay: () => void;
     onSkipBack?: () => void;
@@ -38,6 +41,8 @@
     album,
     quality,
     qualityLevel,
+    bitDepth,
+    samplingRate,
     isPlaying,
     onTogglePlay,
     onSkipBack,
@@ -139,12 +144,8 @@
 
     <!-- Quality Info -->
     <div class="quality-info">
+      <QualityBadge {quality} {bitDepth} {samplingRate} size="md" />
       <div class="quality-text">{quality}</div>
-      <div class="quality-dots">
-        {#each Array(5) as _, i}
-          <div class="dot" class:active={i < qualityLevel}></div>
-        {/each}
-      </div>
     </div>
 
     <!-- Progress Bar -->
@@ -312,32 +313,14 @@
 
   .quality-info {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     margin-bottom: 32px;
   }
 
   .quality-text {
     font-size: 14px;
     color: #666666;
-  }
-
-  .quality-dots {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-  }
-
-  .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: #444444;
-  }
-
-  .dot.active {
-    background-color: #888888;
   }
 
   .progress-container {
