@@ -15,6 +15,7 @@
   {onclick}
   class="nav-item"
   class:active
+  title={label}
 >
   <div class="icon-container">
     {@render icon()}
@@ -25,17 +26,18 @@
 <style>
   .nav-item {
     width: 100%;
-    height: 36px;
+    height: 32px;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 0 12px;
-    border-radius: 8px;
+    padding: 0 8px;
+    border-radius: 6px;
     border: none;
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
     transition: all 150ms ease;
+    text-align: left;
   }
 
   .nav-item:hover {
@@ -48,15 +50,21 @@
   }
 
   .icon-container {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
   }
 
   .label {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 400;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
   }
 </style>

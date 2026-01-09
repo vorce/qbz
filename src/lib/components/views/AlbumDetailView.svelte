@@ -36,9 +36,10 @@
     onPlayAll?: () => void;
     onShuffleAll?: () => void;
     onAddToQueue?: () => void;
+    onAddTrackToPlaylist?: (trackId: number) => void;
   }
 
-  let { album, onBack, onArtistClick, onTrackPlay, onPlayAll, onShuffleAll, onAddToQueue }: Props = $props();
+  let { album, onBack, onArtistClick, onTrackPlay, onPlayAll, onShuffleAll, onAddToQueue, onAddTrackToPlaylist }: Props = $props();
 
   let currentTrack = $state<number | null>(null);
   let isFavorite = $state(false);
@@ -149,6 +150,7 @@
             currentTrack = track.id;
             onTrackPlay?.(track);
           }}
+          onAddToPlaylist={onAddTrackToPlaylist ? () => onAddTrackToPlaylist(track.id) : undefined}
         />
       {/each}
     </div>

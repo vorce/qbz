@@ -244,10 +244,8 @@
               title={track.title}
               artist={track.performer?.name}
               duration={formatDuration(track.duration)}
-              hires={track.hires}
-              bitDepth={track.maximum_bit_depth}
-              samplingRate={track.maximum_sampling_rate}
-              onclick={() => handleTrackClick(track, index)}
+              quality={track.hires ? 'Hi-Res' : undefined}
+              onPlay={() => handleTrackClick(track, index)}
             />
           {/each}
         </div>
@@ -266,8 +264,7 @@
               artwork={album.image?.large || album.image?.thumbnail || ''}
               title={album.title}
               artist={album.artist.name}
-              year={album.release_date_original?.slice(0, 4)}
-              hires={album.hires}
+              quality={album.hires ? 'Hi-Res' : undefined}
               onclick={() => onAlbumClick?.(album.id)}
             />
           {/each}

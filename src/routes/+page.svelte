@@ -531,9 +531,25 @@
     }
   }
 
-  function toggleFavorite() {
-    isFavorite = !isFavorite;
-    showToast(isFavorite ? 'Added to favorites' : 'Removed from favorites', 'success');
+  async function toggleFavorite() {
+    if (!currentTrack) return;
+
+    const trackId = String(currentTrack.id);
+    const newFavoriteState = !isFavorite;
+
+    try {
+      if (newFavoriteState) {
+        await invoke('add_favorite', { favType: 'track', itemId: trackId });
+        showToast('Added to favorites', 'success');
+      } else {
+        await invoke('remove_favorite', { favType: 'track', itemId: trackId });
+        showToast('Removed from favorites', 'success');
+      }
+      isFavorite = newFavoriteState;
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+      showToast('Failed to update favorites', 'error');
+    }
   }
 
   // Skip track handlers - wired to backend queue
@@ -587,6 +603,9 @@
   // Helper to play a track from the queue
   async function playQueueTrack(track: BackendQueueTrack) {
     const isLocalTrack = localTrackIds.has(track.id);
+
+    // Reset queue ended flag when playing a new track
+    queueEnded = false;
 
     currentTrack = {
       id: track.id,
@@ -960,8 +979,19 @@
     isPlaylistModalOpen = true;
   }
 
+  function openAddToPlaylist(trackIds: number[]) {
+    userPlaylists = sidebarRef?.getPlaylists() ?? [];
+    playlistModalMode = 'addTrack';
+    playlistModalTrackIds = trackIds;
+    isPlaylistModalOpen = true;
+  }
+
   function handlePlaylistCreated() {
-    showToast('Playlist created', 'success');
+    if (playlistModalMode === 'addTrack') {
+      showToast('Track added to playlist', 'success');
+    } else {
+      showToast('Playlist created', 'success');
+    }
     sidebarRef?.refreshPlaylists();
   }
 
@@ -1056,6 +1086,7 @@
 
   let isAdvancingTrack = false; // Prevent multiple advances
   let isSkipping = false; // Prevent concurrent skip operations
+  let queueEnded = false; // Prevent spam when queue has no more tracks
 
   async function pollPlaybackState() {
     if (!currentTrack) return;
@@ -1069,7 +1100,8 @@
         isPlaying = state.is_playing;
 
         // Check if track ended - auto-advance to next
-        if (state.duration > 0 && state.position >= state.duration - 1 && !state.is_playing && !isAdvancingTrack) {
+        // Don't try if queue already ended or we're already advancing
+        if (state.duration > 0 && state.position >= state.duration - 1 && !state.is_playing && !isAdvancingTrack && !queueEnded) {
           console.log('Track finished, advancing to next...');
           isAdvancingTrack = true;
 
@@ -1078,8 +1110,9 @@
             if (nextTrackResult) {
               await playQueueTrack(nextTrackResult);
             } else {
-              // Queue ended
+              // Queue ended - set flag to prevent further attempts
               console.log('Queue ended');
+              queueEnded = true;
             }
           } catch (err) {
             console.error('Failed to auto-advance:', err);
@@ -1182,6 +1215,7 @@
           onPlayAll={handlePlayAllAlbum}
           onShuffleAll={handleShuffleAlbum}
           onAddToQueue={handleAddAlbumToQueue}
+          onAddTrackToPlaylist={(trackId) => openAddToPlaylist([trackId])}
         />
       {:else if activeView === 'artist' && selectedArtist}
         <ArtistDetailView

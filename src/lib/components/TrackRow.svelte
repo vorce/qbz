@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Play, Plus, MoreHorizontal } from 'lucide-svelte';
+  import { Play, Plus, ListPlus, MoreHorizontal } from 'lucide-svelte';
 
   interface Props {
     number: number;
@@ -9,6 +9,8 @@
     quality?: string;
     isPlaying?: boolean;
     onPlay?: () => void;
+    onAddToPlaylist?: () => void;
+    onAddToQueue?: () => void;
   }
 
   let {
@@ -18,7 +20,9 @@
     duration,
     quality,
     isPlaying = false,
-    onPlay
+    onPlay,
+    onAddToPlaylist,
+    onAddToQueue
   }: Props = $props();
 
   let isHovered = $state(false);
@@ -69,18 +73,24 @@
   <!-- Hover Actions -->
   {#if isHovered && !isPlaying}
     <div class="track-actions">
-      <button
-        class="action-btn"
-        onclick={(e) => e.stopPropagation()}
-      >
-        <Plus size={20} />
-      </button>
-      <button
-        class="action-btn"
-        onclick={(e) => e.stopPropagation()}
-      >
-        <MoreHorizontal size={20} />
-      </button>
+      {#if onAddToQueue}
+        <button
+          class="action-btn"
+          onclick={(e) => { e.stopPropagation(); onAddToQueue(); }}
+          title="Add to queue"
+        >
+          <Plus size={18} />
+        </button>
+      {/if}
+      {#if onAddToPlaylist}
+        <button
+          class="action-btn"
+          onclick={(e) => { e.stopPropagation(); onAddToPlaylist(); }}
+          title="Add to playlist"
+        >
+          <ListPlus size={18} />
+        </button>
+      {/if}
     </div>
   {/if}
 </div>

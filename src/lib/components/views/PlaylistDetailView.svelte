@@ -451,10 +451,8 @@
           title={track.title}
           artist={track.artist}
           duration={track.duration}
-          hires={track.hires}
-          bitDepth={track.bitDepth}
-          samplingRate={track.samplingRate}
-          onclick={() => handleTrackClick(track)}
+          quality={track.hires ? 'Hi-Res' : undefined}
+          onPlay={() => handleTrackClick(track)}
         />
       {/each}
 

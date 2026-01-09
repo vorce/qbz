@@ -109,16 +109,23 @@ pub struct Track {
     pub id: u64,
     pub title: String,
     pub duration: u32,
+    #[serde(default)]
     pub track_number: u32,
     pub media_number: Option<u32>,
     pub performer: Option<Artist>,
     pub album: Option<AlbumSummary>,
+    #[serde(default)]
     pub hires: bool,
+    #[serde(default)]
     pub hires_streamable: bool,
     pub maximum_sampling_rate: Option<f64>,
     pub maximum_bit_depth: Option<u32>,
+    #[serde(default)]
     pub streamable: bool,
+    #[serde(default)]
     pub parental_warning: bool,
+    /// Playlist-specific: ID within the playlist (for removal)
+    pub playlist_track_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -180,6 +187,7 @@ pub struct Playlist {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaylistOwner {
+    #[serde(default)]
     pub id: u64,
     pub name: String,
 }

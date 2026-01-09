@@ -97,7 +97,7 @@
         active={activeView === 'home'}
         onclick={() => handleViewChange('home')}
       >
-        {#snippet icon()}<Home size={18} />{/snippet}
+        {#snippet icon()}<Home size={14} />{/snippet}
       </NavigationItem>
     </nav>
 
@@ -120,7 +120,7 @@
         active={activeView === 'favorites'}
         onclick={() => handleViewChange('favorites')}
       >
-        {#snippet icon()}<Heart size={18} />{/snippet}
+        {#snippet icon()}<Heart size={14} />{/snippet}
       </NavigationItem>
 
       {#if playlistsLoading}
@@ -132,7 +132,7 @@
             active={activeView === 'playlist' && selectedPlaylistId === playlist.id}
             onclick={() => handlePlaylistClick(playlist)}
           >
-            {#snippet icon()}<ListMusic size={18} />{/snippet}
+            {#snippet icon()}<ListMusic size={14} />{/snippet}
           </NavigationItem>
         {/each}
       {:else}
@@ -148,7 +148,7 @@
         active={activeView === 'library'}
         onclick={() => handleViewChange('library')}
       >
-        {#snippet icon()}<HardDrive size={18} />{/snippet}
+        {#snippet icon()}<HardDrive size={14} />{/snippet}
       </NavigationItem>
     </div>
   </div>
@@ -166,8 +166,8 @@
 
 <style>
   .sidebar {
-    width: 240px;
-    min-width: 240px;
+    width: 280px;
+    min-width: 280px;
     flex-shrink: 0;
     background-color: var(--bg-secondary);
     display: flex;
@@ -178,22 +178,22 @@
   .content {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    padding: 12px;
     padding-bottom: 0;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 16px;
   }
 
   .search-container {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     width: 100%;
-    height: 36px;
+    height: 32px;
     background-color: var(--bg-tertiary);
-    border-radius: 8px;
-    padding: 0 12px;
+    border-radius: 6px;
+    padding: 0 10px;
     border: none;
     cursor: pointer;
     transition: background-color 150ms ease;
@@ -210,7 +210,7 @@
   }
 
   .search-placeholder {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-muted);
     pointer-events: none;
   }
@@ -218,36 +218,36 @@
   .nav-section {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .section {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .section-header {
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
     color: var(--text-muted);
     font-weight: 600;
     letter-spacing: 0.05em;
-    margin-bottom: 8px;
-    padding: 0 12px;
+    margin-bottom: 6px;
+    padding: 0 8px;
   }
 
   .playlists-section {
     flex: 1;
-    padding-bottom: 16px;
+    padding-bottom: 12px;
   }
 
   .playlists-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 12px;
-    margin-bottom: 8px;
+    padding: 0 8px;
+    margin-bottom: 6px;
   }
 
   .playlists-header .section-header {
@@ -258,7 +258,7 @@
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
   }
 
   .icon-btn {
@@ -276,13 +276,13 @@
 
   .playlists-loading,
   .no-playlists {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-muted);
-    padding: 8px 12px;
+    padding: 6px 8px;
   }
 
   .user-section {
     border-top: 1px solid var(--bg-tertiary);
-    padding: 12px;
+    padding: 8px;
   }
 </style>

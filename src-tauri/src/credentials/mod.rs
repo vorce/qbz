@@ -19,8 +19,13 @@ pub struct QobuzCredentials {
 
 /// Save Qobuz credentials to system keyring
 pub fn save_qobuz_credentials(email: &str, password: &str) -> Result<(), String> {
+    log::info!("Attempting to save credentials for: {}", email);
+
     let entry = Entry::new(SERVICE_NAME, QOBUZ_CREDENTIALS_KEY)
-        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+        .map_err(|e| {
+            log::error!("Failed to create keyring entry: {}", e);
+            format!("Failed to create keyring entry: {}", e)
+        })?;
 
     let credentials = QobuzCredentials {
         email: email.to_string(),
@@ -32,29 +37,40 @@ pub fn save_qobuz_credentials(email: &str, password: &str) -> Result<(), String>
 
     entry
         .set_password(&json)
-        .map_err(|e| format!("Failed to save to keyring: {}", e))?;
+        .map_err(|e| {
+            log::error!("Failed to save to keyring: {}", e);
+            format!("Failed to save to keyring: {}", e)
+        })?;
 
-    log::info!("Qobuz credentials saved to system keyring");
+    log::info!("Qobuz credentials saved to system keyring successfully");
     Ok(())
 }
 
 /// Load Qobuz credentials from system keyring
 pub fn load_qobuz_credentials() -> Result<Option<QobuzCredentials>, String> {
+    log::info!("Attempting to load credentials from keyring");
+
     let entry = Entry::new(SERVICE_NAME, QOBUZ_CREDENTIALS_KEY)
-        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+        .map_err(|e| {
+            log::error!("Failed to create keyring entry for reading: {}", e);
+            format!("Failed to create keyring entry: {}", e)
+        })?;
 
     match entry.get_password() {
         Ok(json) => {
             let credentials: QobuzCredentials = serde_json::from_str(&json)
                 .map_err(|e| format!("Failed to parse credentials: {}", e))?;
-            log::info!("Loaded Qobuz credentials from keyring for: {}", credentials.email);
+            log::info!("Successfully loaded credentials from keyring for: {}", credentials.email);
             Ok(Some(credentials))
         }
         Err(keyring::Error::NoEntry) => {
-            log::debug!("No saved Qobuz credentials found");
+            log::info!("No saved credentials found in keyring");
             Ok(None)
         }
-        Err(e) => Err(format!("Failed to load from keyring: {}", e)),
+        Err(e) => {
+            log::error!("Failed to load from keyring: {}", e);
+            Err(format!("Failed to load from keyring: {}", e))
+        }
     }
 }
 

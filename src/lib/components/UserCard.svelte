@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Settings, LogOut } from 'lucide-svelte';
+  import { Settings, LogOut, ChevronDown, ChevronUp } from 'lucide-svelte';
 
   interface Props {
     username: string;
@@ -10,58 +10,80 @@
   }
 
   let { username, subscription, avatarUrl, onSettingsClick, onLogout }: Props = $props();
+
+  let isCollapsed = $state(false);
 </script>
 
-<div class="user-card">
-  <!-- Avatar -->
-  <div class="avatar">
-    {#if avatarUrl}
-      <img src={avatarUrl} alt={username} />
-    {:else}
-      {username.charAt(0).toUpperCase()}
-    {/if}
-  </div>
+{#if isCollapsed}
+  <!-- Collapsed view -->
+  <button class="collapsed-card" onclick={() => isCollapsed = false}>
+    <div class="mini-logo">Q</div>
+    <span class="collapsed-username">{username}</span>
+    <ChevronDown size={12} />
+  </button>
+{:else}
+  <!-- Expanded view -->
+  <div class="user-card">
+    <!-- Avatar -->
+    <div class="avatar">
+      {#if avatarUrl}
+        <img src={avatarUrl} alt={username} />
+      {:else}
+        {username.charAt(0).toUpperCase()}
+      {/if}
+    </div>
 
-  <!-- User Info -->
-  <div class="user-info">
-    <div class="username">{username}</div>
-    <div class="subscription">{subscription}</div>
-  </div>
+    <!-- User Info -->
+    <div class="user-info">
+      <div class="username">{username}</div>
+      <div class="subscription">{subscription}</div>
+    </div>
 
-  <!-- Action Buttons -->
-  <div class="action-buttons">
-    <button
-      class="action-btn"
-      onclick={(e) => {
-        e.stopPropagation();
-        onSettingsClick();
-      }}
-      title="Settings"
-    >
-      <Settings size={18} />
-    </button>
-    {#if onLogout}
+    <!-- Action Buttons -->
+    <div class="action-buttons">
       <button
-        class="action-btn logout-btn"
+        class="action-btn"
         onclick={(e) => {
           e.stopPropagation();
-          onLogout();
+          onSettingsClick();
         }}
-        title="Logout"
+        title="Settings"
       >
-        <LogOut size={18} />
+        <Settings size={14} />
       </button>
-    {/if}
+      {#if onLogout}
+        <button
+          class="action-btn logout-btn"
+          onclick={(e) => {
+            e.stopPropagation();
+            onLogout();
+          }}
+          title="Logout"
+        >
+          <LogOut size={14} />
+        </button>
+      {/if}
+      <button
+        class="action-btn collapse-btn"
+        onclick={(e) => {
+          e.stopPropagation();
+          isCollapsed = true;
+        }}
+        title="Collapse"
+      >
+        <ChevronUp size={14} />
+      </button>
+    </div>
   </div>
-</div>
+{/if}
 
 <style>
   .user-card {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px;
-    border-radius: 8px;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 6px;
     cursor: pointer;
     transition: background-color 150ms ease;
   }
@@ -71,8 +93,8 @@
   }
 
   .avatar {
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background-color: var(--accent-primary);
     display: flex;
@@ -80,7 +102,7 @@
     justify-content: center;
     color: white;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 11px;
     flex-shrink: 0;
     overflow: hidden;
   }
@@ -97,7 +119,7 @@
   }
 
   .username {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text-primary);
     overflow: hidden;
@@ -106,7 +128,7 @@
   }
 
   .subscription {
-    font-size: 12px;
+    font-size: 10px;
     color: var(--accent-primary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -116,12 +138,12 @@
   .action-buttons {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
   }
 
   .action-btn {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -130,7 +152,7 @@
     color: var(--text-muted);
     cursor: pointer;
     flex-shrink: 0;
-    border-radius: 6px;
+    border-radius: 4px;
     transition: all 150ms ease;
   }
 
@@ -141,5 +163,53 @@
 
   .logout-btn:hover {
     color: #ff6b6b;
+  }
+
+  /* Collapsed state */
+  .collapsed-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+    color: var(--text-primary);
+  }
+
+  .collapsed-card:hover {
+    background-color: var(--bg-hover);
+  }
+
+  .mini-logo {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background-color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .collapsed-username {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .collapsed-card :global(svg) {
+    color: var(--text-muted);
+    flex-shrink: 0;
   }
 </style>
