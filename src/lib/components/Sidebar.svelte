@@ -199,11 +199,13 @@
   .search-container :global(.search-icon) {
     color: var(--text-muted);
     flex-shrink: 0;
+    pointer-events: none;
   }
 
   .search-placeholder {
     font-size: 14px;
     color: var(--text-muted);
+    pointer-events: none;
   }
 
   .nav-section {
