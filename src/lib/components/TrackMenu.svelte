@@ -1,6 +1,18 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { ChevronRight, MoreHorizontal } from 'lucide-svelte';
+  import {
+    ChevronRight,
+    MoreHorizontal,
+    Play,
+    ListPlus,
+    ListEnd,
+    Heart,
+    ListMusic,
+    Share2,
+    Disc3,
+    User,
+    Link
+  } from 'lucide-svelte';
 
   interface Props {
     onPlayNow?: () => void;
@@ -157,13 +169,22 @@
       <div class="menu" bind:this={menuEl} style={menuStyle}>
         {#if hasPlayback}
           {#if onPlayNow}
-            <button class="menu-item" onclick={() => handleAction(onPlayNow)}>Play now</button>
+            <button class="menu-item" onclick={() => handleAction(onPlayNow)}>
+              <Play size={14} />
+              <span>Play now</span>
+            </button>
           {/if}
           {#if onPlayNext}
-            <button class="menu-item" onclick={() => handleAction(onPlayNext)}>Play next</button>
+            <button class="menu-item" onclick={() => handleAction(onPlayNext)}>
+              <ListPlus size={14} />
+              <span>Play next</span>
+            </button>
           {/if}
           {#if onPlayLater}
-            <button class="menu-item" onclick={() => handleAction(onPlayLater)}>Play later</button>
+            <button class="menu-item" onclick={() => handleAction(onPlayLater)}>
+              <ListEnd size={14} />
+              <span>Play later</span>
+            </button>
           {/if}
         {/if}
 
@@ -173,10 +194,16 @@
 
         {#if hasLibrary}
           {#if onAddFavorite}
-            <button class="menu-item" onclick={() => handleAction(onAddFavorite)}>Add to favorites</button>
+            <button class="menu-item" onclick={() => handleAction(onAddFavorite)}>
+              <Heart size={14} />
+              <span>Add to favorites</span>
+            </button>
           {/if}
           {#if onAddToPlaylist}
-            <button class="menu-item" onclick={() => handleAction(onAddToPlaylist)}>Add to playlist</button>
+            <button class="menu-item" onclick={() => handleAction(onAddToPlaylist)}>
+              <ListMusic size={14} />
+              <span>Add to playlist</span>
+            </button>
           {/if}
         {/if}
 
@@ -197,15 +224,22 @@
               if (shareOpen) setSubmenuPosition();
             }}
           >
+            <Share2 size={14} />
             <span>Share</span>
-            <ChevronRight size={14} />
+            <ChevronRight size={14} class="chevron" />
             {#if shareOpen}
               <div class="submenu" bind:this={submenuEl} style={submenuStyle}>
                 {#if onShareQobuz}
-                  <button class="menu-item" onclick={() => handleAction(onShareQobuz)}>Share Qobuz link</button>
+                  <button class="menu-item" onclick={() => handleAction(onShareQobuz)}>
+                    <Link size={14} />
+                    <span>Qobuz link</span>
+                  </button>
                 {/if}
                 {#if onShareSonglink}
-                  <button class="menu-item" onclick={() => handleAction(onShareSonglink)}>Share Song.link</button>
+                  <button class="menu-item" onclick={() => handleAction(onShareSonglink)}>
+                    <Link size={14} />
+                    <span>Song.link</span>
+                  </button>
                 {/if}
               </div>
             {/if}
@@ -218,10 +252,16 @@
 
         {#if hasNav}
           {#if onGoToAlbum}
-            <button class="menu-item" onclick={() => handleAction(onGoToAlbum)}>Go to album</button>
+            <button class="menu-item" onclick={() => handleAction(onGoToAlbum)}>
+              <Disc3 size={14} />
+              <span>Go to album</span>
+            </button>
           {/if}
           {#if onGoToArtist}
-            <button class="menu-item" onclick={() => handleAction(onGoToArtist)}>Go to artist</button>
+            <button class="menu-item" onclick={() => handleAction(onGoToArtist)}>
+              <User size={14} />
+              <span>Go to artist</span>
+            </button>
           {/if}
         {/if}
       </div>
@@ -276,9 +316,16 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
     transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .menu-item span {
+    flex: 1;
+  }
+
+  .menu-item :global(.chevron) {
+    margin-left: auto;
   }
 
   .menu-item:hover {

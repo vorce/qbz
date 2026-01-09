@@ -395,11 +395,15 @@
   }
 
   .control-btn {
-    background: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: transparent;
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    transition: color 150ms ease;
+    transition: color 150ms ease, transform 100ms ease;
     position: relative;
   }
 
@@ -407,12 +411,16 @@
     color: var(--text-primary);
   }
 
+  .control-btn:active {
+    transform: scale(0.95);
+  }
+
   .control-btn.primary {
     color: var(--text-primary);
   }
 
   .control-btn.primary:hover {
-    color: var(--text-muted);
+    color: var(--accent-primary);
   }
 
   .control-btn.active {

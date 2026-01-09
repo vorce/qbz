@@ -61,8 +61,7 @@
   let volumeRef: HTMLDivElement;
   let isDraggingProgress = $state(false);
   let isDraggingVolume = $state(false);
-  let playBtnHovered = $state(false);
-
+  
   const progress = $derived((currentTime / duration) * 100);
 
   function formatTime(seconds: number): string {
@@ -177,17 +176,11 @@
       <button class="control-btn primary" onclick={onSkipBack}>
         <SkipBack size={32} />
       </button>
-      <button
-        class="play-btn"
-        style="background-color: {playBtnHovered ? 'var(--accent-hover)' : 'var(--accent-primary)'}"
-        onmouseenter={() => (playBtnHovered = true)}
-        onmouseleave={() => (playBtnHovered = false)}
-        onclick={onTogglePlay}
-      >
+      <button class="control-btn primary play-pause" onclick={onTogglePlay}>
         {#if isPlaying}
-          <Pause size={28} fill="white" color="white" />
+          <Pause size={40} />
         {:else}
-          <Play size={28} fill="white" color="white" class="play-icon" />
+          <Play size={40} />
         {/if}
       </button>
       <button class="control-btn primary" onclick={onSkipForward}>
@@ -433,20 +426,8 @@
     font-weight: 700;
   }
 
-  .play-btn {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background-color 150ms ease;
-  }
-
-  .play-btn :global(.play-icon) {
-    margin-left: 2px;
+  .control-btn.play-pause {
+    margin: 0 16px;
   }
 
   .volume-container {

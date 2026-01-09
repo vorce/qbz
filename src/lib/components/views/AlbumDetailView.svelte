@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { ArrowLeft, Play, Shuffle, Heart, Plus, MoreHorizontal } from 'lucide-svelte';
   import TrackRow from '../TrackRow.svelte';
@@ -70,6 +71,25 @@
   let isFavorite = $state(false);
   let isFavoriteLoading = $state(false);
   let playBtnHovered = $state(false);
+
+  interface FavoritesResponse {
+    items: Array<{ id: string }>;
+    total: number;
+  }
+
+  // Check if album is already in favorites on mount
+  onMount(async () => {
+    try {
+      const response = await invoke<FavoritesResponse>('get_favorites', {
+        favType: 'albums',
+        limit: 500,
+        offset: 0
+      });
+      isFavorite = response.items.some(item => item.id === album.id);
+    } catch (err) {
+      console.error('Failed to check favorite status:', err);
+    }
+  });
 
   async function toggleFavorite() {
     if (isFavoriteLoading) return;
