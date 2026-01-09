@@ -47,22 +47,27 @@ pub struct QueueState {
     pub total_tracks: usize,
 }
 
+/// Internal queue state - all in one struct to avoid deadlocks
+struct InternalState {
+    /// All tracks in the queue (original order)
+    tracks: Vec<QueueTrack>,
+    /// Current playback index
+    current_index: Option<usize>,
+    /// Shuffle mode enabled
+    shuffle: bool,
+    /// Shuffled indices (when shuffle is on)
+    shuffle_order: Vec<usize>,
+    /// Position in shuffle order
+    shuffle_position: usize,
+    /// Repeat mode
+    repeat: RepeatMode,
+    /// History of played track indices (for going back)
+    history: VecDeque<usize>,
+}
+
 /// Queue manager for handling playback queue
 pub struct QueueManager {
-    /// All tracks in the queue (original order)
-    tracks: Mutex<Vec<QueueTrack>>,
-    /// Current playback index
-    current_index: Mutex<Option<usize>>,
-    /// Shuffle mode enabled
-    shuffle: Mutex<bool>,
-    /// Shuffled indices (when shuffle is on)
-    shuffle_order: Mutex<Vec<usize>>,
-    /// Position in shuffle order
-    shuffle_position: Mutex<usize>,
-    /// Repeat mode
-    repeat: Mutex<RepeatMode>,
-    /// History of played track indices (for going back)
-    history: Mutex<VecDeque<usize>>,
+    state: Mutex<InternalState>,
 }
 
 impl Default for QueueManager {
@@ -74,381 +79,319 @@ impl Default for QueueManager {
 impl QueueManager {
     pub fn new() -> Self {
         Self {
-            tracks: Mutex::new(Vec::new()),
-            current_index: Mutex::new(None),
-            shuffle: Mutex::new(false),
-            shuffle_order: Mutex::new(Vec::new()),
-            shuffle_position: Mutex::new(0),
-            repeat: Mutex::new(RepeatMode::Off),
-            history: Mutex::new(VecDeque::with_capacity(50)),
+            state: Mutex::new(InternalState {
+                tracks: Vec::new(),
+                current_index: None,
+                shuffle: false,
+                shuffle_order: Vec::new(),
+                shuffle_position: 0,
+                repeat: RepeatMode::Off,
+                history: VecDeque::with_capacity(50),
+            }),
         }
     }
 
     /// Add a track to the end of the queue
     pub fn add_track(&self, track: QueueTrack) {
-        let mut tracks = self.tracks.lock().unwrap();
-        tracks.push(track);
+        let mut state = self.state.lock().unwrap();
+        state.tracks.push(track);
 
-        // Update shuffle order if needed
-        if *self.shuffle.lock().unwrap() {
-            let mut order = self.shuffle_order.lock().unwrap();
-            order.push(tracks.len() - 1);
+        if state.shuffle {
+            let new_idx = state.tracks.len() - 1;
+            state.shuffle_order.push(new_idx);
         }
     }
 
     /// Add multiple tracks to the queue
     pub fn add_tracks(&self, new_tracks: Vec<QueueTrack>) {
-        let mut tracks = self.tracks.lock().unwrap();
-        let start_idx = tracks.len();
-        tracks.extend(new_tracks);
+        let mut state = self.state.lock().unwrap();
+        let start_idx = state.tracks.len();
+        state.tracks.extend(new_tracks);
 
-        // Update shuffle order if needed
-        if *self.shuffle.lock().unwrap() {
-            let mut order = self.shuffle_order.lock().unwrap();
-            for i in start_idx..tracks.len() {
-                order.push(i);
+        if state.shuffle {
+            for i in start_idx..state.tracks.len() {
+                state.shuffle_order.push(i);
             }
         }
     }
 
     /// Set the entire queue (replaces existing)
     pub fn set_queue(&self, new_tracks: Vec<QueueTrack>, start_index: Option<usize>) {
-        let mut tracks = self.tracks.lock().unwrap();
-        *tracks = new_tracks;
+        let mut state = self.state.lock().unwrap();
+        state.tracks = new_tracks;
+        state.current_index = start_index;
+        state.history.clear();
 
-        let mut current = self.current_index.lock().unwrap();
-        *current = start_index;
-
-        // Reset shuffle order
-        self.regenerate_shuffle_order();
-
-        // Clear history
-        self.history.lock().unwrap().clear();
+        // Regenerate shuffle order
+        Self::regenerate_shuffle_order_internal(&mut state);
     }
 
     /// Clear the queue
     pub fn clear(&self) {
-        self.tracks.lock().unwrap().clear();
-        *self.current_index.lock().unwrap() = None;
-        self.shuffle_order.lock().unwrap().clear();
-        *self.shuffle_position.lock().unwrap() = 0;
-        self.history.lock().unwrap().clear();
+        let mut state = self.state.lock().unwrap();
+        state.tracks.clear();
+        state.current_index = None;
+        state.shuffle_order.clear();
+        state.shuffle_position = 0;
+        state.history.clear();
     }
 
     /// Remove a track by index
     pub fn remove_track(&self, index: usize) -> Option<QueueTrack> {
-        let mut tracks = self.tracks.lock().unwrap();
-        if index >= tracks.len() {
+        let mut state = self.state.lock().unwrap();
+        if index >= state.tracks.len() {
             return None;
         }
 
-        let removed = tracks.remove(index);
+        let removed = state.tracks.remove(index);
 
         // Adjust current index if needed
-        let mut current = self.current_index.lock().unwrap();
-        if let Some(curr_idx) = *current {
+        if let Some(curr_idx) = state.current_index {
             if index < curr_idx {
-                *current = Some(curr_idx - 1);
+                state.current_index = Some(curr_idx - 1);
             } else if index == curr_idx {
-                // Currently playing track was removed
-                if curr_idx >= tracks.len() {
-                    *current = if tracks.is_empty() { None } else { Some(tracks.len() - 1) };
+                if curr_idx >= state.tracks.len() {
+                    state.current_index = if state.tracks.is_empty() { None } else { Some(state.tracks.len() - 1) };
                 }
             }
         }
 
-        // Regenerate shuffle order
-        self.regenerate_shuffle_order();
-
+        Self::regenerate_shuffle_order_internal(&mut state);
         Some(removed)
     }
 
     /// Get current track
     pub fn current_track(&self) -> Option<QueueTrack> {
-        let tracks = self.tracks.lock().unwrap();
-        let current = self.current_index.lock().unwrap();
-
-        current.and_then(|idx| tracks.get(idx).cloned())
+        let state = self.state.lock().unwrap();
+        state.current_index.and_then(|idx| state.tracks.get(idx).cloned())
     }
 
     /// Get next track without advancing
     pub fn peek_next(&self) -> Option<QueueTrack> {
-        let tracks = self.tracks.lock().unwrap();
-        if tracks.is_empty() {
+        let state = self.state.lock().unwrap();
+        if state.tracks.is_empty() {
             return None;
         }
 
-        let current = self.current_index.lock().unwrap();
-        let repeat = *self.repeat.lock().unwrap();
-        let shuffle = *self.shuffle.lock().unwrap();
-
-        // Handle repeat one - next is the same track
-        if repeat == RepeatMode::One {
-            return current.and_then(|idx| tracks.get(idx).cloned());
+        if state.repeat == RepeatMode::One {
+            return state.current_index.and_then(|idx| state.tracks.get(idx).cloned());
         }
 
-        let next_idx = if shuffle {
-            let order = self.shuffle_order.lock().unwrap();
-            let pos = *self.shuffle_position.lock().unwrap();
-            let next_pos = pos + 1;
-
-            if next_pos < order.len() {
-                Some(order[next_pos])
-            } else if repeat == RepeatMode::All {
-                order.first().copied()
+        let next_idx = if state.shuffle {
+            let next_pos = state.shuffle_position + 1;
+            if next_pos < state.shuffle_order.len() {
+                Some(state.shuffle_order[next_pos])
+            } else if state.repeat == RepeatMode::All {
+                state.shuffle_order.first().copied()
             } else {
                 None
             }
         } else {
-            let curr_idx = current.unwrap_or(0);
+            let curr_idx = state.current_index.unwrap_or(0);
             let next_idx = curr_idx + 1;
-
-            if next_idx < tracks.len() {
+            if next_idx < state.tracks.len() {
                 Some(next_idx)
-            } else if repeat == RepeatMode::All {
+            } else if state.repeat == RepeatMode::All {
                 Some(0)
             } else {
                 None
             }
         };
 
-        next_idx.and_then(|idx| tracks.get(idx).cloned())
+        next_idx.and_then(|idx| state.tracks.get(idx).cloned())
     }
 
     /// Advance to next track and return it
     pub fn next(&self) -> Option<QueueTrack> {
-        let tracks = self.tracks.lock().unwrap();
-        if tracks.is_empty() {
+        let mut state = self.state.lock().unwrap();
+        if state.tracks.is_empty() {
             return None;
         }
 
-        let mut current = self.current_index.lock().unwrap();
-        let repeat = *self.repeat.lock().unwrap();
-        let shuffle = *self.shuffle.lock().unwrap();
-
         // Save current to history before moving
-        if let Some(curr_idx) = *current {
-            let mut history = self.history.lock().unwrap();
-            history.push_back(curr_idx);
-            // Keep history limited
-            while history.len() > 50 {
-                history.pop_front();
+        if let Some(curr_idx) = state.current_index {
+            state.history.push_back(curr_idx);
+            while state.history.len() > 50 {
+                state.history.pop_front();
             }
         }
 
-        // Handle repeat one
-        if repeat == RepeatMode::One {
-            return current.and_then(|idx| tracks.get(idx).cloned());
+        if state.repeat == RepeatMode::One {
+            return state.current_index.and_then(|idx| state.tracks.get(idx).cloned());
         }
 
-        let next_idx = if shuffle {
-            let order = self.shuffle_order.lock().unwrap();
-            let mut pos = self.shuffle_position.lock().unwrap();
-            *pos += 1;
-
-            if *pos < order.len() {
-                Some(order[*pos])
-            } else if repeat == RepeatMode::All {
-                *pos = 0;
-                order.first().copied()
+        let next_idx = if state.shuffle {
+            state.shuffle_position += 1;
+            if state.shuffle_position < state.shuffle_order.len() {
+                Some(state.shuffle_order[state.shuffle_position])
+            } else if state.repeat == RepeatMode::All {
+                state.shuffle_position = 0;
+                state.shuffle_order.first().copied()
             } else {
                 None
             }
         } else {
-            let curr_idx = current.unwrap_or(0);
+            let curr_idx = state.current_index.unwrap_or(0);
             let next_idx = curr_idx + 1;
-
-            if next_idx < tracks.len() {
+            if next_idx < state.tracks.len() {
                 Some(next_idx)
-            } else if repeat == RepeatMode::All {
+            } else if state.repeat == RepeatMode::All {
                 Some(0)
             } else {
                 None
             }
         };
 
-        *current = next_idx;
-        drop(current);
-        drop(tracks);
-
-        self.current_track()
+        state.current_index = next_idx;
+        next_idx.and_then(|idx| state.tracks.get(idx).cloned())
     }
 
     /// Go to previous track and return it
     pub fn previous(&self) -> Option<QueueTrack> {
-        let tracks = self.tracks.lock().unwrap();
-        if tracks.is_empty() {
+        let mut state = self.state.lock().unwrap();
+        if state.tracks.is_empty() {
             return None;
         }
 
-        let mut current = self.current_index.lock().unwrap();
-        let repeat = *self.repeat.lock().unwrap();
-        let shuffle = *self.shuffle.lock().unwrap();
-
         // Try to get from history first
-        let mut history = self.history.lock().unwrap();
-        if let Some(prev_idx) = history.pop_back() {
-            *current = Some(prev_idx);
+        if let Some(prev_idx) = state.history.pop_back() {
+            state.current_index = Some(prev_idx);
 
-            // Adjust shuffle position if needed
-            if shuffle {
-                let order = self.shuffle_order.lock().unwrap();
-                if let Some(pos) = order.iter().position(|&x| x == prev_idx) {
-                    *self.shuffle_position.lock().unwrap() = pos;
+            if state.shuffle {
+                if let Some(pos) = state.shuffle_order.iter().position(|&x| x == prev_idx) {
+                    state.shuffle_position = pos;
                 }
             }
 
-            return tracks.get(prev_idx).cloned();
+            return state.tracks.get(prev_idx).cloned();
         }
-        drop(history);
 
         // No history, go to previous in order
-        let prev_idx = if shuffle {
-            let order = self.shuffle_order.lock().unwrap();
-            let mut pos = self.shuffle_position.lock().unwrap();
-
-            if *pos > 0 {
-                *pos -= 1;
-                Some(order[*pos])
-            } else if repeat == RepeatMode::All {
-                *pos = order.len().saturating_sub(1);
-                order.last().copied()
+        let prev_idx = if state.shuffle {
+            if state.shuffle_position > 0 {
+                state.shuffle_position -= 1;
+                Some(state.shuffle_order[state.shuffle_position])
+            } else if state.repeat == RepeatMode::All {
+                state.shuffle_position = state.shuffle_order.len().saturating_sub(1);
+                state.shuffle_order.last().copied()
             } else {
-                Some(order.first().copied().unwrap_or(0))
+                state.shuffle_order.first().copied()
             }
         } else {
-            let curr_idx = current.unwrap_or(0);
-
+            let curr_idx = state.current_index.unwrap_or(0);
             if curr_idx > 0 {
                 Some(curr_idx - 1)
-            } else if repeat == RepeatMode::All {
-                Some(tracks.len().saturating_sub(1))
+            } else if state.repeat == RepeatMode::All {
+                Some(state.tracks.len().saturating_sub(1))
             } else {
-                Some(0) // Stay at beginning
+                Some(0)
             }
         };
 
-        *current = prev_idx;
-        drop(current);
-        drop(tracks);
-
-        self.current_track()
+        state.current_index = prev_idx;
+        prev_idx.and_then(|idx| state.tracks.get(idx).cloned())
     }
 
     /// Jump to a specific track by index
     pub fn play_index(&self, index: usize) -> Option<QueueTrack> {
-        let tracks = self.tracks.lock().unwrap();
-        if index >= tracks.len() {
+        let mut state = self.state.lock().unwrap();
+        if index >= state.tracks.len() {
             return None;
         }
 
         // Save current to history
-        let mut current = self.current_index.lock().unwrap();
-        if let Some(curr_idx) = *current {
-            let mut history = self.history.lock().unwrap();
-            history.push_back(curr_idx);
-            while history.len() > 50 {
-                history.pop_front();
+        if let Some(curr_idx) = state.current_index {
+            state.history.push_back(curr_idx);
+            while state.history.len() > 50 {
+                state.history.pop_front();
             }
         }
 
-        *current = Some(index);
+        state.current_index = Some(index);
 
-        // Update shuffle position if needed
-        if *self.shuffle.lock().unwrap() {
-            let order = self.shuffle_order.lock().unwrap();
-            if let Some(pos) = order.iter().position(|&x| x == index) {
-                *self.shuffle_position.lock().unwrap() = pos;
+        if state.shuffle {
+            if let Some(pos) = state.shuffle_order.iter().position(|&x| x == index) {
+                state.shuffle_position = pos;
             }
         }
 
-        tracks.get(index).cloned()
+        state.tracks.get(index).cloned()
     }
 
     /// Toggle shuffle mode
     pub fn set_shuffle(&self, enabled: bool) {
-        let mut shuffle = self.shuffle.lock().unwrap();
-        if *shuffle == enabled {
+        let mut state = self.state.lock().unwrap();
+        if state.shuffle == enabled {
             return;
         }
-        *shuffle = enabled;
-        drop(shuffle);
+        state.shuffle = enabled;
 
         if enabled {
-            self.regenerate_shuffle_order();
+            Self::regenerate_shuffle_order_internal(&mut state);
         }
     }
 
     /// Get shuffle status
     pub fn is_shuffle(&self) -> bool {
-        *self.shuffle.lock().unwrap()
+        self.state.lock().unwrap().shuffle
     }
 
     /// Set repeat mode
     pub fn set_repeat(&self, mode: RepeatMode) {
-        *self.repeat.lock().unwrap() = mode;
+        self.state.lock().unwrap().repeat = mode;
     }
 
     /// Get repeat mode
     pub fn get_repeat(&self) -> RepeatMode {
-        *self.repeat.lock().unwrap()
+        self.state.lock().unwrap().repeat
     }
 
     /// Get queue state for frontend
     pub fn get_state(&self) -> QueueState {
-        let tracks = self.tracks.lock().unwrap();
-        let current_index = *self.current_index.lock().unwrap();
-        let shuffle = *self.shuffle.lock().unwrap();
-        let repeat = *self.repeat.lock().unwrap();
-        let history = self.history.lock().unwrap();
+        let state = self.state.lock().unwrap();
 
-        let current_track = current_index.and_then(|idx| tracks.get(idx).cloned());
+        let current_track = state.current_index.and_then(|idx| state.tracks.get(idx).cloned());
 
         // Get upcoming tracks (after current)
-        let upcoming: Vec<QueueTrack> = if let Some(curr_idx) = current_index {
-            if shuffle {
-                let order = self.shuffle_order.lock().unwrap();
-                let pos = *self.shuffle_position.lock().unwrap();
-                order.iter()
-                    .skip(pos + 1)
+        let upcoming: Vec<QueueTrack> = if let Some(curr_idx) = state.current_index {
+            if state.shuffle {
+                state.shuffle_order.iter()
+                    .skip(state.shuffle_position + 1)
                     .take(20)
-                    .filter_map(|&idx| tracks.get(idx).cloned())
+                    .filter_map(|&idx| state.tracks.get(idx).cloned())
                     .collect()
             } else {
-                tracks.iter()
+                state.tracks.iter()
                     .skip(curr_idx + 1)
                     .take(20)
                     .cloned()
                     .collect()
             }
         } else {
-            tracks.iter().take(20).cloned().collect()
+            state.tracks.iter().take(20).cloned().collect()
         };
 
         // Get history tracks (recent first)
-        let history_tracks: Vec<QueueTrack> = history.iter()
+        let history_tracks: Vec<QueueTrack> = state.history.iter()
             .rev()
             .take(10)
-            .filter_map(|&idx| tracks.get(idx).cloned())
+            .filter_map(|&idx| state.tracks.get(idx).cloned())
             .collect();
 
         QueueState {
             current_track,
-            current_index,
+            current_index: state.current_index,
             upcoming,
             history: history_tracks,
-            shuffle,
-            repeat,
-            total_tracks: tracks.len(),
+            shuffle: state.shuffle,
+            repeat: state.repeat,
+            total_tracks: state.tracks.len(),
         }
     }
 
-    /// Regenerate shuffle order
-    fn regenerate_shuffle_order(&self) {
-        let tracks = self.tracks.lock().unwrap();
-        let current_index = *self.current_index.lock().unwrap();
-
-        let mut order: Vec<usize> = (0..tracks.len()).collect();
+    /// Regenerate shuffle order (internal, must be called with lock held)
+    fn regenerate_shuffle_order_internal(state: &mut InternalState) {
+        let mut order: Vec<usize> = (0..state.tracks.len()).collect();
 
         // Fisher-Yates shuffle
         use std::time::{SystemTime, UNIX_EPOCH};
@@ -463,14 +406,14 @@ impl QueueManager {
         }
 
         // If there's a current track, move it to the front
-        if let Some(curr_idx) = current_index {
+        if let Some(curr_idx) = state.current_index {
             if let Some(pos) = order.iter().position(|&x| x == curr_idx) {
                 order.remove(pos);
                 order.insert(0, curr_idx);
             }
         }
 
-        *self.shuffle_order.lock().unwrap() = order;
-        *self.shuffle_position.lock().unwrap() = 0;
+        state.shuffle_order = order;
+        state.shuffle_position = 0;
     }
 }
