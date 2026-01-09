@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { invoke } from '@tauri-apps/api/core';
   import { ArrowLeft, Play, Shuffle, Heart, Plus, MoreHorizontal } from 'lucide-svelte';
   import TrackRow from '../TrackRow.svelte';
 
@@ -17,6 +18,7 @@
 
   interface Props {
     album: {
+      id: string;
       artwork: string;
       title: string;
       artist: string;
@@ -40,7 +42,27 @@
 
   let currentTrack = $state<number | null>(null);
   let isFavorite = $state(false);
+  let isFavoriteLoading = $state(false);
   let playBtnHovered = $state(false);
+
+  async function toggleFavorite() {
+    if (isFavoriteLoading) return;
+
+    isFavoriteLoading = true;
+    try {
+      if (isFavorite) {
+        await invoke('remove_favorite', { favType: 'album', itemId: album.id });
+        isFavorite = false;
+      } else {
+        await invoke('add_favorite', { favType: 'album', itemId: album.id });
+        isFavorite = true;
+      }
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+    } finally {
+      isFavoriteLoading = false;
+    }
+  }
 </script>
 
 <div class="album-detail">
@@ -83,7 +105,7 @@
           <Shuffle size={18} />
           <span>Shuffle</span>
         </button>
-        <button class="icon-btn" onclick={() => (isFavorite = !isFavorite)}>
+        <button class="icon-btn" onclick={toggleFavorite} disabled={isFavoriteLoading}>
           <Heart
             size={20}
             color={isFavorite ? 'var(--accent-primary)' : 'white'}

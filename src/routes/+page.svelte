@@ -40,7 +40,7 @@
   interface QobuzAlbum {
     id: string;
     title: string;
-    artist: { name: string };
+    artist: { id?: number; name: string };
     image: { small?: string; thumbnail?: string; large?: string };
     release_date_original?: string;
     hires_streamable?: boolean;
@@ -105,9 +105,11 @@
   }
 
   interface AlbumDetail {
+    id: string;
     artwork: string;
     title: string;
     artist: string;
+    artistId?: number;
     year: string;
     label: string;
     genre: string;
@@ -245,9 +247,11 @@
       : 'CD Quality';
 
     return {
+      id: album.id,
       artwork,
       title: album.title,
       artist: album.artist?.name || 'Unknown Artist',
+      artistId: album.artist?.id,
       year: album.release_date_original?.split('-')[0] || '',
       label: album.label?.name || '',
       genre: album.genre?.name || '',
@@ -1059,7 +1063,7 @@
         <AlbumDetailView
           album={selectedAlbum}
           onBack={goBack}
-          onArtistClick={() => selectedAlbum && handleArtistClick(0)}
+          onArtistClick={() => selectedAlbum?.artistId && handleArtistClick(selectedAlbum.artistId)}
           onTrackPlay={handleAlbumTrackPlay}
           onPlayAll={handlePlayAllAlbum}
           onShuffleAll={handleShuffleAlbum}
