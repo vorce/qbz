@@ -14,8 +14,10 @@
 
   let email = $state('');
   let password = $state('');
+  let rememberMe = $state(true);
   let isLoading = $state(false);
   let isInitializing = $state(true);
+  let initStatus = $state('Connecting to Qobuz...');
   let error = $state<string | null>(null);
   let initError = $state<string | null>(null);
 
@@ -28,18 +30,46 @@
     try {
       isInitializing = true;
       initError = null;
+      initStatus = 'Connecting to Qobuz...';
+
       const result = await invoke<boolean>('init_client');
       console.log('Client initialized:', result);
 
-      // Check if already logged in
+      // Check if already logged in (in-memory session)
       const loggedIn = await invoke<boolean>('is_logged_in');
       if (loggedIn) {
-        // Get user info from stored session
         const userInfo = await invoke<{ user_name: string; subscription: string } | null>('get_user_info');
         if (userInfo) {
           onLoginSuccess({ userName: userInfo.user_name, subscription: userInfo.subscription });
         } else {
           onLoginSuccess({ userName: 'Qobuz User', subscription: 'Active' });
+        }
+        return;
+      }
+
+      // Check for saved credentials and auto-login
+      initStatus = 'Checking saved credentials...';
+      const hasSavedCreds = await invoke<boolean>('has_saved_credentials');
+
+      if (hasSavedCreds) {
+        initStatus = 'Logging in...';
+        const response = await invoke<{
+          success: boolean;
+          user_name?: string;
+          subscription?: string;
+          error?: string;
+        }>('auto_login');
+
+        if (response.success) {
+          console.log('Auto-login successful');
+          onLoginSuccess({
+            userName: response.user_name || 'Qobuz User',
+            subscription: response.subscription || 'Active'
+          });
+          return;
+        } else {
+          console.log('Auto-login failed:', response.error);
+          // Don't show error, just fall through to manual login
         }
       }
     } catch (err) {
@@ -72,6 +102,17 @@
       console.log('Login response:', response);
 
       if (response.success) {
+        // Save credentials if "Remember me" is checked
+        if (rememberMe) {
+          try {
+            await invoke('save_credentials', { email, password });
+            console.log('Credentials saved to keyring');
+          } catch (saveErr) {
+            console.error('Failed to save credentials:', saveErr);
+            // Don't block login if saving fails
+          }
+        }
+
         onLoginSuccess({
           userName: response.user_name || 'Qobuz User',
           subscription: response.subscription || 'Active'
@@ -100,7 +141,7 @@
     {#if isInitializing}
       <div class="initializing">
         <div class="spinner"></div>
-        <p>Connecting to Qobuz...</p>
+        <p>{initStatus}</p>
       </div>
     {:else if initError}
       <div class="error-box">
@@ -134,6 +175,13 @@
           />
         </div>
 
+        <div class="remember-me">
+          <label>
+            <input type="checkbox" bind:checked={rememberMe} />
+            <span>Remember me</span>
+          </label>
+        </div>
+
         {#if error}
           <div class="error-message">{error}</div>
         {/if}
@@ -150,7 +198,7 @@
 
       <p class="disclaimer">
         QBZ requires an active Qobuz subscription.
-        Your credentials are sent directly to Qobuz and never stored on external servers.
+        Your credentials are sent directly to Qobuz and stored securely in your system's keyring.
       </p>
     {/if}
   </div>
@@ -292,6 +340,27 @@
 
   .input-group input:disabled {
     opacity: 0.6;
+  }
+
+  .remember-me {
+    display: flex;
+    align-items: center;
+  }
+
+  .remember-me label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .remember-me input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-primary);
+    cursor: pointer;
   }
 
   .error-message {

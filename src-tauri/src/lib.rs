@@ -7,6 +7,7 @@ pub mod api;
 pub mod cache;
 pub mod commands;
 pub mod config;
+pub mod credentials;
 pub mod discogs;
 pub mod lastfm;
 pub mod library;
@@ -105,6 +106,11 @@ pub fn run() {
             commands::logout,
             commands::is_logged_in,
             commands::get_user_info,
+            // Credential persistence commands
+            commands::has_saved_credentials,
+            commands::save_credentials,
+            commands::clear_saved_credentials,
+            commands::auto_login,
             // Search commands
             commands::search_albums,
             commands::search_tracks,

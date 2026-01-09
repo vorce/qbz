@@ -984,6 +984,14 @@
   async function handleLogout() {
     try {
       await invoke('logout');
+      // Clear saved credentials from keyring
+      try {
+        await invoke('clear_saved_credentials');
+        console.log('Credentials cleared from keyring');
+      } catch (clearErr) {
+        console.error('Failed to clear credentials:', clearErr);
+        // Don't block logout if clearing fails
+      }
       isLoggedIn = false;
       userInfo = null;
       currentTrack = null;

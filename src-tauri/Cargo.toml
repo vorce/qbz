@@ -71,8 +71,5 @@ urlencoding = "2"
 # Environment variables
 dotenvy = "0.15"
 
-# Storage
-# sled = "0.34"
-
-# Secure credential storage
-# keyring = "3"
+# Secure credential storage (system keyring)
+keyring = "3"
