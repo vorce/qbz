@@ -1,19 +1,18 @@
 //! Playlist-related Tauri commands
 
 use tauri::State;
-use tokio::sync::Mutex;
 
-use crate::api::client::QobuzClient;
 use crate::api::models::{Playlist, SearchResultsPage};
+use crate::AppState;
 
 /// Get user's playlists
 #[tauri::command]
 pub async fn get_user_playlists(
-    client: State<'_, std::sync::Arc<Mutex<QobuzClient>>>,
+    state: State<'_, AppState>,
 ) -> Result<Vec<Playlist>, String> {
     log::info!("Command: get_user_playlists");
 
-    let client = client.lock().await;
+    let client = state.client.lock().await;
     client
         .get_user_playlists()
         .await
@@ -24,11 +23,11 @@ pub async fn get_user_playlists(
 #[tauri::command]
 pub async fn get_playlist(
     playlist_id: u64,
-    client: State<'_, std::sync::Arc<Mutex<QobuzClient>>>,
+    state: State<'_, AppState>,
 ) -> Result<Playlist, String> {
     log::info!("Command: get_playlist {}", playlist_id);
 
-    let client = client.lock().await;
+    let client = state.client.lock().await;
     client
         .get_playlist(playlist_id)
         .await
@@ -40,11 +39,11 @@ pub async fn get_playlist(
 pub async fn search_playlists(
     query: String,
     limit: Option<u32>,
-    client: State<'_, std::sync::Arc<Mutex<QobuzClient>>>,
+    state: State<'_, AppState>,
 ) -> Result<SearchResultsPage<Playlist>, String> {
     log::info!("Command: search_playlists \"{}\"", query);
 
-    let client = client.lock().await;
+    let client = state.client.lock().await;
     client
         .search_playlists(&query, limit.unwrap_or(20))
         .await

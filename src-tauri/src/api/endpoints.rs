@@ -24,6 +24,11 @@ pub mod paths {
     pub const PLAYLIST_GET: &str = "/playlist/get";
     pub const PLAYLIST_SEARCH: &str = "/playlist/search";
     pub const PLAYLIST_GET_USER_PLAYLISTS: &str = "/playlist/getUserPlaylists";
+    pub const PLAYLIST_CREATE: &str = "/playlist/create";
+    pub const PLAYLIST_DELETE: &str = "/playlist/delete";
+    pub const PLAYLIST_ADD_TRACKS: &str = "/playlist/addTracks";
+    pub const PLAYLIST_DELETE_TRACKS: &str = "/playlist/deleteTracks";
+    pub const PLAYLIST_UPDATE: &str = "/playlist/update";
 
     // Favorites
     pub const FAVORITE_GET_USER_FAVORITES: &str = "/favorite/getUserFavorites";
