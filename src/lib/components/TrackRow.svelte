@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Play, Plus, ListPlus, MoreHorizontal } from 'lucide-svelte';
+  import { Play } from 'lucide-svelte';
+  import TrackMenu from './TrackMenu.svelte';
 
   interface Props {
     number: number;
@@ -9,8 +10,19 @@
     quality?: string;
     isPlaying?: boolean;
     onPlay?: () => void;
+    menuActions?: TrackMenuActions;
+  }
+
+  interface TrackMenuActions {
+    onPlayNow?: () => void;
+    onPlayNext?: () => void;
+    onPlayLater?: () => void;
+    onAddFavorite?: () => void;
     onAddToPlaylist?: () => void;
-    onAddToQueue?: () => void;
+    onShareQobuz?: () => void;
+    onShareSonglink?: () => void;
+    onGoToAlbum?: () => void;
+    onGoToArtist?: () => void;
   }
 
   let {
@@ -21,11 +33,11 @@
     quality,
     isPlaying = false,
     onPlay,
-    onAddToPlaylist,
-    onAddToQueue
+    menuActions
   }: Props = $props();
 
   let isHovered = $state(false);
+  const playNowAction = $derived(menuActions?.onPlayNow ?? onPlay);
 </script>
 
 <div
@@ -70,29 +82,19 @@
     <div class="track-quality">{quality}</div>
   {/if}
 
-  <!-- Hover Actions -->
-  {#if isHovered && !isPlaying}
-    <div class="track-actions">
-      {#if onAddToQueue}
-        <button
-          class="action-btn"
-          onclick={(e) => { e.stopPropagation(); onAddToQueue(); }}
-          title="Add to queue"
-        >
-          <Plus size={18} />
-        </button>
-      {/if}
-      {#if onAddToPlaylist}
-        <button
-          class="action-btn"
-          onclick={(e) => { e.stopPropagation(); onAddToPlaylist(); }}
-          title="Add to playlist"
-        >
-          <ListPlus size={18} />
-        </button>
-      {/if}
-    </div>
-  {/if}
+  <div class="track-actions">
+    <TrackMenu
+      onPlayNow={playNowAction}
+      onPlayNext={menuActions?.onPlayNext}
+      onPlayLater={menuActions?.onPlayLater}
+      onAddFavorite={menuActions?.onAddFavorite}
+      onAddToPlaylist={menuActions?.onAddToPlaylist}
+      onShareQobuz={menuActions?.onShareQobuz}
+      onShareSonglink={menuActions?.onShareSonglink}
+      onGoToAlbum={menuActions?.onGoToAlbum}
+      onGoToArtist={menuActions?.onGoToArtist}
+    />
+  </div>
 </div>
 
 <style>
@@ -213,20 +215,15 @@
   }
 
   .track-actions {
+    margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 8px;
+    opacity: 0.7;
+    transition: opacity 150ms ease;
   }
 
-  .action-btn {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: color 150ms ease;
-  }
-
-  .action-btn:hover {
-    color: var(--text-primary);
+  .track-row:hover .track-actions,
+  .track-row.playing .track-actions {
+    opacity: 1;
   }
 </style>

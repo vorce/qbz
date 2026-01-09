@@ -1,8 +1,9 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
-  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Plus, Music } from 'lucide-svelte';
+  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
+  import TrackMenu from '../TrackMenu.svelte';
 
   interface Album {
     id: string;
@@ -27,10 +28,11 @@
       title: string;
       image?: { small?: string; thumbnail?: string; large?: string };
     };
-    performer?: { name: string };
+    performer?: { id?: number; name: string };
     hires_streamable?: boolean;
     maximum_bit_depth?: number;
     maximum_sampling_rate?: number;
+    isrc?: string;
   }
 
   interface SearchResults {
@@ -64,9 +66,32 @@
     onLoadMore?: () => void;
     isLoadingMore?: boolean;
     onTrackPlay?: (track: DisplayTrack) => void;
+    onTrackPlayNext?: (track: Track) => void;
+    onTrackPlayLater?: (track: Track) => void;
+    onTrackAddFavorite?: (trackId: number) => void;
+    onTrackAddToPlaylist?: (trackId: number) => void;
+    onTrackShareQobuz?: (trackId: number) => void;
+    onTrackShareSonglink?: (track: Track) => void;
+    onTrackGoToAlbum?: (albumId: string) => void;
+    onTrackGoToArtist?: (artistId: number) => void;
   }
 
-  let { artist, onBack, onAlbumClick, onLoadMore, isLoadingMore = false, onTrackPlay }: Props = $props();
+  let {
+    artist,
+    onBack,
+    onAlbumClick,
+    onLoadMore,
+    isLoadingMore = false,
+    onTrackPlay,
+    onTrackPlayNext,
+    onTrackPlayLater,
+    onTrackAddFavorite,
+    onTrackAddToPlaylist,
+    onTrackShareQobuz,
+    onTrackShareSonglink,
+    onTrackGoToAlbum,
+    onTrackGoToArtist
+  }: Props = $props();
 
   let bioExpanded = $state(false);
   let imageError = $state(false);
@@ -233,7 +258,13 @@
       {:else}
         <div class="tracks-list">
           {#each topTracks as track, index}
-            <button class="track-row" onclick={() => handleTrackPlay(track)}>
+            <div
+              class="track-row"
+              role="button"
+              tabindex="0"
+              onclick={() => handleTrackPlay(track)}
+              onkeydown={(e) => e.key === 'Enter' && handleTrackPlay(track)}
+            >
               <div class="track-number">{index + 1}</div>
               <div class="track-artwork">
                 {#if track.album?.image?.thumbnail || track.album?.image?.small}
@@ -249,7 +280,20 @@
                 <div class="track-album">{track.album?.title || ''}</div>
               </div>
               <div class="track-duration">{formatDuration(track.duration)}</div>
-            </button>
+              <div class="track-actions">
+                <TrackMenu
+                  onPlayNow={() => handleTrackPlay(track)}
+                  onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
+                  onPlayLater={onTrackPlayLater ? () => onTrackPlayLater(track) : undefined}
+                  onAddFavorite={onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined}
+                  onAddToPlaylist={onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined}
+                  onShareQobuz={onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined}
+                  onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
+                  onGoToAlbum={track.album?.id && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.album.id) : undefined}
+                  onGoToArtist={(track.performer?.id || artist.id) && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer?.id || artist.id) : undefined}
+                />
+              </div>
+            </div>
           {/each}
         </div>
       {/if}
@@ -571,6 +615,18 @@
     font-size: 13px;
     color: var(--text-muted);
     font-family: var(--font-mono);
+  }
+
+  .track-actions {
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+    opacity: 0.7;
+    transition: opacity 150ms ease;
+  }
+
+  .track-row:hover .track-actions {
+    opacity: 1;
   }
 
   /* Responsive */

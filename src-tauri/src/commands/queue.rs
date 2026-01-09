@@ -13,6 +13,14 @@ pub fn add_to_queue(track: QueueTrack, state: State<'_, AppState>) -> Result<(),
     Ok(())
 }
 
+/// Add a track to play next
+#[tauri::command]
+pub fn add_to_queue_next(track: QueueTrack, state: State<'_, AppState>) -> Result<(), String> {
+    log::info!("Command: add_to_queue_next - {} by {}", track.title, track.artist);
+    state.queue.add_track_next(track);
+    Ok(())
+}
+
 /// Add multiple tracks to the queue
 #[tauri::command]
 pub fn add_tracks_to_queue(tracks: Vec<QueueTrack>, state: State<'_, AppState>) -> Result<(), String> {

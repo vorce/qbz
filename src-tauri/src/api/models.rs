@@ -116,6 +116,7 @@ pub struct Track {
     pub id: u64,
     #[serde(default)]
     pub title: String,
+    pub isrc: Option<String>,
     #[serde(default)]
     pub duration: u32,
     #[serde(default)]

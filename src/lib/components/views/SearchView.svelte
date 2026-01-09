@@ -3,6 +3,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { Search, Disc3, Music, Mic2, User, X } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
+  import TrackMenu from '../TrackMenu.svelte';
   import { getSearchState, setSearchState, type SearchResults, type SearchTab } from '$lib/stores/searchState';
 
   onMount(() => {
@@ -24,10 +25,30 @@
   interface Props {
     onAlbumClick?: (albumId: string) => void;
     onTrackPlay?: (track: Track) => void;
+    onTrackPlayNext?: (track: Track) => void;
+    onTrackPlayLater?: (track: Track) => void;
+    onTrackAddFavorite?: (trackId: number) => void;
+    onTrackAddToPlaylist?: (trackId: number) => void;
+    onTrackShareQobuz?: (trackId: number) => void;
+    onTrackShareSonglink?: (track: Track) => void;
+    onTrackGoToAlbum?: (albumId: string) => void;
+    onTrackGoToArtist?: (artistId: number) => void;
     onArtistClick?: (artistId: number) => void;
   }
 
-  let { onAlbumClick, onTrackPlay, onArtistClick }: Props = $props();
+  let {
+    onAlbumClick,
+    onTrackPlay,
+    onTrackPlayNext,
+    onTrackPlayLater,
+    onTrackAddFavorite,
+    onTrackAddToPlaylist,
+    onTrackShareQobuz,
+    onTrackShareSonglink,
+    onTrackGoToAlbum,
+    onTrackGoToArtist,
+    onArtistClick
+  }: Props = $props();
 
   interface Album {
     id: string;
@@ -45,13 +66,15 @@
     title: string;
     duration: number;
     album?: {
+      id?: string;
       title: string;
       image?: { small?: string; thumbnail?: string; large?: string };
     };
-    performer?: { name: string };
+    performer?: { id?: number; name: string };
     hires_streamable?: boolean;
     maximum_bit_depth?: number;
     maximum_sampling_rate?: number;
+    isrc?: string;
   }
 
   interface Artist {
@@ -340,9 +363,12 @@
       {:else}
         <div class="tracks-list">
           {#each trackResults.items as track, index}
-            <button
+            <div
               class="track-row"
+              role="button"
+              tabindex="0"
               onclick={() => onTrackPlay?.(track)}
+              onkeydown={(e) => e.key === 'Enter' && onTrackPlay?.(track)}
             >
               <div class="track-number">{index + 1}</div>
               {#if failedTrackImages.has(track.id) || !getTrackArtwork(track)}
@@ -358,7 +384,20 @@
               </div>
               <div class="track-quality">{getQualityLabel(track)}</div>
               <div class="track-duration">{formatDuration(track.duration)}</div>
-            </button>
+              <div class="track-actions">
+                <TrackMenu
+                  onPlayNow={() => onTrackPlay?.(track)}
+                  onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
+                  onPlayLater={onTrackPlayLater ? () => onTrackPlayLater(track) : undefined}
+                  onAddFavorite={onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined}
+                  onAddToPlaylist={onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined}
+                  onShareQobuz={onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined}
+                  onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
+                  onGoToAlbum={track.album?.id && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.album.id) : undefined}
+                  onGoToArtist={track.performer?.id && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer.id) : undefined}
+                />
+              </div>
+            </div>
           {/each}
         </div>
         {#if hasMoreTracks}
@@ -641,6 +680,18 @@
     color: var(--text-muted);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+  }
+
+  .track-actions {
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+    opacity: 0.7;
+    transition: opacity 150ms ease;
+  }
+
+  .track-row:hover .track-actions {
+    opacity: 1;
   }
 
   .artists-grid {

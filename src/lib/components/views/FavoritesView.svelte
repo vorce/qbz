@@ -19,11 +19,12 @@
     title: string;
     duration: number;
     track_number: number;
-    performer?: { name: string };
+    performer?: { id?: number; name: string };
     album?: { id: string; title: string; image: { small?: string; thumbnail?: string; large?: string } };
     hires: boolean;
     maximum_bit_depth?: number;
     maximum_sampling_rate?: number;
+    isrc?: string;
   }
 
   interface FavoriteArtist {
@@ -37,6 +38,14 @@
     onAlbumClick?: (albumId: string) => void;
     onTrackPlay?: (track: DisplayTrack) => void;
     onArtistClick?: (artistId: number) => void;
+    onTrackPlayNext?: (track: DisplayTrack) => void;
+    onTrackPlayLater?: (track: DisplayTrack) => void;
+    onTrackAddFavorite?: (trackId: number) => void;
+    onTrackAddToPlaylist?: (trackId: number) => void;
+    onTrackShareQobuz?: (trackId: number) => void;
+    onTrackShareSonglink?: (track: DisplayTrack) => void;
+    onTrackGoToAlbum?: (albumId: string) => void;
+    onTrackGoToArtist?: (artistId: number) => void;
   }
 
   interface DisplayTrack {
@@ -46,14 +55,29 @@
     artist?: string;
     album?: string;
     albumArt?: string;
+    albumId?: string;
+    artistId?: number;
     duration: string;
     durationSeconds: number;
     hires?: boolean;
     bitDepth?: number;
     samplingRate?: number;
+    isrc?: string;
   }
 
-  let { onAlbumClick, onTrackPlay, onArtistClick }: Props = $props();
+  let {
+    onAlbumClick,
+    onTrackPlay,
+    onArtistClick,
+    onTrackPlayNext,
+    onTrackPlayLater,
+    onTrackAddFavorite,
+    onTrackAddToPlaylist,
+    onTrackShareQobuz,
+    onTrackShareSonglink,
+    onTrackGoToAlbum,
+    onTrackGoToArtist
+  }: Props = $props();
 
   type TabType = 'tracks' | 'albums' | 'artists';
   let activeTab = $state<TabType>('tracks');
@@ -114,11 +138,14 @@
         artist: track.performer?.name,
         album: track.album?.title,
         albumArt: track.album?.image?.thumbnail || track.album?.image?.small,
+        albumId: track.album?.id,
+        artistId: track.performer?.id,
         duration: formatDuration(track.duration),
         durationSeconds: track.duration,
         hires: track.hires,
         bitDepth: track.maximum_bit_depth,
         samplingRate: track.maximum_sampling_rate,
+        isrc: track.isrc,
       });
     }
   }
@@ -247,6 +274,62 @@
               duration={formatDuration(track.duration)}
               quality={track.hires ? 'Hi-Res' : undefined}
               onPlay={() => handleTrackClick(track, index)}
+              menuActions={{
+                onPlayNow: () => handleTrackClick(track, index),
+                onPlayNext: onTrackPlayNext ? () => onTrackPlayNext({
+                  id: track.id,
+                  number: index + 1,
+                  title: track.title,
+                  artist: track.performer?.name,
+                  album: track.album?.title,
+                  albumArt: track.album?.image?.thumbnail || track.album?.image?.small,
+                  albumId: track.album?.id,
+                  artistId: track.performer?.id,
+                  duration: formatDuration(track.duration),
+                  durationSeconds: track.duration,
+                  hires: track.hires,
+                  bitDepth: track.maximum_bit_depth,
+                  samplingRate: track.maximum_sampling_rate,
+                  isrc: track.isrc
+                }) : undefined,
+                onPlayLater: onTrackPlayLater ? () => onTrackPlayLater({
+                  id: track.id,
+                  number: index + 1,
+                  title: track.title,
+                  artist: track.performer?.name,
+                  album: track.album?.title,
+                  albumArt: track.album?.image?.thumbnail || track.album?.image?.small,
+                  albumId: track.album?.id,
+                  artistId: track.performer?.id,
+                  duration: formatDuration(track.duration),
+                  durationSeconds: track.duration,
+                  hires: track.hires,
+                  bitDepth: track.maximum_bit_depth,
+                  samplingRate: track.maximum_sampling_rate,
+                  isrc: track.isrc
+                }) : undefined,
+                onAddFavorite: onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined,
+                onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined,
+                onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
+                onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink({
+                  id: track.id,
+                  number: index + 1,
+                  title: track.title,
+                  artist: track.performer?.name,
+                  album: track.album?.title,
+                  albumArt: track.album?.image?.thumbnail || track.album?.image?.small,
+                  albumId: track.album?.id,
+                  artistId: track.performer?.id,
+                  duration: formatDuration(track.duration),
+                  durationSeconds: track.duration,
+                  hires: track.hires,
+                  bitDepth: track.maximum_bit_depth,
+                  samplingRate: track.maximum_sampling_rate,
+                  isrc: track.isrc
+                }) : undefined,
+                onGoToAlbum: track.album?.id && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.album.id) : undefined,
+                onGoToArtist: track.performer?.id && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer.id) : undefined
+              }}
             />
           {/each}
         </div>

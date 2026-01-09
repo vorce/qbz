@@ -74,10 +74,18 @@
   interface Props {
     onAlbumClick?: (album: LocalAlbum) => void;
     onTrackPlay?: (track: LocalTrack) => void;
+    onTrackPlayNext?: (track: LocalTrack) => void;
+    onTrackPlayLater?: (track: LocalTrack) => void;
     onSetLocalQueue?: (trackIds: number[]) => void;
   }
 
-  let { onAlbumClick, onTrackPlay, onSetLocalQueue }: Props = $props();
+  let {
+    onAlbumClick,
+    onTrackPlay,
+    onTrackPlayNext,
+    onTrackPlayLater,
+    onSetLocalQueue
+  }: Props = $props();
 
   // View state
   type TabType = 'albums' | 'artists' | 'tracks';
@@ -453,6 +461,11 @@
             duration={formatDuration(track.duration_secs)}
             quality={getQualityBadge(track)}
             onPlay={() => handleTrackPlay(track)}
+            menuActions={{
+              onPlayNow: () => handleTrackPlay(track),
+              onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+              onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined
+            }}
           />
         {/each}
       </div>
@@ -658,6 +671,11 @@
                 duration={formatDuration(track.duration_secs)}
                 quality={getQualityBadge(track)}
                 onPlay={() => handleTrackPlay(track)}
+                menuActions={{
+                  onPlayNow: () => handleTrackPlay(track),
+                  onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+                  onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined
+                }}
               />
             {/each}
           </div>

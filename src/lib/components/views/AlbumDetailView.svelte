@@ -14,6 +14,7 @@
     hires?: boolean;
     bitDepth?: number;
     samplingRate?: number;
+    isrc?: string;
   }
 
   interface Props {
@@ -22,6 +23,7 @@
       artwork: string;
       title: string;
       artist: string;
+      artistId?: number;
       year: string;
       label: string;
       genre: string;
@@ -33,13 +35,36 @@
     onBack: () => void;
     onArtistClick?: () => void;
     onTrackPlay?: (track: Track) => void;
+    onTrackPlayNext?: (track: Track) => void;
+    onTrackPlayLater?: (track: Track) => void;
+    onTrackAddFavorite?: (trackId: number) => void;
+    onTrackShareQobuz?: (trackId: number) => void;
+    onTrackShareSonglink?: (track: Track) => void;
+    onTrackGoToAlbum?: (albumId: string) => void;
+    onTrackGoToArtist?: (artistId: number) => void;
     onPlayAll?: () => void;
     onShuffleAll?: () => void;
     onAddToQueue?: () => void;
     onAddTrackToPlaylist?: (trackId: number) => void;
   }
 
-  let { album, onBack, onArtistClick, onTrackPlay, onPlayAll, onShuffleAll, onAddToQueue, onAddTrackToPlaylist }: Props = $props();
+  let {
+    album,
+    onBack,
+    onArtistClick,
+    onTrackPlay,
+    onTrackPlayNext,
+    onTrackPlayLater,
+    onTrackAddFavorite,
+    onTrackShareQobuz,
+    onTrackShareSonglink,
+    onTrackGoToAlbum,
+    onTrackGoToArtist,
+    onPlayAll,
+    onShuffleAll,
+    onAddToQueue,
+    onAddTrackToPlaylist
+  }: Props = $props();
 
   let currentTrack = $state<number | null>(null);
   let isFavorite = $state(false);
@@ -150,7 +175,20 @@
             currentTrack = track.id;
             onTrackPlay?.(track);
           }}
-          onAddToPlaylist={onAddTrackToPlaylist ? () => onAddTrackToPlaylist(track.id) : undefined}
+          menuActions={{
+            onPlayNow: () => {
+              currentTrack = track.id;
+              onTrackPlay?.(track);
+            },
+            onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+            onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
+            onAddFavorite: onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined,
+            onAddToPlaylist: onAddTrackToPlaylist ? () => onAddTrackToPlaylist(track.id) : undefined,
+            onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
+            onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined,
+            onGoToAlbum: onTrackGoToAlbum ? () => onTrackGoToAlbum(album.id) : undefined,
+            onGoToArtist: album.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(album.artistId) : undefined
+          }}
         />
       {/each}
     </div>

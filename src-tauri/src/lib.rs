@@ -130,6 +130,7 @@ pub fn run() {
             commands::get_audio_devices,
             // Queue commands
             commands::add_to_queue,
+            commands::add_to_queue_next,
             commands::add_tracks_to_queue,
             commands::set_queue,
             commands::clear_queue,
