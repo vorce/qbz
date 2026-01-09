@@ -14,6 +14,7 @@
   import SettingsView from '$lib/components/views/SettingsView.svelte';
   import AlbumDetailView from '$lib/components/views/AlbumDetailView.svelte';
   import PlaylistDetailView from '$lib/components/views/PlaylistDetailView.svelte';
+  import FavoritesView from '$lib/components/views/FavoritesView.svelte';
 
   // Overlays
   import QueuePanel from '$lib/components/QueuePanel.svelte';
@@ -868,11 +869,10 @@
           onTrackPlay={handlePlaylistTrackPlay}
         />
       {:else if activeView === 'favorites'}
-        <div class="placeholder-view">
-          <h1>Favorites</h1>
-          <p>Your favorite tracks and albums will appear here...</p>
-          <button class="back-btn" onclick={goBack}>Go Back</button>
-        </div>
+        <FavoritesView
+          onAlbumClick={handleAlbumClick}
+          onTrackPlay={handlePlaylistTrackPlay}
+        />
       {/if}
     </main>
 
