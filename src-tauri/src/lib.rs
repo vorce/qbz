@@ -124,6 +124,9 @@ pub fn run() {
             commands::get_favorites,
             commands::add_favorite,
             commands::remove_favorite,
+            // Notification commands
+            commands::show_track_notification,
+            commands::show_notification,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

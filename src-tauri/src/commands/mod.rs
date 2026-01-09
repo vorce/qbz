@@ -4,6 +4,7 @@
 
 pub mod auth;
 pub mod favorites;
+pub mod notification;
 pub mod playback;
 pub mod playlist;
 pub mod queue;
@@ -11,6 +12,7 @@ pub mod search;
 
 pub use auth::*;
 pub use favorites::*;
+pub use notification::*;
 pub use playback::*;
 pub use playlist::*;
 pub use queue::*;

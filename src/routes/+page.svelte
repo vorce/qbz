@@ -277,6 +277,14 @@
         durationSecs: track.duration,
         coverUrl: artwork || null
       });
+
+      // Show system notification
+      showTrackNotification(
+        track.title,
+        track.performer?.name || 'Unknown Artist',
+        track.album?.title || '',
+        artwork || undefined
+      );
     } catch (err) {
       console.error('Failed to play track:', err);
       showToast(`Playback error: ${err}`, 'error');
@@ -350,6 +358,14 @@
         durationSecs: track.durationSeconds,
         coverUrl: artwork || null
       });
+
+      // Show system notification
+      showTrackNotification(
+        track.title,
+        track.artist || selectedAlbum?.artist || 'Unknown Artist',
+        selectedAlbum?.title || '',
+        artwork || undefined
+      );
     } catch (err) {
       console.error('Failed to play track:', err);
       showToast(`Playback error: ${err}`, 'error');
@@ -482,6 +498,9 @@
         durationSecs: track.duration_secs,
         coverUrl: track.artwork_url
       });
+
+      // Show system notification
+      showTrackNotification(track.title, track.artist, track.album, track.artwork_url || undefined);
 
       // Refresh queue state
       await syncQueueState();
@@ -653,11 +672,33 @@
         coverUrl: track.albumArt
       });
 
+      // Show system notification
+      showTrackNotification(
+        track.title,
+        track.artist || 'Unknown Artist',
+        track.album || 'Playlist',
+        track.albumArt
+      );
+
       await syncQueueState();
     } catch (err) {
       console.error('Failed to play track:', err);
       showToast(`Playback error: ${err}`, 'error');
       isPlaying = false;
+    }
+  }
+
+  // System Notification for track changes
+  async function showTrackNotification(title: string, artist: string, album: string, artworkUrl?: string) {
+    try {
+      await invoke('show_track_notification', {
+        title,
+        artist,
+        album,
+        artworkUrl: artworkUrl || null
+      });
+    } catch (err) {
+      console.error('Failed to show track notification:', err);
     }
   }
 
