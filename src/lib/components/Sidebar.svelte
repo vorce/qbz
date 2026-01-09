@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Search, Home, Clock, Music, Disc3, Mic2, Plus, MoreVertical, ChevronDown, Heart, ListMusic } from 'lucide-svelte';
+  import { Search, Home, HardDrive, Music, Disc3, Mic2, Plus, MoreVertical, ChevronDown, Heart, ListMusic } from 'lucide-svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
   import NavigationItem from './NavigationItem.svelte';
@@ -90,36 +90,15 @@
       </NavigationItem>
     </nav>
 
-    <!-- Library Section -->
+    <!-- Local Library Section -->
     <div class="section">
-      <div class="section-header">Library</div>
+      <div class="section-header">Local Library</div>
       <NavigationItem
-        label="Recently Added"
-        active={activeView === 'recently-added'}
-        onclick={() => handleViewChange('recently-added')}
+        label="Browse Library"
+        active={activeView === 'library'}
+        onclick={() => handleViewChange('library')}
       >
-        {#snippet icon()}<Clock size={18} />{/snippet}
-      </NavigationItem>
-      <NavigationItem
-        label="Songs"
-        active={activeView === 'songs'}
-        onclick={() => handleViewChange('songs')}
-      >
-        {#snippet icon()}<Music size={18} />{/snippet}
-      </NavigationItem>
-      <NavigationItem
-        label="Albums"
-        active={activeView === 'albums'}
-        onclick={() => handleViewChange('albums')}
-      >
-        {#snippet icon()}<Disc3 size={18} />{/snippet}
-      </NavigationItem>
-      <NavigationItem
-        label="Artists"
-        active={activeView === 'artists'}
-        onclick={() => handleViewChange('artists')}
-      >
-        {#snippet icon()}<Mic2 size={18} />{/snippet}
+        {#snippet icon()}<HardDrive size={18} />{/snippet}
       </NavigationItem>
     </div>
 

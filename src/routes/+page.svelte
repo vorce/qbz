@@ -16,6 +16,7 @@
   import ArtistDetailView from '$lib/components/views/ArtistDetailView.svelte';
   import PlaylistDetailView from '$lib/components/views/PlaylistDetailView.svelte';
   import FavoritesView from '$lib/components/views/FavoritesView.svelte';
+  import LocalLibraryView from '$lib/components/views/LocalLibraryView.svelte';
 
   // Overlays
   import QueuePanel from '$lib/components/QueuePanel.svelte';
@@ -187,6 +188,9 @@
   // Queue State (synced from backend)
   let queue = $state<QueueTrack[]>([]);
   let queueTotalTracks = $state(0);
+
+  // Local library track IDs in current queue (for distinguishing from Qobuz tracks)
+  let localTrackIds = $state<Set<number>>(new Set());
 
   // Toast State
   let toast = $state<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -421,6 +425,8 @@
           tracks: queueTracks,
           startIndex: trackIndex >= 0 ? trackIndex : 0
         });
+        // Clear local track IDs when playing Qobuz tracks
+        localTrackIds = new Set();
         console.log(`Queue set with ${queueTracks.length} tracks, starting at index ${trackIndex}`);
         // Sync queue state to update UI
         await syncQueueState();
@@ -570,6 +576,8 @@
 
   // Helper to play a track from the queue
   async function playQueueTrack(track: BackendQueueTrack) {
+    const isLocalTrack = localTrackIds.has(track.id);
+
     currentTrack = {
       id: track.id,
       title: track.title,
@@ -577,14 +585,19 @@
       album: track.album,
       artwork: track.artwork_url || '',
       duration: track.duration_secs,
-      quality: 'Hi-Res' // Will be updated by actual quality info
+      quality: isLocalTrack ? 'Local' : 'Hi-Res'
     };
 
     duration = track.duration_secs;
     currentTime = 0;
 
     try {
-      await invoke('play_track', { trackId: track.id });
+      // Use appropriate playback command based on track source
+      if (isLocalTrack) {
+        await invoke('library_play_track', { trackId: track.id });
+      } else {
+        await invoke('play_track', { trackId: track.id });
+      }
       isPlaying = true;
 
       // Update MPRIS
@@ -795,6 +808,74 @@
       showToast(`Playback error: ${err}`, 'error');
       isPlaying = false;
     }
+  }
+
+  // Handle playing a track from local library view
+  interface LocalLibraryTrack {
+    id: number;
+    file_path: string;
+    title: string;
+    artist: string;
+    album: string;
+    duration_secs: number;
+    format: string;
+    bit_depth?: number;
+    sample_rate: number;
+    artwork_path?: string;
+  }
+
+  async function handleLocalTrackPlay(track: LocalLibraryTrack) {
+    console.log('Playing local track:', track);
+
+    const artwork = track.artwork_path ? `file://${track.artwork_path}` : '';
+    const quality = track.bit_depth && track.sample_rate
+      ? (track.bit_depth >= 24 || track.sample_rate > 48000
+        ? `${track.bit_depth}bit/${track.sample_rate / 1000}kHz`
+        : track.format)
+      : track.format;
+
+    currentTrack = {
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      artwork,
+      duration: track.duration_secs,
+      quality
+    };
+
+    duration = track.duration_secs;
+    currentTime = 0;
+    isPlaying = true;
+    showToast(`Playing: ${track.title}`, 'success');
+
+    // Update MPRIS metadata
+    await invoke('set_media_metadata', {
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      durationSecs: track.duration_secs,
+      coverUrl: artwork || null
+    });
+
+    // Show system notification
+    showTrackNotification(track.title, track.artist, track.album, artwork || undefined);
+
+    // Update Last.fm
+    updateLastfmNowPlaying(
+      track.title,
+      track.artist,
+      track.album,
+      track.duration_secs,
+      track.id
+    );
+  }
+
+  // Handle setting queue from local library (tracks need different playback command)
+  function handleSetLocalQueue(trackIds: number[]) {
+    // Clear Qobuz tracks and set local track IDs
+    localTrackIds = new Set(trackIds);
+    console.log(`Set ${trackIds.length} local track IDs in queue`);
   }
 
   // System Notification for track changes
@@ -1076,10 +1157,10 @@
           onAlbumClick={handleAlbumClick}
         />
       {:else if activeView === 'library'}
-        <div class="placeholder-view">
-          <h1>Library</h1>
-          <p>Your library will appear here...</p>
-        </div>
+        <LocalLibraryView
+          onTrackPlay={handleLocalTrackPlay}
+          onSetLocalQueue={handleSetLocalQueue}
+        />
       {:else if activeView === 'playlist' && selectedPlaylistId}
         <PlaylistDetailView
           playlistId={selectedPlaylistId}
@@ -1217,23 +1298,4 @@
     padding: 24px 32px;
   }
 
-  .placeholder-view {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--text-muted);
-  }
-
-  .placeholder-view h1 {
-    font-size: 32px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 8px;
-  }
-
-  .placeholder-view p {
-    font-size: 16px;
-  }
 </style>
