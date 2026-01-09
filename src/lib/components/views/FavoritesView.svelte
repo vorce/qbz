@@ -273,6 +273,7 @@
               artist={track.performer?.name}
               duration={formatDuration(track.duration)}
               quality={track.hires ? 'Hi-Res' : undefined}
+              isFavorite={true}
               onPlay={() => handleTrackClick(track, index)}
               menuActions={{
                 onPlayNow: () => handleTrackClick(track, index),

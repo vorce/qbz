@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Play } from 'lucide-svelte';
+  import { Play, Heart } from 'lucide-svelte';
   import TrackMenu from './TrackMenu.svelte';
 
   interface Props {
@@ -9,6 +9,7 @@
     duration: string;
     quality?: string;
     isPlaying?: boolean;
+    isFavorite?: boolean;
     onPlay?: () => void;
     menuActions?: TrackMenuActions;
   }
@@ -32,6 +33,7 @@
     duration,
     quality,
     isPlaying = false,
+    isFavorite = false,
     onPlay,
     menuActions
   }: Props = $props();
@@ -80,6 +82,13 @@
   <!-- Quality -->
   {#if quality}
     <div class="track-quality">{quality}</div>
+  {/if}
+
+  <!-- Favorite Indicator -->
+  {#if isFavorite}
+    <div class="favorite-indicator">
+      <Heart size={14} fill="var(--accent-primary)" color="var(--accent-primary)" />
+    </div>
   {/if}
 
   <div class="track-actions">
@@ -212,6 +221,13 @@
     color: #666666;
     width: 80px;
     text-align: right;
+  }
+
+  .favorite-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
   }
 
   .track-actions {

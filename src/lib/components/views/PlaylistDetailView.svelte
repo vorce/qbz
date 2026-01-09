@@ -92,6 +92,7 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let playBtnHovered = $state(false);
+  let favoriteTrackIds = $state<Set<number>>(new Set());
 
   // Local settings state
   let searchQuery = $state('');
@@ -100,10 +101,29 @@
   let customArtworkPath = $state<string | null>(null);
   let showSortMenu = $state(false);
 
+  interface TrackFavoritesResponse {
+    items: Array<{ id: number }>;
+    total: number;
+  }
+
   onMount(() => {
     loadPlaylist();
     loadSettings();
+    loadFavorites();
   });
+
+  async function loadFavorites() {
+    try {
+      const response = await invoke<TrackFavoritesResponse>('get_favorites', {
+        favType: 'tracks',
+        limit: 500,
+        offset: 0
+      });
+      favoriteTrackIds = new Set(response.items.map(item => item.id));
+    } catch (err) {
+      console.error('Failed to load favorite tracks:', err);
+    }
+  }
 
   async function loadPlaylist() {
     loading = true;
@@ -479,6 +499,7 @@
           artist={track.artist}
           duration={track.duration}
           quality={track.hires ? 'Hi-Res' : undefined}
+          isFavorite={favoriteTrackIds.has(track.id)}
           onPlay={() => handleTrackClick(track)}
           menuActions={{
             onPlayNow: () => handleTrackClick(track),

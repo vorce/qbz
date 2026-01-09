@@ -71,14 +71,21 @@
   let isFavorite = $state(false);
   let isFavoriteLoading = $state(false);
   let playBtnHovered = $state(false);
+  let favoriteTrackIds = $state<Set<number>>(new Set());
 
   interface FavoritesResponse {
     items: Array<{ id: string }>;
     total: number;
   }
 
-  // Check if album is already in favorites on mount
+  interface TrackFavoritesResponse {
+    items: Array<{ id: number }>;
+    total: number;
+  }
+
+  // Check if album and tracks are in favorites on mount
   onMount(async () => {
+    // Fetch album favorites
     try {
       const response = await invoke<FavoritesResponse>('get_favorites', {
         favType: 'albums',
@@ -87,7 +94,19 @@
       });
       isFavorite = response.items.some(item => item.id === album.id);
     } catch (err) {
-      console.error('Failed to check favorite status:', err);
+      console.error('Failed to check album favorite status:', err);
+    }
+
+    // Fetch track favorites
+    try {
+      const response = await invoke<TrackFavoritesResponse>('get_favorites', {
+        favType: 'tracks',
+        limit: 500,
+        offset: 0
+      });
+      favoriteTrackIds = new Set(response.items.map(item => item.id));
+    } catch (err) {
+      console.error('Failed to check track favorite status:', err);
     }
   });
 
@@ -191,6 +210,7 @@
           duration={track.duration}
           quality={track.quality}
           isPlaying={currentTrack === track.id}
+          isFavorite={favoriteTrackIds.has(track.id)}
           onPlay={() => {
             currentTrack = track.id;
             onTrackPlay?.(track);
