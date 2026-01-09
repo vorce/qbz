@@ -6,7 +6,7 @@ use tauri::State;
 use tokio::sync::Mutex;
 
 use crate::library::{
-    cue_to_tracks, CueParser, LibraryDatabase, LibraryError, LibraryScanner, LibraryStats,
+    cue_to_tracks, get_artwork_cache_dir, CueParser, LibraryDatabase, LibraryScanner, LibraryStats,
     LocalAlbum, LocalArtist, LocalTrack, MetadataExtractor, ScanError, ScanProgress, ScanStatus,
 };
 
@@ -158,7 +158,15 @@ pub async fn library_scan(state: State<'_, LibraryState>) -> Result<(), String> 
             }
 
             match MetadataExtractor::extract(audio_path) {
-                Ok(track) => {
+                Ok(mut track) => {
+                    // Try to extract embedded artwork, fallback to folder artwork
+                    let artwork_cache = get_artwork_cache_dir();
+                    if let Some(artwork_path) = MetadataExtractor::extract_artwork(audio_path, &artwork_cache) {
+                        track.artwork_path = Some(artwork_path);
+                    } else if let Some(folder_art) = MetadataExtractor::find_folder_artwork(audio_path) {
+                        track.artwork_path = Some(folder_art);
+                    }
+
                     let db = state.db.lock().await;
                     if let Err(e) = db.insert_track(&track) {
                         all_errors.push(ScanError {

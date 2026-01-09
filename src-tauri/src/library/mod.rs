@@ -32,6 +32,16 @@ pub fn get_db_path() -> PathBuf {
     data_dir.join("library.db")
 }
 
+/// Get artwork cache directory
+pub fn get_artwork_cache_dir() -> PathBuf {
+    let cache_dir = dirs::cache_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("qbz")
+        .join("artwork");
+    std::fs::create_dir_all(&cache_dir).ok();
+    cache_dir
+}
+
 /// Initialize library state
 pub fn init_library_state() -> Result<LibraryState, LibraryError> {
     let db_path = get_db_path();

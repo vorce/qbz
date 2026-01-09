@@ -197,6 +197,31 @@ impl MetadataExtractor {
         }
         hash
     }
+
+    /// Look for folder artwork (cover.jpg, folder.jpg, etc.)
+    /// Returns the path if found
+    pub fn find_folder_artwork(audio_file_path: &Path) -> Option<String> {
+        let parent_dir = audio_file_path.parent()?;
+
+        // Common artwork filenames in order of preference
+        const ARTWORK_NAMES: &[&str] = &[
+            "cover.jpg", "cover.jpeg", "cover.png",
+            "folder.jpg", "folder.jpeg", "folder.png",
+            "front.jpg", "front.jpeg", "front.png",
+            "album.jpg", "album.jpeg", "album.png",
+            "Cover.jpg", "Cover.jpeg", "Cover.png",
+            "Folder.jpg", "Folder.jpeg", "Folder.png",
+        ];
+
+        for name in ARTWORK_NAMES {
+            let artwork_path = parent_dir.join(name);
+            if artwork_path.exists() {
+                return Some(artwork_path.to_string_lossy().to_string());
+            }
+        }
+
+        None
+    }
 }
 
 #[cfg(test)]
