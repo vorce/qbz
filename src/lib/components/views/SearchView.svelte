@@ -1,7 +1,12 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Search, Disc3, Music, Mic2, User } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
+
+  onMount(() => {
+    console.log('SearchView mounted!');
+  });
 
   // Track which images have failed to load
   let failedTrackImages = $state<Set<number>>(new Set());
