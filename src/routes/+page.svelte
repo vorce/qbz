@@ -1370,7 +1370,7 @@
   .main-content {
     flex: 1;
     min-width: 0;
-    margin-bottom: 80px;
+    height: calc(100vh - 80px);
     overflow-y: auto;
     padding: 24px 32px;
   }
