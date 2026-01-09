@@ -127,6 +127,9 @@ pub fn run() {
             // Notification commands
             commands::show_track_notification,
             commands::show_notification,
+            // Cache commands
+            commands::get_cache_stats,
+            commands::clear_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

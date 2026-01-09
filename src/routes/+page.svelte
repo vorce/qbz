@@ -839,6 +839,12 @@
   });
 
   onMount(() => {
+    // Load saved theme
+    const savedTheme = localStorage.getItem('qbz-theme');
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+
     document.addEventListener('keydown', handleKeydown);
     return () => document.removeEventListener('keydown', handleKeydown);
   });
@@ -888,7 +894,12 @@
           onTrackPlay={handleTrackPlay}
         />
       {:else if activeView === 'settings'}
-        <SettingsView onBack={goBack} />
+        <SettingsView
+          onBack={goBack}
+          onLogout={handleLogout}
+          userName={userInfo?.userName}
+          subscription={userInfo?.subscription}
+        />
       {:else if activeView === 'album' && selectedAlbum}
         <AlbumDetailView
           album={selectedAlbum}

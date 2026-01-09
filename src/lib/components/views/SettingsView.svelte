@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { invoke } from '@tauri-apps/api/core';
   import { ArrowLeft } from 'lucide-svelte';
   import Toggle from '../Toggle.svelte';
   import Dropdown from '../Dropdown.svelte';
@@ -7,9 +9,39 @@
 
   interface Props {
     onBack?: () => void;
+    onLogout?: () => void;
+    userName?: string;
+    userEmail?: string;
+    subscription?: string;
   }
 
-  let { onBack }: Props = $props();
+  interface CacheStats {
+    cached_tracks: number;
+    current_size_bytes: number;
+    max_size_bytes: number;
+    fetching_count: number;
+  }
+
+  let { onBack, onLogout, userName = 'User', userEmail = '', subscription = 'Qobuz' }: Props = $props();
+
+  // Cache state
+  let cacheStats = $state<CacheStats | null>(null);
+  let isClearing = $state(false);
+
+  // Theme mapping: display name -> data-theme value
+  const themeMap: Record<string, string> = {
+    'Dark': '',
+    'Light': 'light',
+    'OLED Black': 'oled',
+    'Warm': 'warm'
+  };
+
+  const themeReverseMap: Record<string, string> = {
+    '': 'Dark',
+    'light': 'Light',
+    'oled': 'OLED Black',
+    'warm': 'Warm'
+  };
 
   // Audio settings
   let streamingQuality = $state('Hi-Res');
@@ -30,6 +62,60 @@
   // Integrations
   let lastfmConnected = $state(false);
   let scrobbling = $state(false);
+
+  // Load saved settings on mount
+  onMount(() => {
+    const savedTheme = localStorage.getItem('qbz-theme') || '';
+    theme = themeReverseMap[savedTheme] || 'Dark';
+    applyTheme(savedTheme);
+
+    // Load cache stats
+    loadCacheStats();
+  });
+
+  async function loadCacheStats() {
+    try {
+      cacheStats = await invoke<CacheStats>('get_cache_stats');
+    } catch (err) {
+      console.error('Failed to load cache stats:', err);
+    }
+  }
+
+  async function handleClearCache() {
+    if (isClearing) return;
+    isClearing = true;
+    try {
+      await invoke('clear_cache');
+      await loadCacheStats();
+    } catch (err) {
+      console.error('Failed to clear cache:', err);
+    } finally {
+      isClearing = false;
+    }
+  }
+
+  function formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+  }
+
+  function applyTheme(themeValue: string) {
+    if (themeValue) {
+      document.documentElement.setAttribute('data-theme', themeValue);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  }
+
+  function handleThemeChange(newTheme: string) {
+    theme = newTheme;
+    const themeValue = themeMap[newTheme] || '';
+    applyTheme(themeValue);
+    localStorage.setItem('qbz-theme', themeValue);
+  }
 </script>
 
 <div class="settings-view">
@@ -48,13 +134,15 @@
   <section class="section">
     <h3 class="section-title">Account</h3>
     <div class="account-card">
-      <div class="avatar">U</div>
+      <div class="avatar">{userName.charAt(0).toUpperCase()}</div>
       <div class="account-info">
-        <div class="username">Username</div>
-        <div class="email">email@example.com</div>
-        <div class="subscription">Studio Premier</div>
+        <div class="username">{userName}</div>
+        {#if userEmail}
+          <div class="email">{userEmail}</div>
+        {/if}
+        <div class="subscription">{subscription}</div>
       </div>
-      <button class="logout-btn">Logout</button>
+      <button class="logout-btn" onclick={onLogout}>Logout</button>
     </div>
   </section>
 
@@ -128,7 +216,7 @@
       <Dropdown
         value={theme}
         options={['Dark', 'Light', 'OLED Black', 'Warm']}
-        onchange={(v) => (theme = v)}
+        onchange={handleThemeChange}
       />
     </div>
     <div class="setting-row last">
@@ -163,11 +251,33 @@
     <h3 class="section-title">Storage</h3>
     <div class="setting-row">
       <span class="setting-label">Cache Size</span>
-      <span class="setting-value">2.4 GB</span>
+      <span class="setting-value">
+        {#if cacheStats}
+          {formatBytes(cacheStats.current_size_bytes)} / {formatBytes(cacheStats.max_size_bytes)}
+        {:else}
+          Loading...
+        {/if}
+      </span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Cached Tracks</span>
+      <span class="setting-value">
+        {#if cacheStats}
+          {cacheStats.cached_tracks} tracks
+        {:else}
+          -
+        {/if}
+      </span>
     </div>
     <div class="setting-row last">
       <span class="setting-label">Clear Cache</span>
-      <button class="clear-btn">Clear</button>
+      <button
+        class="clear-btn"
+        onclick={handleClearCache}
+        disabled={isClearing || !cacheStats || cacheStats.current_size_bytes === 0}
+      >
+        {isClearing ? 'Clearing...' : 'Clear'}
+      </button>
     </div>
   </section>
 </div>
@@ -345,7 +455,12 @@
     transition: background-color 150ms ease;
   }
 
-  .clear-btn:hover {
+  .clear-btn:hover:not(:disabled) {
     background-color: rgba(255, 107, 107, 0.1);
+  }
+
+  .clear-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

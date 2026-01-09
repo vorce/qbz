@@ -3,6 +3,7 @@
 //! Exposes backend functionality to the frontend via IPC
 
 pub mod auth;
+pub mod cache;
 pub mod favorites;
 pub mod notification;
 pub mod playback;
@@ -11,6 +12,7 @@ pub mod queue;
 pub mod search;
 
 pub use auth::*;
+pub use cache::*;
 pub use favorites::*;
 pub use notification::*;
 pub use playback::*;
