@@ -239,3 +239,38 @@ pub fn seek(position: u64, state: State<'_, AppState>) -> Result<(), String> {
 pub fn get_playback_state(state: State<'_, AppState>) -> Result<PlaybackState, String> {
     state.player.get_state()
 }
+
+/// Audio device information
+#[derive(serde::Serialize)]
+pub struct AudioDevice {
+    pub name: String,
+    pub is_default: bool,
+}
+
+/// Get available audio output devices
+#[tauri::command]
+pub fn get_audio_devices() -> Result<Vec<AudioDevice>, String> {
+    log::info!("Command: get_audio_devices");
+
+    use rodio::cpal::traits::{DeviceTrait, HostTrait};
+
+    let host = rodio::cpal::default_host();
+
+    let default_device_name = host
+        .default_output_device()
+        .and_then(|d| d.name().ok());
+
+    let devices: Vec<AudioDevice> = host
+        .output_devices()
+        .map_err(|e| format!("Failed to enumerate devices: {}", e))?
+        .filter_map(|device| {
+            device.name().ok().map(|name| {
+                let is_default = default_device_name.as_ref().map(|d| d == &name).unwrap_or(false);
+                AudioDevice { name, is_default }
+            })
+        })
+        .collect();
+
+    log::info!("Found {} audio output devices", devices.len());
+    Ok(devices)
+}

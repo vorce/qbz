@@ -22,11 +22,20 @@
     fetching_count: number;
   }
 
+  interface AudioDevice {
+    name: string;
+    is_default: boolean;
+  }
+
   let { onBack, onLogout, userName = 'User', userEmail = '', subscription = 'Qobuz' }: Props = $props();
 
   // Cache state
   let cacheStats = $state<CacheStats | null>(null);
   let isClearing = $state(false);
+
+  // Audio device state
+  let audioDevices = $state<AudioDevice[]>([]);
+  let audioDeviceOptions = $derived(['System Default', ...audioDevices.map(d => d.name)]);
 
   // Theme mapping: display name -> data-theme value
   const themeMap: Record<string, string> = {
@@ -65,13 +74,54 @@
 
   // Load saved settings on mount
   onMount(() => {
+    // Load theme
     const savedTheme = localStorage.getItem('qbz-theme') || '';
     theme = themeReverseMap[savedTheme] || 'Dark';
     applyTheme(savedTheme);
 
+    // Load streaming quality preference
+    const savedQuality = localStorage.getItem('qbz-streaming-quality');
+    if (savedQuality) {
+      streamingQuality = savedQuality;
+    }
+
+    // Load prefer highest setting
+    const savedPreferHighest = localStorage.getItem('qbz-prefer-highest');
+    if (savedPreferHighest !== null) {
+      preferHighest = savedPreferHighest === 'true';
+    }
+
     // Load cache stats
     loadCacheStats();
+
+    // Load audio devices
+    loadAudioDevices();
   });
+
+  function handleQualityChange(quality: string) {
+    streamingQuality = quality;
+    localStorage.setItem('qbz-streaming-quality', quality);
+  }
+
+  function handlePreferHighestChange(enabled: boolean) {
+    preferHighest = enabled;
+    localStorage.setItem('qbz-prefer-highest', String(enabled));
+  }
+
+  async function loadAudioDevices() {
+    try {
+      const devices = await invoke<AudioDevice[]>('get_audio_devices');
+      audioDevices = devices;
+
+      // Set current device to the default one
+      const defaultDevice = devices.find(d => d.is_default);
+      if (defaultDevice) {
+        outputDevice = defaultDevice.name;
+      }
+    } catch (err) {
+      console.error('Failed to load audio devices:', err);
+    }
+  }
 
   async function loadCacheStats() {
     try {
@@ -154,18 +204,18 @@
       <Dropdown
         value={streamingQuality}
         options={['MP3', 'CD Quality', 'Hi-Res', 'Hi-Res+']}
-        onchange={(v) => (streamingQuality = v)}
+        onchange={handleQualityChange}
       />
     </div>
     <div class="setting-row">
       <span class="setting-label">Prefer highest available</span>
-      <Toggle enabled={preferHighest} onchange={(v) => (preferHighest = v)} />
+      <Toggle enabled={preferHighest} onchange={handlePreferHighestChange} />
     </div>
     <div class="setting-row">
       <span class="setting-label">Output Device</span>
       <Dropdown
         value={outputDevice}
-        options={['System Default', 'Built-in Speakers', 'USB DAC', 'HDMI Output']}
+        options={audioDeviceOptions.length > 1 ? audioDeviceOptions : ['System Default']}
         onchange={(v) => (outputDevice = v)}
       />
     </div>

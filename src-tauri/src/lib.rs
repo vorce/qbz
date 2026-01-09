@@ -100,6 +100,7 @@ pub fn run() {
             commands::seek,
             commands::get_playback_state,
             commands::set_media_metadata,
+            commands::get_audio_devices,
             // Queue commands
             commands::add_to_queue,
             commands::add_tracks_to_queue,
