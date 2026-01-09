@@ -7,6 +7,7 @@ pub mod api;
 pub mod cache;
 pub mod commands;
 pub mod config;
+pub mod discogs;
 pub mod lastfm;
 pub mod library;
 pub mod media_controls;
@@ -77,6 +78,10 @@ pub fn update_media_controls_metadata(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Load .env file if present (for development)
+    // Silently ignore if not found (production builds use compile-time env vars)
+    dotenvy::dotenv().ok();
+
     // Initialize logging
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis()
@@ -193,6 +198,10 @@ pub fn run() {
             library::commands::playlist_remove_local_track,
             library::commands::playlist_get_local_tracks,
             library::commands::playlist_clear_local_tracks,
+            // Discogs artwork commands
+            library::commands::discogs_has_credentials,
+            library::commands::library_fetch_missing_artwork,
+            library::commands::library_fetch_album_artwork,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

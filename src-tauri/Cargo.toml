@@ -63,7 +63,13 @@ walkdir = "2"
 lofty = "0.18"
 rusqlite = { version = "0.31", features = ["bundled"] }
 dirs = "5"
-tauri-plugin-dialog = "2.5.0"
+tauri-plugin-dialog = { version = "2.5.0", default-features = false, features = ["xdg-portal"] }
+
+# URL encoding
+urlencoding = "2"
+
+# Environment variables
+dotenvy = "0.15"
 
 # Storage
 # sled = "0.34"

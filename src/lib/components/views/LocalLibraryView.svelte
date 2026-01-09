@@ -4,7 +4,7 @@
   import { onMount } from 'svelte';
   import {
     HardDrive, Music, Disc3, Mic2, FolderPlus, Trash2, RefreshCw,
-    Settings, X, Play, Plus, AlertCircle, Clock
+    Settings, X, Play, Plus, AlertCircle, Clock, ImageDown
   } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
@@ -96,6 +96,8 @@
   let loading = $state(false);
   let scanning = $state(false);
   let error = $state<string | null>(null);
+  let fetchingArtwork = $state(false);
+  let hasDiscogsCredentials = $state(false);
 
   // Album detail state (for viewing album tracks)
   let selectedAlbum = $state<LocalAlbum | null>(null);
@@ -104,7 +106,16 @@
   onMount(() => {
     loadLibraryData();
     loadFolders();
+    checkDiscogsCredentials();
   });
+
+  async function checkDiscogsCredentials() {
+    try {
+      hasDiscogsCredentials = await invoke<boolean>('discogs_has_credentials');
+    } catch {
+      hasDiscogsCredentials = false;
+    }
+  }
 
   async function loadLibraryData() {
     loading = true;
@@ -252,6 +263,29 @@
       tracks = [];
     } catch (err) {
       console.error('Failed to clear library:', err);
+    }
+  }
+
+  async function handleFetchMissingArtwork() {
+    if (!hasDiscogsCredentials) {
+      alert('Discogs credentials not configured. Please set up DISCOGS_API_CLIENT_KEY and DISCOGS_API_CLIENT_SECRET.');
+      return;
+    }
+
+    fetchingArtwork = true;
+    try {
+      const count = await invoke<number>('library_fetch_missing_artwork');
+      if (count > 0) {
+        alert(`Fetched artwork for ${count} albums from Discogs.`);
+        await loadLibraryData();
+      } else {
+        alert('No albums needed artwork updates.');
+      }
+    } catch (err) {
+      console.error('Failed to fetch artwork:', err);
+      alert(`Failed to fetch artwork: ${err}`);
+    } finally {
+      fetchingArtwork = false;
     }
   }
 
@@ -500,6 +534,20 @@
         {/if}
 
         <div class="settings-actions">
+          {#if hasDiscogsCredentials}
+            <button
+              class="secondary-btn"
+              onclick={handleFetchMissingArtwork}
+              disabled={fetchingArtwork}
+            >
+              <ImageDown size={14} class={fetchingArtwork ? 'spinning' : ''} />
+              <span>{fetchingArtwork ? 'Fetching...' : 'Fetch Missing Artwork'}</span>
+            </button>
+          {:else}
+            <div class="discogs-hint">
+              <span>Configure Discogs API for automatic artwork fetching</span>
+            </div>
+          {/if}
           <button class="danger-btn" onclick={handleClearLibrary}>
             <Trash2 size={14} />
             <span>Clear Library</span>
@@ -821,6 +869,43 @@
     margin-top: 16px;
     padding-top: 16px;
     border-top: 1px solid var(--bg-tertiary);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .secondary-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .secondary-btn:hover:not(:disabled) {
+    background: var(--bg-hover);
+    border-color: var(--text-muted);
+  }
+
+  .secondary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .discogs-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    flex: 1;
   }
 
   .danger-btn {

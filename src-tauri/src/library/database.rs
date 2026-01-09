@@ -357,6 +357,55 @@ impl LibraryDatabase {
         Ok(artists)
     }
 
+    /// Get albums without artwork (for Discogs fetching)
+    pub fn get_albums_without_artwork(&self) -> Result<Vec<(String, String)>, LibraryError> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                r#"
+            SELECT DISTINCT
+                COALESCE(album_artist, artist) as artist,
+                album
+            FROM local_tracks
+            WHERE artwork_path IS NULL OR artwork_path = ''
+            ORDER BY artist, album
+        "#,
+            )
+            .map_err(|e| LibraryError::Database(e.to_string()))?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|e| LibraryError::Database(e.to_string()))?;
+
+        let mut albums = Vec::new();
+        for album in rows {
+            albums.push(album.map_err(|e| LibraryError::Database(e.to_string()))?);
+        }
+        Ok(albums)
+    }
+
+    /// Update artwork path for all tracks in an album
+    pub fn update_album_artwork(
+        &self,
+        album: &str,
+        artist: &str,
+        artwork_path: &str,
+    ) -> Result<(), LibraryError> {
+        self.conn
+            .execute(
+                r#"
+            UPDATE local_tracks
+            SET artwork_path = ?
+            WHERE album = ? AND COALESCE(album_artist, artist) = ?
+        "#,
+                params![artwork_path, album, artist],
+            )
+            .map_err(|e| LibraryError::Database(e.to_string()))?;
+        Ok(())
+    }
+
     /// Search tracks by title, artist, or album
     pub fn search(&self, query: &str, limit: u32) -> Result<Vec<LocalTrack>, LibraryError> {
         let pattern = format!("%{}%", query);

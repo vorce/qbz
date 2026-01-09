@@ -10,10 +10,25 @@ use std::collections::BTreeMap;
 const LASTFM_API_URL: &str = "https://ws.audioscrobbler.com/2.0/";
 
 // Last.fm API credentials
-// Set via environment variables at build time, or users can enter their own
-// To set: LASTFM_API_KEY=xxx LASTFM_API_SECRET=yyy cargo build
+// Checked in order:
+// 1. Compile-time environment variables (for release builds)
+// 2. Runtime environment variables (for development with .env)
 const DEFAULT_API_KEY: Option<&str> = option_env!("LASTFM_API_KEY");
 const DEFAULT_API_SECRET: Option<&str> = option_env!("LASTFM_API_SECRET");
+
+/// Get API key from compile-time or runtime environment
+fn get_api_key() -> Option<String> {
+    DEFAULT_API_KEY
+        .map(String::from)
+        .or_else(|| std::env::var("LASTFM_API_KEY").ok())
+}
+
+/// Get API secret from compile-time or runtime environment
+fn get_api_secret() -> Option<String> {
+    DEFAULT_API_SECRET
+        .map(String::from)
+        .or_else(|| std::env::var("LASTFM_API_SECRET").ok())
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LastFmSession {
@@ -50,16 +65,16 @@ pub struct LastFmClient {
 impl Default for LastFmClient {
     fn default() -> Self {
         Self::new(
-            DEFAULT_API_KEY.unwrap_or("").to_string(),
-            DEFAULT_API_SECRET.unwrap_or("").to_string(),
+            get_api_key().unwrap_or_default(),
+            get_api_secret().unwrap_or_default(),
         )
     }
 }
 
 impl LastFmClient {
-    /// Check if embedded (build-time) credentials are available
+    /// Check if embedded (build-time or runtime) credentials are available
     pub fn has_embedded_credentials() -> bool {
-        DEFAULT_API_KEY.is_some() && DEFAULT_API_SECRET.is_some()
+        get_api_key().is_some() && get_api_secret().is_some()
     }
 }
 

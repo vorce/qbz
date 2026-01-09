@@ -119,6 +119,22 @@ LAST_FM_APP_REGISTER=your_lastfm_username
 
 The application will work without Last.fm credentials, but scrobbling will be disabled.
 
+#### Discogs Integration
+
+To enable automatic album artwork fetching from Discogs when building from source:
+
+1. Go to [Discogs Developer Settings](https://www.discogs.com/settings/developers)
+2. Create a new application
+3. Copy your Consumer Key and Consumer Secret
+4. Update your `.env` file:
+
+```env
+DISCOGS_API_CLIENT_KEY=your_consumer_key_here
+DISCOGS_API_CLIENT_SECRET=your_consumer_secret_here
+```
+
+The application will work without Discogs credentials, but automatic artwork fetching for local library will be disabled.
+
 ## Project Structure
 
 ```
