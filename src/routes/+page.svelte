@@ -1502,6 +1502,14 @@
           onTrackGoToAlbum={handleAlbumClick}
           onTrackGoToArtist={handleArtistClick}
         />
+      {:else}
+        <!-- Fallback: should never happen but helps debug -->
+        <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+          <p>View: {activeView}</p>
+          <button onclick={() => navigateTo('home')} style="margin-top: 16px; padding: 8px 16px; background: var(--accent-primary); color: white; border-radius: 8px;">
+            Go to Home
+          </button>
+        </div>
       {/if}
     </main>
 
@@ -1650,8 +1658,11 @@
     flex: 1;
     min-width: 0;
     height: calc(100vh - 80px);
+    min-height: calc(100vh - 80px);
     overflow-y: auto;
     padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
   }
 
 </style>
