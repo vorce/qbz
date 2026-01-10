@@ -1,6 +1,6 @@
 //! Chromecast device connection and media control
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use rust_cast::CastDevice;
 use rust_cast::channels::media::{Image, Media, Metadata, MusicTrackMediaMetadata, StreamType};
@@ -11,7 +11,7 @@ use crate::cast::CastError;
 const DEFAULT_RECEIVER_ID: &str = "receiver-0";
 
 /// Media metadata for casting
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaMetadata {
     pub title: String,
     pub artist: String,

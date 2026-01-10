@@ -7,15 +7,16 @@ use tokio::sync::Mutex;
 use crate::api::models::Quality;
 use crate::AppState;
 use crate::cast::{
-    CastDeviceConnection, CastError, CastStatus, DeviceDiscovery, DiscoveredDevice, MediaMetadata,
-    MediaServer,
+    CastError, CastStatus, DeviceDiscovery, DiscoveredDevice, MediaMetadata, MediaServer,
 };
+use crate::cast::chromecast_thread::ChromecastHandle;
 use crate::library::{AudioFormat, LibraryState};
 
 /// Cast state shared across commands
+/// Uses a dedicated thread for Chromecast operations since rust_cast is not thread-safe
 pub struct CastState {
     pub discovery: Arc<Mutex<DeviceDiscovery>>,
-    pub connection: Arc<Mutex<Option<CastDeviceConnection>>>,
+    pub chromecast: ChromecastHandle,
     pub media_server: Arc<Mutex<MediaServer>>,
 }
 
@@ -23,7 +24,7 @@ impl CastState {
     pub fn new() -> Result<Self, CastError> {
         Ok(Self {
             discovery: Arc::new(Mutex::new(DeviceDiscovery::new())),
-            connection: Arc::new(Mutex::new(None)),
+            chromecast: ChromecastHandle::new(),
             media_server: Arc::new(Mutex::new(MediaServer::start()?)),
         })
     }
@@ -65,29 +66,20 @@ pub async fn cast_connect(device_id: String, state: State<'_, CastState>) -> Res
             .map_err(|e| e.to_string())?
     };
 
-    let connection = CastDeviceConnection::connect(&device.ip, device.port)
-        .map_err(|e| e.to_string())?;
-
-    let mut state_connection = state.connection.lock().await;
-    *state_connection = Some(connection);
-    Ok(())
+    state
+        .chromecast
+        .connect(device.ip.clone(), device.port)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn cast_disconnect(state: State<'_, CastState>) -> Result<(), String> {
-    let mut connection = state.connection.lock().await;
-    if let Some(conn) = connection.as_mut() {
-        conn.disconnect().map_err(|e| e.to_string())?;
-    }
-    *connection = None;
-    Ok(())
+    state.chromecast.disconnect().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn cast_get_status(state: State<'_, CastState>) -> Result<CastStatus, String> {
-    let mut connection = state.connection.lock().await;
-    let conn = connection.as_mut().ok_or_else(|| "Not connected".to_string())?;
-    conn.get_status().map_err(|e| e.to_string())
+    state.chromecast.get_status().map_err(|e| e.to_string())
 }
 
 // === Playback ===
@@ -126,9 +118,9 @@ pub async fn cast_play_track(
             .ok_or_else(|| "Failed to build media URL".to_string())?
     };
 
-    let mut connection = state.connection.lock().await;
-    let conn = connection.as_mut().ok_or_else(|| "Not connected".to_string())?;
-    conn.load_media(&url, &content_type, metadata)
+    state
+        .chromecast
+        .load_media(url, content_type, metadata)
         .map_err(|e| e.to_string())
 }
 
@@ -163,47 +155,37 @@ pub async fn cast_play_local_track(
         duration_secs: Some(track.duration_secs),
     };
 
-    let content_type = content_type_from_format(&track.format);
+    let content_type = content_type_from_format(&track.format).to_string();
 
-    let mut connection = state.connection.lock().await;
-    let conn = connection.as_mut().ok_or_else(|| "Not connected".to_string())?;
-    conn.load_media(&url, content_type, metadata)
+    state
+        .chromecast
+        .load_media(url, content_type, metadata)
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn cast_play(state: State<'_, CastState>) -> Result<(), String> {
-    let mut connection = state.connection.lock().await;
-    let conn = connection.as_mut().ok_or_else(|| "Not connected".to_string())?;
-    conn.play().map_err(|e| e.to_string())
+    state.chromecast.play().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn cast_pause(state: State<'_, CastState>) -> Result<(), String> {
-    let mut connection = state.connection.lock().await;
-    let conn = connection.as_mut().ok_or_else(|| "Not connected".to_string())?;
-    conn.pause().map_err(|e| e.to_string())
+    state.chromecast.pause().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn cast_stop(state: State<'_, CastState>) -> Result<(), String> {
-    let mut connection = state.connection.lock().await;
-    let conn = connection.as_mut().ok_or_else(|| "Not connected".to_string())?;
-    conn.stop().map_err(|e| e.to_string())
+    state.chromecast.stop().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn cast_seek(position_secs: f64, state: State<'_, CastState>) -> Result<(), String> {
-    let mut connection = state.connection.lock().await;
-    let conn = connection.as_mut().ok_or_else(|| "Not connected".to_string())?;
-    conn.seek(position_secs).map_err(|e| e.to_string())
+    state.chromecast.seek(position_secs).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn cast_set_volume(volume: f32, state: State<'_, CastState>) -> Result<(), String> {
-    let mut connection = state.connection.lock().await;
-    let conn = connection.as_mut().ok_or_else(|| "Not connected".to_string())?;
-    conn.set_volume(volume).map_err(|e| e.to_string())
+    state.chromecast.set_volume(volume).map_err(|e| e.to_string())
 }
 
 async fn download_audio(url: &str) -> Result<Vec<u8>, String> {

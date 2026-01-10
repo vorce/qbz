@@ -1,5 +1,6 @@
 //! Casting module (Chromecast-first, designed for future AirPlay/DLNA expansion).
 
+pub mod chromecast_thread;
 pub mod commands;
 pub mod device;
 pub mod discovery;

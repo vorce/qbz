@@ -5,9 +5,7 @@
 
 pub mod api;
 pub mod cache;
-// NOTE: cast module disabled due to thread safety issues with rust_cast (Rc not Send)
-// and rupnp API changes. Scaffolding preserved in src/cast/ for future work.
-// pub mod cast;
+pub mod cast;
 pub mod commands;
 pub mod config;
 pub mod credentials;
@@ -97,10 +95,9 @@ pub fn run() {
     let library_state = library::init_library_state()
         .expect("Failed to initialize library database");
 
-    // NOTE: Casting module is scaffolded but not wired yet.
-    // The cast module has thread safety issues with rust_cast (uses Rc, not Send)
-    // and API compatibility issues with rupnp that need to be resolved first.
-    // See src/cast/ for the scaffolded implementation.
+    // Initialize casting state
+    let cast_state = cast::CastState::new()
+        .expect("Failed to initialize casting state");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -108,6 +105,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(AppState::new())
         .manage(library_state)
+        .manage(cast_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -218,10 +216,20 @@ pub fn run() {
             library::commands::discogs_has_credentials,
             library::commands::library_fetch_missing_artwork,
             library::commands::library_fetch_album_artwork,
-            // Casting commands - NOT WIRED YET (see NOTE above)
-            // cast::commands::cast_* - Chromecast
-            // cast::airplay::commands::airplay_* - AirPlay
-            // cast::dlna::commands::dlna_* - DLNA/UPnP
+            // Chromecast casting commands
+            cast::commands::cast_start_discovery,
+            cast::commands::cast_stop_discovery,
+            cast::commands::cast_get_devices,
+            cast::commands::cast_connect,
+            cast::commands::cast_disconnect,
+            cast::commands::cast_get_status,
+            cast::commands::cast_play_track,
+            cast::commands::cast_play_local_track,
+            cast::commands::cast_play,
+            cast::commands::cast_pause,
+            cast::commands::cast_stop,
+            cast::commands::cast_seek,
+            cast::commands::cast_set_volume,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -162,32 +162,32 @@ fn handle_request(
     url: &str,
     request: &tiny_http::Request,
     entries: &Arc<Mutex<HashMap<u64, MediaEntry>>>,
-) -> Response<impl Read> {
+) -> Response<std::io::Cursor<Vec<u8>>> {
     if method != &Method::Get {
-        return Response::new_empty(StatusCode(405));
+        return Response::from_data(Vec::new()).with_status_code(StatusCode(405));
     }
 
     let id = match parse_audio_id(url) {
         Some(id) => id,
-        None => return Response::new_empty(StatusCode(404)),
+        None => return Response::from_data(Vec::new()).with_status_code(StatusCode(404)),
     };
 
     let entry = match entries.lock().ok().and_then(|map| map.get(&id).cloned()) {
         Some(entry) => entry,
-        None => return Response::new_empty(StatusCode(404)),
+        None => return Response::from_data(Vec::new()).with_status_code(StatusCode(404)),
     };
 
     let range_header = request
         .headers()
         .iter()
         .find(|h| h.field.equiv("Range"))
-        .and_then(|h| Some(h.value.as_str()));
+        .map(|h| h.value.as_str());
 
     let range = range_header.and_then(|header| parse_range(header, entry.size));
 
     let (data, status_code, content_range) = match read_range(&entry, range) {
         Ok(result) => result,
-        Err(_) => return Response::new_empty(StatusCode(500)),
+        Err(_) => return Response::from_data(Vec::new()).with_status_code(StatusCode(500)),
     };
 
     let mut response = Response::from_data(data)
