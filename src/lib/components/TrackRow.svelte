@@ -1,6 +1,9 @@
 <script lang="ts">
   import { Play, Heart } from 'lucide-svelte';
   import TrackMenu from './TrackMenu.svelte';
+  import DownloadButton from './DownloadButton.svelte';
+
+  type DownloadStatus = 'none' | 'queued' | 'downloading' | 'ready' | 'failed';
 
   interface Props {
     number: number;
@@ -10,7 +13,11 @@
     quality?: string;
     isPlaying?: boolean;
     isFavorite?: boolean;
+    downloadStatus?: DownloadStatus;
+    downloadProgress?: number;
     onPlay?: () => void;
+    onDownload?: () => void;
+    onRemoveDownload?: () => void;
     menuActions?: TrackMenuActions;
   }
 
@@ -34,7 +41,11 @@
     quality,
     isPlaying = false,
     isFavorite = false,
+    downloadStatus = 'none',
+    downloadProgress = 0,
     onPlay,
+    onDownload,
+    onRemoveDownload,
     menuActions
   }: Props = $props();
 
@@ -91,6 +102,17 @@
     {:else}
       <Heart size={14} color="var(--text-muted)" />
     {/if}
+  </div>
+
+  <!-- Download Indicator -->
+  <div class="download-indicator" class:has-download={downloadStatus !== 'none'}>
+    <DownloadButton
+      status={downloadStatus}
+      progress={downloadProgress}
+      size={14}
+      onDownload={onDownload}
+      onRemove={onRemoveDownload}
+    />
   </div>
 
   <div class="track-actions">
@@ -243,6 +265,23 @@
   }
 
   .track-row:hover .favorite-indicator.is-favorite {
+    opacity: 1;
+  }
+
+  .download-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .download-indicator.has-download {
+    opacity: 1;
+  }
+
+  .track-row:hover .download-indicator {
     opacity: 1;
   }
 

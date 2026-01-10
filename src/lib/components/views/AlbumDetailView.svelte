@@ -3,6 +3,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { ArrowLeft, Play, Shuffle, Heart, Plus, MoreHorizontal } from 'lucide-svelte';
   import TrackRow from '../TrackRow.svelte';
+  import { getDownloadState, type DownloadStatus } from '$lib/stores/downloadState';
 
   interface Track {
     id: number;
@@ -47,6 +48,9 @@
     onShuffleAll?: () => void;
     onAddToQueue?: () => void;
     onAddTrackToPlaylist?: (trackId: number) => void;
+    onTrackDownload?: (track: Track) => void;
+    onTrackRemoveDownload?: (trackId: number) => void;
+    getTrackDownloadStatus?: (trackId: number) => { status: DownloadStatus; progress: number };
   }
 
   let {
@@ -64,7 +68,10 @@
     onPlayAll,
     onShuffleAll,
     onAddToQueue,
-    onAddTrackToPlaylist
+    onAddTrackToPlaylist,
+    onTrackDownload,
+    onTrackRemoveDownload,
+    getTrackDownloadStatus
   }: Props = $props();
 
   let currentTrack = $state<number | null>(null);
@@ -202,6 +209,7 @@
     <!-- Track Rows -->
     <div class="tracks">
       {#each album.tracks as track}
+        {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
         <TrackRow
           number={track.number}
           title={track.title}
@@ -210,10 +218,14 @@
           quality={track.quality}
           isPlaying={currentTrack === track.id}
           isFavorite={favoriteTrackIds.has(track.id)}
+          downloadStatus={downloadInfo.status}
+          downloadProgress={downloadInfo.progress}
           onPlay={() => {
             currentTrack = track.id;
             onTrackPlay?.(track);
           }}
+          onDownload={onTrackDownload ? () => onTrackDownload(track) : undefined}
+          onRemoveDownload={onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
           menuActions={{
             onPlayNow: () => {
               currentTrack = track.id;

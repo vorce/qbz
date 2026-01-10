@@ -1,7 +1,19 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+
+  // Download state management
+  import {
+    initDownloadStates,
+    startDownloadEventListeners,
+    stopDownloadEventListeners,
+    downloadTrack,
+    removeDownload,
+    getDownloadState,
+    subscribe as subscribeDownloads,
+    type DownloadStatus
+  } from '$lib/stores/downloadState';
 
   // Components
   import Sidebar from '$lib/components/Sidebar.svelte';
@@ -961,6 +973,43 @@
     queueTrackLater(buildQueueTrackFromAlbumTrack(track));
   }
 
+  // Download handlers
+  async function handleTrackDownload(track: Track) {
+    try {
+      await downloadTrack({
+        id: track.id,
+        title: track.title,
+        artist: track.artist || selectedAlbum?.artist || 'Unknown',
+        album: selectedAlbum?.title,
+        albumId: selectedAlbum?.id,
+        durationSecs: track.durationSeconds,
+        quality: track.quality || 'CD Quality',
+        bitDepth: track.bitDepth,
+        sampleRate: track.samplingRate,
+      });
+      showToast(`Downloading "${track.title}"`, 'info');
+    } catch (err) {
+      console.error('Failed to start download:', err);
+      showToast('Failed to start download', 'error');
+    }
+  }
+
+  async function handleTrackRemoveDownload(trackId: number) {
+    try {
+      await removeDownload(trackId);
+      showToast('Removed from downloads', 'info');
+    } catch (err) {
+      console.error('Failed to remove download:', err);
+      showToast('Failed to remove download', 'error');
+    }
+  }
+
+  function getTrackDownloadStatus(trackId: number) {
+    // Access downloadStateVersion to trigger reactivity
+    void downloadStateVersion;
+    return getDownloadState(trackId);
+  }
+
   function handleDisplayTrackPlayNext(track: PlaylistTrack) {
     queueTrackNext(buildQueueTrackFromDisplayTrack(track));
   }
@@ -1361,6 +1410,9 @@
     };
   });
 
+  // Download state update trigger
+  let downloadStateVersion = $state(0);
+
   onMount(() => {
     // Load saved theme
     const savedTheme = localStorage.getItem('qbz-theme');
@@ -1381,9 +1433,20 @@
     document.addEventListener('keydown', handleKeydown);
     window.addEventListener('mouseup', handleMouseNavigation);
 
+    // Initialize download states
+    initDownloadStates();
+    startDownloadEventListeners();
+
+    // Subscribe to download state changes to trigger reactivity
+    const unsubscribeDownloads = subscribeDownloads(() => {
+      downloadStateVersion++;
+    });
+
     return () => {
       document.removeEventListener('keydown', handleKeydown);
       window.removeEventListener('mouseup', handleMouseNavigation);
+      stopDownloadEventListeners();
+      unsubscribeDownloads();
     };
   });
 
@@ -1466,6 +1529,9 @@
           onShuffleAll={handleShuffleAlbum}
           onAddToQueue={handleAddAlbumToQueue}
           onAddTrackToPlaylist={(trackId) => openAddToPlaylist([trackId])}
+          onTrackDownload={handleTrackDownload}
+          onTrackRemoveDownload={handleTrackRemoveDownload}
+          getTrackDownloadStatus={getTrackDownloadStatus}
         />
       {:else if activeView === 'artist' && selectedArtist}
         <ArtistDetailView
