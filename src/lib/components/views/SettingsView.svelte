@@ -13,6 +13,7 @@
     setDownloadCacheLimit,
     type DownloadCacheStats
   } from '$lib/stores/downloadState';
+  import { clearCache as clearLyricsCache } from '$lib/stores/lyricsStore';
 
   interface Props {
     onBack?: () => void;
@@ -44,6 +45,9 @@
   let downloadStats = $state<DownloadCacheStats | null>(null);
   let isClearingDownloads = $state(false);
   let downloadCacheLimit = $state('2 GB'); // Default 2GB
+
+  // Lyrics cache state
+  let isClearingLyrics = $state(false);
 
   // Audio device state
   let audioDevices = $state<AudioDevice[]>([]);
@@ -369,6 +373,19 @@
     }
   }
 
+  async function handleClearLyricsCache() {
+    if (isClearingLyrics) return;
+    isClearingLyrics = true;
+    try {
+      await clearLyricsCache();
+      console.log('Lyrics cache cleared');
+    } catch (err) {
+      console.error('Failed to clear lyrics cache:', err);
+    } finally {
+      isClearingLyrics = false;
+    }
+  }
+
   function formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -675,6 +692,25 @@
       >
         <FolderOpen size={16} />
         <span>Open</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Lyrics Section -->
+  <section class="section">
+    <h3 class="section-title">Lyrics</h3>
+    <div class="setting-row">
+      <span class="setting-label">Provider</span>
+      <span class="setting-value">LRCLIB / lyrics.ovh</span>
+    </div>
+    <div class="setting-row last">
+      <span class="setting-label">Clear Lyrics Cache</span>
+      <button
+        class="clear-btn"
+        onclick={handleClearLyricsCache}
+        disabled={isClearingLyrics}
+      >
+        {isClearingLyrics ? 'Clearing...' : 'Clear'}
       </button>
     </div>
   </section>

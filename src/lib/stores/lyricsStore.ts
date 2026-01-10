@@ -224,6 +224,7 @@ function calculateLineProgress(lines: LyricsLine[], index: number, currentTimeMs
 /**
  * Update active line based on current playback time
  */
+let lastLogTime = 0;
 export function updateActiveLine(): void {
   if (!parsedLyrics.isSynced || parsedLyrics.lines.length === 0) {
     if (activeIndex !== -1 || activeProgress !== 0) {
@@ -237,6 +238,18 @@ export function updateActiveLine(): void {
   const currentTimeMs = getCurrentTime() * 1000;
   const newIndex = findActiveLineIndex(parsedLyrics.lines, currentTimeMs);
   const newProgress = calculateLineProgress(parsedLyrics.lines, newIndex, currentTimeMs);
+
+  // Debug log every 2 seconds
+  const now = Date.now();
+  if (now - lastLogTime > 2000) {
+    lastLogTime = now;
+    console.log('[Lyrics] Update:', {
+      currentTimeMs,
+      newIndex,
+      newProgress: newProgress.toFixed(2),
+      activeLine: parsedLyrics.lines[newIndex]?.text?.substring(0, 30)
+    });
+  }
 
   if (newIndex !== activeIndex || Math.abs(newProgress - activeProgress) > 0.01) {
     activeIndex = newIndex;
@@ -269,6 +282,7 @@ export async function fetchLyrics(): Promise<void> {
   notifyListeners();
 
   try {
+    console.log(`[Lyrics] Fetching for: "${track.title}" by "${track.artist}"`);
     const result = await invoke<LyricsPayload | null>('lyrics_get', {
       trackId: track.id,
       title: track.title,
@@ -277,9 +291,16 @@ export async function fetchLyrics(): Promise<void> {
       durationSecs: track.duration || null
     });
 
+    // Explicit logging - no objects to expand
+    console.log(`[Lyrics] Backend: hasResult=${!!result}, hasSyncedLrc=${!!result?.synced_lrc}, syncedLen=${result?.synced_lrc?.length ?? 0}, hasPlain=${!!result?.plain}, provider=${result?.provider}`);
+    if (result?.synced_lrc) {
+      console.log(`[Lyrics] Synced LRC preview: ${result.synced_lrc.substring(0, 150)}`);
+    }
+
     if (result) {
       payload = result;
       parsedLyrics = parsePayload(result);
+      console.log(`[Lyrics] Parsed: linesCount=${parsedLyrics.lines.length}, isSynced=${parsedLyrics.isSynced}, firstTimeMs=${parsedLyrics.lines[0]?.timeMs ?? 'N/A'}, firstText="${parsedLyrics.lines[0]?.text?.substring(0, 30) ?? 'N/A'}"`);
       status = 'loaded';
       activeIndex = -1;
       activeProgress = 0;
@@ -368,6 +389,7 @@ let updateInterval: number | null = null;
 export function startActiveLineUpdates(): void {
   if (updateInterval !== null) return;
 
+  console.log('[Lyrics] Starting active line updates, isSynced:', parsedLyrics.isSynced);
   updateInterval = window.setInterval(() => {
     if (parsedLyrics.isSynced) {
       updateActiveLine();
@@ -397,12 +419,14 @@ let lastTrackId: number | null = null;
 export function startWatching(): void {
   if (playerUnsubscribe) return;
 
+  console.log('[Lyrics] Starting track watcher');
   playerUnsubscribe = subscribePlayer(() => {
     const track = getCurrentTrack();
     const trackId = track?.id ?? null;
 
     // Track changed - always prefetch lyrics for new track
     if (trackId !== lastTrackId) {
+      console.log('[Lyrics] Track changed:', { from: lastTrackId, to: trackId, title: track?.title });
       lastTrackId = trackId;
       if (trackId !== null) {
         // Always prefetch lyrics when a new track starts
