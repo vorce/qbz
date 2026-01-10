@@ -49,7 +49,7 @@
 
   let showControls = $state(true);
   let hideTimeout: ReturnType<typeof setTimeout> | null = null;
-  let progressRef: HTMLDivElement;
+  let progressRef: HTMLDivElement | null = $state(null);
 
   const progress = $derived((currentTime / duration) * 100 || 0);
   const hasLyrics = $derived(lyricsLines.length > 0);
