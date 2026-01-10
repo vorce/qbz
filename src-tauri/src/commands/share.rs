@@ -4,6 +4,7 @@ use tauri::State;
 
 use crate::share::{ContentType, ShareError, SongLinkResponse};
 use crate::AppState;
+use std::collections::HashMap;
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,11 +48,16 @@ pub async fn share_track_songlink(
     if url.is_empty() {
         if let Some(track_id) = track_id {
             if let Some(itunes_url) = resolve_itunes_url(track_id, &isrc, &state).await {
-                return state
-                    .songlink
-                    .get_by_url(&itunes_url, ContentType::Track)
-                    .await
-                    .map_err(|e| e.to_string());
+                return match state.songlink.get_by_url(&itunes_url, ContentType::Track).await {
+                    Ok(result) => Ok(result),
+                    Err(err) => {
+                        log::warn!("iTunes URL lookup failed: {}", err);
+                        if let Some(fallback) = songlink_from_itunes_url(&itunes_url) {
+                            return Ok(fallback);
+                        }
+                        Err(err.to_string())
+                    }
+                };
             }
         }
 
@@ -65,16 +71,48 @@ pub async fn share_track_songlink(
             log::warn!("URL lookup failed: {}", err);
             if let Some(track_id) = track_id {
                 if let Some(itunes_url) = resolve_itunes_url(track_id, &isrc, &state).await {
-                    return state
-                        .songlink
-                        .get_by_url(&itunes_url, ContentType::Track)
-                        .await
-                        .map_err(|e| e.to_string());
+                    return match state.songlink.get_by_url(&itunes_url, ContentType::Track).await {
+                        Ok(result) => Ok(result),
+                        Err(itunes_err) => {
+                            log::warn!("iTunes URL lookup failed: {}", itunes_err);
+                            if let Some(fallback) = songlink_from_itunes_url(&itunes_url) {
+                                return Ok(fallback);
+                            }
+                            Err(itunes_err.to_string())
+                        }
+                    };
                 }
             }
             Err(err.to_string())
         }
     }
+}
+
+fn songlink_from_itunes_url(itunes_url: &str) -> Option<SongLinkResponse> {
+    let track_id = extract_itunes_track_id(itunes_url)?;
+    let page_url = format!("https://song.link/i/{}", track_id);
+    log::info!("Using Song.link direct URL: {}", page_url);
+
+    Some(SongLinkResponse {
+        page_url,
+        title: None,
+        artist: None,
+        thumbnail_url: None,
+        platforms: HashMap::new(),
+        identifier: track_id,
+        content_type: ContentType::Track.as_str().to_string(),
+    })
+}
+
+fn extract_itunes_track_id(itunes_url: &str) -> Option<String> {
+    let query = itunes_url.split('?').nth(1)?;
+    for pair in query.split('&') {
+        let mut iter = pair.splitn(2, '=');
+        if iter.next()? == "i" {
+            return iter.next().map(|v| v.to_string());
+        }
+    }
+    None
 }
 
 async fn resolve_itunes_url(
