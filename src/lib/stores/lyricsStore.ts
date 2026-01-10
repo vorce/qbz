@@ -310,11 +310,6 @@ export async function fetchLyrics(): Promise<void> {
 export function toggleSidebar(): void {
   sidebarVisible = !sidebarVisible;
   notifyListeners();
-
-  // Fetch lyrics if opening and not yet fetched
-  if (sidebarVisible && status === 'idle') {
-    fetchLyrics();
-  }
 }
 
 /**
@@ -324,10 +319,6 @@ export function showSidebar(): void {
   if (!sidebarVisible) {
     sidebarVisible = true;
     notifyListeners();
-
-    if (status === 'idle') {
-      fetchLyrics();
-    }
   }
 }
 
@@ -401,6 +392,7 @@ let lastTrackId: number | null = null;
 
 /**
  * Start watching player state for track changes
+ * Prefetches lyrics as soon as a new track starts playing
  */
 export function startWatching(): void {
   if (playerUnsubscribe) return;
@@ -409,12 +401,13 @@ export function startWatching(): void {
     const track = getCurrentTrack();
     const trackId = track?.id ?? null;
 
-    // Track changed - fetch new lyrics
+    // Track changed - always prefetch lyrics for new track
     if (trackId !== lastTrackId) {
       lastTrackId = trackId;
-      if (trackId !== null && sidebarVisible) {
+      if (trackId !== null) {
+        // Always prefetch lyrics when a new track starts
         fetchLyrics();
-      } else if (trackId === null) {
+      } else {
         reset();
       }
     }

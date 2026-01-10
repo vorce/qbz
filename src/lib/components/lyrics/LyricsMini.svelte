@@ -87,16 +87,10 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(160deg, rgba(69, 46, 26, 0.95), rgba(30, 20, 12, 0.98));
+    background: var(--bg-secondary);
     color: var(--text-primary);
-    border-radius: 18px;
+    border-radius: 12px;
     overflow: hidden;
-    --lyrics-font-size: 16px;
-    --lyrics-active-size: 22px;
-    --lyrics-line-gap: 12px;
-    --lyrics-line-height: 1.4;
-    --lyrics-dimmed-opacity: 0.35;
-    --lyrics-highlight-muted: rgba(255, 255, 255, 0.22);
   }
 
   .lyrics-mini-body {
@@ -116,9 +110,8 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px 16px;
-    background: rgba(0, 0, 0, 0.35);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
+    background: var(--bg-primary);
+    border-top: 1px solid var(--bg-tertiary);
   }
 
   .track-info {
@@ -131,9 +124,9 @@
   .artwork {
     width: 44px;
     height: 44px;
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--bg-tertiary);
     display: grid;
     place-items: center;
   }
@@ -147,8 +140,8 @@
   .artwork-placeholder {
     width: 60%;
     height: 60%;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    background: var(--bg-secondary);
   }
 
   .meta {
@@ -161,11 +154,12 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--text-primary);
   }
 
   .track-artist {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -183,15 +177,16 @@
     display: grid;
     place-items: center;
     border: none;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: var(--bg-tertiary);
     color: var(--text-primary);
     cursor: pointer;
-    transition: background 160ms ease, transform 160ms ease, opacity 160ms ease;
+    transition: background 150ms ease, transform 150ms ease, opacity 150ms ease;
   }
 
   .control-btn.primary {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--accent-primary);
+    color: white;
   }
 
   .control-btn:disabled {
@@ -200,7 +195,11 @@
   }
 
   .control-btn:not(:disabled):hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--bg-tertiary);
     transform: translateY(-1px);
+  }
+
+  .control-btn.primary:not(:disabled):hover {
+    filter: brightness(1.1);
   }
 </style>

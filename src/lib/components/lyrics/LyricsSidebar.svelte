@@ -9,7 +9,6 @@
   interface Props {
     title?: string;
     artist?: string;
-    provider?: string;
     lines: LyricsLine[];
     activeIndex?: number;
     activeProgress?: number;
@@ -20,7 +19,6 @@
   let {
     title = '',
     artist = '',
-    provider,
     lines,
     activeIndex = -1,
     activeProgress = 0,
@@ -29,7 +27,7 @@
   }: Props = $props();
 </script>
 
-  <aside class="lyrics-sidebar">
+<aside class="lyrics-sidebar">
   <div class="header">
     <div class="header-icon">
       <Mic2 size={18} />
@@ -37,17 +35,17 @@
     <div class="header-text">
       <div class="header-title">Lyrics</div>
       {#if title || artist}
-      <div class="header-meta">{title}{title && artist ? ' - ' : ''}{artist}</div>
+        <div class="header-meta">{title}{title && artist ? ' - ' : ''}{artist}</div>
       {/if}
     </div>
-    {#if provider}
-      <div class="header-provider">{provider}</div>
-    {/if}
   </div>
 
   <div class="panel">
     {#if isLoading}
-      <div class="state">Loading lyrics...</div>
+      <div class="state">
+        <div class="loading-spinner"></div>
+        <span>Loading lyrics...</span>
+      </div>
     {:else if error}
       <div class="state error">{error}</div>
     {:else}
@@ -64,39 +62,32 @@
 
 <style>
   .lyrics-sidebar {
-    width: var(--lyrics-sidebar-width, 320px);
-    min-width: var(--lyrics-sidebar-width, 320px);
+    width: 340px;
+    min-width: 340px;
     height: calc(100vh - 80px);
     display: flex;
     flex-direction: column;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-    background: linear-gradient(160deg, rgba(52, 38, 26, 0.92), rgba(22, 17, 12, 0.95));
+    border-left: 1px solid var(--bg-tertiary);
+    background: var(--bg-secondary);
     color: var(--text-primary);
-    backdrop-filter: blur(14px);
-    --lyrics-font-size: 15px;
-    --lyrics-active-size: 20px;
-    --lyrics-line-gap: 12px;
-    --lyrics-line-height: 1.5;
-    --lyrics-dimmed-opacity: 0.35;
-    --lyrics-highlight-muted: rgba(255, 255, 255, 0.22);
-    --lyrics-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
   }
 
   .header {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 18px 16px 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 16px;
+    border-bottom: 1px solid var(--bg-tertiary);
+    background: var(--bg-primary);
   }
 
   .header-icon {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     display: grid;
     place-items: center;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
     color: var(--accent-primary);
   }
 
@@ -106,10 +97,10 @@
   }
 
   .header-title {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.1em;
     color: var(--text-muted);
   }
 
@@ -119,31 +110,43 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .header-provider {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 4px 8px;
-    border-radius: 999px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    margin-top: 2px;
   }
 
   .panel {
     flex: 1;
+    overflow: hidden;
     position: relative;
   }
 
   .state {
-    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 16px;
     font-size: 14px;
     color: var(--text-muted);
+    height: 100%;
   }
 
   .state.error {
-    color: #f4a1a1;
+    color: var(--error, #e57373);
+  }
+
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--bg-tertiary);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>

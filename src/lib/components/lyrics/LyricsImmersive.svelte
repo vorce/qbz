@@ -13,7 +13,6 @@
     title?: string;
     artist?: string;
     artwork?: string;
-    backgroundUrl?: string;
   }
 
   let {
@@ -23,22 +22,17 @@
     align = 'center',
     title = '',
     artist = '',
-    artwork,
-    backgroundUrl
+    artwork
   }: Props = $props();
 
   const isCenter = $derived(align === 'center');
   const hasArtwork = $derived(!!artwork);
-  const backgroundStyle = $derived(
-    backgroundUrl ? `--lyrics-artwork-bg: url('${backgroundUrl}')` : undefined
-  );
 </script>
 
 <section
   class="lyrics-immersive"
   class:center={isCenter}
   class:no-artwork={!hasArtwork}
-  style={backgroundStyle}
 >
   {#if hasArtwork}
     <div class="artwork-pane">
@@ -75,18 +69,7 @@
     width: 100%;
     padding: 48px;
     color: var(--text-primary);
-    background-image:
-      radial-gradient(circle at top right, rgba(148, 92, 48, 0.35), transparent 55%),
-      linear-gradient(120deg, rgba(12, 10, 9, 0.92), rgba(44, 30, 20, 0.9)),
-      var(--lyrics-artwork-bg, none);
-    background-size: cover;
-    background-position: center;
-    --lyrics-font-size: 20px;
-    --lyrics-active-size: 28px;
-    --lyrics-line-gap: 18px;
-    --lyrics-line-height: 1.5;
-    --lyrics-dimmed-opacity: 0.38;
-    --lyrics-highlight-muted: rgba(255, 255, 255, 0.2);
+    background: var(--bg-primary);
   }
 
   .lyrics-immersive.no-artwork {
@@ -106,10 +89,10 @@
   .artwork-frame {
     width: min(420px, 100%);
     aspect-ratio: 1 / 1;
-    border-radius: 18px;
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--bg-tertiary);
   }
 
   .artwork-frame img {
@@ -129,9 +112,9 @@
   }
 
   .title {
-    font-size: 14px;
+    font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.1em;
     color: var(--text-muted);
   }
 

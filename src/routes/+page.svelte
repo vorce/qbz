@@ -251,7 +251,6 @@
   let lyricsActiveIndex = $state(-1);
   let lyricsActiveProgress = $state(0);
   let lyricsSidebarVisible = $state(false);
-  let lyricsProvider = $state<string | undefined>(undefined);
 
   // Navigation wrapper (keeps debug logging)
   function navigateTo(view: string) {
@@ -900,7 +899,6 @@
       lyricsActiveIndex = state.activeIndex;
       lyricsActiveProgress = state.activeProgress;
       lyricsSidebarVisible = state.sidebarVisible;
-      lyricsProvider = state.payload?.provider;
     });
 
     // Start lyrics watcher for track changes
@@ -1100,7 +1098,6 @@
       <LyricsSidebar
         title={currentTrack?.title}
         artist={currentTrack?.artist}
-        provider={lyricsProvider}
         lines={lyricsLines.map(l => ({ text: l.text }))}
         activeIndex={lyricsActiveIndex}
         activeProgress={lyricsActiveProgress}
