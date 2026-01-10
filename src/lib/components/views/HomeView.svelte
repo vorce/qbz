@@ -181,7 +181,8 @@
     error = null;
 
     try {
-      const seeds = await invoke<HomeSeeds>('reco_get_home', {
+      // Use ML-based scoring (falls back to simple queries if no scores)
+      const seeds = await invoke<HomeSeeds>('reco_get_home_ml', {
         limitRecentAlbums: LIMITS.recentAlbums,
         limitContinueTracks: LIMITS.continueTracks,
         limitTopArtists: LIMITS.topArtists,
