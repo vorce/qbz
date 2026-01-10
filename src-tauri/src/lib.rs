@@ -10,6 +10,7 @@ pub mod commands;
 pub mod config;
 pub mod credentials;
 pub mod discogs;
+pub mod download_cache;
 pub mod lastfm;
 pub mod library;
 pub mod media_controls;
@@ -99,6 +100,10 @@ pub fn run() {
     let cast_state = cast::CastState::new()
         .expect("Failed to initialize casting state");
 
+    // Initialize download cache state
+    let download_cache_state = download_cache::DownloadCacheState::new()
+        .expect("Failed to initialize download cache");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -106,6 +111,7 @@ pub fn run() {
         .manage(AppState::new())
         .manage(library_state)
         .manage(cast_state)
+        .manage(download_cache_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -230,6 +236,17 @@ pub fn run() {
             cast::commands::cast_stop,
             cast::commands::cast_seek,
             cast::commands::cast_set_volume,
+            // Download cache commands
+            download_cache::commands::download_track,
+            download_cache::commands::is_track_downloaded,
+            download_cache::commands::get_downloaded_track_path,
+            download_cache::commands::get_downloaded_track,
+            download_cache::commands::get_downloaded_tracks,
+            download_cache::commands::get_download_cache_stats,
+            download_cache::commands::remove_downloaded_track,
+            download_cache::commands::clear_download_cache,
+            download_cache::commands::set_download_cache_limit,
+            download_cache::commands::open_download_cache_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

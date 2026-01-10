@@ -7,20 +7,55 @@ use tokio::sync::Mutex;
 use crate::api::client::QobuzClient;
 use crate::api::models::Quality;
 use crate::cache::AudioCache;
+use crate::download_cache::DownloadCacheState;
 use crate::player::PlaybackState;
 use crate::queue::QueueManager;
 use crate::AppState;
 
 /// Play a track by ID (with caching support)
 #[tauri::command]
-pub async fn play_track(track_id: u64, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn play_track(
+    track_id: u64,
+    state: State<'_, AppState>,
+    download_cache: State<'_, DownloadCacheState>,
+) -> Result<(), String> {
     log::info!("Command: play_track {}", track_id);
+
+    // First check download cache (persistent disk cache)
+    {
+        let db = download_cache.db.lock().await;
+        if let Ok(Some(file_path)) = db.get_file_path(track_id) {
+            let path = std::path::Path::new(&file_path);
+            if path.exists() {
+                log::info!("Playing track {} from download cache: {:?}", track_id, path);
+
+                // Update last accessed time
+                let _ = db.touch(track_id);
+                drop(db);  // Release lock before reading file
+
+                // Read file and play
+                let audio_data = std::fs::read(path)
+                    .map_err(|e| format!("Failed to read cached file: {}", e))?;
+
+                state.player.play_data(audio_data, track_id)?;
+
+                // Prefetch next track in background
+                spawn_prefetch(
+                    state.client.clone(),
+                    state.audio_cache.clone(),
+                    &state.queue,
+                );
+
+                return Ok(());
+            }
+        }
+    }
 
     let cache = state.audio_cache.clone();
 
-    // Check if track is in cache
+    // Check if track is in memory cache
     if let Some(cached) = cache.get(track_id) {
-        log::info!("Playing track {} from cache ({} bytes)", track_id, cached.size_bytes);
+        log::info!("Playing track {} from memory cache ({} bytes)", track_id, cached.size_bytes);
         state.player.play_data(cached.data, track_id)?;
 
         // Prefetch next track in background
@@ -33,8 +68,8 @@ pub async fn play_track(track_id: u64, state: State<'_, AppState>) -> Result<(),
         return Ok(());
     }
 
-    // Not in cache - download and cache
-    log::info!("Track {} not in cache, downloading...", track_id);
+    // Not in any cache - download and cache in memory
+    log::info!("Track {} not in cache, streaming...", track_id);
 
     let client = state.client.lock().await;
 
