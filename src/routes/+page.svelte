@@ -44,6 +44,15 @@
     type UIState
   } from '$lib/stores/uiStore';
 
+  // Auth state management
+  import {
+    subscribe as subscribeAuth,
+    setLoggedIn,
+    setLoggedOut,
+    getAuthState,
+    type UserInfo
+  } from '$lib/stores/authStore';
+
   // Components
   import Sidebar from '$lib/components/Sidebar.svelte';
   import NowPlayingBar from '$lib/components/NowPlayingBar.svelte';
@@ -219,9 +228,9 @@
     samplingRate?: number;
   }
 
-  // Auth State
+  // Auth State (from authStore subscription)
   let isLoggedIn = $state(false);
-  let userInfo = $state<{ userName: string; subscription: string } | null>(null);
+  let userInfo = $state<UserInfo | null>(null);
 
   // View State
   type ViewType = 'home' | 'search' | 'library' | 'settings' | 'album' | 'artist' | 'playlist' | 'favorites';
@@ -1340,9 +1349,8 @@
   }
 
   // Auth Handlers
-  function handleLoginSuccess(info: { userName: string; subscription: string }) {
-    isLoggedIn = true;
-    userInfo = info;
+  function handleLoginSuccess(info: UserInfo) {
+    setLoggedIn(info);
     showToast(`Welcome, ${info.userName}!`, 'success');
   }
 
@@ -1357,8 +1365,7 @@
         console.error('Failed to clear credentials:', clearErr);
         // Don't block logout if clearing fails
       }
-      isLoggedIn = false;
-      userInfo = null;
+      setLoggedOut();
       currentTrack = null;
       isPlaying = false;
       showToast('Logged out successfully', 'info');
@@ -1530,6 +1537,13 @@
       playlistModalTrackIds = uiState.playlistModalTrackIds;
     });
 
+    // Subscribe to auth state changes
+    const unsubscribeAuth = subscribeAuth(() => {
+      const authState = getAuthState();
+      isLoggedIn = authState.isLoggedIn;
+      userInfo = authState.userInfo;
+    });
+
     // Restore Last.fm session on app startup
     (async () => {
       try {
@@ -1562,6 +1576,7 @@
       unsubscribeDownloads();
       unsubscribeToast();
       unsubscribeUI();
+      unsubscribeAuth();
     };
   });
 
