@@ -24,6 +24,7 @@
   import FullScreenNowPlaying from '$lib/components/FullScreenNowPlaying.svelte';
   import FocusMode from '$lib/components/FocusMode.svelte';
   import PlaylistModal from '$lib/components/PlaylistModal.svelte';
+  import CastPicker from '$lib/components/CastPicker.svelte';
 
   // Types
   interface QobuzTrack {
@@ -194,6 +195,7 @@
   let isQueueOpen = $state(false);
   let isFullScreenOpen = $state(false);
   let isFocusModeOpen = $state(false);
+  let isCastPickerOpen = $state(false);
 
   // Playlist Modal State
   let isPlaylistModalOpen = $state(false);
@@ -1529,13 +1531,13 @@
         onToggleFavorite={toggleFavorite}
         onOpenQueue={() => (isQueueOpen = true)}
         onOpenFullScreen={() => (isFullScreenOpen = true)}
-        onCast={() => showToast('Casting coming soon', 'info')}
+        onCast={() => (isCastPickerOpen = true)}
       />
     {:else}
       <NowPlayingBar
         onOpenQueue={() => (isQueueOpen = true)}
         onOpenFullScreen={() => (isFullScreenOpen = true)}
-        onCast={() => showToast('Casting coming soon', 'info')}
+        onCast={() => (isCastPickerOpen = true)}
       />
     {/if}
 
@@ -1586,7 +1588,7 @@
           isFullScreenOpen = false;
           isFocusModeOpen = true;
         }}
-        onCast={() => showToast('Casting coming soon', 'info')}
+        onCast={() => (isCastPickerOpen = true)}
       />
     {/if}
 
@@ -1623,6 +1625,15 @@
       {userPlaylists}
       onClose={() => (isPlaylistModalOpen = false)}
       onSuccess={handlePlaylistCreated}
+    />
+
+    <!-- Cast Picker -->
+    <CastPicker
+      isOpen={isCastPickerOpen}
+      onClose={() => (isCastPickerOpen = false)}
+      onConnect={(deviceId) => {
+        showToast(`Connected to device`, 'success');
+      }}
     />
   </div>
 {/if}
