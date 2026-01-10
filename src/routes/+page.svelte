@@ -125,14 +125,31 @@
   // Services
   import {
     playTrack,
-    setToastCallback,
+    setToastCallback as setPlaybackToastCallback,
     checkTrackFavorite,
     toggleTrackFavorite,
-    addTrackToFavorites,
-    showTrackNotification,
-    updateLastfmNowPlaying,
     cleanup as cleanupPlayback
   } from '$lib/services/playbackService';
+
+  import {
+    setToastCallback as setTrackActionsToastCallback,
+    queueTrackNext,
+    queueTrackLater,
+    buildQueueTrackFromQobuz,
+    buildQueueTrackFromAlbumTrack,
+    buildQueueTrackFromPlaylistTrack,
+    buildQueueTrackFromLocalTrack,
+    queueQobuzTrackNext,
+    queueQobuzTrackLater,
+    queuePlaylistTrackNext,
+    queuePlaylistTrackLater,
+    queueLocalTrackNext,
+    queueLocalTrackLater,
+    handleAddToFavorites,
+    addToPlaylist,
+    shareQobuzTrackLink,
+    shareSonglinkTrack
+  } from '$lib/services/trackActions';
 
   // Components
   import Sidebar from '$lib/components/Sidebar.svelte';
@@ -322,115 +339,14 @@
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
-  async function copyToClipboard(text: string, successMessage: string) {
-    try {
-      await writeText(text);
-      showToast(successMessage, 'success');
-    } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
-      showToast('Failed to copy link', 'error');
-    }
-  }
-
-  function buildQueueTrackFromQobuz(track: QobuzTrack): BackendQueueTrack {
-    const artwork = track.album?.image?.large || track.album?.image?.thumbnail || track.album?.image?.small || '';
-    return {
-      id: track.id,
-      title: track.title,
-      artist: track.performer?.name || 'Unknown Artist',
-      album: track.album?.title || '',
-      duration_secs: track.duration,
-      artwork_url: artwork || null
-    };
-  }
-
-  function buildQueueTrackFromAlbumTrack(track: Track): BackendQueueTrack {
-    const artwork = selectedAlbum?.artwork || '';
-    return {
-      id: track.id,
-      title: track.title,
-      artist: track.artist || selectedAlbum?.artist || 'Unknown Artist',
-      album: selectedAlbum?.title || '',
-      duration_secs: track.durationSeconds,
-      artwork_url: artwork || null
-    };
-  }
-
-  function buildQueueTrackFromDisplayTrack(track: PlaylistTrack): BackendQueueTrack {
-    return {
-      id: track.id,
-      title: track.title,
-      artist: track.artist || 'Unknown Artist',
-      album: track.album || 'Playlist',
-      duration_secs: track.durationSeconds,
-      artwork_url: track.albumArt || null
-    };
-  }
-
-  function buildQueueTrackFromLocalTrack(track: LocalLibraryTrack): BackendQueueTrack {
-    const artwork = track.artwork_path ? `asset://localhost/${encodeURIComponent(track.artwork_path)}` : null;
-    return {
-      id: track.id,
-      title: track.title,
-      artist: track.artist,
-      album: track.album,
-      duration_secs: track.duration_secs,
-      artwork_url: artwork
-    };
-  }
-
-  async function queueTrackNext(queueTrack: BackendQueueTrack, isLocal = false) {
-    const success = await addToQueueNext(queueTrack, isLocal);
-    if (success) {
-      showToast('Queued to play next', 'success');
-    } else {
-      showToast('Failed to queue track', 'error');
-    }
-  }
-
-  async function queueTrackLater(queueTrack: BackendQueueTrack, isLocal = false) {
-    const success = await addToQueue(queueTrack, isLocal);
-    if (success) {
-      showToast('Added to queue', 'success');
-    } else {
-      showToast('Failed to add to queue', 'error');
-    }
-  }
-
-  async function handleAddTrackToFavorites(trackId: number) {
-    const success = await addTrackToFavorites(trackId);
-    if (success) {
-      showToast('Added to favorites', 'success');
-    } else {
-      showToast('Failed to add to favorites', 'error');
-    }
-  }
-
-  async function shareQobuzTrackLink(trackId: number) {
-    try {
-      const url = await invoke<string>('get_qobuz_track_url', { trackId });
-      await copyToClipboard(url, 'Qobuz link copied');
-    } catch (err) {
-      console.error('Failed to get Qobuz link:', err);
-      showToast(`Failed to share Qobuz link: ${err}`, 'error');
-    }
-  }
-
-  async function shareSonglinkTrack(trackId: number, isrc?: string) {
-    const qobuzUrl = `https://www.qobuz.com/track/${trackId}`;
-    const resolvedIsrc = isrc?.trim();
-    try {
-      showToast('Fetching Song.link...', 'info');
-      const response = await invoke<SongLinkResponse>('share_track_songlink', {
-        isrc: resolvedIsrc?.length ? resolvedIsrc : null,
-        url: qobuzUrl,
-        trackId
-      });
-      await copyToClipboard(response.pageUrl, 'Song.link copied');
-    } catch (err) {
-      console.error('Failed to get Song.link:', err);
-      showToast(`Song.link error: ${err}`, 'error');
-    }
+  // Album-specific queue track builder (needs selectedAlbum context)
+  function buildAlbumQueueTrack(track: Track): BackendQueueTrack {
+    return buildQueueTrackFromAlbumTrack(
+      track,
+      selectedAlbum?.artwork || '',
+      selectedAlbum?.artist || 'Unknown Artist',
+      selectedAlbum?.title || ''
+    );
   }
 
   // Playback Functions
@@ -810,20 +726,12 @@
     }
   }
 
-  function handleQobuzTrackPlayNext(track: QobuzTrack) {
-    queueTrackNext(buildQueueTrackFromQobuz(track));
-  }
-
-  function handleQobuzTrackPlayLater(track: QobuzTrack) {
-    queueTrackLater(buildQueueTrackFromQobuz(track));
-  }
-
   function handleAlbumTrackPlayNext(track: Track) {
-    queueTrackNext(buildQueueTrackFromAlbumTrack(track));
+    queueTrackNext(buildAlbumQueueTrack(track));
   }
 
   function handleAlbumTrackPlayLater(track: Track) {
-    queueTrackLater(buildQueueTrackFromAlbumTrack(track));
+    queueTrackLater(buildAlbumQueueTrack(track));
   }
 
   // Download handlers
@@ -918,22 +826,6 @@
       console.error('Failed to start download:', err);
       showToast('Failed to start download', 'error');
     }
-  }
-
-  function handleDisplayTrackPlayNext(track: PlaylistTrack) {
-    queueTrackNext(buildQueueTrackFromDisplayTrack(track));
-  }
-
-  function handleDisplayTrackPlayLater(track: PlaylistTrack) {
-    queueTrackLater(buildQueueTrackFromDisplayTrack(track));
-  }
-
-  function handleLocalTrackPlayNext(track: LocalLibraryTrack) {
-    queueTrackNext(buildQueueTrackFromLocalTrack(track), true);
-  }
-
-  function handleLocalTrackPlayLater(track: LocalLibraryTrack) {
-    queueTrackLater(buildQueueTrackFromLocalTrack(track), true);
   }
 
   async function handlePlaylistTrackPlay(track: PlaylistTrack) {
@@ -1114,8 +1006,9 @@
     initDownloadStates();
     startDownloadEventListeners();
 
-    // Set up playback service toast callback
-    setToastCallback(showToast);
+    // Set up service toast callbacks
+    setPlaybackToastCallback(showToast);
+    setTrackActionsToastCallback(showToast);
 
     // Subscribe to download state changes to trigger reactivity
     const unsubscribeDownloads = subscribeDownloads(() => {
@@ -1269,9 +1162,9 @@
         <SearchView
           onAlbumClick={handleAlbumClick}
           onTrackPlay={handleTrackPlay}
-          onTrackPlayNext={handleQobuzTrackPlayNext}
-          onTrackPlayLater={handleQobuzTrackPlayLater}
-          onTrackAddFavorite={handleAddTrackToFavorites}
+          onTrackPlayNext={queueQobuzTrackNext}
+          onTrackPlayLater={queueQobuzTrackLater}
+          onTrackAddFavorite={handleAddToFavorites}
           onTrackAddToPlaylist={(trackId) => openAddToPlaylist([trackId])}
           onTrackShareQobuz={shareQobuzTrackLink}
           onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
@@ -1294,7 +1187,7 @@
           onTrackPlay={handleAlbumTrackPlay}
           onTrackPlayNext={handleAlbumTrackPlayNext}
           onTrackPlayLater={handleAlbumTrackPlayLater}
-          onTrackAddFavorite={handleAddTrackToFavorites}
+          onTrackAddFavorite={handleAddToFavorites}
           onTrackShareQobuz={shareQobuzTrackLink}
           onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
           onTrackGoToAlbum={handleAlbumClick}
@@ -1315,9 +1208,9 @@
           onBack={goBack}
           onAlbumClick={handleAlbumClick}
           onTrackPlay={handlePlaylistTrackPlay}
-          onTrackPlayNext={handleQobuzTrackPlayNext}
-          onTrackPlayLater={handleQobuzTrackPlayLater}
-          onTrackAddFavorite={handleAddTrackToFavorites}
+          onTrackPlayNext={queueQobuzTrackNext}
+          onTrackPlayLater={queueQobuzTrackLater}
+          onTrackAddFavorite={handleAddToFavorites}
           onTrackAddToPlaylist={(trackId) => openAddToPlaylist([trackId])}
           onTrackShareQobuz={shareQobuzTrackLink}
           onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
@@ -1327,8 +1220,8 @@
       {:else if activeView === 'library'}
         <LocalLibraryView
           onTrackPlay={handleLocalTrackPlay}
-          onTrackPlayNext={handleLocalTrackPlayNext}
-          onTrackPlayLater={handleLocalTrackPlayLater}
+          onTrackPlayNext={queueLocalTrackNext}
+          onTrackPlayLater={queueLocalTrackLater}
           onSetLocalQueue={handleSetLocalQueue}
         />
       {:else if activeView === 'playlist' && selectedPlaylistId}
@@ -1336,9 +1229,9 @@
           playlistId={selectedPlaylistId}
           onBack={goBack}
           onTrackPlay={handlePlaylistTrackPlay}
-          onTrackPlayNext={handleDisplayTrackPlayNext}
-          onTrackPlayLater={handleDisplayTrackPlayLater}
-          onTrackAddFavorite={handleAddTrackToFavorites}
+          onTrackPlayNext={queuePlaylistTrackNext}
+          onTrackPlayLater={queuePlaylistTrackLater}
+          onTrackAddFavorite={handleAddToFavorites}
           onTrackAddToPlaylist={(trackId) => openAddToPlaylist([trackId])}
           onTrackShareQobuz={shareQobuzTrackLink}
           onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
@@ -1349,17 +1242,17 @@
           getTrackDownloadStatus={getTrackDownloadStatus}
           {downloadStateVersion}
           onLocalTrackPlay={handleLocalTrackPlay}
-          onLocalTrackPlayNext={handleLocalTrackPlayNext}
-          onLocalTrackPlayLater={handleLocalTrackPlayLater}
+          onLocalTrackPlayNext={queueLocalTrackNext}
+          onLocalTrackPlayLater={queueLocalTrackLater}
         />
       {:else if activeView === 'favorites'}
         <FavoritesView
           onAlbumClick={handleAlbumClick}
           onTrackPlay={handlePlaylistTrackPlay}
           onArtistClick={handleArtistClick}
-          onTrackPlayNext={handleDisplayTrackPlayNext}
-          onTrackPlayLater={handleDisplayTrackPlayLater}
-          onTrackAddFavorite={handleAddTrackToFavorites}
+          onTrackPlayNext={queuePlaylistTrackNext}
+          onTrackPlayLater={queuePlaylistTrackLater}
+          onTrackAddFavorite={handleAddToFavorites}
           onTrackAddToPlaylist={(trackId) => openAddToPlaylist([trackId])}
           onTrackShareQobuz={shareQobuzTrackLink}
           onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
