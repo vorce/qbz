@@ -106,7 +106,7 @@ fn has_fallback_credentials() -> bool {
     get_fallback_path().map(|p| p.exists()).unwrap_or(false)
 }
 
-/// Save Qobuz credentials - tries keyring first, then fallback
+/// Save Qobuz credentials - saves to both file (primary) and keyring (secondary)
 pub fn save_qobuz_credentials(email: &str, password: &str) -> Result<(), String> {
     log::info!("Attempting to save credentials for: {}", email);
 
@@ -115,40 +115,20 @@ pub fn save_qobuz_credentials(email: &str, password: &str) -> Result<(), String>
         password: password.to_string(),
     };
 
-    // Try keyring first
-    match Entry::new(SERVICE_NAME, QOBUZ_CREDENTIALS_KEY) {
-        Ok(entry) => {
-            let json = serde_json::to_string(&credentials)
-                .map_err(|e| format!("Failed to serialize credentials: {}", e))?;
+    // Always save to file first (more reliable, especially in dev)
+    save_to_fallback(&credentials)?;
 
-            match entry.set_password(&json) {
-                Ok(()) => {
-                    log::info!("Qobuz credentials saved to system keyring");
-
-                    // Verify the save worked by reading it back
-                    match entry.get_password() {
-                        Ok(_) => {
-                            log::info!("Verified: credentials readable from keyring");
-                            return Ok(());
-                        }
-                        Err(e) => {
-                            log::error!("Keyring save appeared to succeed but verification failed: {}", e);
-                            log::warn!("Falling back to file storage...");
-                        }
-                    }
-                }
-                Err(e) => {
-                    log::warn!("Keyring save failed ({}), trying fallback...", e);
-                }
-            }
-        }
-        Err(e) => {
-            log::warn!("Keyring not available ({}), using fallback...", e);
+    // Also try keyring as secondary (nice to have for desktop integration)
+    if let Ok(entry) = Entry::new(SERVICE_NAME, QOBUZ_CREDENTIALS_KEY) {
+        let json = serde_json::to_string(&credentials).unwrap_or_default();
+        if let Err(e) = entry.set_password(&json) {
+            log::debug!("Keyring save failed (not critical): {}", e);
+        } else {
+            log::debug!("Also saved to keyring");
         }
     }
 
-    // Fallback to file
-    save_to_fallback(&credentials)
+    Ok(())
 }
 
 /// Load Qobuz credentials - tries keyring first, then fallback

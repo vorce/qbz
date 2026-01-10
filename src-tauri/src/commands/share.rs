@@ -32,6 +32,10 @@ pub async fn share_track_songlink(
     let isrc = isrc.unwrap_or_default().trim().to_string();
     let url = url.unwrap_or_default().trim().to_string();
 
+    if let Some(songlink) = resolve_songlink_from_itunes(&isrc, track_id, &state).await {
+        return Ok(songlink);
+    }
+
     if !isrc.is_empty() {
         log::info!("Command: share_track_songlink ISRC={}", isrc);
         match state.songlink.get_by_isrc(&isrc).await {
@@ -46,46 +50,30 @@ pub async fn share_track_songlink(
     }
 
     if url.is_empty() {
-        if let Some(track_id) = track_id {
-            if let Some(itunes_url) = resolve_itunes_url(track_id, &isrc, &state).await {
-                return match state.songlink.get_by_url(&itunes_url, ContentType::Track).await {
-                    Ok(result) => Ok(result),
-                    Err(err) => {
-                        log::warn!("iTunes URL lookup failed: {}", err);
-                        if let Some(fallback) = songlink_from_itunes_url(&itunes_url) {
-                            return Ok(fallback);
-                        }
-                        Err(err.to_string())
-                    }
-                };
-            }
-        }
-
         return Err(ShareError::MissingIdentifier.to_string());
     }
 
     log::info!("Command: share_track_songlink URL={}", url);
-    match state.songlink.get_by_url(&url, ContentType::Track).await {
-        Ok(result) => Ok(result),
-        Err(err) => {
-            log::warn!("URL lookup failed: {}", err);
-            if let Some(track_id) = track_id {
-                if let Some(itunes_url) = resolve_itunes_url(track_id, &isrc, &state).await {
-                    return match state.songlink.get_by_url(&itunes_url, ContentType::Track).await {
-                        Ok(result) => Ok(result),
-                        Err(itunes_err) => {
-                            log::warn!("iTunes URL lookup failed: {}", itunes_err);
-                            if let Some(fallback) = songlink_from_itunes_url(&itunes_url) {
-                                return Ok(fallback);
-                            }
-                            Err(itunes_err.to_string())
-                        }
-                    };
-                }
-            }
-            Err(err.to_string())
-        }
+    state
+        .songlink
+        .get_by_url(&url, ContentType::Track)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn resolve_songlink_from_itunes(
+    isrc: &str,
+    track_id: Option<u64>,
+    state: &State<'_, AppState>,
+) -> Option<SongLinkResponse> {
+    if let Some(url) = lookup_itunes_by_isrc(isrc).await {
+        return songlink_from_itunes_url(&url);
     }
+
+    let track_id = track_id?;
+    let (title, artist) = fetch_track_metadata(track_id, state).await?;
+    let url = search_itunes_by_term(&title, &artist).await?;
+    songlink_from_itunes_url(&url)
 }
 
 fn songlink_from_itunes_url(itunes_url: &str) -> Option<SongLinkResponse> {
@@ -113,23 +101,6 @@ fn extract_itunes_track_id(itunes_url: &str) -> Option<String> {
         }
     }
     None
-}
-
-async fn resolve_itunes_url(
-    track_id: u64,
-    isrc: &str,
-    state: &State<'_, AppState>,
-) -> Option<String> {
-    if let Some(url) = lookup_itunes_by_isrc(isrc).await {
-        return Some(url);
-    }
-
-    let (title, artist) = match fetch_track_metadata(track_id, state).await {
-        Some(meta) => meta,
-        None => return None,
-    };
-
-    search_itunes_by_term(&title, &artist).await
 }
 
 async fn fetch_track_metadata(
