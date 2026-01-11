@@ -285,8 +285,8 @@
 
   .artwork {
     flex-shrink: 0;
-    width: 280px;
-    height: 280px;
+    width: 224px;
+    height: 224px;
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -306,7 +306,7 @@
   }
 
   .album-title {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 4px;
@@ -355,7 +355,7 @@
   .play-btn {
     height: 40px;
     padding: 0 24px;
-    border-radius: 20px;
+    border-radius: 8px;
     border: none;
     display: flex;
     align-items: center;
@@ -373,7 +373,7 @@
   .secondary-btn {
     height: 40px;
     padding: 0 24px;
-    border-radius: 20px;
+    border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.3);
     background: transparent;
     display: flex;

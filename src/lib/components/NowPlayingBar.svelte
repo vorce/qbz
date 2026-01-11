@@ -527,7 +527,7 @@
     background: rgba(255, 255, 255, 0.04);
     border-radius: 8px;
     max-width: 700px;
-    min-width: 640px;
+    min-width: 580px;
   }
 
   .artwork-container {
@@ -624,7 +624,6 @@
     font-size: 11px;
     cursor: pointer;
     transition: color 150ms ease;
-    max-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

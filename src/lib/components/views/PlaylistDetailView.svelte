@@ -736,8 +736,8 @@
   }
 
   .artwork {
-    width: 232px;
-    height: 232px;
+    width: 186px;
+    height: 186px;
     position: relative;
     border-radius: 8px;
     overflow: hidden;
@@ -869,7 +869,7 @@
     background-color: var(--accent-primary);
     color: white;
     border: none;
-    border-radius: 24px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -884,7 +884,7 @@
     background-color: transparent;
     color: var(--text-primary);
     border: 1px solid var(--text-muted);
-    border-radius: 24px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;

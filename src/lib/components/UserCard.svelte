@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Settings, LogOut, ChevronDown, ChevronUp } from 'lucide-svelte';
+  import { Settings } from 'lucide-svelte';
 
   interface Props {
     username: string;
@@ -9,73 +9,37 @@
     onLogout?: () => void;
   }
 
-  let { username, subscription, avatarUrl, onSettingsClick, onLogout }: Props = $props();
-
-  let isCollapsed = $state(false);
+  let { username, subscription, avatarUrl, onSettingsClick }: Props = $props();
 </script>
 
-{#if isCollapsed}
-  <!-- Collapsed view -->
-  <button class="collapsed-card" onclick={() => isCollapsed = false}>
-    <div class="mini-logo">Q</div>
-    <span class="collapsed-username">{username}</span>
-    <ChevronDown size={12} />
-  </button>
-{:else}
-  <!-- Expanded view -->
-  <div class="user-card">
-    <!-- Avatar -->
-    <div class="avatar">
-      {#if avatarUrl}
-        <img src={avatarUrl} alt={username} />
-      {:else}
-        {username.charAt(0).toUpperCase()}
-      {/if}
-    </div>
-
-    <!-- User Info -->
-    <div class="user-info">
-      <div class="username">{username}</div>
-      <div class="subscription">{subscription}</div>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="action-buttons">
-      <button
-        class="action-btn"
-        onclick={(e) => {
-          e.stopPropagation();
-          onSettingsClick();
-        }}
-        title="Settings"
-      >
-        <Settings size={14} />
-      </button>
-      {#if onLogout}
-        <button
-          class="action-btn logout-btn"
-          onclick={(e) => {
-            e.stopPropagation();
-            onLogout();
-          }}
-          title="Logout"
-        >
-          <LogOut size={14} />
-        </button>
-      {/if}
-      <button
-        class="action-btn collapse-btn"
-        onclick={(e) => {
-          e.stopPropagation();
-          isCollapsed = true;
-        }}
-        title="Collapse"
-      >
-        <ChevronUp size={14} />
-      </button>
-    </div>
+<div class="user-card">
+  <!-- Avatar -->
+  <div class="avatar">
+    {#if avatarUrl}
+      <img src={avatarUrl} alt={username} />
+    {:else}
+      {username.charAt(0).toUpperCase()}
+    {/if}
   </div>
-{/if}
+
+  <!-- User Info -->
+  <div class="user-info">
+    <div class="username">{username}</div>
+    <div class="subscription">{subscription}</div>
+  </div>
+
+  <!-- Settings Button -->
+  <button
+    class="action-btn"
+    onclick={(e) => {
+      e.stopPropagation();
+      onSettingsClick();
+    }}
+    title="Settings"
+  >
+    <Settings size={14} />
+  </button>
+</div>
 
 <style>
   .user-card {
@@ -135,12 +99,6 @@
     white-space: nowrap;
   }
 
-  .action-buttons {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-
   .action-btn {
     width: 22px;
     height: 22px;
@@ -159,57 +117,5 @@
   .action-btn:hover {
     color: var(--text-primary);
     background-color: var(--bg-tertiary);
-  }
-
-  .logout-btn:hover {
-    color: #ff6b6b;
-  }
-
-  /* Collapsed state */
-  .collapsed-card {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: background-color 150ms ease;
-    color: var(--text-primary);
-  }
-
-  .collapsed-card:hover {
-    background-color: var(--bg-hover);
-  }
-
-  .mini-logo {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    background-color: var(--accent-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 700;
-    font-size: 10px;
-    flex-shrink: 0;
-  }
-
-  .collapsed-username {
-    flex: 1;
-    font-size: 12px;
-    font-weight: 500;
-    text-align: left;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .collapsed-card :global(svg) {
-    color: var(--text-muted);
-    flex-shrink: 0;
   }
 </style>
