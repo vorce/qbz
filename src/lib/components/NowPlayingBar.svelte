@@ -530,7 +530,7 @@
     background: none;
     border: none;
     padding: 0;
-    margin: 0;
+    margin: 2px 0 2px 2px;
     cursor: pointer;
     flex-shrink: 0;
     line-height: 0;
@@ -642,7 +642,7 @@
     align-items: flex-start;
     gap: 2px;
     align-self: flex-start;
-    margin-top: 2px;
+    margin: 2px 2px 0 0;
   }
 
   .empty-state {

@@ -260,6 +260,9 @@ impl Player {
             let mut current_sink: Option<Sink> = None;
             // Store audio data for seeking (we need to re-decode from the beginning)
             let mut current_audio_data: Option<Vec<u8>> = None;
+            // Track consecutive sink creation failures to detect broken streams
+            let mut consecutive_sink_failures: u32 = 0;
+            const MAX_SINK_FAILURES: u32 = 3;
 
             log::info!("Audio thread ready and waiting for commands");
 
@@ -279,8 +282,17 @@ impl Player {
 
                         // Create new sink
                         let sink = match Sink::try_new(&stream_handle) {
-                            Ok(s) => s,
+                            Ok(s) => {
+                                consecutive_sink_failures = 0; // Reset on success
+                                s
+                            }
                             Err(e) => {
+                                consecutive_sink_failures += 1;
+                                if consecutive_sink_failures >= MAX_SINK_FAILURES {
+                                    log::error!("Audio stream appears broken after {} failures. Stopping playback.", consecutive_sink_failures);
+                                    thread_state.is_playing.store(false, Ordering::SeqCst);
+                                    thread_state.set_current_device(None);
+                                }
                                 log::error!("Failed to create sink: {}", e);
                                 continue;
                             }
