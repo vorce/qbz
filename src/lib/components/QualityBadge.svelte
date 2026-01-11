@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { Disc, Music } from 'lucide-svelte';
-
   interface Props {
     quality?: string;
     bitDepth?: number;
@@ -76,25 +74,26 @@
     if (tier === 'lossy') return 'MP3';
     return 'CD';
   });
+
+  // Get icon path based on tier
+  const iconPath = $derived.by(() => {
+    if (tier === 'max' || tier === 'hires') return '/logo-hires.png';
+    if (tier === 'cd') return '/cd.svg';
+    if (tier === 'lossy') return '/mp3.svg';
+    return '/cd.svg';
+  });
+
+  const isHiRes = $derived(tier === 'max' || tier === 'hires');
 </script>
 
-<div class="quality-badge tier-{tier}">
+<div class="quality-badge">
   <!-- Icon -->
-  <div class="badge-icon">
-    {#if tier === 'max' || tier === 'hires'}
-      <!-- Hi-Res Audio Icon -->
-      <svg viewBox="0 0 24 24" fill="currentColor" class="hires-icon">
-        <rect x="2" y="6" width="4" height="12" rx="1" />
-        <rect x="8" y="3" width="4" height="18" rx="1" />
-        <rect x="14" y="8" width="4" height="8" rx="1" />
-        <rect x="20" y="5" width="2" height="14" rx="1" />
-      </svg>
-    {:else if tier === 'cd'}
-      <Disc size={14} />
-    {:else}
-      <Music size={14} />
-    {/if}
-  </div>
+  <img
+    src={iconPath}
+    alt={tierLabel}
+    class="badge-icon"
+    class:hires={isHiRes}
+  />
 
   <!-- Text -->
   <div class="badge-text">
@@ -110,19 +109,21 @@
     gap: 6px;
     padding: 4px 8px;
     border-radius: 4px;
-    font-family: var(--font-sans, system-ui);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .badge-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    filter: invert(1) brightness(0.7);
   }
 
-  .hires-icon {
-    width: 16px;
-    height: 16px;
+  .badge-icon.hires {
+    width: 18px;
+    height: 18px;
+    filter: none; /* Hi-Res logo keeps original colors */
   }
 
   .badge-text {
@@ -132,40 +133,16 @@
   }
 
   .tier-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.9);
   }
 
   .quality-info {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
-    opacity: 0.9;
-  }
-
-  /* Tier colors */
-  .tier-max {
-    background: linear-gradient(135deg, rgba(255, 170, 0, 0.15) 0%, rgba(255, 136, 0, 0.15) 100%);
-    border: 1px solid rgba(255, 170, 0, 0.3);
-    color: #ffaa00;
-  }
-
-  .tier-hires {
-    background: rgba(59, 130, 246, 0.12);
-    border: 1px solid rgba(59, 130, 246, 0.25);
-    color: #60a5fa;
-  }
-
-  .tier-cd {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.7);
-  }
-
-  .tier-lossy {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.5);
   }
 </style>
