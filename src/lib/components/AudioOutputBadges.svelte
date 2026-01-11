@@ -15,6 +15,13 @@
     is_playing: boolean;
   }
 
+  interface PipewireSink {
+    name: string;
+    description: string;
+    volume: number | null;
+    is_default: boolean;
+  }
+
   // Props
   interface Props {
     showTooltips?: boolean;
@@ -25,11 +32,31 @@
   // State
   let settings = $state<AudioSettings | null>(null);
   let outputStatus = $state<AudioOutputStatus | null>(null);
+  let pipewireSinks = $state<PipewireSink[]>([]);
   let isHovering = $state(false);
 
   // Derived state
   const currentDevice = $derived(outputStatus?.device_name ?? null);
-  const prettyDeviceName = $derived(currentDevice ? getDevicePrettyName(currentDevice) : 'No device');
+
+  // Get PipeWire description for current device
+  const pipewireDescription = $derived.by(() => {
+    if (!currentDevice) return null;
+    const sink = pipewireSinks.find(s => s.name === currentDevice);
+    return sink?.description ?? null;
+  });
+
+  // Get volume for current device from PipeWire
+  const currentVolume = $derived.by(() => {
+    if (!currentDevice) return null;
+    const sink = pipewireSinks.find(s => s.name === currentDevice);
+    return sink?.volume ?? null;
+  });
+
+  // Use PipeWire description if available, otherwise fall back to heuristic
+  const prettyDeviceName = $derived(
+    pipewireDescription ?? (currentDevice ? getDevicePrettyName(currentDevice) : 'No device')
+  );
+
   const isExternal = $derived(currentDevice ? isExternalDevice(currentDevice) : false);
 
   // Badge states - based on settings AND actual device capability
@@ -47,12 +74,14 @@
 
   async function loadStatus() {
     try {
-      const [settingsResult, statusResult] = await Promise.all([
+      const [settingsResult, statusResult, sinksResult] = await Promise.all([
         invoke<AudioSettings>('get_audio_settings'),
-        invoke<AudioOutputStatus>('get_audio_output_status')
+        invoke<AudioOutputStatus>('get_audio_output_status'),
+        invoke<PipewireSink[]>('get_pipewire_sinks').catch(() => [] as PipewireSink[])
       ]);
       settings = settingsResult;
       outputStatus = statusResult;
+      pipewireSinks = sinksResult;
     } catch (err) {
       console.error('Failed to load audio status:', err);
     }
@@ -97,6 +126,12 @@
       <div class="tooltip-device">{prettyDeviceName}</div>
       {#if currentDevice && currentDevice !== prettyDeviceName}
         <div class="tooltip-raw">{currentDevice}</div>
+      {/if}
+      {#if currentVolume !== null}
+        <div class="tooltip-volume">
+          <span class="volume-label">Volume:</span>
+          <span class="volume-value">{currentVolume}%</span>
+        </div>
       {/if}
     </div>
   {/if}
@@ -189,5 +224,25 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .tooltip-volume {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .volume-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .volume-value {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
   }
 </style>

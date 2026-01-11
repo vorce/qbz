@@ -519,7 +519,7 @@
     display: flex;
     align-items: stretch;
     gap: 12px;
-    padding: 2px 12px 2px 2px;
+    padding: 2px;
     background: rgba(255, 255, 255, 0.04);
     border-radius: 8px;
     min-width: 580px;
@@ -532,7 +532,7 @@
     background: none;
     border: none;
     padding: 0;
-    margin: 2px 0 2px 2px;
+    margin: 0;
     cursor: pointer;
     flex-shrink: 0;
     line-height: 0;
@@ -644,7 +644,7 @@
     flex-direction: column;
     gap: 2px;
     align-self: stretch;
-    margin: 2px 2px 2px 0;
+    margin: 0;
   }
 
   .audio-badges-row {

@@ -36,6 +36,13 @@
     is_default: boolean;
   }
 
+  interface PipewireSink {
+    name: string;
+    description: string;
+    volume: number | null;
+    is_default: boolean;
+  }
+
   let { onBack, onLogout, userName = 'User', userEmail = '', subscription = 'Qobuz' }: Props = $props();
 
   // Cache state (memory cache)
@@ -52,20 +59,39 @@
 
   // Audio device state
   let audioDevices = $state<AudioDevice[]>([]);
+  let pipewireSinks = $state<PipewireSink[]>([]);
+
+  // Map of ALSA name -> PipeWire description (for pretty names)
+  const pipewireNameMap = $derived.by(() => {
+    const map = new Map<string, string>();
+    for (const sink of pipewireSinks) {
+      map.set(sink.name, sink.description);
+    }
+    return map;
+  });
+
+  // Get pretty name: prefer PipeWire description, fall back to heuristic
+  function getPrettyName(alsaName: string): string {
+    // Try PipeWire description first
+    const pwDesc = pipewireNameMap.get(alsaName);
+    if (pwDesc) return pwDesc;
+    // Fall back to heuristic
+    return getDevicePrettyName(alsaName);
+  }
 
   // Map of pretty name -> raw name
   const deviceNameMap = $derived.by(() => {
     const map = new Map<string, string>();
     map.set('System Default', 'System Default');
     for (const d of audioDevices) {
-      const pretty = getDevicePrettyName(d.name);
+      const pretty = getPrettyName(d.name);
       map.set(pretty, d.name);
     }
     return map;
   });
 
-  // Options for dropdown (pretty names)
-  let audioDeviceOptions = $derived(['System Default', ...audioDevices.map(d => getDevicePrettyName(d.name))]);
+  // Options for dropdown (pretty names from PipeWire when available)
+  let audioDeviceOptions = $derived(['System Default', ...audioDevices.map(d => getPrettyName(d.name))]);
 
   // Theme mapping: display name -> data-theme value
   const themeMap: Record<string, string> = {
@@ -141,9 +167,8 @@
     // Load download cache stats
     loadDownloadStats();
 
-    // Load audio devices and settings
-    loadAudioDevices();
-    loadAudioSettings();
+    // Load audio devices first (includes PipeWire sinks), then settings
+    loadAudioDevices().then(() => loadAudioSettings());
 
     // Load Last.fm state
     loadLastfmState();
@@ -299,13 +324,21 @@
 
   async function loadAudioDevices() {
     try {
-      const devices = await invoke<AudioDevice[]>('get_audio_devices');
+      // Load both ALSA devices and PipeWire sinks in parallel
+      const [devices, sinks] = await Promise.all([
+        invoke<AudioDevice[]>('get_audio_devices'),
+        invoke<PipewireSink[]>('get_pipewire_sinks').catch(() => [] as PipewireSink[])
+      ]);
+
       audioDevices = devices;
+      pipewireSinks = sinks;
+
       // Debug: log raw names and their pretty versions
-      console.log('[Audio] Devices loaded:', devices.map(d => ({
+      console.log('[Audio] ALSA devices:', devices.map(d => d.name));
+      console.log('[Audio] PipeWire sinks:', sinks.map(s => ({ name: s.name, desc: s.description })));
+      console.log('[Audio] Final device options:', devices.map(d => ({
         raw: d.name,
-        pretty: getDevicePrettyName(d.name),
-        isDefault: d.is_default
+        pretty: getPrettyName(d.name)
       })));
     } catch (err) {
       console.error('Failed to load audio devices:', err);
@@ -315,9 +348,9 @@
   async function loadAudioSettings() {
     try {
       const settings = await invoke<AudioSettings>('get_audio_settings');
-      // Convert raw name to pretty name for display
+      // Convert raw name to pretty name for display (uses PipeWire when available)
       if (settings.output_device) {
-        outputDevice = getDevicePrettyName(settings.output_device);
+        outputDevice = getPrettyName(settings.output_device);
       } else {
         outputDevice = 'System Default';
       }
