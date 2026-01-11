@@ -81,22 +81,30 @@ pub fn show_track_notification(
 ) -> Result<(), String> {
     log::info!("Command: show_track_notification - {} by {}", title, artist);
 
-    // Build body with artist, album, and quality
-    let mut body_parts = Vec::new();
+    // Build body with 2-3 lines:
+    // Line 1: Artist • Album
+    // Line 2: Quality (if available)
+    let mut lines = Vec::new();
 
+    // Line 1: Artist and Album
+    let mut line1_parts = Vec::new();
     if !artist.is_empty() {
-        body_parts.push(artist.clone());
+        line1_parts.push(artist.clone());
     }
     if !album.is_empty() {
-        body_parts.push(album.clone());
+        line1_parts.push(album.clone());
+    }
+    if !line1_parts.is_empty() {
+        lines.push(line1_parts.join(" • "));
     }
 
+    // Line 2: Quality info
     let quality = format_quality(bit_depth, sample_rate);
     if !quality.is_empty() {
-        body_parts.push(quality);
+        lines.push(quality);
     }
 
-    let body = body_parts.join(" • ");
+    let body = lines.join("\n");
 
     let mut notification = Notification::new();
     notification
