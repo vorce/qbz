@@ -127,7 +127,9 @@
             <span class="section-label">
               {section.label}
               {#if section.source === 'qobuz'}
-                <span class="source-badge">Qobuz</span>
+                <span class="source-badge qobuz">Qobuz</span>
+              {:else if section.source === 'ml'}
+                <span class="source-badge ml">ML</span>
               {/if}
             </span>
 
@@ -350,12 +352,20 @@
   .source-badge {
     font-size: 10px;
     font-weight: 500;
-    color: var(--accent-primary);
-    background: rgba(99, 102, 241, 0.15);
     padding: 2px 6px;
     border-radius: 4px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  .source-badge.qobuz {
+    color: var(--accent-primary);
+    background: rgba(99, 102, 241, 0.15);
+  }
+
+  .source-badge.ml {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.15);
   }
 
   .reset-btn {

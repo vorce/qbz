@@ -19,7 +19,7 @@ export interface HomeSection {
   id: HomeSectionId;
   label: string;
   visible: boolean;
-  source?: 'qobuz' | 'user'; // qobuz = editorial, user = personal data
+  source?: 'qobuz' | 'ml'; // qobuz = editorial, ml = ML-powered recommendations
 }
 
 export interface HomeSettings {
@@ -37,10 +37,10 @@ const DEFAULT_SECTIONS: HomeSection[] = [
   { id: 'newReleases', label: 'New Releases', visible: true, source: 'qobuz' },
   { id: 'pressAwards', label: 'Press Awards', visible: true, source: 'qobuz' },
   { id: 'mostStreamed', label: 'Popular Albums', visible: false, source: 'qobuz' },
-  { id: 'recentAlbums', label: 'Recently Played', visible: true, source: 'user' },
-  { id: 'continueTracks', label: 'Continue Listening', visible: true, source: 'user' },
-  { id: 'topArtists', label: 'Your Top Artists', visible: true, source: 'user' },
-  { id: 'favoriteAlbums', label: 'More From Favorites', visible: true, source: 'user' },
+  { id: 'recentAlbums', label: 'Recently Played', visible: true, source: 'ml' },
+  { id: 'continueTracks', label: 'Continue Listening', visible: true, source: 'ml' },
+  { id: 'topArtists', label: 'Your Top Artists', visible: true, source: 'ml' },
+  { id: 'favoriteAlbums', label: 'More From Favorites', visible: true, source: 'ml' },
 ];
 
 const DEFAULT_SETTINGS: HomeSettings = {
