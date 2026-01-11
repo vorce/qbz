@@ -150,16 +150,27 @@ pub async fn reco_get_home_ml(
     let db = state.db.lock().await;
     let has_scores = db.has_scores("all")?;
 
+    // HYBRID APPROACH: Always get fresh recent plays first, then supplement with scored
+    // This ensures newly played tracks appear immediately without waiting for score retraining
+
+    // Get truly recent plays (last few) to ensure freshness
+    let recent_fresh_albums = db.get_recent_album_ids(4)?;
+    let recent_fresh_tracks = db.get_recent_track_ids(4)?;
+
     let mut recently_played_album_ids = if has_scores {
-        db.get_scored_album_ids("all", limit_recent_albums)?
+        let scored = db.get_scored_album_ids("all", limit_recent_albums + 4)?;
+        merge_unique_preserve_order(recent_fresh_albums, scored, limit_recent_albums as usize)
     } else {
-        Vec::new()
+        db.get_recent_album_ids(limit_recent_albums)?
     };
+
     let mut continue_listening_track_ids = if has_scores {
-        db.get_scored_track_ids("all", limit_continue_tracks)?
+        let scored = db.get_scored_track_ids("all", limit_continue_tracks + 4)?;
+        merge_unique_preserve_order(recent_fresh_tracks, scored, limit_continue_tracks as usize)
     } else {
-        Vec::new()
+        db.get_recent_track_ids(limit_continue_tracks)?
     };
+
     let mut top_artist_ids = if has_scores {
         db.get_scored_artist_scores("all", limit_top_artists)?
             .into_iter()
@@ -171,17 +182,20 @@ pub async fn reco_get_home_ml(
     } else {
         Vec::new()
     };
+
     let mut favorite_album_ids = if has_scores {
         db.get_scored_album_ids("favorite", limit_favorites)?
     } else {
         Vec::new()
     };
+
     let mut favorite_track_ids = if has_scores {
         db.get_scored_track_ids("favorite", limit_favorites)?
     } else {
         Vec::new()
     };
 
+    // Fallbacks for empty results
     if recently_played_album_ids.is_empty() {
         recently_played_album_ids = db.get_recent_album_ids(limit_recent_albums)?;
     }
@@ -205,6 +219,39 @@ pub async fn reco_get_home_ml(
         favorite_album_ids,
         favorite_track_ids,
     })
+}
+
+/// Merge two lists preserving order: fresh items first, then scored items (excluding duplicates)
+fn merge_unique_preserve_order<T: Eq + std::hash::Hash + Clone>(
+    fresh: Vec<T>,
+    scored: Vec<T>,
+    limit: usize,
+) -> Vec<T> {
+    use std::collections::HashSet;
+    let mut seen: HashSet<T> = HashSet::new();
+    let mut result = Vec::with_capacity(limit);
+
+    // Add fresh items first
+    for item in fresh {
+        if seen.insert(item.clone()) {
+            result.push(item);
+            if result.len() >= limit {
+                return result;
+            }
+        }
+    }
+
+    // Add scored items (excluding already seen)
+    for item in scored {
+        if seen.insert(item.clone()) {
+            result.push(item);
+            if result.len() >= limit {
+                return result;
+            }
+        }
+    }
+
+    result
 }
 
 struct ScoreMaps {
