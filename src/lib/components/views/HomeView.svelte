@@ -5,7 +5,15 @@
   import HorizontalScrollRow from '../HorizontalScrollRow.svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
+  import HomeSettingsModal from '../HomeSettingsModal.svelte';
   import { formatDuration, formatQuality, getQobuzImage } from '$lib/adapters/qobuzAdapters';
+  import {
+    subscribe as subscribeHomeSettings,
+    getSettings,
+    getGreetingText,
+    type HomeSettings,
+    type HomeSectionId
+  } from '$lib/stores/homeSettingsStore';
   import type { QobuzAlbum, QobuzArtist, QobuzTrack, DisplayTrack } from '$lib/types';
 
   interface TopArtistSeed {
@@ -37,12 +45,39 @@
   }
 
   interface Props {
+    userName?: string;
     onAlbumClick?: (albumId: string) => void;
     onArtistClick?: (artistId: number) => void;
     onTrackPlay?: (track: DisplayTrack) => void;
   }
 
-  let { onAlbumClick, onArtistClick, onTrackPlay }: Props = $props();
+  let { userName = 'User', onAlbumClick, onArtistClick, onTrackPlay }: Props = $props();
+
+  // Home settings state
+  let homeSettings = $state<HomeSettings>(getSettings());
+  let isSettingsModalOpen = $state(false);
+
+  // Computed greeting
+  const greetingText = $derived(getGreetingText(userName));
+
+  // Subscribe to home settings changes
+  $effect(() => {
+    const unsubscribe = subscribeHomeSettings(() => {
+      homeSettings = getSettings();
+    });
+    return unsubscribe;
+  });
+
+  // Check if a section is visible
+  function isSectionVisible(sectionId: HomeSectionId): boolean {
+    const section = homeSettings.sections.find(s => s.id === sectionId);
+    return section?.visible ?? true;
+  }
+
+  // Get ordered visible sections
+  const visibleSections = $derived(
+    homeSettings.sections.filter(s => s.visible).map(s => s.id)
+  );
 
   const LIMITS = {
     recentAlbums: 12,
@@ -300,6 +335,18 @@
 </script>
 
 <div class="home-view">
+  <!-- Header with greeting and settings -->
+  <div class="home-header">
+    {#if homeSettings.greeting.enabled}
+      <h2 class="greeting">{greetingText}</h2>
+    {:else}
+      <div></div>
+    {/if}
+    <button class="settings-btn" onclick={() => isSettingsModalOpen = true} title="Customize Home">
+      <img src="/home-gear.svg" alt="Settings" class="settings-icon" />
+    </button>
+  </div>
+
   {#if isInitializing}
     <div class="home-state">
       <div class="state-icon loading">
@@ -317,122 +364,125 @@
       <p>{error}</p>
     </div>
   {:else if hasContent}
-    {#if newReleases.length > 0}
-      <HorizontalScrollRow title="New Releases">
-        {#snippet children()}
-          {#each newReleases as album}
-            <AlbumCard
-              artwork={album.artwork}
-              title={album.title}
-              artist={album.artist}
-              quality={album.quality}
-              onclick={() => onAlbumClick?.(album.id)}
-            />
-          {/each}
-          <div class="spacer"></div>
-        {/snippet}
-      </HorizontalScrollRow>
-    {/if}
+    <!-- Render sections in user-defined order -->
+    {#each visibleSections as sectionId (sectionId)}
+      {#if sectionId === 'newReleases' && newReleases.length > 0}
+        <HorizontalScrollRow title="New Releases">
+          {#snippet children()}
+            {#each newReleases as album}
+              <AlbumCard
+                artwork={album.artwork}
+                title={album.title}
+                artist={album.artist}
+                quality={album.quality}
+                onclick={() => onAlbumClick?.(album.id)}
+              />
+            {/each}
+            <div class="spacer"></div>
+          {/snippet}
+        </HorizontalScrollRow>
+      {/if}
 
-    {#if pressAwards.length > 0}
-      <HorizontalScrollRow title="Press Awards">
-        {#snippet children()}
-          {#each pressAwards as album}
-            <AlbumCard
-              artwork={album.artwork}
-              title={album.title}
-              artist={album.artist}
-              quality={album.quality}
-              onclick={() => onAlbumClick?.(album.id)}
-            />
-          {/each}
-          <div class="spacer"></div>
-        {/snippet}
-      </HorizontalScrollRow>
-    {/if}
+      {#if sectionId === 'pressAwards' && pressAwards.length > 0}
+        <HorizontalScrollRow title="Press Awards">
+          {#snippet children()}
+            {#each pressAwards as album}
+              <AlbumCard
+                artwork={album.artwork}
+                title={album.title}
+                artist={album.artist}
+                quality={album.quality}
+                onclick={() => onAlbumClick?.(album.id)}
+              />
+            {/each}
+            <div class="spacer"></div>
+          {/snippet}
+        </HorizontalScrollRow>
+      {/if}
 
-    {#if recentAlbums.length > 0}
-      <HorizontalScrollRow title="Recently Played">
-        {#snippet children()}
-          {#each recentAlbums as album}
-            <AlbumCard
-              artwork={album.artwork}
-              title={album.title}
-              artist={album.artist}
-              quality={album.quality}
-              onclick={() => onAlbumClick?.(album.id)}
-            />
-          {/each}
-          <div class="spacer"></div>
-        {/snippet}
-      </HorizontalScrollRow>
-    {/if}
+      {#if sectionId === 'recentAlbums' && recentAlbums.length > 0}
+        <HorizontalScrollRow title="Recently Played">
+          {#snippet children()}
+            {#each recentAlbums as album}
+              <AlbumCard
+                artwork={album.artwork}
+                title={album.title}
+                artist={album.artist}
+                quality={album.quality}
+                onclick={() => onAlbumClick?.(album.id)}
+              />
+            {/each}
+            <div class="spacer"></div>
+          {/snippet}
+        </HorizontalScrollRow>
+      {/if}
 
-    {#if continueTracks.length > 0}
-      <div class="section">
-        <div class="section-header">
-          <h2>Continue Listening</h2>
+      {#if sectionId === 'continueTracks' && continueTracks.length > 0}
+        <div class="section">
+          <div class="section-header">
+            <h2>Continue Listening</h2>
+          </div>
+          <div class="track-list">
+            {#each continueTracks as track, index}
+              <TrackRow
+                number={index + 1}
+                title={track.title}
+                artist={track.artist}
+                duration={track.duration}
+                quality={getTrackQuality(track)}
+                hideDownload={true}
+                onPlay={() => onTrackPlay?.(track)}
+              />
+            {/each}
+          </div>
         </div>
-        <div class="track-list">
-          {#each continueTracks as track, index}
-            <TrackRow
-              number={index + 1}
-              title={track.title}
-              artist={track.artist}
-              duration={track.duration}
-              quality={getTrackQuality(track)}
-              hideDownload={true}
-              onPlay={() => onTrackPlay?.(track)}
-            />
-          {/each}
-        </div>
-      </div>
-    {/if}
+      {/if}
 
-    {#if topArtists.length > 0}
-      <HorizontalScrollRow title="Your Top Artists">
-        {#snippet children()}
-          {#each topArtists as artist}
-            <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
-              {#if failedArtistImages.has(artist.id) || !artist.image}
-                <div class="artist-image-placeholder">
-                  <User size={32} />
-                </div>
-              {:else}
-                <img
-                  src={artist.image}
-                  alt={artist.name}
-                  class="artist-image"
-                  onerror={() => handleArtistImageError(artist.id)}
-                />
-              {/if}
-              <div class="artist-name">{artist.name}</div>
-              {#if artist.playCount}
-                <div class="artist-meta">{artist.playCount} plays</div>
-              {/if}
-            </button>
-          {/each}
-          <div class="spacer"></div>
-        {/snippet}
-      </HorizontalScrollRow>
-    {/if}
+      {#if sectionId === 'topArtists' && topArtists.length > 0}
+        <HorizontalScrollRow title="Your Top Artists">
+          {#snippet children()}
+            {#each topArtists as artist}
+              <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
+                {#if failedArtistImages.has(artist.id) || !artist.image}
+                  <div class="artist-image-placeholder">
+                    <User size={32} />
+                  </div>
+                {:else}
+                  <img
+                    src={artist.image}
+                    alt={artist.name}
+                    class="artist-image"
+                    onerror={() => handleArtistImageError(artist.id)}
+                  />
+                {/if}
+                <div class="artist-name">{artist.name}</div>
+                {#if artist.playCount}
+                  <div class="artist-meta">{artist.playCount} plays</div>
+                {/if}
+              </button>
+            {/each}
+            <div class="spacer"></div>
+          {/snippet}
+        </HorizontalScrollRow>
+      {/if}
 
-    {#if favoriteAlbums.length > 0}
-      <HorizontalScrollRow title="More From Favorites">
-        {#snippet children()}
-          {#each favoriteAlbums as album}
-            <AlbumCard
-              artwork={album.artwork}
-              title={album.title}
-              artist={album.artist}
-              quality={album.quality}
-              onclick={() => onAlbumClick?.(album.id)}
-            />
-          {/each}
-          <div class="spacer"></div>
-        {/snippet}
-      </HorizontalScrollRow>
-    {/if}
+      {#if sectionId === 'favoriteAlbums' && favoriteAlbums.length > 0}
+        <HorizontalScrollRow title="More From Favorites">
+          {#snippet children()}
+            {#each favoriteAlbums as album}
+              <AlbumCard
+                artwork={album.artwork}
+                title={album.title}
+                artist={album.artist}
+                quality={album.quality}
+                onclick={() => onAlbumClick?.(album.id)}
+              />
+            {/each}
+            <div class="spacer"></div>
+          {/snippet}
+        </HorizontalScrollRow>
+      {/if}
+    {/each}
   {:else}
     <div class="home-state">
       <div class="state-icon">
@@ -442,12 +492,57 @@
       <p>Play music or add favorites to activate recommendations.</p>
     </div>
   {/if}
+
+  <!-- Settings Modal -->
+  <HomeSettingsModal
+    isOpen={isSettingsModalOpen}
+    onClose={() => isSettingsModalOpen = false}
+  />
 </div>
 
 <style>
   .home-view {
     width: 100%;
     padding-bottom: 24px;
+  }
+
+  .home-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .greeting {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .settings-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 150ms ease;
+    opacity: 0.7;
+  }
+
+  .settings-btn:hover {
+    background: var(--bg-hover);
+    opacity: 1;
+  }
+
+  .settings-icon {
+    width: 22px;
+    height: 22px;
+    filter: invert(1) opacity(0.8);
   }
 
   .spacer {

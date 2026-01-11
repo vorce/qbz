@@ -1037,6 +1037,7 @@
     <main class="main-content">
       {#if activeView === 'home'}
         <HomeView
+          userName={userInfo?.userName}
           onAlbumClick={handleAlbumClick}
           onArtistClick={handleArtistClick}
           onTrackPlay={handleDisplayTrackPlay}
