@@ -67,79 +67,70 @@
   });
 </script>
 
-{#if shouldShowBadges}
+<div
+  class="audio-badges"
+  onmouseenter={() => isHovering = true}
+  onmouseleave={() => isHovering = false}
+>
+  <!-- DAC Badge -->
   <div
-    class="audio-badges"
-    onmouseenter={() => isHovering = true}
-    onmouseleave={() => isHovering = false}
+    class="badge"
+    class:active={dacPassthroughActive}
+    title={showTooltips ? (dacPassthroughActive ? 'DAC Passthrough active' : 'DAC Passthrough inactive') : undefined}
   >
-    <!-- DAC Badge -->
-    <div
-      class="badge"
-      class:active={dacPassthroughActive}
-      class:external={isExternal}
-      title={showTooltips ? (dacPassthroughActive ? 'DAC Passthrough active' : 'DAC Passthrough inactive') : undefined}
-    >
-      <span class="badge-label">DAC</span>
-    </div>
-
-    <!-- Exclusive Mode Badge -->
-    <div
-      class="badge"
-      class:active={exclusiveModeActive}
-      title={showTooltips ? (exclusiveModeActive ? 'Exclusive Mode active' : 'Exclusive Mode inactive') : undefined}
-    >
-      <span class="badge-label">EXC</span>
-    </div>
-
-    <!-- Device Tooltip on hover -->
-    {#if isHovering && showTooltips}
-      <div class="device-tooltip">
-        <div class="tooltip-label">Output Device</div>
-        <div class="tooltip-device">{prettyDeviceName}</div>
-        {#if currentDevice && currentDevice !== prettyDeviceName}
-          <div class="tooltip-raw">{currentDevice}</div>
-        {/if}
-      </div>
-    {/if}
+    <span class="badge-label">DAC</span>
   </div>
-{/if}
+
+  <!-- Exclusive Mode Badge -->
+  <div
+    class="badge"
+    class:active={exclusiveModeActive}
+    title={showTooltips ? (exclusiveModeActive ? 'Exclusive Mode active' : 'Exclusive Mode inactive') : undefined}
+  >
+    <span class="badge-label">EXC</span>
+  </div>
+
+  <!-- Device Tooltip on hover -->
+  {#if isHovering && showTooltips}
+    <div class="device-tooltip">
+      <div class="tooltip-label">Output Device</div>
+      <div class="tooltip-device">{prettyDeviceName}</div>
+      {#if currentDevice && currentDevice !== prettyDeviceName}
+        <div class="tooltip-raw">{currentDevice}</div>
+      {/if}
+    </div>
+  {/if}
+</div>
 
 <style>
   .audio-badges {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     position: relative;
-    margin-left: 8px;
+    margin-left: 4px;
   }
 
   .badge {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2px 6px;
+    padding: 2px 5px;
     border-radius: 3px;
-    font-size: 8px;
+    font-size: 7px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    letter-spacing: 0.3px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     transition: all 200ms ease;
   }
 
   .badge.active {
-    background: rgba(34, 197, 94, 0.15);
+    background: rgba(34, 197, 94, 0.2);
     color: #22c55e;
-    border-color: rgba(34, 197, 94, 0.3);
-  }
-
-  .badge.external:not(.active) {
-    background: rgba(99, 102, 241, 0.1);
-    color: rgba(99, 102, 241, 0.5);
-    border-color: rgba(99, 102, 241, 0.2);
+    border-color: rgba(34, 197, 94, 0.4);
   }
 
   .badge-label {

@@ -80,6 +80,7 @@
     togglePlay,
     seek as playerSeek,
     setVolume as playerSetVolume,
+    setPendingSessionRestore,
     startPolling,
     stopPolling,
     reset as resetPlayer,
@@ -851,11 +852,9 @@
             quality: 'Restored',
           });
 
-          // Seek to saved position if > 0
-          if (session.current_position_secs > 0) {
-            // Note: actual seek will happen when user presses play
-            console.log(`[Session] Will resume at ${session.current_position_secs}s`);
-          }
+          // Mark that this track needs to be loaded when user presses play
+          setPendingSessionRestore(track.id, session.current_position_secs);
+          console.log(`[Session] Track ${track.id} pending load, will resume at ${session.current_position_secs}s`);
         }
 
         console.log('[Session] Session restored successfully');

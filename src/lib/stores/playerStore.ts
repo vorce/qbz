@@ -61,6 +61,9 @@ let queueEnded = false;
 // Callbacks for track advancement (set by consumer)
 let onTrackEnded: (() => Promise<void>) | null = null;
 
+// Session restore state - when set, next play will load the track first
+let pendingSessionRestore: { trackId: number; position: number } | null = null;
+
 // Listeners
 const listeners = new Set<() => void>();
 
@@ -177,6 +180,28 @@ export function setQueueEnded(ended: boolean): void {
 // ============ Playback Controls ============
 
 /**
+ * Set pending session restore - will load track on next play
+ */
+export function setPendingSessionRestore(trackId: number, position: number): void {
+  pendingSessionRestore = { trackId, position };
+  console.log('[Player] Set pending session restore:', { trackId, position });
+}
+
+/**
+ * Clear pending session restore
+ */
+export function clearPendingSessionRestore(): void {
+  pendingSessionRestore = null;
+}
+
+/**
+ * Check if there's a pending session restore
+ */
+export function hasPendingSessionRestore(): boolean {
+  return pendingSessionRestore !== null;
+}
+
+/**
  * Toggle play/pause
  */
 export async function togglePlay(): Promise<void> {
@@ -188,7 +213,29 @@ export async function togglePlay(): Promise<void> {
 
   try {
     if (newIsPlaying) {
-      await invoke('resume_playback');
+      // Check if we need to load the track first (session restore)
+      if (pendingSessionRestore && pendingSessionRestore.trackId === currentTrack.id) {
+        console.log('[Player] Loading restored track:', pendingSessionRestore.trackId);
+        const savedPosition = pendingSessionRestore.position;
+        pendingSessionRestore = null; // Clear before loading
+
+        // Load the track from Qobuz
+        await invoke('play_track', { trackId: currentTrack.id });
+
+        // Seek to saved position after a short delay to let audio load
+        if (savedPosition > 0) {
+          setTimeout(async () => {
+            try {
+              await invoke('seek', { position: savedPosition });
+              console.log('[Player] Seeked to restored position:', savedPosition);
+            } catch (seekErr) {
+              console.error('[Player] Failed to seek to restored position:', seekErr);
+            }
+          }, 500);
+        }
+      } else {
+        await invoke('resume_playback');
+      }
     } else {
       await invoke('pause_playback');
     }
