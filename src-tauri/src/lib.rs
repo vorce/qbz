@@ -4,6 +4,7 @@
 //! who need bit-perfect playback without browser sample rate limitations.
 
 pub mod api;
+pub mod api_cache;
 pub mod cache;
 pub mod cast;
 pub mod commands;
@@ -116,6 +117,9 @@ pub fn run() {
     // Initialize recommendation store state
     let reco_state = reco_store::RecoState::new()
         .expect("Failed to initialize recommendation store");
+    // Initialize API cache state
+    let api_cache_state = api_cache::ApiCacheState::new()
+        .expect("Failed to initialize API cache");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -174,6 +178,7 @@ pub fn run() {
         .manage(download_cache_state)
         .manage(lyrics_state)
         .manage(reco_state)
+        .manage(api_cache_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,

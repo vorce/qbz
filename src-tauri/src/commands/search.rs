@@ -3,6 +3,7 @@
 use tauri::State;
 
 use crate::api::{Album, Artist, SearchResultsPage, Track};
+use crate::api_cache::ApiCacheState;
 use crate::AppState;
 
 #[tauri::command]
@@ -48,9 +49,36 @@ pub async fn search_artists(
 }
 
 #[tauri::command]
-pub async fn get_album(album_id: String, state: State<'_, AppState>) -> Result<Album, String> {
+pub async fn get_album(
+    album_id: String,
+    state: State<'_, AppState>,
+    cache_state: State<'_, ApiCacheState>,
+) -> Result<Album, String> {
+    // Check cache first
+    {
+        let cache = cache_state.cache.lock().await;
+        if let Some(cached_data) = cache.get_album(&album_id, None)? {
+            log::debug!("Cache hit for album {}", album_id);
+            return serde_json::from_str(&cached_data)
+                .map_err(|e| format!("Failed to parse cached album: {}", e));
+        }
+    }
+
+    // Cache miss - fetch from API
+    log::debug!("Cache miss for album {}, fetching from API", album_id);
     let client = state.client.lock().await;
-    client.get_album(&album_id).await.map_err(|e| e.to_string())
+    let album = client.get_album(&album_id).await.map_err(|e| e.to_string())?;
+
+    // Cache the result
+    {
+        let cache = cache_state.cache.lock().await;
+        let json = serde_json::to_string(&album)
+            .map_err(|e| format!("Failed to serialize album: {}", e))?;
+        cache.set_album(&album_id, &json)?;
+        log::debug!("Cached album {}", album_id);
+    }
+
+    Ok(album)
 }
 
 /// Get featured albums by type (new-releases, press-awards)
@@ -69,9 +97,35 @@ pub async fn get_featured_albums(
 }
 
 #[tauri::command]
-pub async fn get_track(track_id: u64, state: State<'_, AppState>) -> Result<Track, String> {
+pub async fn get_track(
+    track_id: u64,
+    state: State<'_, AppState>,
+    cache_state: State<'_, ApiCacheState>,
+) -> Result<Track, String> {
+    // Check cache first
+    {
+        let cache = cache_state.cache.lock().await;
+        if let Some(cached_data) = cache.get_track(track_id, None)? {
+            log::debug!("Cache hit for track {}", track_id);
+            return serde_json::from_str(&cached_data)
+                .map_err(|e| format!("Failed to parse cached track: {}", e));
+        }
+    }
+
+    // Cache miss - fetch from API
+    log::debug!("Cache miss for track {}, fetching from API", track_id);
     let client = state.client.lock().await;
-    client.get_track(track_id).await.map_err(|e| e.to_string())
+    let track = client.get_track(track_id).await.map_err(|e| e.to_string())?;
+
+    // Cache the result
+    {
+        let cache = cache_state.cache.lock().await;
+        let json = serde_json::to_string(&track)
+            .map_err(|e| format!("Failed to serialize track: {}", e))?;
+        cache.set_track(track_id, &json)?;
+    }
+
+    Ok(track)
 }
 
 /// Get artist with albums
@@ -79,11 +133,35 @@ pub async fn get_track(track_id: u64, state: State<'_, AppState>) -> Result<Trac
 pub async fn get_artist(
     artist_id: u64,
     state: State<'_, AppState>,
+    cache_state: State<'_, ApiCacheState>,
 ) -> Result<Artist, String> {
     log::info!("Command: get_artist {}", artist_id);
+
+    // Check cache first
+    {
+        let cache = cache_state.cache.lock().await;
+        if let Some(cached_data) = cache.get_artist(artist_id, None)? {
+            log::debug!("Cache hit for artist {}", artist_id);
+            return serde_json::from_str(&cached_data)
+                .map_err(|e| format!("Failed to parse cached artist: {}", e));
+        }
+    }
+
+    // Cache miss - fetch from API
+    log::debug!("Cache miss for artist {}, fetching from API", artist_id);
     let client = state.client.lock().await;
-    client
+    let artist = client
         .get_artist(artist_id, true)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // Cache the result
+    {
+        let cache = cache_state.cache.lock().await;
+        let json = serde_json::to_string(&artist)
+            .map_err(|e| format!("Failed to serialize artist: {}", e))?;
+        cache.set_artist(artist_id, &json)?;
+    }
+
+    Ok(artist)
 }
