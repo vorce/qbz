@@ -52,8 +52,13 @@
     favoriteTracks: 10
   };
 
-  let isLoading = $state(true);
+  // Loading states for progressive render
+  let isInitializing = $state(true);
   let error = $state<string | null>(null);
+  let loadingRecentAlbums = $state(true);
+  let loadingContinueTracks = $state(true);
+  let loadingTopArtists = $state(true);
+  let loadingFavoriteAlbums = $state(true);
 
   let recentAlbums = $state<AlbumCardData[]>([]);
   let continueTracks = $state<DisplayTrack[]>([]);
@@ -177,57 +182,81 @@
   }
 
   async function loadHome() {
-    isLoading = true;
+    isInitializing = true;
     error = null;
+    loadingRecentAlbums = true;
+    loadingContinueTracks = true;
+    loadingTopArtists = true;
+    loadingFavoriteAlbums = true;
 
     try {
-      // Use ML-based scoring (falls back to simple queries if no scores)
-      const seeds = await invoke<HomeSeeds>('reco_get_home_ml', {
+      // Fast query for seeds (uses simple DB queries, falls back if no ML scores)
+      const seeds = await invoke<HomeSeeds>('reco_get_home', {
         limitRecentAlbums: LIMITS.recentAlbums,
         limitContinueTracks: LIMITS.continueTracks,
         limitTopArtists: LIMITS.topArtists,
         limitFavorites: Math.max(LIMITS.favoriteAlbums, LIMITS.favoriteTracks)
       });
 
-      const fetchedContinueTracks = await fetchTracks(seeds.continueListeningTrackIds);
+      // Seeds are ready, hide initializing state - show sections with loading
+      isInitializing = false;
 
+      // Load each section in parallel for progressive rendering
+      const continueTracksPromise = fetchTracks(seeds.continueListeningTrackIds).then(tracks => {
+        continueTracks = tracks;
+        loadingContinueTracks = false;
+        return tracks;
+      });
+
+      // Start recent albums immediately
       let recentAlbumIds = normalizeAlbumIds(seeds.recentlyPlayedAlbumIds);
       if (recentAlbumIds.length === 0) {
-        recentAlbumIds = normalizeAlbumIds(fetchedContinueTracks.map(track => track.albumId));
+        // Wait for continue tracks to derive album IDs
+        const tracks = await continueTracksPromise;
+        recentAlbumIds = normalizeAlbumIds(tracks.map(track => track.albumId));
       }
 
-      const favoriteTrackDetails = await fetchTracks(seeds.favoriteTrackIds.slice(0, LIMITS.favoriteTracks));
-      const favoriteAlbumIds = normalizeAlbumIds([
-        ...seeds.favoriteAlbumIds,
-        ...favoriteTrackDetails.map(track => track.albumId)
-      ]);
+      fetchAlbums(recentAlbumIds.slice(0, LIMITS.recentAlbums)).then(albums => {
+        recentAlbums = albums;
+        loadingRecentAlbums = false;
+      });
 
+      // Favorite albums
+      fetchTracks(seeds.favoriteTrackIds.slice(0, LIMITS.favoriteTracks)).then(async favoriteTrackDetails => {
+        const favoriteAlbumIds = normalizeAlbumIds([
+          ...seeds.favoriteAlbumIds,
+          ...favoriteTrackDetails.map(track => track.albumId)
+        ]);
+        const albums = await fetchAlbums(favoriteAlbumIds.slice(0, LIMITS.favoriteAlbums));
+        favoriteAlbums = albums;
+        loadingFavoriteAlbums = false;
+      });
+
+      // Top artists
       let artistSeeds = seeds.topArtistIds;
       if (artistSeeds.length === 0) {
-        artistSeeds = buildTopArtistSeedsFromTracks(fetchedContinueTracks);
+        const tracks = await continueTracksPromise;
+        artistSeeds = buildTopArtistSeedsFromTracks(tracks);
       }
+      fetchArtists(artistSeeds.slice(0, LIMITS.topArtists)).then(artists => {
+        topArtists = artists;
+        loadingTopArtists = false;
+      });
 
-      const [recentAlbumCards, favoriteAlbumCards, artistCards] = await Promise.all([
-        fetchAlbums(recentAlbumIds.slice(0, LIMITS.recentAlbums)),
-        fetchAlbums(favoriteAlbumIds.slice(0, LIMITS.favoriteAlbums)),
-        fetchArtists(artistSeeds.slice(0, LIMITS.topArtists))
-      ]);
-
-      recentAlbums = recentAlbumCards;
-      continueTracks = fetchedContinueTracks;
-      favoriteAlbums = favoriteAlbumCards;
-      topArtists = artistCards;
     } catch (err) {
       console.error('Failed to load home data:', err);
       error = String(err);
-    } finally {
-      isLoading = false;
+      isInitializing = false;
+      loadingRecentAlbums = false;
+      loadingContinueTracks = false;
+      loadingTopArtists = false;
+      loadingFavoriteAlbums = false;
     }
   }
 </script>
 
 <div class="home-view">
-  {#if isLoading}
+  {#if isInitializing}
     <div class="home-state">
       <div class="state-icon loading">
         <Loader2 size={36} class="spinner" />
@@ -245,7 +274,7 @@
     </div>
   {:else if hasContent}
     {#if recentAlbums.length > 0}
-      <HorizontalScrollRow title="Escuchado recientemente">
+      <HorizontalScrollRow title="Recently Played">
         {#snippet children()}
           {#each recentAlbums as album}
             <AlbumCard
@@ -264,7 +293,7 @@
     {#if continueTracks.length > 0}
       <div class="section">
         <div class="section-header">
-          <h2>Continuar escuchando</h2>
+          <h2>Continue Listening</h2>
         </div>
         <div class="track-list">
           {#each continueTracks as track, index}
@@ -283,7 +312,7 @@
     {/if}
 
     {#if topArtists.length > 0}
-      <HorizontalScrollRow title="Tus artistas mas escuchados">
+      <HorizontalScrollRow title="Your Top Artists">
         {#snippet children()}
           {#each topArtists as artist}
             <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
@@ -301,7 +330,7 @@
               {/if}
               <div class="artist-name">{artist.name}</div>
               {#if artist.playCount}
-                <div class="artist-meta">{artist.playCount} reproducciones</div>
+                <div class="artist-meta">{artist.playCount} plays</div>
               {/if}
             </button>
           {/each}
@@ -311,7 +340,7 @@
     {/if}
 
     {#if favoriteAlbums.length > 0}
-      <HorizontalScrollRow title="Mas de tus favoritos">
+      <HorizontalScrollRow title="More From Favorites">
         {#snippet children()}
           {#each favoriteAlbums as album}
             <AlbumCard
@@ -331,8 +360,8 @@
       <div class="state-icon">
         <Music size={48} />
       </div>
-      <h1>Empieza a escuchar</h1>
-      <p>Reproduce musica o anade favoritos para activar recomendaciones.</p>
+      <h1>Start Listening</h1>
+      <p>Play music or add favorites to activate recommendations.</p>
     </div>
   {/if}
 </div>

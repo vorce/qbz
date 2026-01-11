@@ -1038,6 +1038,8 @@
       {#if activeView === 'home'}
         <HomeView
           onAlbumClick={handleAlbumClick}
+          onArtistClick={handleArtistClick}
+          onTrackPlay={handleDisplayTrackPlay}
         />
       {:else if activeView === 'search'}
         <SearchView

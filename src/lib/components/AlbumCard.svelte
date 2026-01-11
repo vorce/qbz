@@ -14,7 +14,7 @@
 
   let isHovered = $state(false);
   let imageError = $state(false);
-  const cardSize = $derived(size === 'large' ? 200 : 180);
+  const cardSize = $derived(size === 'large' ? 180 : 162);
 
   function handleImageError() {
     imageError = true;
@@ -44,11 +44,6 @@
       <img src={artwork} alt={title} onerror={handleImageError} />
     {/if}
 
-    <!-- Quality Indicator -->
-    {#if quality}
-      <div class="quality-badge">{quality}</div>
-    {/if}
-
     <!-- Play Button Overlay -->
     {#if isHovered}
       <div class="play-overlay">
@@ -63,6 +58,9 @@
   <div class="info">
     <div class="title">{title}</div>
     <div class="artist">{artist}</div>
+    {#if quality}
+      <div class="quality-badge">{quality}</div>
+    {/if}
   </div>
 </div>
 
@@ -98,13 +96,15 @@
   }
 
   .quality-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    font-size: 11px;
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 10px;
     font-weight: 600;
-    color: white;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 2px 6px;
   }
 
   .play-overlay {
