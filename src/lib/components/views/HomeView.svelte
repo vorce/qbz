@@ -269,8 +269,8 @@
     });
 
     try {
-      // Fast query for seeds (uses simple DB queries, falls back if no ML scores)
-      const seeds = await invoke<HomeSeeds>('reco_get_home', {
+      // ML-based scoring for personalized recommendations (falls back to simple queries if no scores)
+      const seeds = await invoke<HomeSeeds>('reco_get_home_ml', {
         limitRecentAlbums: LIMITS.recentAlbums,
         limitContinueTracks: LIMITS.continueTracks,
         limitTopArtists: LIMITS.topArtists,
