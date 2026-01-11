@@ -215,11 +215,11 @@
     letter-spacing: 0.01em;
     opacity: var(--line-opacity, 1);
     transition:
-      opacity 400ms cubic-bezier(0.4, 0, 0.2, 1),
-      transform 400ms cubic-bezier(0.4, 0, 0.2, 1),
-      font-size 300ms cubic-bezier(0.4, 0, 0.2, 1),
-      font-weight 300ms cubic-bezier(0.4, 0, 0.2, 1),
-      color 500ms cubic-bezier(0.4, 0, 0.2, 1);
+      opacity 200ms ease-out,
+      transform 200ms ease-out,
+      font-size 150ms ease-out,
+      font-weight 150ms ease-out,
+      color 250ms ease-out;
     transform-origin: left center;
     will-change: opacity, transform;
   }
@@ -249,22 +249,17 @@
 
   /* Shimmer karaoke effect on active line */
   .lyrics-line.active .line-text {
-    --shimmer-width: 8%;
     --progress-pos: calc(var(--line-progress, 0) * 100%);
     background: linear-gradient(
       90deg,
-      var(--accent-primary) 0%,
-      var(--accent-primary) calc(var(--progress-pos) - var(--shimmer-width)),
-      rgba(255, 255, 255, 0.95) calc(var(--progress-pos) - 2%),
-      rgba(255, 255, 255, 0.95) var(--progress-pos),
-      var(--text-primary) calc(var(--progress-pos) + 2%),
+      #a78bfa 0%,
+      #a78bfa var(--progress-pos),
+      var(--text-primary) var(--progress-pos),
       var(--text-primary) 100%
     );
-    background-size: 100% 100%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    transition: background 50ms linear;
   }
 
   .lyrics-empty {

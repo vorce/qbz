@@ -2,6 +2,7 @@
   import { X, Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Heart, List, Maximize2, MoreHorizontal, Cast } from 'lucide-svelte';
   import QualityBadge from './QualityBadge.svelte';
   import LyricsLines from './lyrics/LyricsLines.svelte';
+  import { startActiveLineUpdates } from '$lib/stores/lyricsStore';
 
   interface LyricsLine {
     text: string;
@@ -89,6 +90,13 @@
 
   const progress = $derived((currentTime / duration) * 100 || 0);
   const hasLyrics = $derived(lyricsLines.length > 0);
+
+  // Ensure lyrics updates run when ExpandedPlayer is open with synced lyrics
+  $effect(() => {
+    if (isOpen && isPlaying && lyricsSynced) {
+      startActiveLineUpdates();
+    }
+  });
 
   function formatTime(seconds: number): string {
     if (!seconds || !isFinite(seconds)) return '0:00';
