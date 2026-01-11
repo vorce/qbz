@@ -301,6 +301,12 @@
     try {
       const devices = await invoke<AudioDevice[]>('get_audio_devices');
       audioDevices = devices;
+      // Debug: log raw names and their pretty versions
+      console.log('[Audio] Devices loaded:', devices.map(d => ({
+        raw: d.name,
+        pretty: getDevicePrettyName(d.name),
+        isDefault: d.is_default
+      })));
     } catch (err) {
       console.error('Failed to load audio devices:', err);
     }
