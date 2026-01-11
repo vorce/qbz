@@ -183,6 +183,7 @@
   } from '$lib/stores/lyricsStore';
 
   // Components
+  import TitleBar from '$lib/components/TitleBar.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import AboutModal from '$lib/components/AboutModal.svelte';
   import NowPlayingBar from '$lib/components/NowPlayingBar.svelte';
@@ -1025,6 +1026,10 @@
   <LoginView onLoginSuccess={handleLoginSuccess} />
 {:else}
   <div class="app">
+    <!-- Custom Title Bar (CSD) -->
+    <TitleBar />
+
+    <div class="app-body">
     <!-- Sidebar -->
     <Sidebar
       bind:this={sidebarRef}
@@ -1229,6 +1234,7 @@
         onCast={openCastPicker}
       />
     {/if}
+    </div><!-- end app-body -->
 
     <!-- Queue Panel -->
     <QueuePanel
@@ -1350,23 +1356,31 @@
 <style>
   .app {
     display: flex;
+    flex-direction: column;
     height: 100vh;
     overflow: hidden;
     background-color: var(--bg-primary);
+  }
+
+  .app-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .content-area {
     display: flex;
     flex: 1;
     min-width: 0;
-    height: calc(100vh - 104px);
+    height: calc(100vh - 140px); /* 104px NowPlayingBar + 36px TitleBar */
     overflow: hidden;
   }
 
   .main-content {
     flex: 1;
     min-width: 0;
-    height: calc(100vh - 104px);
+    height: calc(100vh - 140px); /* 104px NowPlayingBar + 36px TitleBar */
     overflow-y: auto;
     padding: 24px 32px;
   }

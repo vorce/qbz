@@ -197,7 +197,7 @@
     background-color: var(--bg-secondary);
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 104px);
+    height: calc(100vh - 140px); /* 104px NowPlayingBar + 36px TitleBar */
   }
 
   .content {

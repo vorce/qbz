@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
+  import TitleBar from '../TitleBar.svelte';
 
   interface UserInfo {
     userName: string;
@@ -129,8 +130,10 @@
   }
 </script>
 
-<div class="login-view">
-  <div class="login-card">
+<div class="login-wrapper">
+  <TitleBar />
+  <div class="login-view">
+    <div class="login-card">
     <!-- Logo -->
     <div class="logo">
       <img src="/logo.png" alt="QBZ Logo" class="logo-img" />
@@ -201,16 +204,20 @@
         Your credentials are sent directly to Qobuz and stored securely in your system's keyring.
       </p>
     {/if}
+    </div>
   </div>
 </div>
 
 <style>
+  .login-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: var(--bg-primary);
+  }
+
   .login-view {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
