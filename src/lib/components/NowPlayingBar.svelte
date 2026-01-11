@@ -445,7 +445,7 @@
     flex: 1;
     display: flex;
     align-items: center;
-    padding: 10px 16px 14px 16px;
+    padding: 6px 16px 18px 16px;
     gap: 16px;
   }
 
