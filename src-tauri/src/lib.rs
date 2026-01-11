@@ -47,9 +47,13 @@ pub struct AppState {
 
 impl AppState {
     pub fn new() -> Self {
+        Self::with_device(None)
+    }
+
+    pub fn with_device(device_name: Option<String>) -> Self {
         Self {
             client: Arc::new(Mutex::new(QobuzClient::default())),
-            player: Player::new(),
+            player: Player::new(device_name),
             queue: QueueManager::new(),
             media_controls: MediaControlsManager::new(),
             audio_cache: Arc::new(AudioCache::default()),
@@ -128,11 +132,23 @@ pub fn run() {
     let audio_settings_state = config::audio_settings::AudioSettingsState::new()
         .expect("Failed to initialize audio settings");
 
+    // Read saved audio device setting for player initialization
+    let saved_device = audio_settings_state
+        .store
+        .lock()
+        .ok()
+        .and_then(|store| store.get_settings().ok())
+        .and_then(|settings| settings.output_device);
+
+    if let Some(ref device) = saved_device {
+        log::info!("Initializing player with saved device: {}", device);
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .manage(AppState::new())
+        .manage(AppState::with_device(saved_device))
         .setup(|app| {
             // Start background task to emit playback events
             let app_handle = app.handle().clone();

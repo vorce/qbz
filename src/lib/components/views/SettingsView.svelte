@@ -127,8 +127,9 @@
     // Load download cache stats
     loadDownloadStats();
 
-    // Load audio devices
+    // Load audio devices and settings
     loadAudioDevices();
+    loadAudioSettings();
 
     // Load Last.fm state
     loadLastfmState();
@@ -275,18 +276,62 @@
     localStorage.setItem('qbz-language', lang);
   }
 
+  interface AudioSettings {
+    output_device: string | null;
+    exclusive_mode: boolean;
+    dac_passthrough: boolean;
+    preferred_sample_rate: number | null;
+  }
+
   async function loadAudioDevices() {
     try {
       const devices = await invoke<AudioDevice[]>('get_audio_devices');
       audioDevices = devices;
-
-      // Set current device to the default one
-      const defaultDevice = devices.find(d => d.is_default);
-      if (defaultDevice) {
-        outputDevice = defaultDevice.name;
-      }
     } catch (err) {
       console.error('Failed to load audio devices:', err);
+    }
+  }
+
+  async function loadAudioSettings() {
+    try {
+      const settings = await invoke<AudioSettings>('get_audio_settings');
+      outputDevice = settings.output_device ?? 'System Default';
+      exclusiveMode = settings.exclusive_mode;
+      dacPassthrough = settings.dac_passthrough;
+    } catch (err) {
+      console.error('Failed to load audio settings:', err);
+    }
+  }
+
+  async function handleOutputDeviceChange(device: string) {
+    outputDevice = device;
+    try {
+      await invoke('set_audio_output_device', {
+        device: device === 'System Default' ? null : device
+      });
+      console.log('Audio output device saved:', device);
+    } catch (err) {
+      console.error('Failed to save audio output device:', err);
+    }
+  }
+
+  async function handleExclusiveModeChange(enabled: boolean) {
+    exclusiveMode = enabled;
+    try {
+      await invoke('set_audio_exclusive_mode', { enabled });
+      console.log('Exclusive mode saved:', enabled);
+    } catch (err) {
+      console.error('Failed to save exclusive mode:', err);
+    }
+  }
+
+  async function handleDacPassthroughChange(enabled: boolean) {
+    dacPassthrough = enabled;
+    try {
+      await invoke('set_audio_dac_passthrough', { enabled });
+      console.log('DAC passthrough saved:', enabled);
+    } catch (err) {
+      console.error('Failed to save DAC passthrough:', err);
     }
   }
 
@@ -454,11 +499,14 @@
       <Toggle enabled={preferHighest} onchange={handlePreferHighestChange} />
     </div>
     <div class="setting-row">
-      <span class="setting-label">Output Device</span>
+      <div class="label-with-tooltip">
+        <span class="setting-label">Output Device</span>
+        <Tooltip text="Select your preferred audio output device. Changes take effect on next playback." />
+      </div>
       <Dropdown
         value={outputDevice}
         options={audioDeviceOptions.length > 1 ? audioDeviceOptions : ['System Default']}
-        onchange={(v) => (outputDevice = v)}
+        onchange={handleOutputDeviceChange}
       />
     </div>
     <div class="setting-row">
@@ -466,14 +514,14 @@
         <span class="setting-label">Exclusive Mode</span>
         <Tooltip text="Locks the audio device for exclusive use by QBZ for better quality" />
       </div>
-      <Toggle enabled={exclusiveMode} onchange={(v) => (exclusiveMode = v)} />
+      <Toggle enabled={exclusiveMode} onchange={handleExclusiveModeChange} />
     </div>
     <div class="setting-row">
       <div class="label-with-tooltip">
         <span class="setting-label">DAC Passthrough</span>
         <Tooltip text="Bypass the system audio mixer to send audio directly to your DAC at its native sample rate. Recommended for external DACs." />
       </div>
-      <Toggle enabled={dacPassthrough} onchange={(v) => (dacPassthrough = v)} />
+      <Toggle enabled={dacPassthrough} onchange={handleDacPassthroughChange} />
     </div>
     <div class="setting-row last">
       <span class="setting-label">Sample Rate</span>

@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use rodio::{Decoder, OutputStream, Sink, Source};
+use rodio::cpal::traits::{DeviceTrait, HostTrait};
 
 use crate::api::{client::QobuzClient, models::Quality};
 
@@ -157,12 +158,14 @@ pub struct Player {
 
 impl Default for Player {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }
 
 impl Player {
-    pub fn new() -> Self {
+    /// Create a new player with an optional specific output device
+    /// If device_name is None, uses the system default device
+    pub fn new(device_name: Option<String>) -> Self {
         let (tx, rx) = mpsc::channel::<AudioCommand>();
         let state = SharedState::new();
         let thread_state = state.clone();
@@ -171,28 +174,71 @@ impl Player {
         thread::spawn(move || {
             log::info!("Audio thread starting...");
 
-            // Create output stream on this thread (it must stay here)
-            let (_stream, stream_handle) = match OutputStream::try_default() {
+            // Get the audio host
+            let host = rodio::cpal::default_host();
+
+            // Find the requested device or use default
+            let device = if let Some(ref name) = device_name {
+                log::info!("Looking for audio device: {}", name);
+                host.output_devices()
+                    .ok()
+                    .and_then(|mut devices| {
+                        devices.find(|d| d.name().ok().as_ref() == Some(name))
+                    })
+                    .or_else(|| {
+                        log::warn!("Device '{}' not found, using default", name);
+                        host.default_output_device()
+                    })
+            } else {
+                log::info!("Using default audio device");
+                host.default_output_device()
+            };
+
+            let device = match device {
+                Some(d) => {
+                    if let Ok(name) = d.name() {
+                        log::info!("Using audio device: {}", name);
+                    }
+                    d
+                }
+                None => {
+                    log::error!("No audio output device available");
+                    // Keep thread alive to receive commands
+                    loop {
+                        match rx.recv() {
+                            Ok(_) => log::warn!("Audio command received but no device available"),
+                            Err(_) => break,
+                        }
+                    }
+                    return;
+                }
+            };
+
+            // Create output stream on the selected device
+            let (_stream, stream_handle) = match OutputStream::try_from_device(&device) {
                 Ok(s) => {
                     log::info!("Audio output initialized successfully");
                     s
                 }
                 Err(e) => {
-                    log::error!("Failed to create audio output: {}. Audio playback will not work.", e);
-                    // Keep the thread alive to receive commands (even if we can't play)
-                    // This prevents the channel from closing immediately
-                    loop {
-                        match rx.recv() {
-                            Ok(_) => {
-                                log::warn!("Audio command received but audio output is unavailable");
+                    log::error!("Failed to create audio output on device: {}. Trying default...", e);
+                    // Fallback to default
+                    match OutputStream::try_default() {
+                        Ok(s) => {
+                            log::info!("Fallback to default audio output succeeded");
+                            s
+                        }
+                        Err(e2) => {
+                            log::error!("Failed to create default audio output: {}", e2);
+                            loop {
+                                match rx.recv() {
+                                    Ok(_) => log::warn!("Audio command received but audio output is unavailable"),
+                                    Err(_) => break,
+                                }
                             }
-                            Err(_) => {
-                                log::info!("Audio thread: channel closed, exiting");
-                                break;
-                            }
+                            return;
                         }
                     }
-                    return;
                 }
             };
 
