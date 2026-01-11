@@ -107,22 +107,22 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 8px;
+    padding: 5px 10px;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .badge-icon {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     object-fit: contain;
     filter: invert(1) brightness(0.7);
   }
 
   .badge-icon.hires {
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     filter: none; /* Hi-Res logo keeps original colors */
   }
 
