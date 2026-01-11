@@ -98,8 +98,15 @@ export async function playTrack(
       coverUrl: track.artwork || null
     });
 
-    // Show system notification
-    await showTrackNotification(track.title, track.artist, track.album, track.artwork);
+    // Show system notification with artwork and quality info
+    await showTrackNotification(
+      track.title,
+      track.artist,
+      track.album,
+      track.artwork,
+      track.bitDepth,
+      track.samplingRate
+    );
 
     // Update Last.fm
     await updateLastfmNowPlaying(track.title, track.artist, track.album, track.duration, track.id);
@@ -152,14 +159,18 @@ export async function showTrackNotification(
   title: string,
   artist: string,
   album: string,
-  artworkUrl?: string
+  artworkUrl?: string,
+  bitDepth?: number,
+  sampleRate?: number
 ): Promise<void> {
   try {
     await invoke('show_track_notification', {
       title,
       artist,
       album,
-      artworkUrl: artworkUrl || null
+      artworkUrl: artworkUrl || null,
+      bitDepth: bitDepth || null,
+      sampleRate: sampleRate || null
     });
   } catch (err) {
     console.error('Failed to show track notification:', err);
