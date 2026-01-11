@@ -4,23 +4,26 @@
   interface Props {
     username: string;
     subscription: string;
-    avatarUrl?: string;
     onSettingsClick: () => void;
-    onLogout?: () => void;
+    onAboutClick?: () => void;
   }
 
-  let { username, subscription, avatarUrl, onSettingsClick }: Props = $props();
+  let { username, subscription, onSettingsClick, onAboutClick }: Props = $props();
 </script>
 
 <div class="user-card">
-  <!-- Avatar -->
-  <div class="avatar">
-    {#if avatarUrl}
-      <img src={avatarUrl} alt={username} />
-    {:else}
-      {username.charAt(0).toUpperCase()}
-    {/if}
-  </div>
+  <!-- App Logo -->
+  <button
+    class="logo-btn"
+    onclick={(e) => {
+      e.stopPropagation();
+      onAboutClick?.();
+    }}
+    title="About QBZ"
+  >
+    <div class="logo-glow"></div>
+    <img src="/icons/AppIcons/android/72x72.png" alt="QBZ" class="logo-img" />
+  </button>
 
   <!-- User Info -->
   <div class="user-info">
@@ -56,25 +59,41 @@
     background-color: var(--bg-hover);
   }
 
-  .avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background-color: var(--accent-primary);
+  .logo-btn {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    font-weight: 600;
-    font-size: 11px;
-    flex-shrink: 0;
-    overflow: hidden;
   }
 
-  .avatar img {
-    width: 100%;
-    height: 100%;
+  .logo-glow {
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 200ms ease;
+    pointer-events: none;
+  }
+
+  .logo-btn:hover .logo-glow {
+    opacity: 1;
+  }
+
+  .logo-img {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
     object-fit: cover;
+    position: relative;
+    z-index: 1;
   }
 
   .user-info {

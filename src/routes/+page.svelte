@@ -184,6 +184,7 @@
 
   // Components
   import Sidebar from '$lib/components/Sidebar.svelte';
+  import AboutModal from '$lib/components/AboutModal.svelte';
   import NowPlayingBar from '$lib/components/NowPlayingBar.svelte';
   import Toast from '$lib/components/Toast.svelte';
 
@@ -227,6 +228,7 @@
   let isPlaylistModalOpen = $state(false);
   let playlistModalMode = $state<'create' | 'edit' | 'addTrack'>('create');
   let playlistModalTrackIds = $state<number[]>([]);
+  let isAboutModalOpen = $state(false);
   let userPlaylists = $state<{ id: number; name: string; tracks_count: number }[]>([]);
 
   // Sidebar reference for refreshing playlists
@@ -1032,6 +1034,7 @@
       onPlaylistSelect={selectPlaylist}
       onCreatePlaylist={openCreatePlaylist}
       onSettingsClick={() => navigateTo('settings')}
+      onAboutClick={() => isAboutModalOpen = true}
       onLogout={handleLogout}
       userName={userInfo?.userName || 'User'}
       subscription={userInfo?.subscription || 'Qobuz'}
@@ -1325,6 +1328,12 @@
       {userPlaylists}
       onClose={closePlaylistModal}
       onSuccess={handlePlaylistCreated}
+    />
+
+    <!-- About Modal -->
+    <AboutModal
+      isOpen={isAboutModalOpen}
+      onClose={() => isAboutModalOpen = false}
     />
 
     <!-- Cast Picker -->

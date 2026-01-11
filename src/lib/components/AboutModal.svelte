@@ -1,0 +1,332 @@
+<script lang="ts">
+  import { X, Github, Globe, ExternalLink } from 'lucide-svelte';
+
+  interface Props {
+    isOpen: boolean;
+    onClose: () => void;
+  }
+
+  let { isOpen, onClose }: Props = $props();
+
+  const APP_VERSION = '0.1.0';
+  const BUILD_DATE = new Date().toISOString().split('T')[0];
+</script>
+
+{#if isOpen}
+  <div class="modal-backdrop" onclick={onClose}>
+    <div class="modal" onclick={(e) => e.stopPropagation()}>
+      <!-- Header -->
+      <div class="modal-header">
+        <div class="app-branding">
+          <img src="/icons/AppIcons/android/96x96.png" alt="QBZ" class="app-icon" />
+          <div class="app-title">
+            <h2>QBZ</h2>
+            <span class="version">v{APP_VERSION}</span>
+          </div>
+        </div>
+        <button class="close-btn" onclick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="modal-content">
+        <!-- Description -->
+        <p class="description">
+          A native Qobuz client for Linux, designed for audiophiles who need
+          bit-perfect Hi-Fi playback without browser sample rate limitations.
+        </p>
+
+        <!-- Links -->
+        <div class="links">
+          <a href="https://github.com/vicrodh/qbz" target="_blank" rel="noopener" class="link-btn">
+            <Github size={16} />
+            <span>GitHub</span>
+            <ExternalLink size={12} />
+          </a>
+          <a href="https://qbz.lol" target="_blank" rel="noopener" class="link-btn">
+            <Globe size={16} />
+            <span>Website</span>
+            <ExternalLink size={12} />
+          </a>
+        </div>
+
+        <!-- Build Info -->
+        <div class="info-section">
+          <h3>Build Info</h3>
+          <div class="info-grid">
+            <span class="label">Version</span>
+            <span class="value">{APP_VERSION}</span>
+            <span class="label">License</span>
+            <span class="value">MIT</span>
+            <span class="label">Platform</span>
+            <span class="value">Linux (Tauri 2.0)</span>
+            <span class="label">Build</span>
+            <span class="value">{BUILD_DATE}</span>
+          </div>
+        </div>
+
+        <!-- Attributions -->
+        <div class="info-section">
+          <h3>Acknowledgments</h3>
+          <div class="attributions">
+            <div class="attribution">
+              <strong>Qobuz</strong> — Music streaming service and API
+            </div>
+            <div class="attribution">
+              <strong>Tauri</strong> — Application framework (MIT/Apache-2.0)
+            </div>
+            <div class="attribution">
+              <strong>Svelte</strong> — UI framework (MIT)
+            </div>
+            <div class="attribution">
+              <strong>Rodio + Symphonia</strong> — Audio playback engine
+            </div>
+            <div class="attribution">
+              <strong>Lucide</strong> — Icon library (ISC)
+            </div>
+            <div class="attribution">
+              <strong>Song.link/Odesli</strong> — Music link aggregation API
+            </div>
+          </div>
+        </div>
+
+        <!-- Author -->
+        <div class="info-section author-section">
+          <h3>Author</h3>
+          <p class="author">Vic Rodríguez</p>
+        </div>
+
+        <!-- Signature -->
+        <div class="signature">
+          <p>
+            Made with <span class="strikethrough">love in México</span> hatred.
+          </p>
+          <p class="signature-detail">
+            Hatred towards all those companies that discriminate against the Linux community
+            and don't provide us with a decent client for their product.
+            <svg class="tux" viewBox="0 0 24 24" width="14" height="14">
+              <path fill="currentColor" d="M12 2C9.8 2 8 3.8 8 6c0 .5.1 1 .3 1.4C6.1 8.1 5 9.9 5 12c0 2.8 1.6 5.2 4 6.3V21h6v-2.7c2.4-1.1 4-3.5 4-6.3 0-2.1-1.1-3.9-2.7-4.6.2-.4.3-.9.3-1.4 0-2.2-1.8-4-4-4zm-2 5c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zm4 0c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zm-2 3c1.1 0 2 .7 2 1.5S13.1 13 12 13s-2-.7-2-1.5.9-1.5 2-1.5z"/>
+            </svg>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<style>
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 150ms ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .modal {
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 480px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+    animation: slideUp 200ms ease;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid var(--bg-tertiary);
+  }
+
+  .app-branding {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .app-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+  }
+
+  .app-title h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .version {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .close-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .close-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .modal-content {
+    padding: 24px;
+  }
+
+  .description {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0 0 24px;
+  }
+
+  .links {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .link-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 150ms ease;
+  }
+
+  .link-btn:hover {
+    background: var(--accent-primary);
+    color: white;
+  }
+
+  .link-btn :global(svg:last-child) {
+    opacity: 0.5;
+  }
+
+  .info-section {
+    margin-bottom: 20px;
+  }
+
+  .info-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 16px;
+    font-size: 13px;
+  }
+
+  .label {
+    color: var(--text-muted);
+  }
+
+  .value {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+  }
+
+  .attributions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .attribution {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .attribution strong {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .author-section .author {
+    font-size: 14px;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .signature {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--bg-tertiary);
+    text-align: center;
+  }
+
+  .signature p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 8px;
+    line-height: 1.6;
+  }
+
+  .strikethrough {
+    text-decoration: line-through;
+    opacity: 0.6;
+  }
+
+  .signature-detail {
+    font-size: 11px !important;
+    max-width: 360px;
+    margin: 0 auto !important;
+  }
+
+  .tux {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 4px;
+    color: var(--text-muted);
+  }
+</style>

@@ -18,6 +18,7 @@
     onPlaylistSelect?: (playlistId: number) => void;
     onCreatePlaylist?: () => void;
     onSettingsClick?: () => void;
+    onAboutClick?: () => void;
     onLogout?: () => void;
     userName?: string;
     subscription?: string;
@@ -30,6 +31,7 @@
     onPlaylistSelect,
     onCreatePlaylist,
     onSettingsClick,
+    onAboutClick,
     onLogout,
     userName = 'User',
     subscription = 'Qobuz'
@@ -182,7 +184,7 @@
       username={userName}
       {subscription}
       onSettingsClick={onSettingsClick ?? (() => handleViewChange('settings'))}
-      {onLogout}
+      {onAboutClick}
     />
   </div>
 </aside>
