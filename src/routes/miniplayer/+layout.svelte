@@ -28,16 +28,12 @@
     height: 100vh;
     background: transparent;
     overflow: hidden;
-    padding: 4px;
-    box-sizing: border-box;
   }
 
   .miniplayer-frame {
     width: 100%;
     height: 100%;
     background: #18181b;
-    border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
   }
 </style>

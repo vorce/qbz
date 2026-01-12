@@ -9,12 +9,7 @@
     Pause,
     Repeat,
     Repeat1,
-    Pin,
-    PinOff,
     Maximize2,
-    Volume2,
-    VolumeX,
-    Volume1,
     ListMusic
   } from 'lucide-svelte';
   import {
@@ -36,13 +31,12 @@
     previousTrack,
     type RepeatMode
   } from '$lib/stores/queueStore';
-  import { exitMiniplayerMode, setMiniplayerAlwaysOnTop } from '$lib/services/miniplayerService';
+  import { exitMiniplayerMode } from '$lib/services/miniplayerService';
 
   // Player state
   let playerState = $state<PlayerState>(getPlayerState());
   let isShuffle = $state(false);
   let repeatMode = $state<RepeatMode>('off');
-  let isPinned = $state(true);
   let isDragging = $state(false);
   let isDraggingProgress = $state(false);
   let queueCount = $state(0);
@@ -177,13 +171,6 @@
     await exitMiniplayerMode();
   }
 
-  async function togglePin(e: MouseEvent): Promise<void> {
-    e.stopPropagation();
-    e.preventDefault();
-    isPinned = !isPinned;
-    await setMiniplayerAlwaysOnTop(isPinned);
-  }
-
   async function startDrag(): Promise<void> {
     try {
       isDragging = true;
@@ -200,6 +187,12 @@
     e.stopPropagation();
     console.log('[MiniPlayer] Queue button clicked, tracks:', queueCount);
   }
+
+  function handleArtworkClick(e: MouseEvent): void {
+    e.stopPropagation();
+    // TODO: Cycle through view modes
+    console.log('[MiniPlayer] Artwork clicked');
+  }
 </script>
 
 <div
@@ -209,22 +202,22 @@
   aria-label="MiniPlayer"
 >
   <!-- Top Section: Artwork + Info + Restore -->
-  <div class="top-section">
-    <!-- Album Art -->
-    <div class="artwork-section" onmousedown={startDrag}>
+  <div class="top-section" onmousedown={startDrag}>
+    <!-- Album Art (clickable for view modes) -->
+    <button class="artwork-section" onclick={handleArtworkClick}>
       {#if playerState.currentTrack?.artwork}
         <img src={playerState.currentTrack.artwork} alt="Album art" class="artwork" />
       {:else}
         <div class="artwork-placeholder"></div>
       {/if}
-    </div>
+    </button>
 
     <!-- Track Info + Restore Button -->
     <div class="info-section">
       <button class="restore-btn" onclick={handleRestore} title="Restore">
         <Maximize2 size={14} />
       </button>
-      <div class="track-info" onmousedown={startDrag}>
+      <div class="track-info">
         <div class="title">{playerState.currentTrack?.title ?? 'No track'}</div>
         <div class="artist-album">
           {playerState.currentTrack?.artist ?? '—'}
@@ -301,13 +294,6 @@
       <button class="ctrl-btn" onclick={handleOpenQueue} title="Queue ({queueCount})">
         <ListMusic size={14} />
       </button>
-      <button class="ctrl-btn" onclick={togglePin} title={isPinned ? 'Unpin' : 'Pin'}>
-        {#if isPinned}
-          <Pin size={14} />
-        {:else}
-          <PinOff size={14} />
-        {/if}
-      </button>
     </div>
   </div>
 </div>
@@ -341,6 +327,7 @@
     flex: 1;
     gap: 10px;
     min-height: 0;
+    cursor: grab;
   }
 
   /* Album Art */
@@ -348,7 +335,10 @@
     aspect-ratio: 1;
     height: 100%;
     flex-shrink: 0;
-    cursor: grab;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
   }
 
   .artwork {
@@ -403,7 +393,6 @@
     justify-content: center;
     min-width: 0;
     overflow: hidden;
-    cursor: grab;
     padding-right: 30px;
   }
 
