@@ -12,6 +12,10 @@
   const APP_VERSION = '0.1.0';
   const BUILD_DATE = new Date().toISOString().split('T')[0];
 
+  // Detect platform for Easter eggs
+  const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
+  const platformLabel = isMac ? 'macOS (Tauri 2.0)' : 'Linux (Tauri 2.0)';
+
   function handleOpenUrl(url: string) {
     openUrl(url).catch(err => console.error('Failed to open URL:', err));
   }
@@ -65,7 +69,7 @@
             <span class="label">License</span>
             <span class="value">MIT</span>
             <span class="label">Platform</span>
-            <span class="value">Linux (Tauri 2.0)</span>
+            <span class="value">{platformLabel}</span>
             <span class="label">Build</span>
             <span class="value">{BUILD_DATE}</span>
           </div>
@@ -113,7 +117,7 @@
           <p class="signature-detail">
             Hatred towards all those companies that discriminate against the Linux community
             and don't provide us with a decent client for their product.
-            <img src="/Tux.svg" alt="Tux" class="inline-icon tux" />
+            <img src="/Tux.svg" alt="Tux" class="inline-icon tux" class:mac-tux={isMac} />
           </p>
         </div>
       </div>
@@ -360,5 +364,16 @@
   .inline-icon.tux {
     margin-left: 4px;
     height: 1.4em;
+  }
+
+  /* Easter egg: On Mac, Tux asserts dominance */
+  .inline-icon.tux.mac-tux {
+    height: 64px;
+    margin-left: 12px;
+    margin-top: 8px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
   }
 </style>

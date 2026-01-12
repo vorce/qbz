@@ -359,23 +359,24 @@ pub fn reinit_audio_device(
     state.player.reinit_device(device)
 }
 
-/// PipeWire/PulseAudio sink information
+/// PipeWire/PulseAudio sink information (cross-platform compatible struct)
 #[derive(serde::Serialize, Clone)]
 pub struct PipewireSink {
-    /// Internal name (e.g., "alsa_output.usb-XXX")
+    /// Internal name (e.g., "alsa_output.usb-XXX" on Linux, device name on Mac)
     pub name: String,
     /// User-friendly description (e.g., "AB13X Headset Adapter Analog Stereo")
     pub description: String,
-    /// Current volume percentage (0-100)
+    /// Current volume percentage (0-100) - only available on Linux
     pub volume: Option<u32>,
     /// Whether this is the default sink
     pub is_default: bool,
 }
 
-/// Get PipeWire/PulseAudio sink information with friendly names
+/// Get PipeWire/PulseAudio sink information with friendly names (Linux)
+#[cfg(target_os = "linux")]
 #[tauri::command]
 pub fn get_pipewire_sinks() -> Result<Vec<PipewireSink>, String> {
-    log::info!("Command: get_pipewire_sinks");
+    log::info!("Command: get_pipewire_sinks (Linux)");
 
     use std::process::Command;
 
@@ -457,5 +458,40 @@ pub fn get_pipewire_sinks() -> Result<Vec<PipewireSink>, String> {
     }
 
     log::info!("Found {} PipeWire sinks", sinks.len());
+    Ok(sinks)
+}
+
+/// Get audio output devices using cpal (macOS/Windows fallback)
+/// Returns devices in the same format as Linux for UI compatibility
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+pub fn get_pipewire_sinks() -> Result<Vec<PipewireSink>, String> {
+    log::info!("Command: get_pipewire_sinks (non-Linux, using cpal)");
+
+    use rodio::cpal::traits::{DeviceTrait, HostTrait};
+
+    let host = rodio::cpal::default_host();
+
+    let default_device_name = host
+        .default_output_device()
+        .and_then(|d| d.name().ok());
+
+    let sinks: Vec<PipewireSink> = host
+        .output_devices()
+        .map_err(|e| format!("Failed to enumerate devices: {}", e))?
+        .filter_map(|device| {
+            device.name().ok().map(|name| {
+                let is_default = default_device_name.as_ref().map(|d| d == &name).unwrap_or(false);
+                PipewireSink {
+                    name: name.clone(),
+                    description: name, // On Mac/Windows, name is usually descriptive enough
+                    volume: None,      // Volume not available via cpal
+                    is_default,
+                }
+            })
+        })
+        .collect();
+
+    log::info!("Found {} audio output devices", sinks.len());
     Ok(sinks)
 }
