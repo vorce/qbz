@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Search, Home, HardDrive, Plus, RefreshCw, ChevronDown, ChevronUp, Heart, ListMusic, Download, Settings } from 'lucide-svelte';
+  import { Search, Home, HardDrive, Plus, RefreshCw, ChevronDown, ChevronUp, Heart, ListMusic, Import, Settings } from 'lucide-svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
   import NavigationItem from './NavigationItem.svelte';
@@ -162,7 +162,7 @@
             <Plus size={14} />
           </button>
           <button class="icon-btn" onclick={onImportPlaylist} title="Import playlist">
-            <Download size={14} />
+            <Import size={14} />
           </button>
           <button class="icon-btn" onclick={onPlaylistManagerClick} title="Manage playlists">
             <Settings size={14} />

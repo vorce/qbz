@@ -13,14 +13,32 @@
     class: className = ''
   }: Props = $props();
 
-  // Get unique artworks (dedupe same album covers)
+  // Upscale Qobuz image URLs to larger resolution
+  function upscaleImageUrl(url: string): string {
+    if (!url) return url;
+    // Qobuz playlist thumbnails are often small (50x50 or 100x100)
+    // Try to get 600x600 versions for better quality
+    return url
+      .replace(/_50\.jpg/, '_600.jpg')
+      .replace(/_100\.jpg/, '_600.jpg')
+      .replace(/_150\.jpg/, '_600.jpg')
+      .replace(/_230\.jpg/, '_600.jpg')
+      .replace(/_300\.jpg/, '_600.jpg')
+      .replace(/\/50x50\//, '/600x600/')
+      .replace(/\/100x100\//, '/600x600/')
+      .replace(/\/150x150\//, '/600x600/')
+      .replace(/\/230x230\//, '/600x600/')
+      .replace(/\/300x300\//, '/600x600/');
+  }
+
+  // Get unique artworks (dedupe same album covers) and upscale
   const uniqueArtworks = $derived(() => {
     const seen = new Set<string>();
     return artworks.filter(art => {
       if (!art || seen.has(art)) return false;
       seen.add(art);
       return true;
-    }).slice(0, 4);
+    }).slice(0, 4).map(upscaleImageUrl);
   });
 
   const count = $derived(uniqueArtworks().length);

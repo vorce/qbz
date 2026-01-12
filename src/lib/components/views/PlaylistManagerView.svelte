@@ -658,7 +658,7 @@
 
   .hidden-badge {
     position: absolute;
-    top: 4px;
+    bottom: 4px;
     right: 4px;
     background: rgba(0, 0, 0, 0.7);
     border-radius: 4px;
@@ -673,7 +673,7 @@
   }
 
   .grid-item .name {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text-primary);
     display: -webkit-box;
@@ -683,7 +683,7 @@
   }
 
   .grid-item .meta {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
   }
 
