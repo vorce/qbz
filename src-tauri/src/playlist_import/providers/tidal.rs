@@ -1,13 +1,17 @@
 //! Tidal playlist import (OpenAPI v2)
 
 use std::env;
+use std::time::Duration;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde_json::Value;
+use tokio::time::sleep;
 
 use crate::playlist_import::errors::PlaylistImportError;
 use crate::playlist_import::models::{ImportPlaylist, ImportProvider, ImportTrack};
+
+const RATE_LIMIT_DELAY_MS: u64 = 200; // Delay between API calls to avoid 429
 
 const TIDAL_TOKEN_URL: &str = "https://auth.tidal.com/v1/oauth2/token";
 const TIDAL_API_BASE: &str = "https://openapi.tidal.com/v2";
@@ -39,16 +43,23 @@ pub async fn fetch_playlist(playlist_id: &str) -> Result<ImportPlaylist, Playlis
 
     let client = reqwest::Client::new();
     let meta_url = format!("{}/playlists/{}", TIDAL_API_BASE, playlist_id);
-    let meta: Value = client
+    let resp = client
         .get(&meta_url)
         .header("Authorization", format!("Bearer {}", token))
         .query(&[("countryCode", &country_code)])
         .send()
         .await
-        .map_err(|e| PlaylistImportError::Http(e.to_string()))?
-        .json()
-        .await
-        .map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
+        .map_err(|e| PlaylistImportError::Http(e.to_string()))?;
+
+    let status = resp.status();
+    let body = resp.text().await.map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
+
+    if !status.is_success() {
+        return Err(PlaylistImportError::Http(format!("Tidal playlist fetch failed: {} - {}", status, body)));
+    }
+
+    let meta: Value = serde_json::from_str(&body)
+        .map_err(|e| PlaylistImportError::Parse(format!("Invalid playlist JSON: {}", e)))?;
 
     let name = meta
         .get("data")
@@ -88,19 +99,29 @@ async fn fetch_track_ids(
 
     loop {
         let url = format!("{}{}", TIDAL_API_BASE, next_path);
+        sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS)).await;
+
         let mut request = client
             .get(&url)
             .header("Authorization", format!("Bearer {}", token));
         if !next_path.contains("countryCode=") {
             request = request.query(&[("countryCode", country_code)]);
         }
-        let response: Value = request
+
+        let resp = request
             .send()
             .await
-            .map_err(|e| PlaylistImportError::Http(e.to_string()))?
-            .json()
-            .await
-            .map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
+            .map_err(|e| PlaylistImportError::Http(e.to_string()))?;
+
+        let status = resp.status();
+        let body = resp.text().await.map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
+
+        if !status.is_success() {
+            return Err(PlaylistImportError::Http(format!("Tidal track IDs fetch failed: {} - {}", status, body)));
+        }
+
+        let response: Value = serde_json::from_str(&body)
+            .map_err(|e| PlaylistImportError::Parse(format!("Invalid track IDs JSON: {}", e)))?;
 
         if let Some(data) = response.get("data").and_then(|v| v.as_array()) {
             for item in data {
@@ -135,14 +156,16 @@ async fn fetch_tracks_by_ids(
 ) -> Result<Vec<ImportTrack>, PlaylistImportError> {
     let mut tracks = Vec::new();
     let mut chunk_start = 0usize;
-    let chunk_size = 50usize;
+    let chunk_size = 20usize; // Tidal API limit
 
     while chunk_start < track_ids.len() {
         let end = (chunk_start + chunk_size).min(track_ids.len());
         let chunk = &track_ids[chunk_start..end];
 
         let url = format!("{}/tracks", TIDAL_API_BASE);
-        let response: Value = client
+        sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS)).await;
+
+        let resp = client
             .get(&url)
             .header("Authorization", format!("Bearer {}", token))
             .query(&[
@@ -152,10 +175,17 @@ async fn fetch_tracks_by_ids(
             ])
             .send()
             .await
-            .map_err(|e| PlaylistImportError::Http(e.to_string()))?
-            .json()
-            .await
-            .map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
+            .map_err(|e| PlaylistImportError::Http(e.to_string()))?;
+
+        let status = resp.status();
+        let body = resp.text().await.map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
+
+        if !status.is_success() {
+            return Err(PlaylistImportError::Http(format!("Tidal tracks fetch failed: {} - {}", status, body)));
+        }
+
+        let response: Value = serde_json::from_str(&body)
+            .map_err(|e| PlaylistImportError::Parse(format!("Invalid tracks JSON: {}", e)))?;
 
         let included = response
             .get("included")
@@ -306,21 +336,28 @@ async fn get_app_token() -> Result<String, PlaylistImportError> {
 
     let auth = STANDARD.encode(format!("{}:{}", client_id, client_secret));
 
-    let response: Value = reqwest::Client::new()
+    let resp = reqwest::Client::new()
         .post(TIDAL_TOKEN_URL)
         .header("Authorization", format!("Basic {}", auth))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body("grant_type=client_credentials")
         .send()
         .await
-        .map_err(|e| PlaylistImportError::Http(e.to_string()))?
-        .json()
-        .await
-        .map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
+        .map_err(|e| PlaylistImportError::Http(e.to_string()))?;
+
+    let status = resp.status();
+    let body = resp.text().await.map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
+
+    if !status.is_success() {
+        return Err(PlaylistImportError::Http(format!("Tidal auth failed: {} - {}", status, body)));
+    }
+
+    let response: Value = serde_json::from_str(&body)
+        .map_err(|e| PlaylistImportError::Parse(format!("Invalid JSON: {} - body: {}", e, &body[..body.len().min(200)])))?;
 
     response
         .get("access_token")
         .and_then(|v| v.as_str())
         .map(|v| v.to_string())
-        .ok_or_else(|| PlaylistImportError::Parse("Tidal token missing access_token".to_string()))
+        .ok_or_else(|| PlaylistImportError::Parse(format!("Tidal token missing access_token. Response: {}", body)))
 }
