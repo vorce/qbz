@@ -3,20 +3,59 @@
  *
  * Handles switching between normal and miniplayer modes by resizing
  * the main window instead of creating a separate window.
+ *
+ * Uses localStorage to persist original window state across navigation.
  */
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { PhysicalSize, PhysicalPosition } from '@tauri-apps/api/window';
 import { goto } from '$app/navigation';
 
-// Miniplayer dimensions (Cider-inspired compact mode)
-const MINIPLAYER_WIDTH = 400;
-const MINIPLAYER_HEIGHT = 150;
+// Miniplayer dimensions (with 4px margin on each side)
+const MINIPLAYER_WIDTH = 408;  // 400 content + 8px total margin
+const MINIPLAYER_HEIGHT = 158; // 150 content + 8px total margin
 
-// Store original window state for restoration
-let originalSize: PhysicalSize | null = null;
-let originalPosition: PhysicalPosition | null = null;
-let originalMaximized = false;
+// LocalStorage key for persisting window state
+const STORAGE_KEY = 'miniplayer_original_state';
+
+interface OriginalState {
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  maximized: boolean;
+}
+
+function saveOriginalState(state: OriginalState): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    console.log('[MiniPlayer] Saved state to localStorage:', state);
+  } catch (e) {
+    console.error('[MiniPlayer] Failed to save state:', e);
+  }
+}
+
+function loadOriginalState(): OriginalState | null {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data) {
+      const state = JSON.parse(data) as OriginalState;
+      console.log('[MiniPlayer] Loaded state from localStorage:', state);
+      return state;
+    }
+  } catch (e) {
+    console.error('[MiniPlayer] Failed to load state:', e);
+  }
+  return null;
+}
+
+function clearOriginalState(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    console.log('[MiniPlayer] Cleared state from localStorage');
+  } catch (e) {
+    console.error('[MiniPlayer] Failed to clear state:', e);
+  }
+}
 
 /**
  * Enter miniplayer mode - resize window and navigate to miniplayer route
@@ -28,18 +67,21 @@ export async function enterMiniplayerMode(): Promise<void> {
     const window = getCurrentWindow();
 
     // Store current window state
-    originalMaximized = await window.isMaximized();
-    originalSize = await window.innerSize();
-    originalPosition = await window.innerPosition();
+    const maximized = await window.isMaximized();
+    const size = await window.innerSize();
+    const position = await window.innerPosition();
 
-    console.log('[MiniPlayer] Saved original state:', {
-      size: originalSize,
-      position: originalPosition,
-      maximized: originalMaximized
+    // Save to localStorage so it survives navigation
+    saveOriginalState({
+      width: size.width,
+      height: size.height,
+      x: position.x,
+      y: position.y,
+      maximized
     });
 
     // If maximized, unmaximize first
-    if (originalMaximized) {
+    if (maximized) {
       await window.unmaximize();
     }
 
@@ -63,7 +105,10 @@ export async function enterMiniplayerMode(): Promise<void> {
  */
 export async function exitMiniplayerMode(): Promise<void> {
   console.log('[MiniPlayer] Exiting miniplayer mode...');
-  console.log('[MiniPlayer] Original state:', { originalSize, originalPosition, originalMaximized });
+
+  // Load original state from localStorage
+  const originalState = loadOriginalState();
+  console.log('[MiniPlayer] Original state:', originalState);
 
   try {
     const window = getCurrentWindow();
@@ -74,26 +119,25 @@ export async function exitMiniplayerMode(): Promise<void> {
     await window.setResizable(true);
 
     // Restore size
-    if (originalSize) {
-      console.log('[MiniPlayer] Restoring size:', originalSize);
-      await window.setSize({ type: 'Physical', width: originalSize.width, height: originalSize.height });
+    if (originalState) {
+      console.log('[MiniPlayer] Restoring size:', originalState.width, 'x', originalState.height);
+      await window.setSize({ type: 'Physical', width: originalState.width, height: originalState.height });
+
+      console.log('[MiniPlayer] Restoring position:', originalState.x, ',', originalState.y);
+      await window.setPosition({ type: 'Physical', x: originalState.x, y: originalState.y });
+
+      if (originalState.maximized) {
+        console.log('[MiniPlayer] Restoring maximized state');
+        await window.maximize();
+      }
     } else {
       // Fallback to default size
-      console.log('[MiniPlayer] No original size, using default');
+      console.log('[MiniPlayer] No original state, using defaults');
       await window.setSize({ type: 'Physical', width: 1280, height: 800 });
     }
 
-    // Restore position
-    if (originalPosition) {
-      console.log('[MiniPlayer] Restoring position:', originalPosition);
-      await window.setPosition({ type: 'Physical', x: originalPosition.x, y: originalPosition.y });
-    }
-
-    // Restore maximized state
-    if (originalMaximized) {
-      console.log('[MiniPlayer] Restoring maximized state');
-      await window.maximize();
-    }
+    // Clear saved state
+    clearOriginalState();
 
     // Navigate back to main
     await goto('/');

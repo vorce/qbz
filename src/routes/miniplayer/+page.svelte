@@ -377,7 +377,7 @@
     display: flex;
     width: 100%;
     height: 100%;
-    background: #18181b;
+    background: transparent;
     color: white;
     user-select: none;
     overflow: hidden;
