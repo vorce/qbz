@@ -650,7 +650,7 @@
               ? `${track.bitDepth}bit/${track.samplingRate}kHz`
               : track.hires
                 ? 'Hi-Res'
-                : 'CD Quality'}
+                : '-'}
             hideFavorite={track.isLocal}
             hideDownload={track.isLocal}
             downloadStatus={downloadInfo.status}

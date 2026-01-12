@@ -736,9 +736,11 @@
 
   async function handleDisplayTrackDownload(track: PlaylistTrack) {
     try {
-      const quality = track.hires && track.bitDepth && track.samplingRate
+      const quality = track.bitDepth && track.samplingRate
         ? `${track.bitDepth}bit/${track.samplingRate}kHz`
-        : 'CD Quality';
+        : track.hires
+          ? 'Hi-Res'
+          : '-';
       await downloadTrack({
         id: track.id,
         title: track.title,
@@ -767,12 +769,13 @@
     // Determine quality string:
     // - If we have exact bitDepth/samplingRate, show them
     // - If hires flag is true but no exact values, show "Hi-Res"
-    // - Otherwise "CD Quality"
+    // - Otherwise show "-" (unknown - will be updated when streaming returns quality info)
+    // TODO: Update quality when backend returns actual streaming quality
     const quality = track.bitDepth && track.samplingRate
       ? `${track.bitDepth}bit/${track.samplingRate}kHz`
       : track.hires
         ? 'Hi-Res'
-        : 'CD Quality';
+        : '-';
 
     // Fire-and-forget async call
     playTrack({
