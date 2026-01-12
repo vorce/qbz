@@ -446,12 +446,16 @@
 
   function handleVolumeChange(newVolume: number) {
     playerSetVolume(newVolume);
+    // Persist volume change to session
+    saveSessionVolume(newVolume / 100);
   }
 
   async function toggleShuffle() {
     const result = await queueToggleShuffle();
     if (result.success) {
       showToast(result.enabled ? 'Shuffle enabled' : 'Shuffle disabled', 'info');
+      // Persist playback mode to session
+      saveSessionPlaybackMode(result.enabled, repeatMode);
     }
   }
 
@@ -460,6 +464,8 @@
     if (result.success) {
       const messages: Record<RepeatMode, string> = { off: 'Repeat off', all: 'Repeat all', one: 'Repeat one' };
       showToast(messages[result.mode], 'info');
+      // Persist playback mode to session
+      saveSessionPlaybackMode(isShuffle, result.mode);
     }
   }
 
@@ -1098,6 +1104,32 @@
     };
   });
 
+  // Periodic full session save during playback (every 30 seconds)
+  let sessionSaveInterval: ReturnType<typeof setInterval> | null = null;
+
+  $effect(() => {
+    // Start periodic save when playing, stop when paused/stopped
+    if (isPlaying && currentTrack && isLoggedIn) {
+      if (!sessionSaveInterval) {
+        sessionSaveInterval = setInterval(() => {
+          saveSessionBeforeClose();
+        }, 30000); // Save every 30 seconds
+      }
+    } else {
+      if (sessionSaveInterval) {
+        clearInterval(sessionSaveInterval);
+        sessionSaveInterval = null;
+      }
+    }
+
+    return () => {
+      if (sessionSaveInterval) {
+        clearInterval(sessionSaveInterval);
+        sessionSaveInterval = null;
+      }
+    };
+  });
+
   // Download state update trigger
   let downloadStateVersion = $state(0);
 
@@ -1173,12 +1205,23 @@
     // Subscribe to player state changes
     const unsubscribePlayer = subscribePlayer(() => {
       const playerState = getPlayerState();
+      const wasPlaying = isPlaying;
       currentTrack = playerState.currentTrack;
       isPlaying = playerState.isPlaying;
       currentTime = playerState.currentTime;
       duration = playerState.duration;
       volume = playerState.volume;
       isFavorite = playerState.isFavorite;
+
+      // Save position during playback (debounced to every 5s)
+      if (isPlaying && currentTrack && currentTime > 0) {
+        debouncedSavePosition(Math.floor(currentTime));
+      }
+
+      // Flush position save immediately when pausing
+      if (wasPlaying && !isPlaying && currentTrack && currentTime > 0) {
+        flushPositionSave(Math.floor(currentTime));
+      }
     });
 
     // Subscribe to queue state changes
