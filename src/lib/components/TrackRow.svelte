@@ -16,6 +16,7 @@
     number: number;
     title: string;
     artist?: string;
+    album?: string;
     duration: string;
     quality?: string;
     isPlaying?: boolean;
@@ -47,6 +48,7 @@
     number,
     title,
     artist,
+    album,
     duration,
     quality,
     isPlaying = false,
@@ -127,6 +129,11 @@
   <!-- Artist Column (compact mode) -->
   {#if artist && compact}
     <div class="track-artist-column">{artist}</div>
+  {/if}
+
+  <!-- Album Column -->
+  {#if album}
+    <div class="track-album">{album}</div>
   {/if}
 
   <!-- Duration -->
@@ -295,6 +302,16 @@
   .track-artist-column {
     width: 180px;
     flex-shrink: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .track-album {
+    flex: 1;
+    min-width: 0;
     font-size: 13px;
     color: var(--text-muted);
     overflow: hidden;

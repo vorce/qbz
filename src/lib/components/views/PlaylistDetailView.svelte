@@ -644,6 +644,7 @@
             number={idx + 1}
             title={track.title}
             artist={track.artist}
+            album={track.album}
             duration={track.duration}
             quality={track.hires ? 'Hi-Res' : undefined}
             hideFavorite={track.isLocal}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X, GripVertical, Play } from 'lucide-svelte';
+  import { X, GripVertical, Play, Search } from 'lucide-svelte';
   import GlassSurface from './glass/GlassSurface.svelte';
 
   interface QueueTrack {
@@ -31,6 +31,17 @@
   }: Props = $props();
 
   let hoveredTrack = $state<string | null>(null);
+  let searchQuery = $state('');
+
+  // Filter tracks based on search query (searches entire queue)
+  const filteredTracks = $derived.by(() => {
+    if (!searchQuery.trim()) return upcomingTracks;
+    const query = searchQuery.toLowerCase();
+    return upcomingTracks.filter(track =>
+      track.title.toLowerCase().includes(query) ||
+      track.artist.toLowerCase().includes(query)
+    );
+  });
 </script>
 
 {#if isOpen}
@@ -43,9 +54,27 @@
     <div class="header">
       <h2>Queue</h2>
       <button class="close-btn" onclick={onClose}>
-        <X size={24} />
+        <X size={20} />
       </button>
     </div>
+
+    <!-- Search Bar -->
+    {#if upcomingTracks.length > 0}
+      <div class="search-container">
+        <Search size={14} class="search-icon" />
+        <input
+          type="text"
+          placeholder="Search in queue..."
+          bind:value={searchQuery}
+          class="search-input"
+        />
+        {#if searchQuery}
+          <button class="search-clear" onclick={() => searchQuery = ''}>
+            <X size={12} />
+          </button>
+        {/if}
+      </div>
+    {/if}
 
     <!-- Content -->
     <div class="content">
@@ -65,10 +94,13 @@
 
       <!-- Next Up -->
       {#if upcomingTracks.length > 0}
-        <div class="section">
-          <div class="section-header">Next Up ({upcomingTracks.length})</div>
+        <div class="section next-up-section">
+          <div class="section-header">
+            Next Up ({filteredTracks.length}{searchQuery ? ` / ${upcomingTracks.length}` : ''})
+          </div>
           <div class="tracks">
-            {#each upcomingTracks as track, index}
+            {#each filteredTracks as track, index}
+              {@const originalIndex = upcomingTracks.findIndex(t => t.id === track.id)}
               <div
                 class="queue-track"
                 class:hovered={hoveredTrack === track.id}
@@ -81,15 +113,15 @@
               >
                 <!-- Drag Handle -->
                 <div class="drag-handle" class:visible={hoveredTrack === track.id}>
-                  <GripVertical size={16} />
+                  <GripVertical size={14} />
                 </div>
 
                 <!-- Track Number / Play Icon -->
                 <div class="track-number">
                   {#if hoveredTrack === track.id}
-                    <Play size={14} fill="white" color="white" />
+                    <Play size={12} fill="white" color="white" />
                   {:else}
-                    <span>{index + 1}</span>
+                    <span>{originalIndex + 1}</span>
                   {/if}
                 </div>
 
@@ -103,6 +135,9 @@
                 <div class="track-duration">{track.duration}</div>
               </div>
             {/each}
+            {#if searchQuery && filteredTracks.length === 0}
+              <div class="no-results">No tracks match "{searchQuery}"</div>
+            {/if}
           </div>
         </div>
       {/if}
@@ -137,10 +172,10 @@
 
   :global(.queue-panel) {
     position: fixed;
-    top: 0;
+    top: 32px; /* Below TitleBar */
     right: 0;
-    bottom: 0;
-    width: 360px;
+    bottom: 104px; /* Above NowPlayingBar */
+    width: 340px;
     z-index: 50;
     display: flex;
     flex-direction: column;
@@ -162,22 +197,23 @@
   }
 
   .header {
-    padding: 20px;
+    padding: 16px;
     border-bottom: 1px solid var(--bg-tertiary);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
   }
 
   .header h2 {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--text-primary);
   }
 
   .close-btn {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -192,37 +228,89 @@
     color: var(--text-primary);
   }
 
+  .search-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 16px;
+    padding: 8px 10px;
+    background-color: var(--bg-tertiary);
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .search-container :global(.search-icon) {
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .search-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 12px;
+    outline: none;
+  }
+
+  .search-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .search-clear {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .search-clear:hover {
+    color: var(--text-primary);
+  }
+
   .content {
     flex: 1;
     overflow-y: auto;
-    padding: 16px 20px;
+    padding: 12px 16px;
+    min-height: 0;
   }
 
   .section {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
+  }
+
+  .next-up-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
   .section-header {
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
     color: #666666;
     font-weight: 600;
     letter-spacing: 0.05em;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
   }
 
   .now-playing-card {
     background-color: var(--bg-tertiary);
-    border-radius: 8px;
-    padding: 12px;
+    border-radius: 6px;
+    padding: 10px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
 
   .now-playing-card img {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     border-radius: 4px;
     object-fit: cover;
   }
@@ -233,7 +321,7 @@
   }
 
   .track-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-primary);
     overflow: hidden;
@@ -242,7 +330,7 @@
   }
 
   .track-artist {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -252,16 +340,16 @@
   .tracks {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .queue-track {
-    height: 48px;
+    height: 40px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 0 8px;
-    border-radius: 8px;
+    gap: 8px;
+    padding: 0 6px;
+    border-radius: 6px;
     cursor: pointer;
     transition: background-color 150ms ease;
   }
@@ -281,22 +369,29 @@
   }
 
   .track-number {
-    width: 32px;
+    width: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
   .track-number span {
-    font-size: 14px;
+    font-size: 13px;
     color: #666666;
   }
 
   .track-duration {
-    font-size: 13px;
+    font-size: 12px;
     color: #666666;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+  }
+
+  .no-results {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
   }
 
   .empty-state {
@@ -327,15 +422,16 @@
   }
 
   .footer {
-    padding: 16px;
+    padding: 12px 16px;
     border-top: 1px solid var(--bg-tertiary);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
   }
 
   .clear-btn {
-    font-size: 14px;
+    font-size: 12px;
     color: var(--text-muted);
     background: none;
     border: none;
@@ -348,11 +444,11 @@
   }
 
   .save-btn {
-    padding: 8px 16px;
-    border-radius: 8px;
+    padding: 6px 14px;
+    border-radius: 6px;
     background-color: var(--accent-primary);
     color: white;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
     border: none;
     cursor: pointer;
