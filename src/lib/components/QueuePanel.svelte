@@ -263,6 +263,15 @@
     --glass-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
   }
 
+  /* Make glass-content flex so inner .content can scroll */
+  :global(.queue-panel .glass-content) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   @keyframes slideInRight {
     from {
       transform: translateX(100%);
