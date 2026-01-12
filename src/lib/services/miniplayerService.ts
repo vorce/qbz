@@ -10,9 +10,13 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { goto } from '$app/navigation';
 
-// Miniplayer dimensions (with 8px margin on each side)
+// Miniplayer dimensions
 const MINIPLAYER_WIDTH = 300;
 const MINIPLAYER_HEIGHT = 140;
+
+// Original app minimum size (from tauri.conf.json)
+const ORIGINAL_MIN_WIDTH = 800;
+const ORIGINAL_MIN_HEIGHT = 600;
 
 // LocalStorage key for persisting window state
 const STORAGE_KEY = 'miniplayer_original_state';
@@ -85,9 +89,14 @@ export async function enterMiniplayerMode(): Promise<void> {
       await window.unmaximize();
     }
 
-    // Set miniplayer dimensions
-    await window.setResizable(false);
+    // IMPORTANT: Remove minimum size constraint first, then set size
+    console.log('[MiniPlayer] Removing min size constraint...');
+    await window.setMinSize({ type: 'Physical', width: MINIPLAYER_WIDTH, height: MINIPLAYER_HEIGHT });
+
+    console.log('[MiniPlayer] Setting size to', MINIPLAYER_WIDTH, 'x', MINIPLAYER_HEIGHT);
     await window.setSize({ type: 'Physical', width: MINIPLAYER_WIDTH, height: MINIPLAYER_HEIGHT });
+
+    await window.setResizable(false);
     await window.setDecorations(false);
     await window.setAlwaysOnTop(true);
 
@@ -104,7 +113,7 @@ export async function enterMiniplayerMode(): Promise<void> {
  * Exit miniplayer mode - restore original window state
  */
 export async function exitMiniplayerMode(): Promise<void> {
-  console.log('[MiniPlayer] Exiting miniplayer mode...');
+  console.log('[MiniPlayer] exitMiniplayerMode called');
 
   // Load original state from localStorage
   const originalState = loadOriginalState();
@@ -113,10 +122,14 @@ export async function exitMiniplayerMode(): Promise<void> {
   try {
     const window = getCurrentWindow();
 
-    // Restore window properties first
+    // Restore window properties
     await window.setAlwaysOnTop(false);
     await window.setDecorations(true);
     await window.setResizable(true);
+
+    // Restore minimum size constraint
+    console.log('[MiniPlayer] Restoring min size constraint...');
+    await window.setMinSize({ type: 'Physical', width: ORIGINAL_MIN_WIDTH, height: ORIGINAL_MIN_HEIGHT });
 
     // Restore size
     if (originalState) {
@@ -140,6 +153,7 @@ export async function exitMiniplayerMode(): Promise<void> {
     clearOriginalState();
 
     // Navigate back to main
+    console.log('[MiniPlayer] Navigating to /');
     await goto('/');
 
     console.log('[MiniPlayer] Exited miniplayer mode');
