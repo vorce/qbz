@@ -121,7 +121,13 @@
     </div>
 
     <!-- Content with isolated scroll -->
-    <div class="content">
+    <div
+      class="content"
+      onwheel={(e) => {
+        // Stop wheel events from propagating to main content
+        e.stopPropagation();
+      }}
+    >
       <!-- Now Playing -->
       {#if currentTrack}
         <div class="section now-playing-section">
@@ -160,10 +166,7 @@
           <div class="section-header">
             Next Up ({filteredTracks.length}{searchQuery ? ` / ${upcomingTracks.length}` : ''})
           </div>
-          <div
-            class="tracks"
-            onwheel={(e) => e.stopPropagation()}
-          >
+          <div class="tracks">
             {#each filteredTracks as track, index}
               {@const originalIndex = upcomingTracks.findIndex(t => t.id === track.id)}
               <div
@@ -348,11 +351,34 @@
 
   .content {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: 12px 16px;
+    padding-right: 12px; /* Less padding on right for scrollbar */
     min-height: 0;
+    overscroll-behavior: contain;
+  }
+
+  /* Thin fancy scrollbar */
+  .content::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+  }
+
+  .content:hover::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  .content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
   }
 
   .section {
@@ -366,9 +392,7 @@
   .next-up-section {
     display: flex;
     flex-direction: column;
-    flex: 1;
     min-height: 0;
-    overflow: hidden;
   }
 
   .section-header {
@@ -423,34 +447,6 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
-    padding-right: 4px; /* Space for scrollbar */
-  }
-
-  /* Thin fancy scrollbar - only visible when scrollable */
-  .tracks::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .tracks::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .tracks::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
-    transition: background 150ms ease;
-  }
-
-  .tracks:hover::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-  }
-
-  .tracks::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.4);
   }
 
   .queue-track {
