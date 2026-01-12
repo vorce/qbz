@@ -309,27 +309,27 @@
           <div class="playlists-loading">Loading...</div>
         {:else if filteredPlaylists.length > 0}
           {#if playlistViewMode === 'list'}
-            <!-- List View -->
-            <div class="playlists-list">
+            <!-- List View - use NavigationItem with icon -->
+            <nav class="playlists-nav">
               {#each filteredPlaylists as playlist (playlist.id)}
                 {@const isHidden = playlistSettings.get(playlist.id)?.hidden}
-                <button
-                  class="playlist-list-item"
-                  class:active={activeView === 'playlist' && selectedPlaylistId === playlist.id}
-                  class:hidden-playlist={isHidden}
+                <NavigationItem
+                  label={playlist.name}
+                  badge={playlist.tracks_count.toString()}
+                  active={activeView === 'playlist' && selectedPlaylistId === playlist.id}
+                  class={isHidden ? 'hidden-playlist' : ''}
                   onclick={() => handlePlaylistClick(playlist)}
                 >
-                  <PlaylistCollage artworks={playlist.images ?? []} size={36} />
-                  <div class="playlist-info">
-                    <span class="playlist-name">{playlist.name}</span>
-                    <span class="playlist-count">{playlist.tracks_count} tracks</span>
-                  </div>
-                  {#if playlistFilter === 'all' && isHidden}
-                    <EyeOff size={12} class="hidden-indicator" />
-                  {/if}
-                </button>
+                  {#snippet icon()}
+                    {#if playlistFilter === 'all' && isHidden}
+                      <EyeOff size={14} />
+                    {:else}
+                      <ListMusic size={14} />
+                    {/if}
+                  {/snippet}
+                </NavigationItem>
               {/each}
-            </div>
+            </nav>
           {:else}
             <!-- Grid View -->
             <div class="playlists-grid">
@@ -580,62 +580,14 @@
   }
 
   /* Playlist list view */
-  .playlists-list {
+  .playlists-nav {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
 
-  .playlist-list-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 8px;
-    background: none;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 150ms ease;
-    text-align: left;
-    width: 100%;
-  }
-
-  .playlist-list-item:hover {
-    background: var(--bg-tertiary);
-  }
-
-  .playlist-list-item.active {
-    background: var(--bg-hover);
-  }
-
-  .playlist-list-item.hidden-playlist {
+  .playlists-nav :global(.hidden-playlist) {
     opacity: 0.5;
-  }
-
-  .playlist-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .playlist-name {
-    font-size: 13px;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .playlist-count {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-
-  .playlist-list-item :global(.hidden-indicator) {
-    color: var(--text-muted);
-    flex-shrink: 0;
   }
 
   /* Playlist grid view */
@@ -695,6 +647,7 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    color: var(--text-primary);
   }
 
   .playlists-loading,

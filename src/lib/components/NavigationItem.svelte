@@ -4,16 +4,18 @@
   interface Props {
     icon: Snippet;
     label: string;
+    badge?: string;
     active?: boolean;
     onclick?: () => void;
+    class?: string;
   }
 
-  let { icon, label, active = false, onclick }: Props = $props();
+  let { icon, label, badge, active = false, onclick, class: className = '' }: Props = $props();
 </script>
 
 <button
   {onclick}
-  class="nav-item"
+  class="nav-item {className}"
   class:active
   title={label}
 >
@@ -21,6 +23,9 @@
     {@render icon()}
   </div>
   <span class="label">{label}</span>
+  {#if badge}
+    <span class="badge">{badge}</span>
+  {/if}
 </button>
 
 <style>
@@ -66,5 +71,11 @@
     white-space: nowrap;
     flex: 1;
     min-width: 0;
+  }
+
+  .badge {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
   }
 </style>

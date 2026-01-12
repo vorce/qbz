@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ImagePlus, HardDrive, Info } from 'lucide-svelte';
+  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ImagePlus, HardDrive, Info, Edit3, BarChart2 } from 'lucide-svelte';
   import AlbumMenu from '../AlbumMenu.svelte';
+  import PlaylistCollage from '../PlaylistCollage.svelte';
+  import PlaylistModal from '../PlaylistModal.svelte';
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
   import { invoke } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
@@ -73,6 +75,14 @@
     sort_order: string;
     last_search_query?: string;
     notes?: string;
+    hidden?: boolean;
+    position?: number;
+  }
+
+  interface PlaylistStats {
+    qobuz_playlist_id: number;
+    play_count: number;
+    last_played_at?: number;
   }
 
   type SortField = 'default' | 'title' | 'artist' | 'album' | 'duration';
@@ -97,6 +107,8 @@
     onLocalTrackPlay?: (track: LocalLibraryTrack) => void;
     onLocalTrackPlayNext?: (track: LocalLibraryTrack) => void;
     onLocalTrackPlayLater?: (track: LocalLibraryTrack) => void;
+    onPlaylistUpdated?: () => void;
+    onPlaylistDeleted?: (playlistId: number) => void;
   }
 
   let {
@@ -117,7 +129,9 @@
     downloadStateVersion,
     onLocalTrackPlay,
     onLocalTrackPlayNext,
-    onLocalTrackPlayLater
+    onLocalTrackPlayLater,
+    onPlaylistUpdated,
+    onPlaylistDeleted
   }: Props = $props();
 
   let playlist = $state<Playlist | null>(null);
@@ -135,6 +149,9 @@
   let sortOrder = $state<SortOrder>('asc');
   let customArtworkPath = $state<string | null>(null);
   let showSortMenu = $state(false);
+  let playlistSettings = $state<PlaylistSettings | null>(null);
+  let playlistStats = $state<PlaylistStats | null>(null);
+  let editModalOpen = $state(false);
 
   // Reload playlist when playlistId changes
   $effect(() => {
@@ -143,6 +160,7 @@
     loadPlaylist();
     loadSettings();
     loadLocalTracks();
+    loadStats();
   });
 
   async function loadLocalTracks() {
@@ -192,6 +210,7 @@
   async function loadSettings() {
     try {
       const settings = await invoke<PlaylistSettings | null>('playlist_get_settings', { playlistId });
+      playlistSettings = settings;
       if (settings) {
         sortBy = (settings.sort_by as SortField) || 'default';
         sortOrder = (settings.sort_order as SortOrder) || 'asc';
@@ -200,6 +219,15 @@
       }
     } catch (err) {
       console.error('Failed to load playlist settings:', err);
+    }
+  }
+
+  async function loadStats() {
+    try {
+      const stats = await invoke<PlaylistStats | null>('playlist_get_stats', { playlistId });
+      playlistStats = stats;
+    } catch (err) {
+      console.error('Failed to load playlist stats:', err);
     }
   }
 
@@ -399,10 +427,27 @@
       try {
         await invoke('set_queue', { tracks: queueTracks, startIndex: 0 });
         onTrackPlay(tracks[0]);
+
+        // Increment play count
+        const stats = await invoke<PlaylistStats>('playlist_increment_play_count', { playlistId });
+        playlistStats = stats;
       } catch (err) {
         console.error('Failed to set queue:', err);
       }
     }
+  }
+
+  function handleEditSuccess() {
+    editModalOpen = false;
+    loadPlaylist(); // Reload playlist data
+    loadSettings(); // Reload settings (including hidden status)
+    onPlaylistUpdated?.();
+  }
+
+  function handleDelete(deletedPlaylistId: number) {
+    editModalOpen = false;
+    onPlaylistDeleted?.(deletedPlaylistId);
+    onBack();
   }
 
   async function handleShuffle() {
@@ -497,27 +542,30 @@
   {:else if playlist}
     <!-- Playlist Header -->
     <div class="playlist-header">
-      <!-- Playlist Artwork with customization -->
+      <!-- Playlist Artwork - Collage or Custom -->
       <div class="artwork-container">
-        <div class="artwork">
-          {#if getPlaylistImage()}
-            <img src={getPlaylistImage()} alt={playlist.name} />
-          {:else}
-            <div class="artwork-placeholder">
-              <ListMusic size={64} />
-            </div>
-          {/if}
-          <div class="artwork-overlay">
-            <button class="artwork-btn" onclick={selectCustomArtwork} title="Set custom artwork">
-              <ImagePlus size={24} />
-            </button>
-            {#if customArtworkPath}
+        {#if customArtworkPath}
+          <div class="artwork custom-artwork">
+            <img src={customArtworkPath} alt={playlist.name} />
+            <div class="artwork-overlay">
               <button class="artwork-btn artwork-clear" onclick={clearCustomArtwork} title="Remove custom artwork">
                 <X size={20} />
               </button>
-            {/if}
+            </div>
           </div>
-        </div>
+        {:else}
+          <div class="collage-wrapper">
+            <PlaylistCollage
+              artworks={tracks.slice(0, 4).map(t => t.albumArt).filter((a): a is string => !!a)}
+              size={200}
+            />
+            <div class="artwork-overlay">
+              <button class="artwork-btn" onclick={selectCustomArtwork} title="Set custom artwork">
+                <ImagePlus size={24} />
+              </button>
+            </div>
+          </div>
+        {/if}
       </div>
 
       <!-- Playlist Metadata -->
@@ -533,6 +581,13 @@
           <span>{playlist.tracks_count} tracks</span>
           <span class="separator">•</span>
           <span>{formatTotalDuration(playlist.duration)}</span>
+          {#if playlistStats && playlistStats.play_count > 0}
+            <span class="separator">•</span>
+            <span class="play-count" title="Times played">
+              <BarChart2 size={12} />
+              {playlistStats.play_count}
+            </span>
+          {/if}
         </div>
 
         <!-- Action Buttons -->
@@ -550,6 +605,9 @@
           <button class="secondary-btn" onclick={handleShuffle}>
             <Shuffle size={18} />
             <span>Shuffle</span>
+          </button>
+          <button class="secondary-btn" onclick={() => editModalOpen = true} title="Edit playlist">
+            <Edit3 size={18} />
           </button>
           <AlbumMenu
             onPlayNext={handlePlayAllNext}
@@ -695,6 +753,19 @@
   {/if}
 </div>
 
+<!-- Edit Playlist Modal -->
+{#if playlist}
+  <PlaylistModal
+    isOpen={editModalOpen}
+    mode="edit"
+    playlist={{ id: playlist.id, name: playlist.name, tracks_count: playlist.tracks_count }}
+    isHidden={playlistSettings?.hidden ?? false}
+    onClose={() => editModalOpen = false}
+    onSuccess={handleEditSuccess}
+    onDelete={handleDelete}
+  />
+{/if}
+
 <style>
   .playlist-detail {
     padding: 24px;
@@ -769,6 +840,27 @@
     flex-shrink: 0;
   }
 
+  .collage-wrapper {
+    position: relative;
+  }
+
+  .collage-wrapper .artwork-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 150ms ease;
+    border-radius: 6px;
+  }
+
+  .collage-wrapper:hover .artwork-overlay {
+    opacity: 1;
+  }
+
   .artwork {
     width: 186px;
     height: 186px;
@@ -777,6 +869,11 @@
     overflow: hidden;
     background-color: var(--bg-tertiary);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .custom-artwork {
+    width: 200px;
+    height: 200px;
   }
 
   .artwork img {
@@ -886,6 +983,13 @@
   }
 
   .separator {
+    color: var(--text-muted);
+  }
+
+  .play-count {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     color: var(--text-muted);
   }
 
