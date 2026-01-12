@@ -208,6 +208,13 @@
   }
 
   async function loadSettings() {
+    // Reset state before loading new playlist settings
+    sortBy = 'default';
+    sortOrder = 'asc';
+    customArtworkPath = null;
+    searchQuery = '';
+    playlistSettings = null;
+
     try {
       const settings = await invoke<PlaylistSettings | null>('playlist_get_settings', { playlistId });
       playlistSettings = settings;
@@ -553,7 +560,7 @@
       <div class="artwork-container">
         {#if customArtworkPath}
           <div class="artwork custom-artwork">
-            <img src={customArtworkPath} alt={playlist.name} />
+            <img src={`asset://localhost/${encodeURIComponent(customArtworkPath)}`} alt={playlist.name} />
             <div class="artwork-overlay">
               <button class="artwork-btn artwork-clear" onclick={clearCustomArtwork} title="Remove custom artwork">
                 <X size={20} />

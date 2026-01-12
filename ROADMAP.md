@@ -15,7 +15,7 @@
 **Description:** Remember playback state, queue, and position when restarting the app.
 
 **Current State:**
-- Basic implementation exists but inconsistent ("funciona a veces si a veces no")
+- Basic implementation exists but inconsistent
 - Sometimes restores session, sometimes doesn't
 
 **TODO:**
@@ -98,42 +98,80 @@
 
 ## 6. Playlist Management
 
-**Status:** Partial (Import fully working)
+**Status:** In Progress (~70% complete)
 
-**Description:** Create, edit, and manage playlists within QBZ.
+**Description:** Full playlist management with CRUD, statistics, and enhanced UI.
 
-**Implemented Features:**
-- [x] Import playlists from Spotify, Apple Music, Tidal, Deezer (all working)
+### Implemented Features:
+
+**Import (100% complete):**
+- [x] Import from Spotify, Apple Music, Tidal, Deezer
 - [x] Track matching via ISRC + fuzzy matching algorithm
 - [x] Progress log UI during import
 - [x] Auto-create Qobuz playlist with matched tracks
-- [x] Tidal rate limiting and API chunk size fixes
+- [x] Rate limiting and API chunk size handling
 
-**TODO:**
-- [ ] Create new playlists (basic UI exists)
-- [ ] Add/remove tracks from playlists
-- [ ] Reorder tracks in playlist
-- [ ] Delete playlists
-- [ ] Sync with Qobuz account playlists
-- [ ] Export playlists
+**Database & Backend (100% complete):**
+- [x] `playlist_settings` table with custom_artwork_path, sort_by, sort_order, hidden, position
+- [x] `playlist_stats` table with play_count, last_played_at
+- [x] Backend commands: `playlist_get_settings`, `playlist_set_artwork`, `playlist_get_stats`, etc.
+
+**UI Components (80% complete):**
+- [x] PlaylistCollage component (Qobuz-style 4 album covers)
+- [x] Custom artwork selection per playlist
+- [x] Sort menu in sidebar (dropdown with submenu)
+- [x] PlaylistDetailView with collage header
+- [x] Stats display (play count)
+- [ ] PlaylistEditModal (edit name/description)
+- [ ] Filter dropdown (All/Visible/Hidden) in sidebar
+- [ ] Drag-to-reorder playlists
+- [ ] Grid view toggle (list vs mosaic)
+
+**ML Suggestions (0% complete):**
+- [ ] `get_playlist_suggestions` backend algorithm
+- [ ] Suggested Tracks section in PlaylistDetailView
+
+### Recent Fixes (This Session):
+- [x] Fixed custom artwork not loading (asset:// URL conversion)
+- [x] Fixed settings state persisting between playlists
+- [x] Fixed sort submenu closing too fast
+- [x] Fixed z-index for all menus/tooltips (10000+)
+- [x] Added hi-res logo variants (grayscale version in use)
 
 ---
 
-## Additional Completed Features (This Session)
+## Additional Completed Features
 
+**UI/UX:**
 - [x] Enhanced notifications with album artwork
 - [x] Quality info in notifications (Hi-Res / CD Quality badges)
 - [x] 3-line notification format (Title, Artist • Album, Quality)
 - [x] Window drag region fix for TitleBar
+- [x] Hi-res logo variants (gold, gray, blue, mono SVGs)
+- [x] Sidebar tooltip system with lazy loading
+- [x] Fixed scrollbar spacing in main content
+
+**Performance:**
 - [x] Removed unnecessary PipeWire polling (was every 10s)
 - [x] Artwork caching with MD5 hash filenames
-- [x] Playlist import from Spotify/Apple/Tidal/Deezer (Codex integration)
 
 ---
 
 ## Technical Notes
 
-- **Stack:** Tauri 2.0, Rust backend, Svelte 5 frontend
+- **Stack:** Tauri 2.0, Rust backend, Svelte 5 (runes) frontend
 - **Audio:** rodio/cpal with PipeWire/ALSA integration
 - **Commands:** `pactl list sinks` for PipeWire device info
 - **Notifications:** `notify_rust` with `reqwest::blocking` for artwork download
+- **Icons:** Hi-res logo at `/static/hi-res-gray.svg` (grayscale version)
+
+---
+
+## Priority Order for Remaining Work
+
+1. **Session Persistence debugging** - Critical for UX
+2. **PlaylistEditModal** - Complete playlist CRUD
+3. **Tray Icon** - Expected feature for music apps
+4. **MiniPlayer** - Nice to have
+5. **ML Suggestions** - Enhancement
+6. **DLNA/AirPlay** - Lower priority
