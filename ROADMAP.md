@@ -52,17 +52,24 @@
 
 ## 3. Tray Icon
 
-**Status:** Not Started
+**Status:** Completed
 
 **Description:** System tray icon with playback controls and quick actions.
 
-**TODO:**
-- [ ] Add system tray icon
-- [ ] Play/Pause from tray
-- [ ] Next/Previous track
-- [ ] Show current track info
+**Implemented Features:**
+- [x] System tray icon with app icon
+- [x] Play/Pause from tray menu
+- [x] Next/Previous track from tray menu
+- [x] Show/Hide window toggle
+- [x] Left-click toggles window visibility
+- [x] Double-click shows and focuses window
+- [x] Right-click shows context menu
+- [x] Quit option in tray menu
+
+**Not Implemented (optional):**
+- [ ] Dynamic tooltip with current track info
 - [ ] Quick access to settings
-- [ ] Minimize to tray option
+- [ ] Minimize to tray on window close (currently just hides)
 
 ---
 
