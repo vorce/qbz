@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
+  import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
   import {
@@ -428,8 +428,7 @@
 
   function getArtworkUrl(path?: string): string {
     if (!path) return '';
-    // Use asset:// protocol for Tauri 2.0 to load local files in WebView
-    return `asset://localhost/${encodeURIComponent(path)}`;
+    return convertFileSrc(path);
   }
 </script>
 

@@ -21,6 +21,12 @@ fn get_artwork_cache_dir() -> Result<PathBuf, String> {
 
 /// Download artwork to cache and return the path
 fn cache_artwork(url: &str) -> Result<PathBuf, String> {
+    if let Some(local_path) = resolve_local_artwork(url) {
+        if local_path.exists() {
+            return Ok(local_path);
+        }
+    }
+
     // Create a hash of the URL for the filename
     let mut hasher = Md5::new();
     hasher.update(url.as_bytes());
@@ -54,6 +60,19 @@ fn cache_artwork(url: &str) -> Result<PathBuf, String> {
         .map_err(|e| format!("Failed to write artwork cache: {}", e))?;
 
     Ok(cache_path)
+}
+
+fn resolve_local_artwork(url: &str) -> Option<PathBuf> {
+    if let Some(path) = url.strip_prefix("file://") {
+        return Some(PathBuf::from(path));
+    }
+
+    if let Some(path) = url.strip_prefix("asset://localhost/") {
+        let decoded = urlencoding::decode(path).ok()?;
+        return Some(PathBuf::from(decoded.into_owned()));
+    }
+
+    None
 }
 
 /// Format quality info for notification
