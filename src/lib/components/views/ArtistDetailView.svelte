@@ -642,6 +642,7 @@
     width: 100%;
     height: 100%;
     padding: 24px;
+    padding-top: 0;
     padding-right: 8px;
     padding-bottom: 100px;
     overflow-y: auto;
@@ -674,6 +675,7 @@
     background: none;
     border: none;
     cursor: pointer;
+    margin-top: 24px;
     margin-bottom: 24px;
     transition: color 150ms ease;
   }
