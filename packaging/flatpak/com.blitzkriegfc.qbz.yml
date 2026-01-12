@@ -25,6 +25,8 @@ modules:
     buildsystem: simple
     build-options:
       append-path: /usr/lib/sdk/node20/bin:/usr/lib/sdk/rust-stable/bin
+      build-args:
+        - --share=network
     build-commands:
       - npm ci
       - npm run build
