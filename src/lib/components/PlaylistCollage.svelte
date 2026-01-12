@@ -48,7 +48,10 @@
   class="collage {className}"
   class:single={count === 1}
   class:empty={count === 0}
-  style="--size: {size}px; --count: {count}"
+  class:count-2={count === 2}
+  class:count-3={count === 3}
+  class:count-4={count === 4}
+  style="--size: {size}px"
 >
   {#if count === 0}
     <!-- Empty placeholder -->
@@ -103,6 +106,7 @@
   .cover {
     position: absolute;
     top: 0;
+    left: 0;
     height: 100%;
     width: auto;
     aspect-ratio: 1;
@@ -113,18 +117,18 @@
     box-shadow: 3px 0 10px rgba(0, 0, 0, 0.5);
   }
 
-  /* 2 covers */
-  .collage[style*="--count: 2"] .cover {
-    left: calc(var(--index) * (var(--size) * 0.5));
+  /* 2 covers - each offset by 50% */
+  .collage.count-2 .cover {
+    left: calc(var(--index) * var(--size) * 0.5);
   }
 
-  /* 3 covers */
-  .collage[style*="--count: 3"] .cover {
-    left: calc(var(--index) * (var(--size) * 0.33));
+  /* 3 covers - each offset by 33% */
+  .collage.count-3 .cover {
+    left: calc(var(--index) * var(--size) * 0.33);
   }
 
-  /* 4 covers */
-  .collage[style*="--count: 4"] .cover {
-    left: calc(var(--index) * (var(--size) * 0.25));
+  /* 4 covers - each offset by 25% */
+  .collage.count-4 .cover {
+    left: calc(var(--index) * var(--size) * 0.25);
   }
 </style>
