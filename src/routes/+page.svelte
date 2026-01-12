@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+  import { listen, emitTo, type UnlistenFn } from '@tauri-apps/api/event';
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
   // Download state management
@@ -187,6 +187,9 @@
     clearSession,
     type PersistedQueueTrack
   } from '$lib/services/sessionService';
+
+  // MiniPlayer
+  import { toggleMiniPlayer } from '$lib/services/miniplayerService';
 
   // Lyrics state management
   import {
@@ -1223,6 +1226,22 @@
       if (wasPlaying && !isPlaying && currentTrack && currentTime > 0) {
         flushPositionSave(Math.floor(currentTime));
       }
+
+      // Sync state to MiniPlayer window (if open)
+      if (currentTrack) {
+        emitTo('miniplayer', 'miniplayer:track', {
+          id: currentTrack.id,
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          artwork: currentTrack.artwork,
+          isPlaying,
+        }).catch(() => {}); // Ignore if miniplayer not open
+      }
+      emitTo('miniplayer', 'miniplayer:playback', {
+        isPlaying,
+        currentTime,
+        duration,
+      }).catch(() => {}); // Ignore if miniplayer not open
     });
 
     // Subscribe to queue state changes
@@ -1532,6 +1551,7 @@
         onToggleFavorite={toggleFavorite}
         onOpenQueue={openQueue}
         onOpenFullScreen={openFullScreen}
+        onOpenMiniPlayer={toggleMiniPlayer}
         onCast={openCastPicker}
         onToggleLyrics={toggleLyricsSidebar}
         lyricsActive={lyricsSidebarVisible}
@@ -1554,6 +1574,7 @@
       <NowPlayingBar
         onOpenQueue={openQueue}
         onOpenFullScreen={openFullScreen}
+        onOpenMiniPlayer={toggleMiniPlayer}
         onCast={openCastPicker}
       />
     {/if}

@@ -15,7 +15,8 @@
     Volume1,
     Cast,
     Mic2,
-    Maximize2
+    Maximize2,
+    PictureInPicture2
   } from 'lucide-svelte';
   import QualityBadge from './QualityBadge.svelte';
   import AudioOutputBadges from './AudioOutputBadges.svelte';
@@ -46,6 +47,7 @@
     onToggleFavorite?: () => void;
     onOpenQueue?: () => void;
     onOpenFullScreen?: () => void;
+    onOpenMiniPlayer?: () => void;
     onCast?: () => void;
     onToggleLyrics?: () => void;
     lyricsActive?: boolean;
@@ -80,6 +82,7 @@
     onToggleFavorite,
     onOpenQueue,
     onOpenFullScreen,
+    onOpenMiniPlayer,
     onCast,
     onToggleLyrics,
     lyricsActive = false,
@@ -312,6 +315,10 @@
 
       <button class="control-btn" onclick={onOpenQueue} title="Queue">
         <ListMusic size={16} />
+      </button>
+
+      <button class="control-btn" onclick={onOpenMiniPlayer} title="Mini Player">
+        <PictureInPicture2 size={16} />
       </button>
 
       <button class="control-btn" onclick={onOpenFullScreen} title="Full Screen">
