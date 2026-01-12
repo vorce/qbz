@@ -2,9 +2,9 @@
   import { Music } from 'lucide-svelte';
 
   interface Props {
-    artworks: string[];  // Album art URLs from tracks
-    size?: number;       // Total width in px
-    class?: string;      // Additional CSS classes
+    artworks: string[];
+    size?: number;
+    class?: string;
   }
 
   let {
@@ -16,8 +16,6 @@
   // Upscale Qobuz image URLs to larger resolution
   function upscaleImageUrl(url: string): string {
     if (!url) return url;
-    // Qobuz playlist thumbnails are often small (50x50 or 100x100)
-    // Try to get 600x600 versions for better quality
     return url
       .replace(/_50\.jpg/, '_600.jpg')
       .replace(/_100\.jpg/, '_600.jpg')
@@ -47,30 +45,29 @@
 <div
   class="collage {className}"
   class:single={count === 1}
-  class:empty={count === 0}
-  class:count-2={count === 2}
-  class:count-3={count === 3}
-  class:count-4={count === 4}
+  class:dual={count === 2}
+  class:triple={count === 3}
+  class:quad={count >= 4}
   style="--size: {size}px"
 >
   {#if count === 0}
-    <!-- Empty placeholder -->
     <div class="placeholder">
       <Music size={size * 0.3} />
     </div>
   {:else if count === 1}
-    <!-- Single cover -->
-    <img src={uniqueArtworks[0]} alt="" class="single-cover" />
+    <img src={uniqueArtworks[0]} alt="" class="cover full" />
+  {:else if count === 2}
+    <img src={uniqueArtworks[0]} alt="" class="cover half-left" />
+    <img src={uniqueArtworks[1]} alt="" class="cover half-right" />
+  {:else if count === 3}
+    <img src={uniqueArtworks[0]} alt="" class="cover half-left" />
+    <img src={uniqueArtworks[1]} alt="" class="cover quarter top-right" />
+    <img src={uniqueArtworks[2]} alt="" class="cover quarter bottom-right" />
   {:else}
-    <!-- Collage with overlap -->
-    {#each uniqueArtworks as art, i}
-      <img
-        src={art}
-        alt=""
-        class="cover"
-        style="--index: {i}"
-      />
-    {/each}
+    <img src={uniqueArtworks[0]} alt="" class="cover quarter top-left" />
+    <img src={uniqueArtworks[1]} alt="" class="cover quarter top-right" />
+    <img src={uniqueArtworks[2]} alt="" class="cover quarter bottom-left" />
+    <img src={uniqueArtworks[3]} alt="" class="cover quarter bottom-right" />
   {/if}
 </div>
 
@@ -79,11 +76,11 @@
     position: relative;
     width: var(--size);
     height: var(--size);
-    aspect-ratio: 1;
     overflow: hidden;
     border-radius: 6px;
     background: var(--bg-tertiary);
     flex-shrink: 0;
+    display: grid;
   }
 
   .placeholder {
@@ -93,42 +90,65 @@
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
-    background: var(--bg-tertiary);
   }
 
-  .single-cover {
+  .cover {
+    object-fit: cover;
+  }
+
+  /* Single cover - full size */
+  .collage.single {
+    grid-template: 1fr / 1fr;
+  }
+  .cover.full {
     width: 100%;
     height: 100%;
-    object-fit: cover;
   }
 
-  /* Collage covers - full height, will be cropped on sides */
-  .cover {
-    position: absolute;
-    top: 0;
-    left: 0;
+  /* 2 covers - side by side */
+  .collage.dual {
+    grid-template: 1fr / 1fr 1fr;
+  }
+  .cover.half-left,
+  .cover.half-right {
+    width: 100%;
     height: 100%;
-    width: auto;
-    aspect-ratio: 1;
-    object-fit: cover;
-    /* First cover on top (highest z-index), last on bottom */
-    z-index: calc(4 - var(--index));
-    /* Shadow on right edge for depth */
-    box-shadow: 3px 0 10px rgba(0, 0, 0, 0.5);
   }
 
-  /* 2 covers - each offset by 50% */
-  .collage.count-2 .cover {
-    left: calc(var(--index) * var(--size) * 0.5);
+  /* 3 covers - one big left, two small right */
+  .collage.triple {
+    grid-template: 1fr 1fr / 1fr 1fr;
+  }
+  .collage.triple .half-left {
+    grid-row: 1 / 3;
+    grid-column: 1;
+    width: 100%;
+    height: 100%;
+  }
+  .collage.triple .top-right {
+    grid-row: 1;
+    grid-column: 2;
+    width: 100%;
+    height: 100%;
+  }
+  .collage.triple .bottom-right {
+    grid-row: 2;
+    grid-column: 2;
+    width: 100%;
+    height: 100%;
   }
 
-  /* 3 covers - each offset by 33% */
-  .collage.count-3 .cover {
-    left: calc(var(--index) * var(--size) * 0.33);
+  /* 4 covers - 2x2 grid */
+  .collage.quad {
+    grid-template: 1fr 1fr / 1fr 1fr;
+    gap: 1px;
   }
-
-  /* 4 covers - each offset by 25% */
-  .collage.count-4 .cover {
-    left: calc(var(--index) * var(--size) * 0.25);
+  .cover.quarter {
+    width: 100%;
+    height: 100%;
   }
+  .quarter.top-left { grid-area: 1 / 1; }
+  .quarter.top-right { grid-area: 1 / 2; }
+  .quarter.bottom-left { grid-area: 2 / 1; }
+  .quarter.bottom-right { grid-area: 2 / 2; }
 </style>
