@@ -99,34 +99,37 @@
     object-fit: cover;
   }
 
+  /* Collage covers - sized smaller to fit within square with overlap */
   .cover {
     position: absolute;
-    top: 0;
-    height: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 90%;
     width: auto;
     aspect-ratio: 1;
     object-fit: cover;
-    /* Overlap calculation: each cover shifts right by percentage of container width */
-    left: calc(var(--index) * (var(--size) * 0.22));
     /* First cover on top (highest z-index), last on bottom */
     z-index: calc(4 - var(--index));
     /* Shadow on right edge for depth */
-    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.4);
-    border-radius: 2px;
+    box-shadow: 3px 0 10px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
   }
 
-  /* Adjust for 2 covers - more spacing */
+  /* 2 covers - side by side with overlap */
   .collage[style*="--count: 2"] .cover {
+    height: 85%;
     left: calc(var(--index) * (var(--size) * 0.45));
   }
 
-  /* Adjust for 3 covers */
+  /* 3 covers */
   .collage[style*="--count: 3"] .cover {
-    left: calc(var(--index) * (var(--size) * 0.32));
+    height: 85%;
+    left: calc(var(--index) * (var(--size) * 0.30));
   }
 
-  /* Adjust for 4 covers */
+  /* 4 covers - tighter overlap */
   .collage[style*="--count: 4"] .cover {
+    height: 80%;
     left: calc(var(--index) * (var(--size) * 0.22));
   }
 </style>
