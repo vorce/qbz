@@ -32,7 +32,7 @@
   }
 
   // Get unique artworks (dedupe same album covers) and upscale
-  const uniqueArtworks = $derived(() => {
+  const uniqueArtworks = $derived.by(() => {
     const seen = new Set<string>();
     return artworks.filter(art => {
       if (!art || seen.has(art)) return false;
@@ -41,7 +41,7 @@
     }).slice(0, 4).map(upscaleImageUrl);
   });
 
-  const count = $derived(uniqueArtworks().length);
+  const count = $derived(uniqueArtworks.length);
 </script>
 
 <div
@@ -60,10 +60,10 @@
     </div>
   {:else if count === 1}
     <!-- Single cover -->
-    <img src={uniqueArtworks()[0]} alt="" class="single-cover" />
+    <img src={uniqueArtworks[0]} alt="" class="single-cover" />
   {:else}
     <!-- Collage with overlap -->
-    {#each uniqueArtworks() as art, i}
+    {#each uniqueArtworks as art, i}
       <img
         src={art}
         alt=""
