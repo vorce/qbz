@@ -73,15 +73,19 @@
 
     unsubscribeQueue = subscribeQueue(() => {
       const qState = getQueueState();
-      isShuffle = qState.isShuffle;
-      repeatMode = qState.repeatMode;
-      queueCount = qState.tracks.length;
+      if (qState) {
+        isShuffle = qState.isShuffle ?? false;
+        repeatMode = qState.repeatMode ?? 'off';
+        queueCount = qState.tracks?.length ?? 0;
+      }
     });
 
     const qState = getQueueState();
-    isShuffle = qState.isShuffle;
-    repeatMode = qState.repeatMode;
-    queueCount = qState.tracks.length;
+    if (qState) {
+      isShuffle = qState.isShuffle ?? false;
+      repeatMode = qState.repeatMode ?? 'off';
+      queueCount = qState.tracks?.length ?? 0;
+    }
   });
 
   onDestroy(() => {
@@ -266,23 +270,23 @@
         onclick={handleToggleShuffle}
         title="Shuffle"
       >
-        <Shuffle size={12} />
+        <Shuffle size={14} />
       </button>
 
       <button class="ctrl-btn" onclick={handlePrevious} title="Previous">
-        <SkipBack size={14} />
+        <SkipBack size={16} />
       </button>
 
       <button class="ctrl-btn play" onclick={handlePlayPause} title={playerState.isPlaying ? 'Pause' : 'Play'}>
         {#if playerState.isPlaying}
-          <Pause size={16} />
+          <Pause size={18} />
         {:else}
-          <Play size={16} />
+          <Play size={18} />
         {/if}
       </button>
 
       <button class="ctrl-btn" onclick={handleNext} title="Next">
-        <SkipForward size={14} />
+        <SkipForward size={16} />
       </button>
 
       <button
@@ -292,9 +296,9 @@
         title="Repeat"
       >
         {#if repeatMode === 'one'}
-          <Repeat1 size={12} />
+          <Repeat1 size={14} />
         {:else}
-          <Repeat size={12} />
+          <Repeat size={14} />
         {/if}
       </button>
 
@@ -303,7 +307,7 @@
         onclick={handleOpenQueue}
         title="Queue ({queueCount})"
       >
-        <ListMusic size={12} />
+        <ListMusic size={14} />
       </button>
     </div>
   </div>
@@ -327,16 +331,18 @@
 
   /* Album Art */
   .artwork-section {
-    width: 124px;
-    height: 124px;
+    width: 180px;
     flex-shrink: 0;
+    padding: 6px;
+    display: flex;
+    align-items: center;
   }
 
   .artwork {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 6px 0 0 6px;
+    border-radius: 6px;
   }
 
   .artwork-placeholder {
@@ -347,7 +353,7 @@
     align-items: center;
     justify-content: center;
     color: rgba(255, 255, 255, 0.2);
-    border-radius: 6px 0 0 6px;
+    border-radius: 6px;
   }
 
   /* Content */
@@ -355,7 +361,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 8px 10px;
+    padding: 10px 12px 10px 6px;
     min-width: 0;
     justify-content: space-between;
   }
@@ -376,7 +382,7 @@
 
   .title {
     font-weight: 600;
-    font-size: 11px;
+    font-size: 13px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -385,11 +391,12 @@
   }
 
   .artist {
-    font-size: 10px;
+    font-size: 11px;
     color: rgba(255, 255, 255, 0.5);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-top: 2px;
   }
 
   .window-controls {
@@ -465,15 +472,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 4px;
   }
 
   .ctrl-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     background: transparent;
     border: none;
     color: rgba(255, 255, 255, 0.7);
@@ -496,8 +503,8 @@
   }
 
   .ctrl-btn.play {
-    width: 28px;
-    height: 28px;
+    width: 34px;
+    height: 34px;
     background: rgba(255, 255, 255, 0.1);
   }
 

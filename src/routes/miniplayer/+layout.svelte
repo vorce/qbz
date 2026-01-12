@@ -28,7 +28,7 @@
     height: 100vh;
     background: transparent;
     overflow: hidden;
-    padding: 8px;
+    padding: 4px;
     box-sizing: border-box;
   }
 

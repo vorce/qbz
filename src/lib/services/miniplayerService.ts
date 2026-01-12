@@ -11,8 +11,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { goto } from '$app/navigation';
 
 // Miniplayer dimensions
-const MINIPLAYER_WIDTH = 300;
-const MINIPLAYER_HEIGHT = 140;
+const MINIPLAYER_WIDTH = 400;
+const MINIPLAYER_HEIGHT = 200;
 
 // Original app minimum size (from tauri.conf.json)
 const ORIGINAL_MIN_WIDTH = 800;
