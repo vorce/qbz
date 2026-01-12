@@ -22,6 +22,7 @@ pub mod queue;
 pub mod reco_store;
 pub mod session_store;
 pub mod share;
+pub mod tray;
 
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
@@ -151,6 +152,11 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(AppState::with_device(saved_device))
         .setup(|app| {
+            // Initialize system tray icon
+            if let Err(e) = tray::init_tray(app.handle()) {
+                log::error!("Failed to initialize tray icon: {}", e);
+            }
+
             // Start background task to emit playback events
             let app_handle = app.handle().clone();
             let player_state = app.state::<AppState>().player.state.clone();

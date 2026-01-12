@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
+  import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
   // Download state management
@@ -1258,7 +1259,31 @@
       }
     });
 
+    // Set up tray icon event listeners
+    let unlistenTrayPlayPause: UnlistenFn | null = null;
+    let unlistenTrayNext: UnlistenFn | null = null;
+    let unlistenTrayPrevious: UnlistenFn | null = null;
+
+    (async () => {
+      unlistenTrayPlayPause = await listen('tray:play_pause', () => {
+        console.log('[Tray] Play/Pause');
+        togglePlay();
+      });
+      unlistenTrayNext = await listen('tray:next', async () => {
+        console.log('[Tray] Next');
+        await handleSkipForward();
+      });
+      unlistenTrayPrevious = await listen('tray:previous', async () => {
+        console.log('[Tray] Previous');
+        await handleSkipBack();
+      });
+    })();
+
     return () => {
+      // Clean up tray event listeners
+      unlistenTrayPlayPause?.();
+      unlistenTrayNext?.();
+      unlistenTrayPrevious?.();
       // Save session before cleanup
       saveSessionBeforeClose();
       cleanupBootstrap();
