@@ -75,16 +75,12 @@
   .collage {
     position: relative;
     width: var(--size);
-    height: calc(var(--size) * 0.65);
+    height: var(--size);
+    aspect-ratio: 1;
     overflow: hidden;
     border-radius: 6px;
     background: var(--bg-tertiary);
     flex-shrink: 0;
-  }
-
-  .collage.single,
-  .collage.empty {
-    height: var(--size);
   }
 
   .placeholder {
@@ -121,11 +117,16 @@
 
   /* Adjust for 2 covers - more spacing */
   .collage[style*="--count: 2"] .cover {
-    left: calc(var(--index) * (var(--size) * 0.35));
+    left: calc(var(--index) * (var(--size) * 0.45));
   }
 
   /* Adjust for 3 covers */
   .collage[style*="--count: 3"] .cover {
-    left: calc(var(--index) * (var(--size) * 0.28));
+    left: calc(var(--index) * (var(--size) * 0.32));
+  }
+
+  /* Adjust for 4 covers */
+  .collage[style*="--count: 4"] .cover {
+    left: calc(var(--index) * (var(--size) * 0.22));
   }
 </style>
