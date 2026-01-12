@@ -93,11 +93,14 @@ export async function enterMiniplayerMode(): Promise<void> {
     console.log('[MiniPlayer] Removing min size constraint...');
     await window.setMinSize({ type: 'Physical', width: MINIPLAYER_WIDTH, height: MINIPLAYER_HEIGHT });
 
+    // Small delay to ensure min size is applied before setting size
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     console.log('[MiniPlayer] Setting size to', MINIPLAYER_WIDTH, 'x', MINIPLAYER_HEIGHT);
     await window.setSize({ type: 'Physical', width: MINIPLAYER_WIDTH, height: MINIPLAYER_HEIGHT });
 
     await window.setResizable(true);
-    await window.setDecorations(false);
+    // Note: decorations stay false - app uses custom title bar (CSD)
     await window.setAlwaysOnTop(true);
 
     // Navigate to miniplayer route
@@ -124,7 +127,7 @@ export async function exitMiniplayerMode(): Promise<void> {
 
     // Restore window properties
     await window.setAlwaysOnTop(false);
-    await window.setDecorations(true);
+    // Note: decorations stay false - app uses custom title bar (CSD)
     await window.setResizable(true);
 
     // Restore minimum size constraint
