@@ -101,3 +101,4 @@ tauri-plugin-dialog = { version = "2.5.0" }
 
 [patch.crates-io]
 cpal = { path = "vendor/cpal" }
+rodio = { path = "vendor/rodio" }
