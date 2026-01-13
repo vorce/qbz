@@ -754,7 +754,7 @@
   }
 
   .artist-name {
-    font-size: 36px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 8px;
@@ -1213,7 +1213,7 @@
     }
 
     .artist-name {
-      font-size: 28px;
+      font-size: 24px;
     }
 
     .biography {

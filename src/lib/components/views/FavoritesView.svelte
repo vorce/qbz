@@ -516,7 +516,7 @@
   }
 
   .header-content h1 {
-    font-size: 32px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0 0 4px 0;

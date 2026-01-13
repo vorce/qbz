@@ -195,7 +195,7 @@
   }
 
   .lyrics-lines.immersive .lyrics-line.active {
-    font-size: 30px;
+    font-size: 24px;
     font-weight: 700;
   }
 

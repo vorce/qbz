@@ -246,7 +246,7 @@
   }
 
   .logo h1 {
-    font-size: 32px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--text-primary);
     margin-top: 16px;
