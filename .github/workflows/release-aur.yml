@@ -84,8 +84,10 @@ jobs:
         run: |
           cd /tmp/aur-qbz-bin
           docker run --rm -v "$PWD":/pkg -w /pkg archlinux:latest bash -c "
-            pacman -Sy --noconfirm pacman-contrib
-            makepkg --printsrcinfo > .SRCINFO
+            pacman -Sy --noconfirm pacman-contrib sudo
+            useradd -m builder
+            chown -R builder:builder /pkg
+            sudo -u builder makepkg --printsrcinfo > .SRCINFO
           "
           cat .SRCINFO
 
