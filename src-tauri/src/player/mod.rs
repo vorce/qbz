@@ -470,6 +470,7 @@ impl Player {
             // Delay dropping the audio stream after pause to reduce CPU usage.
             const PAUSE_SUSPEND_DELAY_MS: u64 = 2000;
             let mut pause_suspend_deadline: Option<Instant> = None;
+            let mut last_empty_check = Instant::now();
 
             log::info!("Audio thread ready and waiting for commands");
 
@@ -797,13 +798,19 @@ impl Player {
                             &mut pause_suspend_deadline,
                         ),
                         Err(RecvTimeoutError::Timeout) => {
-                            if let Some(ref sink) = current_sink {
-                                if sink.empty() && thread_state.is_playing.load(Ordering::SeqCst) {
-                                    log::info!("Audio thread: track finished (sink empty)");
-                                    thread_state.is_playing.store(false, Ordering::SeqCst);
-                                    let duration = thread_state.duration.load(Ordering::SeqCst);
-                                    thread_state.position.store(duration, Ordering::SeqCst);
-                                    thread_state.playback_start_millis.store(0, Ordering::SeqCst);
+                            let now = Instant::now();
+                            if now.duration_since(last_empty_check) >= Duration::from_millis(500) {
+                                last_empty_check = now;
+                                if let Some(ref sink) = current_sink {
+                                    if sink.empty()
+                                        && thread_state.is_playing.load(Ordering::SeqCst)
+                                    {
+                                        log::info!("Audio thread: track finished (sink empty)");
+                                        thread_state.is_playing.store(false, Ordering::SeqCst);
+                                        let duration = thread_state.duration.load(Ordering::SeqCst);
+                                        thread_state.position.store(duration, Ordering::SeqCst);
+                                        thread_state.playback_start_millis.store(0, Ordering::SeqCst);
+                                    }
                                 }
                             }
                         }
