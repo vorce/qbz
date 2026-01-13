@@ -34,6 +34,7 @@ export interface PlayTrackOptions {
   isLocal?: boolean;
   showLoadingToast?: boolean;
   showSuccessToast?: boolean;
+  playbackStartTimeoutMs?: number;
 }
 
 export interface MediaMetadata {
@@ -66,9 +67,13 @@ export async function playTrack(
   track: PlayingTrack,
   options: PlayTrackOptions = {}
 ): Promise<boolean> {
-  const { isLocal = false, showLoadingToast = true, showSuccessToast = true } = options;
+  const {
+    isLocal = false,
+    showLoadingToast = true,
+    showSuccessToast = true,
+    playbackStartTimeoutMs = 6000
+  } = options;
   const shouldAwaitPlayback = showLoadingToast && !isCasting();
-  const playbackStartTimeoutMs = 25000;
 
   // Set current track in store
   setCurrentTrack(track);

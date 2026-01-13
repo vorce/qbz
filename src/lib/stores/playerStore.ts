@@ -80,6 +80,9 @@ let onTrackEnded: (() => Promise<void>) | null = null;
 // Session restore state - when set, next play will load the track first
 let pendingSessionRestore: { trackId: number; position: number } | null = null;
 
+const PLAYBACK_START_TIMEOUT_MS = 6000;
+const RESTORE_PLAYBACK_TIMEOUT_MS = 25000;
+
 // Listeners
 const listeners = new Set<() => void>();
 
@@ -264,7 +267,7 @@ export async function togglePlay(): Promise<void> {
         }
 
         try {
-          await waitForPlaybackStart(trackId, 25000);
+          await waitForPlaybackStart(trackId, RESTORE_PLAYBACK_TIMEOUT_MS);
           if (currentTrack?.id !== trackId) {
             return;
           }
@@ -286,7 +289,7 @@ export async function togglePlay(): Promise<void> {
           showToast(currentTrack.title, 'buffering');
           await invoke('play_track', { trackId });
           try {
-            await waitForPlaybackStart(trackId, 25000);
+            await waitForPlaybackStart(trackId, PLAYBACK_START_TIMEOUT_MS);
             if (currentTrack?.id !== trackId) {
               return;
             }
