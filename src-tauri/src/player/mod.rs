@@ -679,7 +679,7 @@ impl Player {
                         thread_state.position_at_start.store(0, Ordering::SeqCst);
                         // Drop the stream to release the device and stop background CPU use.
                         drop(stream_opt.take());
-                        pause_suspend_deadline = None;
+                        *pause_suspend_deadline = None;
                         log::info!("Audio thread: stopped");
                     }
                     AudioCommand::SetVolume(volume) => {
@@ -692,7 +692,7 @@ impl Player {
                         log::info!("Audio thread: volume set to {}", volume);
                     }
                     AudioCommand::Seek(position_secs) => {
-                        *pause_suspend_deadline = None;
+                        pause_suspend_deadline = None;
                         let Some(ref audio_data) = *current_audio_data else {
                             log::warn!("Audio thread: cannot seek - no audio data available");
                             return;
