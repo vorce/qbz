@@ -71,7 +71,6 @@ impl LibraryDatabase {
             CREATE INDEX IF NOT EXISTS idx_tracks_artist ON local_tracks(artist);
             CREATE INDEX IF NOT EXISTS idx_tracks_album ON local_tracks(album);
             CREATE INDEX IF NOT EXISTS idx_tracks_album_artist ON local_tracks(album_artist);
-            CREATE INDEX IF NOT EXISTS idx_tracks_album_group ON local_tracks(album_group_key);
             CREATE INDEX IF NOT EXISTS idx_tracks_file_path ON local_tracks(file_path);
             CREATE INDEX IF NOT EXISTS idx_tracks_title ON local_tracks(title);
 
@@ -194,6 +193,12 @@ impl LibraryDatabase {
                 .execute_batch("ALTER TABLE local_tracks ADD COLUMN album_group_title TEXT;")
                 .map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
         }
+
+        self.conn
+            .execute_batch(
+                "CREATE INDEX IF NOT EXISTS idx_tracks_album_group ON local_tracks(album_group_key);",
+            )
+            .map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
 
         let has_file_nocue_index: bool = self
             .conn
