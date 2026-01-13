@@ -755,7 +755,7 @@ impl Player {
                             "Audio thread: reinitializing device (new: {:?})",
                             new_device
                         );
-                        pause_suspend_deadline = None;
+                        *pause_suspend_deadline = None;
 
                         if let Some(sink) = current_sink.take() {
                             sink.stop();
@@ -846,7 +846,7 @@ impl Player {
                             }
                             continue;
                         }
-                        *pause_suspend_deadline = None;
+                        pause_suspend_deadline = None;
                     }
 
                     match rx.recv() {
