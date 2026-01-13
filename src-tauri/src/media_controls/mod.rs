@@ -5,9 +5,14 @@
 //! - Media key support
 //! - Now playing notifications
 
-use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
-use std::sync::{Arc, Mutex};
+use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig, SeekDirection};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread;
+use tauri::{AppHandle, Emitter, Manager};
+use serde::Serialize;
 
 /// Track metadata for media controls
 #[derive(Debug, Clone, Default)]
@@ -22,13 +27,26 @@ pub struct TrackInfo {
 /// Media controls manager
 pub struct MediaControlsManager {
     controls: Arc<Mutex<Option<MediaControls>>>,
+    initialized: Arc<AtomicBool>,
 }
 
 impl MediaControlsManager {
     /// Create a new media controls manager
     pub fn new() -> Self {
         let controls = Arc::new(Mutex::new(None));
-        let controls_clone = controls.clone();
+        Self {
+            controls,
+            initialized: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    pub fn init(&self, app: AppHandle) {
+        if self.initialized.swap(true, Ordering::SeqCst) {
+            return;
+        }
+
+        let controls_clone = self.controls.clone();
+        let app_handle = app.clone();
 
         // Initialize media controls in a separate thread
         // (souvlaki requires a window handle on some platforms)
@@ -41,11 +59,11 @@ impl MediaControlsManager {
 
             match MediaControls::new(config) {
                 Ok(mut mc) => {
-                    // Set up event handler for media key presses
-                    // For now, just log events - we'll wire them up later
                     if let Err(e) = mc.attach(move |event: MediaControlEvent| {
                         log::info!("Media control event: {:?}", event);
-                        // TODO: Wire these to player commands via Tauri events
+                        let payload = MediaControlPayload::from(event);
+
+                        let _ = app_handle.emit("media:control", &payload);
                     }) {
                         log::error!("Failed to attach media controls handler: {}", e);
                         return;
@@ -53,7 +71,6 @@ impl MediaControlsManager {
 
                     log::info!("Media controls initialized successfully (MPRIS)");
 
-                    // Store the controls
                     if let Ok(mut guard) = controls_clone.lock() {
                         *guard = Some(mc);
                     }
@@ -63,10 +80,6 @@ impl MediaControlsManager {
                 }
             }
         });
-
-        Self {
-            controls,
-        }
     }
 
     /// Update the currently playing track metadata
@@ -132,6 +145,85 @@ impl MediaControlsManager {
                 }
             }
         }
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct MediaControlPayload {
+    action: String,
+    direction: Option<String>,
+    offset_secs: Option<i64>,
+    position_secs: Option<u64>,
+    volume: Option<f64>,
+}
+
+impl From<MediaControlEvent> for MediaControlPayload {
+    fn from(event: MediaControlEvent) -> Self {
+        match event {
+            MediaControlEvent::Play => Self::action_only("play"),
+            MediaControlEvent::Pause => Self::action_only("pause"),
+            MediaControlEvent::Toggle => Self::action_only("toggle"),
+            MediaControlEvent::Next => Self::action_only("next"),
+            MediaControlEvent::Previous => Self::action_only("previous"),
+            MediaControlEvent::Stop => Self::action_only("stop"),
+            MediaControlEvent::Seek(direction) => Self {
+                action: "seek".to_string(),
+                direction: Some(direction_to_string(direction)),
+                offset_secs: None,
+                position_secs: None,
+                volume: None,
+            },
+            MediaControlEvent::SeekBy(direction, duration) => {
+                let offset = duration.as_secs() as i64;
+                let signed_offset = match direction {
+                    SeekDirection::Forward => offset,
+                    SeekDirection::Backward => -offset,
+                };
+                Self {
+                    action: "seek_by".to_string(),
+                    direction: Some(direction_to_string(direction)),
+                    offset_secs: Some(signed_offset),
+                    position_secs: None,
+                    volume: None,
+                }
+            }
+            MediaControlEvent::SetPosition(position) => Self {
+                action: "set_position".to_string(),
+                direction: None,
+                offset_secs: None,
+                position_secs: Some(position.0.as_secs()),
+                volume: None,
+            },
+            MediaControlEvent::SetVolume(volume) => Self {
+                action: "set_volume".to_string(),
+                direction: None,
+                offset_secs: None,
+                position_secs: None,
+                volume: Some(volume),
+            },
+            MediaControlEvent::OpenUri(_) => Self::action_only("open_uri"),
+            MediaControlEvent::Raise => Self::action_only("raise"),
+            MediaControlEvent::Quit => Self::action_only("quit"),
+        }
+    }
+}
+
+impl MediaControlPayload {
+    fn action_only(action: &str) -> Self {
+        Self {
+            action: action.to_string(),
+            direction: None,
+            offset_secs: None,
+            position_secs: None,
+            volume: None,
+        }
+    }
+}
+
+fn direction_to_string(direction: SeekDirection) -> String {
+    match direction {
+        SeekDirection::Forward => "forward".to_string(),
+        SeekDirection::Backward => "backward".to_string(),
     }
 }
 

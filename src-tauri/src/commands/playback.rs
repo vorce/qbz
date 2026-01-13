@@ -106,6 +106,62 @@ pub async fn play_track(
     Ok(())
 }
 
+/// Prefetch a track into the in-memory cache without starting playback
+#[tauri::command]
+pub async fn prefetch_track(
+    track_id: u64,
+    state: State<'_, AppState>,
+    download_cache: State<'_, DownloadCacheState>,
+) -> Result<(), String> {
+    log::info!("Command: prefetch_track {}", track_id);
+
+    let cache = state.audio_cache.clone();
+
+    if cache.contains(track_id) {
+        log::info!("Track {} already in memory cache", track_id);
+        return Ok(());
+    }
+
+    if cache.is_fetching(track_id) {
+        log::info!("Track {} already being fetched", track_id);
+        return Ok(());
+    }
+
+    cache.mark_fetching(track_id);
+    let result = async {
+        // Check persistent download cache first
+        {
+            let db = download_cache.db.lock().await;
+            if let Ok(Some(file_path)) = db.get_file_path(track_id) {
+                let path = std::path::Path::new(&file_path);
+                if path.exists() {
+                    log::info!("Prefetching track {} from download cache", track_id);
+                    drop(db);
+                    let audio_data = std::fs::read(path)
+                        .map_err(|e| format!("Failed to read cached file: {}", e))?;
+                    cache.insert(track_id, audio_data);
+                    return Ok(());
+                }
+            }
+        }
+
+        let client = state.client.lock().await;
+        let stream_url = client
+            .get_stream_url_with_fallback(track_id, Quality::HiRes)
+            .await
+            .map_err(|e| format!("Failed to get stream URL: {}", e))?;
+        drop(client);
+
+        let audio_data = download_audio(&stream_url.url).await?;
+        cache.insert(track_id, audio_data);
+        Ok(())
+    }
+    .await;
+
+    cache.unmark_fetching(track_id);
+    result
+}
+
 /// Download audio from URL
 async fn download_audio(url: &str) -> Result<Vec<u8>, String> {
     use std::time::Duration;
@@ -251,7 +307,7 @@ pub fn set_media_metadata(
         duration_secs,
         cover_url,
     );
-    state.media_controls.set_playback(true);
+    state.media_controls.set_playback_with_progress(true, 0);
     Ok(())
 }
 

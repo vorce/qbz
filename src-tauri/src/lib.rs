@@ -163,6 +163,11 @@ pub fn run() {
                 log::error!("Failed to initialize tray icon: {}", e);
             }
 
+            // Initialize media controls (MPRIS) now that we have an AppHandle
+            app.state::<AppState>()
+                .media_controls
+                .init(app.handle().clone());
+
             // Start background task to emit playback events
             let app_handle = app.handle().clone();
             let player_state = app.state::<AppState>().player.state.clone();
@@ -204,6 +209,8 @@ pub fn run() {
                         || (is_playing && position != last_position)
                     );
 
+                    let should_update_mpris = should_emit || (track_id == 0 && last_track_id != 0);
+
                     if should_emit {
                         let event = player::PlaybackEvent {
                             is_playing,
@@ -213,10 +220,18 @@ pub fn run() {
                             volume,
                         };
                         let _ = app_handle.emit("playback:state", &event);
-
                         last_position = position;
                         last_is_playing = is_playing;
                         last_track_id = track_id;
+                    }
+
+                    if should_update_mpris {
+                        let media_controls = &app_handle.state::<AppState>().media_controls;
+                        if track_id == 0 {
+                            media_controls.set_stopped();
+                        } else {
+                            media_controls.set_playback_with_progress(is_playing, position);
+                        }
                     }
                 }
             });
@@ -259,6 +274,7 @@ pub fn run() {
             commands::get_similar_artists,
             // Playback commands
             commands::play_track,
+            commands::prefetch_track,
             commands::pause_playback,
             commands::resume_playback,
             commands::stop_playback,

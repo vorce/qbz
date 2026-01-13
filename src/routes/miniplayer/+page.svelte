@@ -171,6 +171,10 @@
     await exitMiniplayerMode();
   }
 
+  function handleRestoreMouseDown(e: MouseEvent): void {
+    e.stopPropagation();
+  }
+
   async function startDrag(): Promise<void> {
     try {
       isDragging = true;
@@ -181,6 +185,14 @@
     } finally {
       isDragging = false;
     }
+  }
+
+  function handleTopMouseDown(e: MouseEvent): void {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('button')) {
+      return;
+    }
+    void startDrag();
   }
 
   function handleOpenQueue(e: MouseEvent): void {
@@ -202,7 +214,7 @@
   aria-label="MiniPlayer"
 >
   <!-- Top Section: Artwork + Info + Restore -->
-  <div class="top-section" onmousedown={startDrag}>
+  <div class="top-section" onmousedown={handleTopMouseDown}>
     <!-- Album Art (clickable for view modes) -->
     <button class="artwork-section" onclick={handleArtworkClick}>
       {#if playerState.currentTrack?.artwork}
@@ -214,7 +226,7 @@
 
     <!-- Track Info + Restore Button -->
     <div class="info-section">
-      <button class="restore-btn" onclick={handleRestore} title="Restore">
+      <button class="restore-btn" onclick={handleRestore} onmousedown={handleRestoreMouseDown} title="Restore">
         <Maximize2 size={14} />
       </button>
       <div class="track-info">

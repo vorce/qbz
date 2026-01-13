@@ -12,11 +12,11 @@
 
 # QBZ
 
-QBZ is a free and open source (FOSS) Qobuz client for Linux with native, high-fidelity playback. It is a real desktop application, not a web wrapper, so it can use DAC passthrough, preserve hi-res sample rates end-to-end, and deliver bit-perfect audio.
+QBZ is a free and open source (FOSS) Qobuz client for Linux with native, high-fidelity playback. It is a real desktop application, not a web wrapper, so it can use DAC passthrough, switch sample rates per track, and deliver bit-perfect audio.
 
 ## Why QBZ
 
-Browsers cap audio output around 48 kHz, while Qobuz streams up to 192 kHz. QBZ uses a native playback pipeline with direct device control so your system and DAC receive the original resolution, with caching and system integrations that wrappers cannot provide.
+Browsers cap audio output around 48 kHz, while Qobuz streams up to 192 kHz. QBZ uses a native playback pipeline with direct device control, exclusive mode, and no forced resampling so your system and DAC receive the original resolution, with caching and system integrations that wrappers cannot provide.
 
 ## Installation
 
@@ -37,11 +37,32 @@ paru -S qbz-bin
 flatpak install ./QBZ.flatpak
 ```
 
-### AppImage / Tarball
+### AppImage
 
 Download the latest release from the [Releases](https://github.com/vicrodh/qbz/releases) page.
 
-> **Note:** Pre-built binaries include all API integrations (Last.fm, Discogs, Spotify, Tidal) ready to use. If you build from source, you'll need to provide your own API keys.
+```bash
+chmod +x QBZ.AppImage
+./QBZ.AppImage
+```
+
+### DEB (Debian/Ubuntu/Mint/Pop!_OS/Zorin)
+
+Download the `.deb` from [Releases](https://github.com/vicrodh/qbz/releases).
+
+```bash
+sudo apt install ./qbz_*.deb
+```
+
+### RPM (Fedora/openSUSE/RHEL-based)
+
+Download the `.rpm` from [Releases](https://github.com/vicrodh/qbz/releases).
+
+```bash
+sudo dnf install ./qbz-*.rpm
+```
+
+> **Note:** Pre-built binaries include all API integrations (Last.fm, Discogs, Spotify, Apple Music, Tidal, Deezer) ready to use. If you build from source, you'll need to provide your own API keys.
 
 ## Screenshots
 
@@ -54,7 +75,8 @@ Coming soon.
 - Native decoding for FLAC, MP3, AAC, and ALAC with real-time playback state updates.
 - Quality selection with automatic fallback across Qobuz tiers.
 - Audio device enumeration and per-device output selection.
-- DAC passthrough mode for bit-perfect playback.
+- Exclusive mode and DAC passthrough for bit-perfect playback.
+- Preserve original sample rates end-to-end where supported.
 - Gapless-ready playback pipeline with precise position tracking.
 
 ### Queue and Library
@@ -62,9 +84,12 @@ Coming soon.
 - In-memory audio cache with LRU eviction and next-track prefetching.
 - Favorites and playlists from your Qobuz account.
 - Local library backend: directory scanning, metadata extraction, CUE sheet parsing, and SQLite indexing.
+- Grid and list views with search, A-Z index, and grouping by artist or album.
+- Multi-disc album grouping with disc headers in album views.
+- Local artwork detection (folder and embedded) with Discogs fallback.
 
 ### Playlist Import
-- Import playlists from Spotify and Tidal into your Qobuz library.
+- Import public playlists from Spotify, Apple Music, Tidal, and Deezer into your Qobuz library.
 - Automatic track matching with fuzzy search.
 - Batch import with progress tracking.
 
@@ -92,6 +117,9 @@ Coming soon.
 - Audio device selection and quality preferences.
 - API keys configuration for self-hosted builds.
 - Theme and appearance options.
+
+### Performance
+- Low CPU usage in idle and playback with adaptive audio thread scheduling.
 
 ## Open Source
 
@@ -138,6 +166,11 @@ npm run tauri build
 ```
 
 ### Environment Variables
+
+API keys are only required when you build QBZ yourself. The app runs without them, but the corresponding features will be disabled.
+
+<details>
+<summary>API keys and integrations (optional)</summary>
 
 When building from source, you need to provide your own API keys. Copy the example environment file:
 
@@ -190,6 +223,7 @@ TIDAL_API_CLIENT_SECRET=your_client_secret
 ```
 
 > **Note:** All integrations are optional. The application will work without them, but the corresponding features will be disabled.
+</details>
 
 ## Project Structure
 
@@ -219,6 +253,19 @@ qbz/
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues and pull requests.
+
+## macOS (Experimental)
+
+QBZ is built for Linux first, but the codebase can compile on macOS in many cases. Expect missing integrations and bugs, especially around audio devices, exclusive mode, MPRIS, and platform-specific packaging.
+
+If you want to try it:
+
+```bash
+npm install
+npm run tauri dev
+```
+
+Please treat macOS support as best-effort and report issues with clear logs.
 
 ## License
 

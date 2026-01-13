@@ -43,3 +43,6 @@ vite.config.ts.timestamp-*
 flatpak-build/
 flatpak-repo/
 .flatpak-builder/
+
+# Local build temp
+/.tmp/

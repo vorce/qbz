@@ -15,6 +15,7 @@ import {
   castSetVolume,
   castStop
 } from '$lib/stores/castStore';
+import { showToast, dismissBuffering } from '$lib/stores/toastStore';
 
 // ============ Types ============
 
@@ -59,12 +60,19 @@ let currentTime = 0;
 let duration = 0;
 let volume = 75;
 let isFavorite = false;
+let loadedTrackId: number | null = null;
 
 // Event listener state (replaces polling)
 let eventUnlisten: UnlistenFn | null = null;
 let isAdvancingTrack = false;
 let isSkipping = false;
 let queueEnded = false;
+type PlaybackStartWaiter = {
+  resolve: () => void;
+  reject: (err: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+};
+const playbackStartWaiters = new Map<number, PlaybackStartWaiter>();
 
 // Callbacks for track advancement (set by consumer)
 let onTrackEnded: (() => Promise<void>) | null = null;
@@ -151,6 +159,7 @@ export function getPlayerState(): PlayerState {
  */
 export function setCurrentTrack(track: PlayingTrack | null): void {
   currentTrack = track;
+  loadedTrackId = null;
   if (track) {
     duration = track.duration;
     currentTime = 0;
@@ -235,9 +244,12 @@ export async function togglePlay(): Promise<void> {
         console.log('[Player] Loading restored track:', pendingSessionRestore.trackId);
         const savedPosition = pendingSessionRestore.position;
         pendingSessionRestore = null; // Clear before loading
+        const trackId = currentTrack.id;
+
+        showToast(currentTrack.title, 'buffering');
 
         // Load the track from Qobuz
-        await invoke('play_track', { trackId: currentTrack.id });
+        await invoke('play_track', { trackId });
 
         // Seek to saved position after a short delay to let audio load
         if (savedPosition > 0) {
@@ -250,8 +262,49 @@ export async function togglePlay(): Promise<void> {
             }
           }, 500);
         }
+
+        try {
+          await waitForPlaybackStart(trackId, 25000);
+          if (currentTrack?.id !== trackId) {
+            return;
+          }
+          dismissBuffering();
+          showToast(`Playing: ${currentTrack.title}`, 'success');
+        } catch (waitErr) {
+          if (currentTrack?.id !== trackId) {
+            return;
+          }
+          dismissBuffering();
+          isPlaying = false;
+          notifyListeners();
+          showToast('Audio output recovery failed. Please restart QBZ or check your audio device.', 'error');
+          return;
+        }
       } else {
-        await invoke('resume_playback');
+        if (!loadedTrackId || loadedTrackId !== currentTrack.id) {
+          const trackId = currentTrack.id;
+          showToast(currentTrack.title, 'buffering');
+          await invoke('play_track', { trackId });
+          try {
+            await waitForPlaybackStart(trackId, 25000);
+            if (currentTrack?.id !== trackId) {
+              return;
+            }
+            dismissBuffering();
+            showToast(`Playing: ${currentTrack.title}`, 'success');
+          } catch (waitErr) {
+            if (currentTrack?.id !== trackId) {
+              return;
+            }
+            dismissBuffering();
+            isPlaying = false;
+            notifyListeners();
+            showToast('Audio output recovery failed. Please restart QBZ or check your audio device.', 'error');
+            return;
+          }
+        } else {
+          await invoke('resume_playback');
+        }
       }
     } else {
       await invoke('pause_playback');
@@ -326,6 +379,7 @@ export async function stop(): Promise<void> {
     currentTrack = null;
     currentTime = 0;
     duration = 0;
+    loadedTrackId = null;
     notifyListeners();
   } catch (err) {
     console.error('Failed to stop playback:', err);
@@ -351,7 +405,19 @@ async function handlePlaybackEvent(event: PlaybackEvent): Promise<void> {
   if (event.track_id === currentTrack.id) {
     currentTime = event.position;
     isPlaying = event.is_playing;
+    if (event.is_playing) {
+      loadedTrackId = event.track_id;
+    }
     notifyListeners();
+
+    if (event.is_playing) {
+      const waiter = playbackStartWaiters.get(event.track_id);
+      if (waiter) {
+        clearTimeout(waiter.timeout);
+        playbackStartWaiters.delete(event.track_id);
+        waiter.resolve();
+      }
+    }
 
     // Check if track ended - auto-advance to next
     if (
@@ -374,6 +440,28 @@ async function handlePlaybackEvent(event: PlaybackEvent): Promise<void> {
       }
     }
   }
+}
+
+export function waitForPlaybackStart(trackId: number, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (trackId <= 0) {
+      resolve();
+      return;
+    }
+
+    const existing = playbackStartWaiters.get(trackId);
+    if (existing) {
+      clearTimeout(existing.timeout);
+      playbackStartWaiters.delete(trackId);
+    }
+
+    const timeout = setTimeout(() => {
+      playbackStartWaiters.delete(trackId);
+      reject(new Error('playback_start_timeout'));
+    }, timeoutMs);
+
+    playbackStartWaiters.set(trackId, { resolve, reject, timeout });
+  });
 }
 
 /**
