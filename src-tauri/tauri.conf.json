@@ -26,7 +26,16 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$CACHE/qbz/**", "$CONFIG/qbz/**", "$HOME/.cache/qbz/**", "$HOME/.config/qbz/**"]
+        "scope": [
+          "$CACHE/qbz/**",
+          "$CONFIG/qbz/**",
+          "$HOME/.cache/qbz/**",
+          "$HOME/.config/qbz/**",
+          "$HOME/**",
+          "/mnt/**",
+          "/media/**",
+          "/run/media/**"
+        ]
       }
     }
   },
