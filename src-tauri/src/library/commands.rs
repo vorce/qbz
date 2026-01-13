@@ -283,14 +283,13 @@ pub async fn library_get_albums(
 
 #[tauri::command]
 pub async fn library_get_album_tracks(
-    album: String,
-    artist: String,
+    album_group_key: String,
     state: State<'_, LibraryState>,
 ) -> Result<Vec<LocalTrack>, String> {
-    log::info!("Command: library_get_album_tracks {} - {}", artist, album);
+    log::info!("Command: library_get_album_tracks {}", album_group_key);
 
     let db = state.db.lock().await;
-    db.get_album_tracks(&album, &artist)
+    db.get_album_tracks(&album_group_key)
         .map_err(|e| e.to_string())
 }
 
@@ -651,7 +650,7 @@ pub async fn library_fetch_missing_artwork(
     let mut updated_count = 0u32;
 
     // Get all albums without artwork
-    let albums_without_artwork: Vec<(String, String)> = {
+    let albums_without_artwork: Vec<(String, String, String)> = {
         let db = state.db.lock().await;
         db.get_albums_without_artwork()
             .map_err(|e| e.to_string())?
@@ -659,12 +658,12 @@ pub async fn library_fetch_missing_artwork(
 
     log::info!("Found {} albums without artwork", albums_without_artwork.len());
 
-    for (artist, album) in albums_without_artwork {
+    for (group_key, album, artist) in albums_without_artwork {
         // Try to fetch from Discogs
         if let Some(artwork_path) = discogs.fetch_artwork(&artist, &album, &artwork_cache).await {
             // Update all tracks in this album with the artwork
             let db = state.db.lock().await;
-            if db.update_album_artwork(&album, &artist, &artwork_path).is_ok() {
+            if db.update_album_group_artwork(&group_key, &artwork_path).is_ok() {
                 updated_count += 1;
                 log::info!("Updated artwork for {} - {}", artist, album);
             }
@@ -703,10 +702,17 @@ pub async fn library_fetch_album_artwork(
     let artwork_cache = get_artwork_cache_dir();
 
     if let Some(artwork_path) = discogs.fetch_artwork(&artist, &album, &artwork_cache).await {
-        // Update all tracks in this album with the artwork
         let db = state.db.lock().await;
-        db.update_album_artwork(&album, &artist, &artwork_path)
-            .map_err(|e| e.to_string())?;
+        if let Some(group_key) = db
+            .find_album_group_key(&album, &artist)
+            .map_err(|e| e.to_string())?
+        {
+            db.update_album_group_artwork(&group_key, &artwork_path)
+                .map_err(|e| e.to_string())?;
+        } else {
+            db.update_album_artwork(&album, &artist, &artwork_path)
+                .map_err(|e| e.to_string())?;
+        }
         Ok(Some(artwork_path))
     } else {
         Ok(None)

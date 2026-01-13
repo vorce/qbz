@@ -33,6 +33,71 @@ impl MetadataExtractor {
         trimmed.to_string()
     }
 
+    fn strip_disc_suffix(title: &str) -> String {
+        let trimmed = title.trim();
+
+        for (open, close) in [("(", ")"), ("[", "]")] {
+            if trimmed.ends_with(close) {
+                if let Some(start) = trimmed.rfind(open) {
+                    let inside = trimmed[start + 1..trimmed.len() - 1].trim();
+                    if Self::is_disc_designator(inside) {
+                        return trimmed[..start].trim().to_string();
+                    }
+                }
+            }
+        }
+
+        let tokens: Vec<&str> = trimmed
+            .split_whitespace()
+            .filter(|token| *token != "-" && *token != "–" && *token != "—")
+            .collect();
+
+        if tokens.len() >= 2 {
+            let last = tokens[tokens.len() - 1];
+            let prev = tokens[tokens.len() - 2];
+            if Self::is_disc_marker(prev) && last.chars().all(|c| c.is_ascii_digit()) {
+                return tokens[..tokens.len() - 2].join(" ").trim().to_string();
+            }
+        }
+
+        if let Some(last) = tokens.last() {
+            if Self::is_disc_designator(last) {
+                if tokens.len() > 1 {
+                    return tokens[..tokens.len() - 1].join(" ").trim().to_string();
+                }
+            }
+        }
+
+        trimmed.to_string()
+    }
+
+    fn is_disc_marker(value: &str) -> bool {
+        matches!(value.to_lowercase().as_str(), "disc" | "disk" | "cd")
+    }
+
+    fn is_disc_designator(value: &str) -> bool {
+        let cleaned: String = value
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .collect();
+
+        if cleaned.starts_with("disc") {
+            let rest = &cleaned[4..];
+            return !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit());
+        }
+        if cleaned.starts_with("disk") {
+            let rest = &cleaned[4..];
+            return !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit());
+        }
+        if cleaned.starts_with("cd") {
+            let rest = &cleaned[2..];
+            return !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit());
+        }
+
+        false
+    }
+
     fn is_disc_folder(name: &str) -> bool {
         let lower = name.to_lowercase();
         let tokens: Vec<&str> = lower
@@ -71,26 +136,29 @@ impl MetadataExtractor {
         false
     }
 
-    fn infer_artist_album(file_path: &Path) -> (Option<String>, Option<String>) {
-        let parent_dir = file_path.parent();
-        let parent_name = parent_dir.and_then(|p| p.file_name()).and_then(|s| s.to_str());
+    fn album_root_dir(file_path: &Path) -> Option<PathBuf> {
+        let parent_dir = file_path.parent()?;
+        let parent_name = parent_dir.file_name().and_then(|s| s.to_str());
 
-        let (album_dir, album_name) = if let Some(name) = parent_name {
+        if let Some(name) = parent_name {
             if Self::is_disc_folder(name) {
-                let album_dir = parent_dir.and_then(|p| p.parent());
-                let album_name = album_dir
-                    .and_then(|p| p.file_name())
-                    .and_then(|s| s.to_str())
-                    .map(Self::strip_year_suffix);
-                (album_dir, album_name)
-            } else {
-                (parent_dir, parent_name.map(Self::strip_year_suffix))
+                return parent_dir.parent().map(|p| p.to_path_buf());
             }
-        } else {
-            (None, None)
-        };
+        }
+
+        Some(parent_dir.to_path_buf())
+    }
+
+    fn infer_artist_album(file_path: &Path) -> (Option<String>, Option<String>) {
+        let album_dir = Self::album_root_dir(file_path);
+        let album_name = album_dir
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .and_then(|s| s.to_str())
+            .map(Self::strip_year_suffix);
 
         let artist_name = album_dir
+            .as_ref()
             .and_then(|p| p.parent())
             .and_then(|p| p.file_name())
             .and_then(|s| s.to_str())
@@ -108,6 +176,32 @@ impl MetadataExtractor {
         }
 
         (artist_name, album_name)
+    }
+
+    pub fn album_group_info(file_path: &Path, tag_album: Option<&str>) -> (String, String) {
+        let album_dir = Self::album_root_dir(file_path);
+        let group_key = album_dir
+            .as_ref()
+            .map(|dir| dir.to_string_lossy().to_string())
+            .unwrap_or_else(|| file_path.to_string_lossy().to_string());
+
+        let mut group_title = tag_album
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+            .filter(|value| !value.eq_ignore_ascii_case("Unknown Album"))
+            .map(|value| value.to_string())
+            .or_else(|| {
+                album_dir
+                    .as_ref()
+                    .and_then(|dir| dir.file_name())
+                    .and_then(|s| s.to_str())
+                    .map(Self::strip_year_suffix)
+            })
+            .unwrap_or_else(|| "Unknown Album".to_string());
+
+        group_title = Self::strip_disc_suffix(&group_title);
+
+        (group_key, group_title)
     }
 
     /// Extract metadata from an audio file
@@ -154,6 +248,12 @@ impl MetadataExtractor {
 
         // Build track
         let track = if let Some(tag) = tag {
+            let album_title = Self::normalize_field(tag.album().as_deref())
+                .or_else(|| fallback_album.clone())
+                .unwrap_or_else(|| "Unknown Album".to_string());
+            let (album_group_key, album_group_title) =
+                Self::album_group_info(file_path, Some(album_title.as_str()));
+
             LocalTrack {
                 id: 0,
                 file_path: file_path.to_string_lossy().to_string(),
@@ -164,10 +264,10 @@ impl MetadataExtractor {
                 artist: Self::normalize_field(tag.artist().as_deref())
                     .or_else(|| fallback_artist.clone())
                     .unwrap_or_else(|| "Unknown Artist".to_string()),
-                album: Self::normalize_field(tag.album().as_deref())
-                    .or_else(|| fallback_album.clone())
-                    .unwrap_or_else(|| "Unknown Album".to_string()),
+                album: album_title,
                 album_artist: tag.get_string(&ItemKey::AlbumArtist).map(|s| s.to_string()),
+                album_group_key,
+                album_group_title,
                 track_number: tag.track().map(|t| t as u32),
                 disc_number: tag.disk().map(|d| d as u32),
                 year: tag.year().map(|y| y as u32),
@@ -190,15 +290,22 @@ impl MetadataExtractor {
             }
         } else {
             // No tag found, use defaults
+            let album_title = fallback_album
+                .clone()
+                .unwrap_or_else(|| "Unknown Album".to_string());
+            let (album_group_key, album_group_title) =
+                Self::album_group_info(file_path, Some(album_title.as_str()));
+
             LocalTrack {
                 id: 0,
                 file_path: file_path.to_string_lossy().to_string(),
                 title: filename,
                 artist: fallback_artist
                     .unwrap_or_else(|| "Unknown Artist".to_string()),
-                album: fallback_album
-                    .unwrap_or_else(|| "Unknown Album".to_string()),
+                album: album_title,
                 album_artist: None,
+                album_group_key,
+                album_group_title,
                 track_number: None,
                 disc_number: None,
                 year: None,

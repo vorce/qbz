@@ -63,12 +63,15 @@ impl LibraryDatabase {
                 artwork_path TEXT,
                 last_modified INTEGER NOT NULL,
                 indexed_at INTEGER NOT NULL,
+                album_group_key TEXT,
+                album_group_title TEXT,
                 UNIQUE(file_path, cue_start_secs)
             );
 
             CREATE INDEX IF NOT EXISTS idx_tracks_artist ON local_tracks(artist);
             CREATE INDEX IF NOT EXISTS idx_tracks_album ON local_tracks(album);
             CREATE INDEX IF NOT EXISTS idx_tracks_album_artist ON local_tracks(album_artist);
+            CREATE INDEX IF NOT EXISTS idx_tracks_album_group ON local_tracks(album_group_key);
             CREATE INDEX IF NOT EXISTS idx_tracks_file_path ON local_tracks(file_path);
             CREATE INDEX IF NOT EXISTS idx_tracks_title ON local_tracks(title);
 
@@ -158,6 +161,40 @@ impl LibraryDatabase {
             ).map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
         }
 
+        let has_album_group_key: bool = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('local_tracks') WHERE name = 'album_group_key'",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|count| count > 0)
+            .unwrap_or(false);
+
+        if !has_album_group_key {
+            log::info!("Running migration: adding album_group_key to local_tracks");
+            self.conn
+                .execute_batch("ALTER TABLE local_tracks ADD COLUMN album_group_key TEXT;")
+                .map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
+        }
+
+        let has_album_group_title: bool = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('local_tracks') WHERE name = 'album_group_title'",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|count| count > 0)
+            .unwrap_or(false);
+
+        if !has_album_group_title {
+            log::info!("Running migration: adding album_group_title to local_tracks");
+            self.conn
+                .execute_batch("ALTER TABLE local_tracks ADD COLUMN album_group_title TEXT;")
+                .map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
+        }
+
         Ok(())
     }
 
@@ -221,8 +258,9 @@ impl LibraryDatabase {
                (file_path, title, artist, album, album_artist, track_number,
                 disc_number, year, genre, duration_secs, format, bit_depth,
                 sample_rate, channels, file_size_bytes, cue_file_path,
-                cue_start_secs, cue_end_secs, artwork_path, last_modified, indexed_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+                cue_start_secs, cue_end_secs, artwork_path, last_modified, indexed_at,
+                album_group_key, album_group_title)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
                 params![
                     track.file_path,
                     track.title,
@@ -244,7 +282,9 @@ impl LibraryDatabase {
                     track.cue_end_secs,
                     track.artwork_path,
                     track.last_modified,
-                    track.indexed_at
+                    track.indexed_at,
+                    track.album_group_key,
+                    track.album_group_title
                 ],
             )
             .map_err(|e| LibraryError::Database(e.to_string()))?;
@@ -306,8 +346,12 @@ impl LibraryDatabase {
             .prepare(
                 r#"
             SELECT
-                album,
-                COALESCE(album_artist, artist) as artist,
+                group_key,
+                MIN(title) as title,
+                CASE
+                    WHEN COUNT(DISTINCT artist) > 1 THEN 'Various Artists'
+                    ELSE MIN(artist)
+                END as artist,
                 MIN(year) as year,
                 MAX(artwork_path) as artwork,
                 COUNT(*) as track_count,
@@ -315,10 +359,22 @@ impl LibraryDatabase {
                 MAX(format) as format,
                 MAX(bit_depth) as bit_depth,
                 MAX(sample_rate) as sample_rate,
-                MIN(file_path) as directory_path
-            FROM local_tracks
-            GROUP BY album, COALESCE(album_artist, artist)
-            ORDER BY artist, album
+                MAX(group_key) as directory_path
+            FROM (
+                SELECT
+                    COALESCE(album_group_key, album || '|' || COALESCE(album_artist, artist)) as group_key,
+                    COALESCE(album_group_title, album) as title,
+                    COALESCE(album_artist, artist) as artist,
+                    year,
+                    artwork_path,
+                    duration_secs,
+                    format,
+                    bit_depth,
+                    sample_rate
+                FROM local_tracks
+            )
+            GROUP BY group_key
+            ORDER BY artist, title
             LIMIT ? OFFSET ?
         "#,
             )
@@ -326,22 +382,25 @@ impl LibraryDatabase {
 
         let rows = stmt
             .query_map(params![limit, offset], |row| {
-                let album: String = row.get(0)?;
-                let artist: String = row.get(1)?;
+                let group_key: String = row.get(0)?;
+                let album: String = row.get(1)?;
+                let artist: String = row.get(2)?;
                 Ok(LocalAlbum {
-                    id: format!("{}_{}", artist, album),
+                    id: group_key.clone(),
                     title: album,
                     artist,
-                    year: row.get(2)?,
-                    artwork_path: row.get(3)?,
-                    track_count: row.get(4)?,
-                    total_duration_secs: row.get(5)?,
+                    year: row.get(3)?,
+                    artwork_path: row.get(4)?,
+                    track_count: row.get(5)?,
+                    total_duration_secs: row.get(6)?,
                     format: Self::parse_format(
-                        &row.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                        &row.get::<_, Option<String>>(7)?.unwrap_or_default(),
                     ),
-                    bit_depth: row.get(7)?,
-                    sample_rate: row.get::<_, Option<u32>>(8)?.unwrap_or(44100),
-                    directory_path: row.get::<_, String>(9).unwrap_or_default(),
+                    bit_depth: row.get(8)?,
+                    sample_rate: row.get::<_, Option<u32>>(9)?.unwrap_or(44100),
+                    directory_path: row
+                        .get::<_, Option<String>>(10)?
+                        .unwrap_or_else(|| group_key.clone()),
                 })
             })
             .map_err(|e| LibraryError::Database(e.to_string()))?;
@@ -353,25 +412,21 @@ impl LibraryDatabase {
         Ok(albums)
     }
 
-    /// Get tracks for an album
-    pub fn get_album_tracks(
-        &self,
-        album: &str,
-        artist: &str,
-    ) -> Result<Vec<LocalTrack>, LibraryError> {
+    /// Get tracks for an album group
+    pub fn get_album_tracks(&self, group_key: &str) -> Result<Vec<LocalTrack>, LibraryError> {
         let mut stmt = self
             .conn
             .prepare(
                 r#"
             SELECT * FROM local_tracks
-            WHERE album = ? AND COALESCE(album_artist, artist) = ?
+            WHERE COALESCE(album_group_key, album || '|' || COALESCE(album_artist, artist)) = ?
             ORDER BY disc_number, track_number, title
         "#,
             )
             .map_err(|e| LibraryError::Database(e.to_string()))?;
 
         let rows = stmt
-            .query_map(params![album, artist], |row| Self::row_to_track(row))
+            .query_map(params![group_key], |row| Self::row_to_track(row))
             .map_err(|e| LibraryError::Database(e.to_string()))?;
 
         let mut tracks = Vec::new();
@@ -389,7 +444,7 @@ impl LibraryDatabase {
                 r#"
             SELECT
                 COALESCE(album_artist, artist) as name,
-                COUNT(DISTINCT album) as album_count,
+                COUNT(DISTINCT COALESCE(album_group_key, album || '|' || COALESCE(album_artist, artist))) as album_count,
                 COUNT(*) as track_count
             FROM local_tracks
             GROUP BY name
@@ -415,25 +470,43 @@ impl LibraryDatabase {
         Ok(artists)
     }
 
-    /// Get albums without artwork (for Discogs fetching)
-    pub fn get_albums_without_artwork(&self) -> Result<Vec<(String, String)>, LibraryError> {
+    /// Get album groups without artwork (for Discogs fetching)
+    pub fn get_albums_without_artwork(
+        &self,
+    ) -> Result<Vec<(String, String, String)>, LibraryError> {
         let mut stmt = self
             .conn
             .prepare(
                 r#"
-            SELECT DISTINCT
-                COALESCE(album_artist, artist) as artist,
-                album
-            FROM local_tracks
-            WHERE artwork_path IS NULL OR artwork_path = ''
-            ORDER BY artist, album
+            SELECT
+                group_key,
+                MIN(title) as title,
+                CASE
+                    WHEN COUNT(DISTINCT artist) > 1 THEN 'Various Artists'
+                    ELSE MIN(artist)
+                END as artist
+            FROM (
+                SELECT
+                    COALESCE(album_group_key, album || '|' || COALESCE(album_artist, artist)) as group_key,
+                    COALESCE(album_group_title, album) as title,
+                    COALESCE(album_artist, artist) as artist,
+                    artwork_path
+                FROM local_tracks
+                WHERE artwork_path IS NULL OR artwork_path = ''
+            )
+            GROUP BY group_key
+            ORDER BY artist, title
         "#,
             )
             .map_err(|e| LibraryError::Database(e.to_string()))?;
 
         let rows = stmt
             .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
             })
             .map_err(|e| LibraryError::Database(e.to_string()))?;
 
@@ -462,6 +535,45 @@ impl LibraryDatabase {
             )
             .map_err(|e| LibraryError::Database(e.to_string()))?;
         Ok(())
+    }
+
+    /// Update artwork path for all tracks in an album group
+    pub fn update_album_group_artwork(
+        &self,
+        group_key: &str,
+        artwork_path: &str,
+    ) -> Result<(), LibraryError> {
+        self.conn
+            .execute(
+                r#"
+            UPDATE local_tracks
+            SET artwork_path = ?
+            WHERE COALESCE(album_group_key, album || '|' || COALESCE(album_artist, artist)) = ?
+        "#,
+                params![artwork_path, group_key],
+            )
+            .map_err(|e| LibraryError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    pub fn find_album_group_key(
+        &self,
+        album: &str,
+        artist: &str,
+    ) -> Result<Option<String>, LibraryError> {
+        self.conn
+            .query_row(
+                r#"
+            SELECT COALESCE(album_group_key, album || '|' || COALESCE(album_artist, artist))
+            FROM local_tracks
+            WHERE album = ? AND COALESCE(album_artist, artist) = ?
+            LIMIT 1
+        "#,
+                params![album, artist],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| LibraryError::Database(e.to_string()))
     }
 
     /// Search tracks by title, artist, or album
@@ -499,7 +611,7 @@ impl LibraryDatabase {
                 r#"
             SELECT
                 COUNT(*) as track_count,
-                COUNT(DISTINCT album || COALESCE(album_artist, artist)) as album_count,
+                COUNT(DISTINCT COALESCE(album_group_key, album || '|' || COALESCE(album_artist, artist))) as album_count,
                 COUNT(DISTINCT COALESCE(album_artist, artist)) as artist_count,
                 COALESCE(SUM(duration_secs), 0) as total_duration,
                 COALESCE(SUM(file_size_bytes), 0) as total_size
@@ -531,6 +643,8 @@ impl LibraryDatabase {
             artist: row.get(3)?,
             album: row.get(4)?,
             album_artist: row.get(5)?,
+            album_group_key: row.get::<_, Option<String>>(22)?.unwrap_or_default(),
+            album_group_title: row.get::<_, Option<String>>(23)?.unwrap_or_default(),
             track_number: row.get(6)?,
             disc_number: row.get(7)?,
             year: row.get(8)?,
@@ -1012,10 +1126,10 @@ impl LibraryDatabase {
     pub fn get_playlist_local_tracks(&self, qobuz_playlist_id: u64) -> Result<Vec<LocalTrack>, LibraryError> {
         let mut stmt = self.conn.prepare(
             "SELECT t.id, t.file_path, t.title, t.artist, t.album, t.album_artist,
-                    t.track_number, t.disc_number, t.year, t.genre, t.duration_secs,
-                    t.format, t.bit_depth, t.sample_rate, t.channels, t.file_size_bytes,
-                    t.cue_file_path, t.cue_start_secs, t.cue_end_secs, t.artwork_path,
-                    t.last_modified, t.indexed_at, plt.position
+                    t.album_group_key, t.album_group_title, t.track_number, t.disc_number,
+                    t.year, t.genre, t.duration_secs, t.format, t.bit_depth, t.sample_rate,
+                    t.channels, t.file_size_bytes, t.cue_file_path, t.cue_start_secs,
+                    t.cue_end_secs, t.artwork_path, t.last_modified, t.indexed_at, plt.position
              FROM playlist_local_tracks plt
              JOIN local_tracks t ON plt.local_track_id = t.id
              WHERE plt.qobuz_playlist_id = ?1
@@ -1030,22 +1144,24 @@ impl LibraryDatabase {
                 artist: row.get(3)?,
                 album: row.get(4)?,
                 album_artist: row.get(5)?,
-                track_number: row.get(6)?,
-                disc_number: row.get(7)?,
-                year: row.get(8)?,
-                genre: row.get(9)?,
-                duration_secs: row.get(10)?,
-                format: Self::parse_format(&row.get::<_, String>(11)?),
-                bit_depth: row.get(12)?,
-                sample_rate: row.get(13)?,
-                channels: row.get(14)?,
-                file_size_bytes: row.get(15)?,
-                cue_file_path: row.get(16)?,
-                cue_start_secs: row.get(17)?,
-                cue_end_secs: row.get(18)?,
-                artwork_path: row.get(19)?,
-                last_modified: row.get(20)?,
-                indexed_at: row.get(21)?,
+                album_group_key: row.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                album_group_title: row.get::<_, Option<String>>(7)?.unwrap_or_default(),
+                track_number: row.get(8)?,
+                disc_number: row.get(9)?,
+                year: row.get(10)?,
+                genre: row.get(11)?,
+                duration_secs: row.get(12)?,
+                format: Self::parse_format(&row.get::<_, String>(13)?),
+                bit_depth: row.get(14)?,
+                sample_rate: row.get(15)?,
+                channels: row.get(16)?,
+                file_size_bytes: row.get(17)?,
+                cue_file_path: row.get(18)?,
+                cue_start_secs: row.get(19)?,
+                cue_end_secs: row.get(20)?,
+                artwork_path: row.get(21)?,
+                last_modified: row.get(22)?,
+                indexed_at: row.get(23)?,
             })
         }).map_err(|e| LibraryError::Database(format!("Failed to query playlist local tracks: {}", e)))?;
 
