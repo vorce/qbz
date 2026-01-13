@@ -6,7 +6,7 @@ pkgdesc="Native Qobuz client for Linux with bit-perfect hi-res audio, DAC passth
 arch=('x86_64')
 url="https://github.com/vicrodh/qbz"
 license=('MIT')
-depends=('webkit2gtk-4.1' 'gtk3' 'alsa-lib' 'libappindicator-gtk3')
+depends=('webkit2gtk-4.1' 'gtk3' 'alsa-lib' 'libappindicator-gtk3' 'libxkbcommon' 'openssl')
 optdepends=(
     'pipewire-alsa: PipeWire audio support'
     'pipewire-pulse: PulseAudio compatibility'
