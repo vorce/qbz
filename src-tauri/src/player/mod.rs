@@ -692,7 +692,7 @@ impl Player {
                         log::info!("Audio thread: volume set to {}", volume);
                     }
                     AudioCommand::Seek(position_secs) => {
-                        pause_suspend_deadline = None;
+                        *pause_suspend_deadline = None;
                         let Some(ref audio_data) = *current_audio_data else {
                             log::warn!("Audio thread: cannot seek - no audio data available");
                             return;
@@ -755,7 +755,7 @@ impl Player {
                             "Audio thread: reinitializing device (new: {:?})",
                             new_device
                         );
-                        *pause_suspend_deadline = None;
+                        pause_suspend_deadline = None;
 
                         if let Some(sink) = current_sink.take() {
                             sink.stop();

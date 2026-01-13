@@ -7,5 +7,18 @@ fn main() {
     #[cfg(target_os = "linux")]
     std::env::set_var("GTK_USE_PORTAL", "1");
 
+    // Prefer a writable TMPDIR to avoid GTK pixbuf cache crashes on some systems.
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var_os("TMPDIR").is_none() {
+            if let Some(cache_dir) = dirs::cache_dir() {
+                let tmp_dir = cache_dir.join("qbz/tmp");
+                if std::fs::create_dir_all(&tmp_dir).is_ok() {
+                    std::env::set_var("TMPDIR", tmp_dir);
+                }
+            }
+        }
+    }
+
     qbz_nix_lib::run()
 }
