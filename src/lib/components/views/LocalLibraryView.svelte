@@ -330,8 +330,7 @@
     selectedAlbum = album;
     try {
       albumTracks = await invoke<LocalTrack[]>('library_get_album_tracks', {
-        album: album.title,
-        artist: album.artist
+        albumGroupKey: album.id
       });
     } catch (err) {
       console.error('Failed to load album tracks:', err);
