@@ -435,6 +435,47 @@
     return (album.bit_depth ?? 16) >= 24 || album.sample_rate > 48000;
   }
 
+  function extractDiscNumber(track: LocalTrack): number {
+    if (track.disc_number && track.disc_number > 0) return track.disc_number;
+
+    const album = track.album ?? '';
+    const match = album.match(/(?:disc|disk|cd)\s*([0-9]+)/i);
+    if (match) {
+      const parsed = Number(match[1]);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    }
+
+    return 1;
+  }
+
+  function buildAlbumSections(tracks: LocalTrack[]) {
+    const sorted = [...tracks].sort((a, b) => {
+      const aDisc = extractDiscNumber(a);
+      const bDisc = extractDiscNumber(b);
+      if (aDisc !== bDisc) return aDisc - bDisc;
+      const aTrack = a.track_number ?? 0;
+      const bTrack = b.track_number ?? 0;
+      if (aTrack !== bTrack) return aTrack - bTrack;
+      return a.title.localeCompare(b.title);
+    });
+
+    const groups = new Map<number, LocalTrack[]>();
+    for (const track of sorted) {
+      const disc = extractDiscNumber(track);
+      if (!groups.has(disc)) {
+        groups.set(disc, []);
+      }
+      groups.get(disc)?.push(track);
+    }
+
+    const discs = [...groups.keys()].sort((a, b) => a - b);
+    return discs.map(disc => ({
+      disc,
+      label: `Disc ${disc}`,
+      tracks: groups.get(disc) ?? []
+    }));
+  }
+
   function getArtworkUrl(path?: string): string {
     if (!path) return '';
     return convertFileSrc(path);
@@ -651,23 +692,30 @@
       </div>
 
       <div class="track-list">
-        {#each albumTracks as track, index (track.id)}
-          <TrackRow
-            number={track.track_number ?? index + 1}
-            title={track.title}
-            artist={track.artist !== selectedAlbum?.artist ? track.artist : undefined}
-            duration={formatDuration(track.duration_secs)}
-            quality={getQualityBadge(track)}
-            hideDownload={true}
-            hideFavorite={true}
-            onPlay={() => handleTrackPlay(track)}
-            menuActions={{
-              onPlayNow: () => handleTrackPlay(track),
-              onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
-              onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
-              onAddToPlaylist: () => openPlaylistPicker(track)
-            }}
-          />
+        {@const albumSections = buildAlbumSections(albumTracks)}
+        {@const showDiscHeaders = albumSections.length > 1}
+        {#each albumSections as section (section.disc)}
+          {#if showDiscHeaders}
+            <div class="disc-header">{section.label}</div>
+          {/if}
+          {#each section.tracks as track, index (track.id)}
+            <TrackRow
+              number={track.track_number ?? index + 1}
+              title={track.title}
+              artist={track.artist !== selectedAlbum?.artist ? track.artist : undefined}
+              duration={formatDuration(track.duration_secs)}
+              quality={getQualityBadge(track)}
+              hideDownload={true}
+              hideFavorite={true}
+              onPlay={() => handleTrackPlay(track)}
+              menuActions={{
+                onPlayNow: () => handleTrackPlay(track),
+                onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+                onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
+                onAddToPlaylist: () => openPlaylistPicker(track)
+              }}
+            />
+          {/each}
         {/each}
       </div>
     </div>
@@ -1876,6 +1924,20 @@
   .track-list {
     display: flex;
     flex-direction: column;
+  }
+
+  .disc-header {
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .track-list .disc-header:first-child {
+    margin-top: 0;
   }
 
   /* Album Detail */
