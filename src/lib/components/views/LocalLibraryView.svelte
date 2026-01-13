@@ -1124,24 +1124,52 @@
                   </div>
 
                   <div class="track-list">
-                    {#each group.tracks as track, index (track.id)}
-                      <TrackRow
-                        number={track.track_number ?? index + 1}
-                        title={track.title}
-                        artist={track.artist}
-                        duration={formatDuration(track.duration_secs)}
-                        quality={getQualityBadge(track)}
-                        hideDownload={true}
-                        hideFavorite={true}
-                        onPlay={() => handleTrackPlay(track)}
-                        menuActions={{
-                          onPlayNow: () => handleTrackPlay(track),
-                          onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
-                          onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
-                          onAddToPlaylist: () => openPlaylistPicker(track)
-                        }}
-                      />
-                    {/each}
+                    {#if trackGroupMode === 'album'}
+                      {@const trackSections = buildAlbumSections(group.tracks)}
+                      {@const showTrackDiscHeaders = trackSections.length > 1}
+                      {#each trackSections as section (section.disc)}
+                        {#if showTrackDiscHeaders}
+                          <div class="disc-header">{section.label}</div>
+                        {/if}
+                        {#each section.tracks as track, index (track.id)}
+                          <TrackRow
+                            number={track.track_number ?? index + 1}
+                            title={track.title}
+                            artist={track.artist}
+                            duration={formatDuration(track.duration_secs)}
+                            quality={getQualityBadge(track)}
+                            hideDownload={true}
+                            hideFavorite={true}
+                            onPlay={() => handleTrackPlay(track)}
+                            menuActions={{
+                              onPlayNow: () => handleTrackPlay(track),
+                              onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+                              onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
+                              onAddToPlaylist: () => openPlaylistPicker(track)
+                            }}
+                          />
+                        {/each}
+                      {/each}
+                    {:else}
+                      {#each group.tracks as track, index (track.id)}
+                        <TrackRow
+                          number={track.track_number ?? index + 1}
+                          title={track.title}
+                          artist={track.artist}
+                          duration={formatDuration(track.duration_secs)}
+                          quality={getQualityBadge(track)}
+                          hideDownload={true}
+                          hideFavorite={true}
+                          onPlay={() => handleTrackPlay(track)}
+                          menuActions={{
+                            onPlayNow: () => handleTrackPlay(track),
+                            onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+                            onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
+                            onAddToPlaylist: () => openPlaylistPicker(track)
+                          }}
+                        />
+                      {/each}
+                    {/if}
                   </div>
                 </div>
               {/each}
