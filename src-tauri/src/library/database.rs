@@ -195,6 +195,37 @@ impl LibraryDatabase {
                 .map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
         }
 
+        let has_file_nocue_index: bool = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_tracks_file_nocue'",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|count| count > 0)
+            .unwrap_or(false);
+
+        if !has_file_nocue_index {
+            log::info!("Running migration: dedupe non-CUE tracks and add unique index");
+            self.conn
+                .execute_batch(
+                    r#"
+                DELETE FROM local_tracks
+                WHERE cue_file_path IS NULL
+                  AND rowid NOT IN (
+                    SELECT MAX(rowid)
+                    FROM local_tracks
+                    WHERE cue_file_path IS NULL
+                    GROUP BY file_path
+                  );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_file_nocue
+                  ON local_tracks(file_path)
+                  WHERE cue_file_path IS NULL;
+            "#,
+                )
+                .map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
+        }
+
         Ok(())
     }
 

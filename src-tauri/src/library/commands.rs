@@ -182,6 +182,10 @@ pub async fn library_scan(state: State<'_, LibraryState>) -> Result<(), String> 
                             file_path: path_str,
                             error: e.to_string(),
                         });
+                    } else if let (Some(artwork_path), false) =
+                        (track.artwork_path.as_ref(), track.album_group_key.is_empty())
+                    {
+                        let _ = db.update_album_group_artwork(&track.album_group_key, artwork_path);
                     }
                 }
                 Err(e) => {
@@ -243,7 +247,7 @@ async fn process_cue_file(cue_path: &Path, state: &State<'_, LibraryState>) -> R
             );
         }
     }
-    if let Some(path) = artwork_path {
+    if let Some(path) = artwork_path.as_ref() {
         for track in tracks.iter_mut() {
             track.artwork_path = Some(path.clone());
         }
@@ -251,8 +255,17 @@ async fn process_cue_file(cue_path: &Path, state: &State<'_, LibraryState>) -> R
 
     // Insert tracks
     let db = state.db.lock().await;
+    let group_key = tracks
+        .first()
+        .map(|track| track.album_group_key.clone())
+        .unwrap_or_default();
+
     for track in tracks {
         db.insert_track(&track).map_err(|e| e.to_string())?;
+    }
+
+    if let (Some(path), false) = (artwork_path.as_ref(), group_key.is_empty()) {
+        let _ = db.update_album_group_artwork(&group_key, path);
     }
 
     Ok(())
