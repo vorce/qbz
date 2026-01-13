@@ -161,10 +161,10 @@ impl MetadataExtractor {
                     .title()
                     .map(|s| s.to_string())
                     .unwrap_or(filename),
-                artist: Self::normalize_field(tag.artist())
+                artist: Self::normalize_field(tag.artist().as_deref())
                     .or_else(|| fallback_artist.clone())
                     .unwrap_or_else(|| "Unknown Artist".to_string()),
-                album: Self::normalize_field(tag.album())
+                album: Self::normalize_field(tag.album().as_deref())
                     .or_else(|| fallback_album.clone())
                     .unwrap_or_else(|| "Unknown Album".to_string()),
                 album_artist: tag.get_string(&ItemKey::AlbumArtist).map(|s| s.to_string()),
