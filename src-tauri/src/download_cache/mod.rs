@@ -12,7 +12,7 @@ pub mod downloader;
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Semaphore};
 use serde::{Deserialize, Serialize};
 
 pub use db::DownloadCacheDb;
@@ -115,6 +115,7 @@ pub struct DownloadCacheState {
     pub cache_dir: PathBuf,
     /// Cache limit in bytes (None = unlimited)
     pub limit_bytes: Arc<Mutex<Option<u64>>>,
+    pub download_semaphore: Arc<Semaphore>,
 }
 
 impl DownloadCacheState {
@@ -144,6 +145,7 @@ impl DownloadCacheState {
             downloader: Arc::new(Downloader::new()),
             cache_dir: cache_dir.clone(),
             limit_bytes: Arc::new(Mutex::new(default_limit)),
+            download_semaphore: Arc::new(Semaphore::new(3)),
         };
 
         log::info!("Download cache initialized at: {:?}", cache_dir);

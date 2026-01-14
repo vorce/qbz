@@ -88,7 +88,7 @@ export async function startDownloadEventListeners(): Promise<void> {
   try {
     const unlistenStarted = await listen<{ trackId: number }>('download:started', (event) => {
       console.log('Download started:', event.payload.trackId);
-      setDownloadState(event.payload.trackId, { status: 'queued', progress: 0 });
+      setDownloadState(event.payload.trackId, { status: 'downloading', progress: 0 });
     });
 
     const unlistenProgress = await listen<{

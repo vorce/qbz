@@ -50,24 +50,42 @@ pub async fn download_track(
         db.insert_track(&track_info, &file_path_str)?;
     }
 
-    // Emit started event
-    let _ = app_handle.emit("download:started", serde_json::json!({
-        "trackId": track_id
-    }));
-
     // Clone what we need for the spawn
     let client = state.client.clone();
     let downloader = cache_state.downloader.clone();
     let db = cache_state.db.clone();
     let app = app_handle.clone();
+    let semaphore = cache_state.download_semaphore.clone();
 
     // Spawn download task
     tokio::spawn(async move {
+        let _permit = match semaphore.acquire_owned().await {
+            Ok(permit) => permit,
+            Err(err) => {
+                log::error!("Failed to acquire download slot for track {}: {}", track_id, err);
+                let db_guard = db.lock().await;
+                let _ = db_guard.update_status(
+                    track_id,
+                    DownloadStatus::Failed,
+                    Some("Failed to start download"),
+                );
+                let _ = app.emit("download:failed", serde_json::json!({
+                    "trackId": track_id,
+                    "error": "Failed to acquire download slot"
+                }));
+                return;
+            }
+        };
+
         // Update status to downloading
         {
             let db_guard = db.lock().await;
             let _ = db_guard.update_status(track_id, DownloadStatus::Downloading, None);
         }
+
+        let _ = app.emit("download:started", serde_json::json!({
+            "trackId": track_id
+        }));
 
         // Get stream URL
         let stream_url = {
