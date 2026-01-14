@@ -55,9 +55,8 @@
   let artistOverflow = $state(0);
   const titleOffset = $derived(titleOverflow > 0 ? `-${titleOverflow + 16}px` : '0px');
   const artistOffset = $derived(artistOverflow > 0 ? `-${artistOverflow + 16}px` : '0px');
-  const tickerSpeed = 80;
-  const titleDuration = $derived(titleOverflow > 0 ? `${(titleOverflow + 16) / tickerSpeed}s` : '0s');
-  const artistDuration = $derived(artistOverflow > 0 ? `${(artistOverflow + 16) / tickerSpeed}s` : '0s');
+  const titleDuration = $derived(titleOverflow > 0 ? '6s' : '0s');
+  const artistDuration = $derived(artistOverflow > 0 ? '6s' : '0s');
 
   let favoriteFromStore = $state(false);
   const isFavorite = $derived(albumId ? favoriteFromStore : false);
@@ -270,9 +269,9 @@
 
   .action-overlay {
     position: absolute;
-    inset: 0;
+    inset: -1px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     opacity: 0;
     transition: opacity 150ms ease;
@@ -280,6 +279,7 @@
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     pointer-events: none;
+    border-radius: inherit;
   }
 
   .album-card:hover .action-overlay {
@@ -291,6 +291,10 @@
     align-items: center;
     gap: 12px;
     pointer-events: auto;
+    position: absolute;
+    left: 50%;
+    top: 75%;
+    transform: translate(-50%, -50%);
   }
 
   .overlay-btn {

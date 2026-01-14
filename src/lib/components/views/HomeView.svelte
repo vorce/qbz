@@ -90,9 +90,9 @@
   );
 
   const LIMITS = {
-    recentAlbums: 12,
-    continueTracks: 8,
-    topArtists: 10,
+    recentAlbums: 20,
+    continueTracks: 10,
+    topArtists: 20,
     favoriteAlbums: 12,
     favoriteTracks: 10,
     featuredAlbums: 12
@@ -642,7 +642,7 @@
           <div class="section-header">
             <h2>Continue Listening</h2>
           </div>
-          <div class="track-list">
+          <div class="track-list compact">
             {#each continueTracks as track, index}
               <TrackRow
                 trackId={track.id}
@@ -886,6 +886,15 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+
+  .track-list.compact {
+    gap: 4px;
+  }
+
+  .track-list.compact :global(.track-row.compact) {
+    height: 40px;
+    padding: 0 10px;
   }
 
   .artist-card {
