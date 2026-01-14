@@ -18,30 +18,47 @@
   let titleRef: HTMLDivElement | null = $state(null);
   let titleTextRef: HTMLSpanElement | null = $state(null);
   let titleOverflow = $state(0);
+  let artistRef: HTMLDivElement | null = $state(null);
+  let artistTextRef: HTMLSpanElement | null = $state(null);
+  let artistOverflow = $state(0);
   const titleOffset = $derived(titleOverflow > 0 ? `-${titleOverflow + 16}px` : '0px');
+  const artistOffset = $derived(artistOverflow > 0 ? `-${artistOverflow + 16}px` : '0px');
 
   function handleImageError() {
     imageError = true;
   }
 
-  function updateTitleOverflow() {
-    if (!titleRef || !titleTextRef) return;
-    const overflow = titleTextRef.scrollWidth - titleRef.clientWidth;
-    titleOverflow = overflow > 0 ? overflow : 0;
+  function updateOverflow() {
+    if (titleRef && titleTextRef) {
+      const overflow = titleTextRef.scrollWidth - titleRef.clientWidth;
+      titleOverflow = overflow > 0 ? overflow : 0;
+    }
+    if (artistRef && artistTextRef) {
+      const overflow = artistTextRef.scrollWidth - artistRef.clientWidth;
+      artistOverflow = overflow > 0 ? overflow : 0;
+    }
   }
 
   onMount(() => {
-    updateTitleOverflow();
-    const observer = new ResizeObserver(() => updateTitleOverflow());
+    updateOverflow();
+    const observer = new ResizeObserver(() => updateOverflow());
     if (titleRef) {
       observer.observe(titleRef);
+    }
+    if (artistRef) {
+      observer.observe(artistRef);
     }
     return () => observer.disconnect();
   });
 
   $effect(() => {
     title;
-    tick().then(updateTitleOverflow);
+    tick().then(updateOverflow);
+  });
+
+  $effect(() => {
+    artist;
+    tick().then(updateOverflow);
   });
 </script>
 
@@ -84,7 +101,14 @@
     >
       <span class="title-text" bind:this={titleTextRef}>{title}</span>
     </div>
-    <div class="artist">{artist}</div>
+    <div
+      class="artist"
+      class:scrollable={artistOverflow > 0}
+      style="--ticker-offset: {artistOffset};"
+      bind:this={artistRef}
+    >
+      <span class="artist-text" bind:this={artistTextRef}>{artist}</span>
+    </div>
     {#if quality}
       <div class="quality-badge">{quality}</div>
     {/if}
@@ -205,5 +229,19 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .artist.scrollable {
+    text-overflow: clip;
+  }
+
+  .artist-text {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .album-card:hover .artist.scrollable .artist-text {
+    animation: title-ticker 6s linear infinite;
+    will-change: transform;
   }
 </style>
