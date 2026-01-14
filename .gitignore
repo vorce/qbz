@@ -60,3 +60,6 @@ static/*upscayl*
 
 # Local build temp
 /.tmp/
+
+# Documentation (kept external)
+qbz-nix-docs/
