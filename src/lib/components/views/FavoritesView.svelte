@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
-  import { Heart, Play, Plus, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown } from 'lucide-svelte';
+  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import { type DownloadStatus } from '$lib/stores/downloadState';
@@ -107,10 +107,15 @@
   type AlbumGroupMode = 'alpha' | 'artist';
   let albumGroupMode = $state<AlbumGroupMode>('alpha');
   let showAlbumGroupMenu = $state(false);
+  let albumGroupingEnabled = $state(false);
 
   type TrackGroupMode = 'album' | 'artist' | 'name';
   let trackGroupMode = $state<TrackGroupMode>('album');
   let showTrackGroupMenu = $state(false);
+  let trackGroupingEnabled = $state(false);
+
+  let showArtistGroupMenu = $state(false);
+  let artistGroupingEnabled = $state(false);
 
   // Filtered lists based on search
   let filteredTracks = $derived.by(() => {
@@ -144,8 +149,49 @@
     );
   });
 
+  function loadStoredBool(key: string, fallback = false): boolean {
+    try {
+      const value = localStorage.getItem(key);
+      if (value === null) return fallback;
+      return value === 'true';
+    } catch {
+      return fallback;
+    }
+  }
+
+  function loadStoredString<T extends string>(key: string, fallback: T, options: T[]): T {
+    try {
+      const value = localStorage.getItem(key);
+      if (value && (options as string[]).includes(value)) {
+        return value as T;
+      }
+    } catch {
+      return fallback;
+    }
+    return fallback;
+  }
+
   onMount(() => {
+    albumViewMode = loadStoredString('qbz-favorites-album-view', 'grid', ['grid', 'list']);
+    albumGroupMode = loadStoredString('qbz-favorites-album-group', 'alpha', ['alpha', 'artist']);
+    trackGroupMode = loadStoredString('qbz-favorites-track-group', 'album', ['album', 'artist', 'name']);
+    albumGroupingEnabled = loadStoredBool('qbz-favorites-album-group-enabled', false);
+    trackGroupingEnabled = loadStoredBool('qbz-favorites-track-group-enabled', false);
+    artistGroupingEnabled = loadStoredBool('qbz-favorites-artist-group-enabled', false);
     loadFavorites('tracks');
+  });
+
+  $effect(() => {
+    try {
+      localStorage.setItem('qbz-favorites-album-view', albumViewMode);
+      localStorage.setItem('qbz-favorites-album-group', albumGroupMode);
+      localStorage.setItem('qbz-favorites-track-group', trackGroupMode);
+      localStorage.setItem('qbz-favorites-album-group-enabled', String(albumGroupingEnabled));
+      localStorage.setItem('qbz-favorites-track-group-enabled', String(trackGroupingEnabled));
+      localStorage.setItem('qbz-favorites-artist-group-enabled', String(artistGroupingEnabled));
+    } catch {
+      // localStorage not available
+    }
   });
 
   const FAVORITES_PAGE_SIZE = 200;
@@ -215,6 +261,7 @@
     activeTab = tab;
     showAlbumGroupMenu = false;
     showTrackGroupMenu = false;
+    showArtistGroupMenu = false;
     if (tab === 'tracks' && favoriteTracks.length === 0) {
       loadFavorites(tab);
     } else if (tab === 'albums' && favoriteAlbums.length === 0) {
@@ -465,27 +512,6 @@
     }
   }
 
-  async function handleAddAllToQueue() {
-    if (filteredTracks.length === 0) return;
-
-    const queueTracks = filteredTracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.performer?.name || 'Unknown Artist',
-      album: t.album?.title || 'Favorites',
-      duration_secs: t.duration,
-      artwork_url: t.album?.image?.thumbnail || t.album?.image?.small || '',
-      hires: t.hires ?? false,
-      bit_depth: t.maximum_bit_depth ?? null,
-      sample_rate: t.maximum_sampling_rate ?? null,
-    }));
-
-    try {
-      await invoke('add_tracks_to_queue', { tracks: queueTracks });
-    } catch (err) {
-      console.error('Failed to add to queue:', err);
-    }
-  }
 </script>
 
 <div class="favorites-view">
@@ -576,22 +602,35 @@
       <div class="toolbar-controls">
         <div class="dropdown-container">
           <button class="control-btn" onclick={() => (showAlbumGroupMenu = !showAlbumGroupMenu)}>
-            <span>{albumGroupMode === 'alpha' ? 'Group: A-Z' : 'Group: Artist'}</span>
+            <span>
+              {albumGroupingEnabled
+                ? albumGroupMode === 'alpha'
+                  ? 'Group: A-Z'
+                  : 'Group: Artist'
+                : 'Group: Off'}
+            </span>
             <ChevronDown size={14} />
           </button>
           {#if showAlbumGroupMenu}
             <div class="dropdown-menu">
               <button
                 class="dropdown-item"
-                class:selected={albumGroupMode === 'alpha'}
-                onclick={() => { albumGroupMode = 'alpha'; showAlbumGroupMenu = false; }}
+                class:selected={!albumGroupingEnabled}
+                onclick={() => { albumGroupingEnabled = false; showAlbumGroupMenu = false; }}
+              >
+                Off
+              </button>
+              <button
+                class="dropdown-item"
+                class:selected={albumGroupingEnabled && albumGroupMode === 'alpha'}
+                onclick={() => { albumGroupMode = 'alpha'; albumGroupingEnabled = true; showAlbumGroupMenu = false; }}
               >
                 Alphabetical (A-Z)
               </button>
               <button
                 class="dropdown-item"
-                class:selected={albumGroupMode === 'artist'}
-                onclick={() => { albumGroupMode = 'artist'; showAlbumGroupMenu = false; }}
+                class:selected={albumGroupingEnabled && albumGroupMode === 'artist'}
+                onclick={() => { albumGroupMode = 'artist'; albumGroupingEnabled = true; showAlbumGroupMenu = false; }}
               >
                 Artist
               </button>
@@ -615,11 +654,13 @@
         <div class="dropdown-container">
           <button class="control-btn" onclick={() => (showTrackGroupMenu = !showTrackGroupMenu)}>
             <span>
-              {trackGroupMode === 'album'
-                ? 'Group: Album'
-                : trackGroupMode === 'artist'
-                  ? 'Group: Artist'
-                  : 'Group: Name'}
+              {trackGroupingEnabled
+                ? trackGroupMode === 'album'
+                  ? 'Group: Album'
+                  : trackGroupMode === 'artist'
+                    ? 'Group: Artist'
+                    : 'Group: Name'
+                : 'Group: Off'}
             </span>
             <ChevronDown size={14} />
           </button>
@@ -627,24 +668,58 @@
             <div class="dropdown-menu">
               <button
                 class="dropdown-item"
-                class:selected={trackGroupMode === 'album'}
-                onclick={() => { trackGroupMode = 'album'; showTrackGroupMenu = false; }}
+                class:selected={!trackGroupingEnabled}
+                onclick={() => { trackGroupingEnabled = false; showTrackGroupMenu = false; }}
+              >
+                Off
+              </button>
+              <button
+                class="dropdown-item"
+                class:selected={trackGroupingEnabled && trackGroupMode === 'album'}
+                onclick={() => { trackGroupMode = 'album'; trackGroupingEnabled = true; showTrackGroupMenu = false; }}
               >
                 Album
               </button>
               <button
                 class="dropdown-item"
-                class:selected={trackGroupMode === 'artist'}
-                onclick={() => { trackGroupMode = 'artist'; showTrackGroupMenu = false; }}
+                class:selected={trackGroupingEnabled && trackGroupMode === 'artist'}
+                onclick={() => { trackGroupMode = 'artist'; trackGroupingEnabled = true; showTrackGroupMenu = false; }}
               >
                 Artist
               </button>
               <button
                 class="dropdown-item"
-                class:selected={trackGroupMode === 'name'}
-                onclick={() => { trackGroupMode = 'name'; showTrackGroupMenu = false; }}
+                class:selected={trackGroupingEnabled && trackGroupMode === 'name'}
+                onclick={() => { trackGroupMode = 'name'; trackGroupingEnabled = true; showTrackGroupMenu = false; }}
               >
                 Name (A-Z)
+              </button>
+            </div>
+          {/if}
+        </div>
+      </div>
+    {:else if activeTab === 'artists'}
+      <div class="toolbar-controls">
+        <div class="dropdown-container">
+          <button class="control-btn" onclick={() => (showArtistGroupMenu = !showArtistGroupMenu)}>
+            <span>{artistGroupingEnabled ? 'Group: A-Z' : 'Group: Off'}</span>
+            <ChevronDown size={14} />
+          </button>
+          {#if showArtistGroupMenu}
+            <div class="dropdown-menu">
+              <button
+                class="dropdown-item"
+                class:selected={!artistGroupingEnabled}
+                onclick={() => { artistGroupingEnabled = false; showArtistGroupMenu = false; }}
+              >
+                Off
+              </button>
+              <button
+                class="dropdown-item"
+                class:selected={artistGroupingEnabled}
+                onclick={() => { artistGroupingEnabled = true; showArtistGroupMenu = false; }}
+              >
+                Alphabetical (A-Z)
               </button>
             </div>
           {/if}
@@ -658,10 +733,6 @@
         <button class="play-btn" onclick={handlePlayAllTracks}>
           <Play size={16} fill="white" />
           <span>Play All</span>
-        </button>
-        <button class="add-btn" onclick={handleAddAllToQueue}>
-          <Plus size={16} />
-          <span>Add to Queue</span>
         </button>
       </div>
     {/if}
@@ -703,7 +774,7 @@
           <Search size={48} />
           <p>No tracks match "{trackSearch}"</p>
         </div>
-      {:else}
+      {:else if trackGroupingEnabled}
         {@const groupedTracks = groupTracks(filteredTracks, trackGroupMode)}
         {@const trackIndexTargets = trackGroupMode === 'artist'
           ? (() => {
@@ -784,6 +855,37 @@
             </div>
           {/if}
         </div>
+      {:else}
+        <div class="track-list">
+          {#each filteredTracks as track, index (`${track.id}-${downloadStateVersion}`)}
+            {@const displayTrack = buildDisplayTrack(track, index)}
+            {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
+            <TrackRow
+              trackId={track.id}
+              number={index + 1}
+              title={track.title}
+              artist={track.performer?.name}
+              duration={formatDuration(track.duration)}
+              quality={track.hires ? 'Hi-Res' : undefined}
+              isFavoriteOverride={true}
+              downloadStatus={downloadInfo.status}
+              downloadProgress={downloadInfo.progress}
+              onPlay={() => handleTrackClick(track, index)}
+              onDownload={onTrackDownload ? () => onTrackDownload(displayTrack) : undefined}
+              onRemoveDownload={onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
+              menuActions={{
+                onPlayNow: () => handleTrackClick(track, index),
+                onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(displayTrack) : undefined,
+                onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(displayTrack) : undefined,
+                onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined,
+                onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
+                onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink(displayTrack) : undefined,
+                onGoToAlbum: track.album?.id && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.album!.id) : undefined,
+                onGoToArtist: track.performer?.id && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer!.id!) : undefined
+              }}
+            />
+          {/each}
+        </div>
       {/if}
     {:else if activeTab === 'albums'}
       {#if favoriteAlbums.length === 0}
@@ -797,7 +899,7 @@
           <Search size={48} />
           <p>No albums match "{albumSearch}"</p>
         </div>
-      {:else}
+      {:else if albumGroupingEnabled}
         {@const groupedAlbums = groupAlbums(filteredAlbums, albumGroupMode)}
         {@const alphaGroups = albumGroupMode === 'alpha'
           ? new Set(groupedAlbums.map(group => group.key))
@@ -870,6 +972,48 @@
             </div>
           {/if}
         </div>
+      {:else}
+        {#if albumViewMode === 'grid'}
+          <div class="album-grid">
+            {#each filteredAlbums as album (album.id)}
+              <AlbumCard
+                artwork={album.image?.large || album.image?.thumbnail || ''}
+                title={album.title}
+                artist={album.artist.name}
+                quality={album.hires ? 'Hi-Res' : undefined}
+                onclick={() => onAlbumClick?.(album.id)}
+              />
+            {/each}
+          </div>
+        {:else}
+          <div class="album-list">
+            {#each filteredAlbums as album (album.id)}
+              <div class="album-row" role="button" tabindex="0" onclick={() => onAlbumClick?.(album.id)}>
+                <div class="album-row-art">
+                  {#if album.image?.thumbnail || album.image?.small || album.image?.large}
+                    <img src={album.image?.thumbnail || album.image?.small || album.image?.large} alt={album.title} loading="lazy" decoding="async" />
+                  {:else}
+                    <div class="artwork-placeholder">
+                      <Disc3 size={28} />
+                    </div>
+                  {/if}
+                </div>
+                <div class="album-row-info">
+                  <div class="album-row-title truncate">{album.title}</div>
+                  <div class="album-row-meta">
+                    <span>{album.artist.name}</span>
+                    {#if getAlbumYear(album)}<span>{getAlbumYear(album)}</span>{/if}
+                  </div>
+                </div>
+                <div class="album-row-quality">
+                  <span class="quality-badge" class:hires={album.hires}>
+                    {getAlbumQualityLabel(album)}
+                  </span>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
       {/if}
     {:else if activeTab === 'artists'}
       {#if favoriteArtists.length === 0}
@@ -883,7 +1027,7 @@
           <Search size={48} />
           <p>No artists match "{artistSearch}"</p>
         </div>
-      {:else}
+      {:else if artistGroupingEnabled}
         {@const groupedArtists = groupArtists(filteredArtists)}
         {@const artistAlphaGroups = new Set(groupedArtists.map(group => group.key))}
 
@@ -929,6 +1073,26 @@
               </button>
             {/each}
           </div>
+        </div>
+      {:else}
+        <div class="artist-grid">
+          {#each filteredArtists as artist (artist.id)}
+            <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
+              <div class="artist-image">
+                {#if artist.image?.large || artist.image?.thumbnail}
+                  <img src={artist.image?.large || artist.image?.thumbnail} alt={artist.name} />
+                {:else}
+                  <div class="artist-placeholder">
+                    <Mic2 size={32} />
+                  </div>
+                {/if}
+              </div>
+              <div class="artist-name">{artist.name}</div>
+              {#if artist.albums_count}
+                <div class="artist-albums">{artist.albums_count} albums</div>
+              {/if}
+            </button>
+          {/each}
         </div>
       {/if}
     {/if}
@@ -1181,24 +1345,6 @@
     background-color: var(--accent-hover);
   }
 
-  .add-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 24px;
-    background: none;
-    color: var(--text-primary);
-    border: 1px solid var(--text-muted);
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: border-color 150ms ease;
-  }
-
-  .add-btn:hover {
-    border-color: var(--text-primary);
-  }
 
   .content {
     min-height: 200px;
