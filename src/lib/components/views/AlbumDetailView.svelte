@@ -92,6 +92,9 @@
   let isFavorite = $state(false);
   let isFavoriteLoading = $state(false);
   let playBtnHovered = $state(false);
+  const isVariousArtists = $derived(
+    album.artist?.trim().toLowerCase() === 'various artists'
+  );
 
   interface FavoritesResponse {
     albums?: { items: Array<{ id: string }>; total: number };
@@ -150,9 +153,13 @@
     <!-- Album Metadata -->
     <div class="metadata">
       <h1 class="album-title">{album.title}</h1>
-      <button class="artist-link" onclick={onArtistClick}>
-        {album.artist}
-      </button>
+      {#if onArtistClick && !isVariousArtists}
+        <button class="artist-link" onclick={onArtistClick}>
+          {album.artist}
+        </button>
+      {:else}
+        <div class="artist-name">{album.artist}</div>
+      {/if}
       <div class="album-info">{album.year} • {album.label} • {album.genre}</div>
       <div class="album-quality">{album.quality}</div>
       <div class="album-stats">{album.trackCount} tracks • {album.duration}</div>
@@ -330,6 +337,13 @@
     cursor: pointer;
     text-align: left;
     width: fit-content;
+    margin-bottom: 8px;
+  }
+
+  .artist-name {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
     margin-bottom: 8px;
   }
 

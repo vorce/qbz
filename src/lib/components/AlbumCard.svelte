@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount, tick } from 'svelte';
   import { Play, Disc3 } from 'lucide-svelte';
 
   interface Props {
@@ -14,10 +15,34 @@
 
   let imageError = $state(false);
   const cardSize = $derived(size === 'large' ? 180 : 162);
+  let titleRef: HTMLDivElement | null = $state(null);
+  let titleTextRef: HTMLSpanElement | null = $state(null);
+  let titleOverflow = $state(0);
+  const titleOffset = $derived(titleOverflow > 0 ? `-${titleOverflow + 16}px` : '0px');
 
   function handleImageError() {
     imageError = true;
   }
+
+  function updateTitleOverflow() {
+    if (!titleRef || !titleTextRef) return;
+    const overflow = titleTextRef.scrollWidth - titleRef.clientWidth;
+    titleOverflow = overflow > 0 ? overflow : 0;
+  }
+
+  onMount(() => {
+    updateTitleOverflow();
+    const observer = new ResizeObserver(() => updateTitleOverflow());
+    if (titleRef) {
+      observer.observe(titleRef);
+    }
+    return () => observer.disconnect();
+  });
+
+  $effect(() => {
+    title;
+    tick().then(updateTitleOverflow);
+  });
 </script>
 
 <div
@@ -51,7 +76,14 @@
 
   <!-- Text Info -->
   <div class="info">
-    <div class="title">{title}</div>
+    <div
+      class="title"
+      class:scrollable={titleOverflow > 0}
+      style="--ticker-offset: {titleOffset};"
+      bind:this={titleRef}
+    >
+      <span class="title-text" bind:this={titleTextRef}>{title}</span>
+    </div>
     <div class="artist">{artist}</div>
     {#if quality}
       <div class="quality-badge">{quality}</div>
@@ -144,6 +176,25 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     margin-bottom: 2px;
+  }
+
+  .title.scrollable {
+    text-overflow: clip;
+  }
+
+  .title-text {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .album-card:hover .title.scrollable .title-text {
+    animation: title-ticker 6s linear infinite;
+    will-change: transform;
+  }
+
+  @keyframes title-ticker {
+    from { transform: translateX(0); }
+    to { transform: translateX(var(--ticker-offset)); }
   }
 
   .artist {

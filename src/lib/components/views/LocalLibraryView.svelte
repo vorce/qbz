@@ -680,6 +680,7 @@
 
   async function handleLocalArtistClick(name?: string) {
     if (!name || !onQobuzArtistClick) return;
+    if (normalizeArtistName(name) === 'various artists') return;
     try {
       const artistId = await resolveQobuzArtistId(name);
       if (artistId) {
