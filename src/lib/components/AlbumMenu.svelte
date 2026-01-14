@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import Portal from './Portal.svelte';
   import {
     ChevronRight,
     MoreHorizontal,
@@ -38,6 +39,7 @@
   let menuStyle = $state('');
   let submenuStyle = $state('');
   let portalTarget: HTMLElement | null = null;
+  const menuId = Symbol('album-menu');
 
   const hasQueue = $derived(!!(onPlayNext || onPlayLater));
   const hasShare = $derived(!!(onShareQobuz || onShareSonglink));
@@ -60,6 +62,16 @@
 
   onMount(() => {
     portalTarget = document.body;
+    const handleOtherOpen = (event: Event) => {
+      const detail = (event as CustomEvent<symbol>).detail;
+      if (detail !== menuId && isOpen) {
+        closeMenu();
+      }
+    };
+    window.addEventListener('qbz-album-menu-open', handleOtherOpen as EventListener);
+    return () => {
+      window.removeEventListener('qbz-album-menu-open', handleOtherOpen as EventListener);
+    };
   });
 
   async function setMenuPosition(retries = 2) {
@@ -166,10 +178,14 @@
       bind:this={triggerRef}
       onclick={(e) => {
         e.stopPropagation();
-        isOpen = !isOpen;
+        const nextOpen = !isOpen;
+        isOpen = nextOpen;
         shareOpen = false;
-        onOpenChange?.(isOpen);
-        if (isOpen) setMenuPosition();
+        onOpenChange?.(nextOpen);
+        if (nextOpen) {
+          window.dispatchEvent(new CustomEvent('qbz-album-menu-open', { detail: menuId }));
+          setMenuPosition();
+        }
       }}
       aria-label="Album actions"
     >
@@ -177,7 +193,7 @@
     </button>
 
     {#if isOpen && portalTarget}
-      <svelte:portal target={portalTarget}>
+      <Portal target={portalTarget}>
         <div class="menu" bind:this={menuEl} style={menuStyle} onmousedown={(e) => e.stopPropagation()}>
           {#if hasQueue}
             {#if onPlayNext}
@@ -244,7 +260,7 @@
             </button>
           {/if}
         </div>
-      </svelte:portal>
+      </Portal>
     {/if}
   </div>
 {/if}
@@ -281,7 +297,7 @@
     border-radius: 8px;
     padding: 4px 0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    z-index: 10000;
+    z-index: 30000;
   }
 
   .menu-item {
@@ -329,6 +345,6 @@
     border-radius: 8px;
     padding: 4px 0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    z-index: 10001;
+    z-index: 30001;
   }
 </style>
