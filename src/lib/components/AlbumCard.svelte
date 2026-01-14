@@ -231,18 +231,13 @@
     position: relative;
     margin-bottom: 8px;
     border-radius: 8px;
-    overflow: hidden;
-    transition: transform 150ms ease-out;
-  }
-
-  .album-card:hover .artwork-container {
-    transform: scale(1.02);
   }
 
   .artwork-container img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: inherit;
   }
 
   .artwork-placeholder {
@@ -253,6 +248,7 @@
     justify-content: center;
     background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
     color: var(--text-muted);
+    border-radius: inherit;
   }
 
   .quality-badge {
