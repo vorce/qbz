@@ -278,9 +278,12 @@
     loading = true;
     try {
       artists = await invoke<LocalArtist[]>('library_get_artists');
-      // Fetch Qobuz artist images in background (best-effort)
-      const artistNames = artists.map(a => a.name);
-      fetchArtistImages(artistNames);
+      // Fetch Qobuz artist images in background (best-effort) if enabled
+      const fetchEnabled = localStorage.getItem('qbz-fetch-artist-images') !== 'false';
+      if (fetchEnabled) {
+        const artistNames = artists.map(a => a.name);
+        fetchArtistImages(artistNames);
+      }
     } catch (err) {
       console.error('Failed to load artists:', err);
       error = String(err);

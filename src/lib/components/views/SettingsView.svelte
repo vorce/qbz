@@ -152,6 +152,9 @@
   let systemNotificationsEnabled = $state(true);
   let language = $state('Auto');
 
+  // Library settings
+  let fetchQobuzArtistImages = $state(true);
+
   // Last.fm integration state
   let lastfmConnected = $state(false);
   let lastfmUsername = $state('');
@@ -205,6 +208,12 @@
       const parsed = Number.parseFloat(savedZoom);
       const match = zoomOptions.find(option => Math.abs((zoomMap[option] ?? 1) - parsed) < 0.01);
       zoomLevel = match || '100%';
+    }
+
+    // Load library settings
+    const savedFetchArtistImages = localStorage.getItem('qbz-fetch-artist-images');
+    if (savedFetchArtistImages !== null) {
+      fetchQobuzArtistImages = savedFetchArtistImages === 'true';
     }
 
     // Load cache stats
@@ -872,6 +881,21 @@
     </div>
   </section>
 
+  <!-- Library Section -->
+  <section class="section">
+    <h3 class="section-title">Library</h3>
+    <div class="setting-row last">
+      <div class="setting-with-description">
+        <span class="setting-label">Fetch Qobuz Artist Images</span>
+        <span class="setting-description">Show artist photos from Qobuz in local library</span>
+      </div>
+      <Toggle enabled={fetchQobuzArtistImages} onchange={(v) => {
+        fetchQobuzArtistImages = v;
+        localStorage.setItem('qbz-fetch-artist-images', String(v));
+      }} />
+    </div>
+  </section>
+
   <!-- Integrations Section -->
   <section class="section">
     <h3 class="section-title">Integrations</h3>
@@ -1377,6 +1401,17 @@
   .setting-label {
     font-size: 14px;
     color: var(--text-secondary);
+  }
+
+  .setting-with-description {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .setting-description {
+    font-size: 12px;
+    color: var(--text-muted);
   }
 
   .setting-value {
