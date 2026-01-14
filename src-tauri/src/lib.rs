@@ -379,6 +379,7 @@ pub fn run() {
             library::commands::discogs_has_credentials,
             library::commands::library_fetch_missing_artwork,
             library::commands::library_fetch_album_artwork,
+            library::commands::library_set_album_artwork,
             // Chromecast casting commands
             cast::commands::cast_start_discovery,
             cast::commands::cast_stop_discovery,

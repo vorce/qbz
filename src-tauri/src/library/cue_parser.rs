@@ -222,8 +222,10 @@ pub fn cue_to_tracks(
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
 
+    let cue_audio_path = Path::new(&cue.audio_file);
     let (album_group_key, album_group_title) =
-        MetadataExtractor::album_group_info(Path::new(&cue.audio_file), cue.title.as_deref());
+        MetadataExtractor::album_group_info(cue_audio_path, cue.title.as_deref());
+    let inferred_disc = MetadataExtractor::infer_disc_number(cue_audio_path);
 
     for (i, cue_track) in cue.tracks.iter().enumerate() {
         // Calculate end time (next track's start or audio end)
@@ -252,7 +254,7 @@ pub fn cue_to_tracks(
             album_group_key: album_group_key.clone(),
             album_group_title: album_group_title.clone(),
             track_number: Some(cue_track.number),
-            disc_number: None,
+            disc_number: inferred_disc,
             year: None,
             genre: None,
             duration_secs: duration,

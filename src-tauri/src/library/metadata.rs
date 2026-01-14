@@ -136,6 +136,54 @@ impl MetadataExtractor {
         false
     }
 
+    fn disc_number_from_name(name: &str) -> Option<u32> {
+        let lower = name.to_lowercase();
+        let tokens: Vec<&str> = lower
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .filter(|t| !t.is_empty())
+            .collect();
+
+        for (i, token) in tokens.iter().enumerate() {
+            if (*token == "disc" || *token == "disk" || *token == "cd")
+                && tokens
+                    .get(i + 1)
+                    .map_or(false, |t| t.chars().all(|c| c.is_ascii_digit()))
+            {
+                if let Some(next) = tokens.get(i + 1) {
+                    if let Ok(value) = next.parse::<u32>() {
+                        if value > 0 {
+                            return Some(value);
+                        }
+                    }
+                }
+            }
+
+            for prefix in ["disc", "disk", "cd"] {
+                if token.starts_with(prefix) {
+                    let rest = &token[prefix.len()..];
+                    if !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit()) {
+                        if let Ok(value) = rest.parse::<u32>() {
+                            if value > 0 {
+                                return Some(value);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn infer_disc_number(file_path: &Path) -> Option<u32> {
+        let parent_dir = file_path.parent()?;
+        let parent_name = parent_dir.file_name()?.to_str()?;
+        if !Self::is_disc_folder(parent_name) {
+            return None;
+        }
+        Self::disc_number_from_name(parent_name)
+    }
+
     fn album_root_dir(file_path: &Path) -> Option<PathBuf> {
         let parent_dir = file_path.parent()?;
         let parent_name = parent_dir.file_name().and_then(|s| s.to_str());
@@ -246,6 +294,8 @@ impl MetadataExtractor {
 
         let (fallback_artist, fallback_album) = Self::infer_artist_album(file_path);
 
+        let inferred_disc = Self::infer_disc_number(file_path);
+
         // Build track
         let track = if let Some(tag) = tag {
             let album_title = Self::normalize_field(tag.album().as_deref())
@@ -269,7 +319,10 @@ impl MetadataExtractor {
                 album_group_key,
                 album_group_title,
                 track_number: tag.track().map(|t| t as u32),
-                disc_number: tag.disk().map(|d| d as u32),
+                disc_number: tag
+                    .disk()
+                    .and_then(|d| if d > 0 { Some(d as u32) } else { None })
+                    .or(inferred_disc),
                 year: tag.year().map(|y| y as u32),
                 genre: tag.genre().map(|s| s.to_string()),
                 duration_secs,
@@ -307,7 +360,7 @@ impl MetadataExtractor {
                 album_group_key,
                 album_group_title,
                 track_number: None,
-                disc_number: None,
+                disc_number: inferred_disc,
                 year: None,
                 genre: None,
                 duration_secs,
@@ -415,7 +468,7 @@ impl MetadataExtractor {
 
         let normalized_ext = match ext.as_str() {
             "jpeg" => "jpg",
-            "png" | "jpg" | "gif" | "bmp" => ext.as_str(),
+            "png" | "jpg" | "gif" | "bmp" | "webp" => ext.as_str(),
             _ => "jpg",
         };
 
@@ -442,67 +495,153 @@ impl MetadataExtractor {
         hash
     }
 
-    /// Look for folder artwork (cover.jpg, folder.jpg, etc.)
-    /// Returns the path if found
-    pub fn find_folder_artwork(audio_file_path: &Path) -> Option<String> {
+    /// Look for folder artwork by file name heuristics.
+    /// Returns the path if found.
+    pub fn find_folder_artwork(
+        audio_file_path: &Path,
+        album_title: Option<&str>,
+    ) -> Option<String> {
         let parent_dir = audio_file_path.parent()?;
-
-        // Common artwork filenames in order of preference
-        const ARTWORK_NAMES: &[&str] = &[
-            "cover.jpg", "cover.jpeg", "cover.png",
-            "folder.jpg", "folder.jpeg", "folder.png",
-            "front.jpg", "front.jpeg", "front.png",
-            "album.jpg", "album.jpeg", "album.png",
-            "Cover.jpg", "Cover.jpeg", "Cover.png",
-            "Folder.jpg", "Folder.jpeg", "Folder.png",
-        ];
+        let album_dir =
+            Self::album_root_dir(audio_file_path).unwrap_or_else(|| parent_dir.to_path_buf());
 
         let mut dirs_to_check: Vec<PathBuf> = Vec::new();
+        if album_dir != parent_dir {
+            dirs_to_check.push(album_dir.clone());
+        }
         dirs_to_check.push(parent_dir.to_path_buf());
 
-        if let Some(parent_name) = parent_dir.file_name().and_then(|s| s.to_str()) {
-            if Self::is_disc_folder(parent_name) {
-                if let Some(album_dir) = parent_dir.parent() {
-                    dirs_to_check.push(album_dir.to_path_buf());
+        let album_key = album_title
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty())
+            .filter(|value| !value.eq_ignore_ascii_case("Unknown Album"))
+            .map(Self::strip_disc_suffix)
+            .and_then(|value| Self::normalize_artwork_key(&value));
+        let folder_key = album_dir
+            .file_name()
+            .and_then(|s| s.to_str())
+            .map(Self::strip_disc_suffix)
+            .and_then(|value| Self::normalize_artwork_key(&value));
+
+        let mut best: Option<(PathBuf, i32)> = None;
+        let mut best_score = 0;
+        let mut candidate_count = 0;
+
+        for (index, dir) in dirs_to_check.iter().enumerate() {
+            let dir_bonus = if index == 0 { 5 } else { 0 };
+            let entries = match fs::read_dir(dir) {
+                Ok(entries) => entries,
+                Err(_) => continue,
+            };
+
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if !Self::is_supported_artwork_ext(&ext) {
+                    continue;
+                }
+
+                candidate_count += 1;
+                let file_stem = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .trim();
+                let file_key = match Self::normalize_artwork_key(file_stem) {
+                    Some(key) => key,
+                    None => {
+                        let fallback = file_stem.to_lowercase();
+                        if fallback.trim().is_empty() {
+                            continue;
+                        }
+                        fallback
+                    }
+                };
+
+                let mut score = Self::artwork_score(
+                    &file_key,
+                    album_key.as_deref(),
+                    folder_key.as_deref(),
+                );
+                if score == 0 {
+                    score = 5;
+                }
+                score += dir_bonus;
+
+                if score > best_score {
+                    best_score = score;
+                    best = Some((path, score));
                 }
             }
         }
 
-        for dir in dirs_to_check {
-            if let Some(path) = Self::find_artwork_in_dir(&dir, ARTWORK_NAMES) {
-                return Some(path);
+        if let Some((path, score)) = best {
+            if score >= 10 || candidate_count == 1 {
+                return Some(path.to_string_lossy().to_string());
             }
         }
 
         None
     }
 
-    fn find_artwork_in_dir(dir: &Path, names: &[&str]) -> Option<String> {
-        for name in names {
-            let artwork_path = dir.join(name);
-            if artwork_path.exists() {
-                return Some(artwork_path.to_string_lossy().to_string());
+    fn normalize_artwork_key(value: &str) -> Option<String> {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        let normalized: String = trimmed
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect();
+        if normalized.is_empty() {
+            None
+        } else {
+            Some(normalized)
+        }
+    }
+
+    fn is_supported_artwork_ext(ext: &str) -> bool {
+        matches!(ext, "jpg" | "jpeg" | "png" | "webp" | "gif" | "bmp")
+    }
+
+    fn artwork_score(
+        file_key: &str,
+        album_key: Option<&str>,
+        folder_key: Option<&str>,
+    ) -> i32 {
+        const EXACT: &[&str] = &["cover", "folder", "front", "album", "artwork", "art"];
+        let mut score = 0;
+
+        if EXACT.iter().any(|name| *name == file_key) {
+            score = score.max(100);
+        }
+        if let Some(key) = album_key {
+            if file_key == key {
+                score = score.max(95);
+            } else if file_key.contains(key) {
+                score = score.max(70);
             }
         }
-
-        let mut candidates: Vec<PathBuf> = Vec::new();
-        for entry in fs::read_dir(dir).ok()? {
-            let entry = entry.ok()?;
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-            if ext == "jpg" || ext == "jpeg" || ext == "png" {
-                candidates.push(path);
+        if let Some(key) = folder_key {
+            if file_key == key {
+                score = score.max(90);
+            } else if file_key.contains(key) {
+                score = score.max(65);
             }
         }
-
-        if candidates.len() == 1 {
-            return Some(candidates[0].to_string_lossy().to_string());
+        if EXACT.iter().any(|name| file_key.contains(name)) {
+            score = score.max(80);
         }
 
-        None
+        score
     }
 }
 

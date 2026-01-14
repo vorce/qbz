@@ -1,6 +1,7 @@
 //! Tauri commands for local library
 
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
 use tokio::sync::Mutex;
@@ -16,6 +17,10 @@ use crate::library::{
 pub struct LibraryState {
     pub db: Arc<Mutex<LibraryDatabase>>,
     pub scan_progress: Arc<Mutex<ScanProgress>>,
+}
+
+fn normalize_library_path(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
 // === Folder Management ===
@@ -139,15 +144,22 @@ pub async fn library_scan(state: State<'_, LibraryState>) -> Result<(), String> 
         }
 
         // Process regular audio files (skip if covered by CUE)
-        let cue_audio_files: std::collections::HashSet<_> = scan_result
+        let cue_audio_files: std::collections::HashSet<String> = scan_result
             .cue_files
             .iter()
-            .filter_map(|p| CueParser::parse(p).ok().map(|cue| cue.audio_file))
+            .filter_map(|p| {
+                CueParser::parse(p).ok().map(|cue| {
+                    normalize_library_path(Path::new(&cue.audio_file))
+                        .to_string_lossy()
+                        .to_string()
+                })
+            })
             .collect();
 
         for audio_path in &scan_result.audio_files {
             // Skip if this file is referenced by a CUE sheet
-            let path_str = audio_path.to_string_lossy().to_string();
+            let canonical_path = normalize_library_path(audio_path);
+            let path_str = canonical_path.to_string_lossy().to_string();
             if cue_audio_files.contains(&path_str) {
                 let mut progress = state.scan_progress.lock().await;
                 progress.processed_files += 1;
@@ -159,14 +171,20 @@ pub async fn library_scan(state: State<'_, LibraryState>) -> Result<(), String> 
                 progress.current_file = Some(path_str.clone());
             }
 
-            match MetadataExtractor::extract(audio_path) {
+            match MetadataExtractor::extract(&canonical_path) {
                 Ok(mut track) => {
                     // Try to extract embedded artwork, fallback to cached folder artwork
                     let artwork_cache = get_artwork_cache_dir();
                     let mut artwork_path =
-                        MetadataExtractor::extract_artwork(audio_path, &artwork_cache);
+                        MetadataExtractor::extract_artwork(&canonical_path, &artwork_cache);
                     if artwork_path.is_none() {
-                        if let Some(folder_art) = MetadataExtractor::find_folder_artwork(audio_path)
+                        let album_hint = if !track.album_group_title.is_empty() {
+                            Some(track.album_group_title.as_str())
+                        } else {
+                            Some(track.album.as_str())
+                        };
+                        if let Some(folder_art) =
+                            MetadataExtractor::find_folder_artwork(&canonical_path, album_hint)
                         {
                             artwork_path = MetadataExtractor::cache_artwork_file(
                                 Path::new(&folder_art),
@@ -221,26 +239,29 @@ pub async fn library_scan(state: State<'_, LibraryState>) -> Result<(), String> 
 
 /// Process a CUE file and insert its tracks
 async fn process_cue_file(cue_path: &Path, state: &State<'_, LibraryState>) -> Result<(), String> {
-    let cue = CueParser::parse(cue_path).map_err(|e| e.to_string())?;
+    let mut cue = CueParser::parse(cue_path).map_err(|e| e.to_string())?;
 
     // Get audio file properties
-    let audio_path = Path::new(&cue.audio_file);
+    let audio_path = normalize_library_path(Path::new(&cue.audio_file));
     if !audio_path.exists() {
         return Err(format!("Audio file not found: {}", cue.audio_file));
     }
+    cue.audio_file = audio_path.to_string_lossy().to_string();
 
     let properties =
-        MetadataExtractor::extract_properties(audio_path).map_err(|e| e.to_string())?;
-    let format = MetadataExtractor::detect_format(audio_path);
+        MetadataExtractor::extract_properties(audio_path.as_path()).map_err(|e| e.to_string())?;
+    let format = MetadataExtractor::detect_format(audio_path.as_path());
 
     // Convert CUE to tracks
     let mut tracks = cue_to_tracks(&cue, properties.duration_secs, format, &properties);
 
     let artwork_cache = get_artwork_cache_dir();
-    let mut artwork_path =
-        MetadataExtractor::extract_artwork(audio_path, &artwork_cache);
+    let mut artwork_path = MetadataExtractor::extract_artwork(audio_path.as_path(), &artwork_cache);
     if artwork_path.is_none() {
-        if let Some(folder_art) = MetadataExtractor::find_folder_artwork(audio_path) {
+        if let Some(folder_art) = MetadataExtractor::find_folder_artwork(
+            audio_path.as_path(),
+            cue.title.as_deref(),
+        ) {
             artwork_path = MetadataExtractor::cache_artwork_file(
                 Path::new(&folder_art),
                 &artwork_cache,
@@ -730,4 +751,36 @@ pub async fn library_fetch_album_artwork(
     } else {
         Ok(None)
     }
+}
+
+/// Set custom artwork for an album group from a local file
+#[tauri::command]
+pub async fn library_set_album_artwork(
+    album_group_key: String,
+    artwork_path: String,
+    state: State<'_, LibraryState>,
+) -> Result<String, String> {
+    log::info!(
+        "Command: library_set_album_artwork {}",
+        album_group_key
+    );
+
+    if album_group_key.is_empty() {
+        return Err("Album group key is required".to_string());
+    }
+
+    let source_path = Path::new(&artwork_path);
+    if !source_path.is_file() {
+        return Err("Artwork file not found".to_string());
+    }
+
+    let artwork_cache = get_artwork_cache_dir();
+    let cached_path = MetadataExtractor::cache_artwork_file(source_path, &artwork_cache)
+        .ok_or_else(|| "Failed to cache artwork file".to_string())?;
+
+    let db = state.db.lock().await;
+    db.update_album_group_artwork(&album_group_key, &cached_path)
+        .map_err(|e| e.to_string())?;
+
+    Ok(cached_path)
 }
