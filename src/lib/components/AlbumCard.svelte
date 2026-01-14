@@ -163,7 +163,7 @@
         <div class="action-buttons">
           {#if showFavoriteButton}
             <button
-              class="overlay-btn"
+              class="overlay-btn overlay-btn--minor"
               class:is-active={isFavorite}
               class:disabled={!favoriteAvailable}
               type="button"
@@ -286,8 +286,8 @@
     opacity: 0;
     transition: opacity 150ms ease;
     background: rgba(10, 10, 10, 0.25);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     pointer-events: auto;
     border-radius: inherit;
   }
@@ -342,14 +342,19 @@
     justify-content: center;
   }
 
+  .overlay-btn--minor {
+    width: 30px;
+    height: 30px;
+  }
+
   :global(.album-card .album-menu) {
     display: flex;
     align-items: center;
   }
 
   :global(.album-card .album-menu .menu-trigger) {
-    width: 38px;
-    height: 38px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     border: 1px solid rgba(255, 255, 255, 0.85);
     background: transparent;
