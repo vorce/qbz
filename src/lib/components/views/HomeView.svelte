@@ -590,11 +590,13 @@
                 number={index + 1}
                 title={track.title}
                 artist={track.artist}
+                album={track.album}
                 duration={track.duration}
                 quality={getTrackQuality(track)}
                 hideDownload={true}
                 compact={true}
                 onArtistClick={track.artistId && onArtistClick ? () => onArtistClick(track.artistId!) : undefined}
+                onAlbumClick={track.albumId && onAlbumClick ? () => onAlbumClick(track.albumId!) : undefined}
                 onPlay={() => onTrackPlay?.(track)}
                 menuActions={{
                   onPlayNow: () => onTrackPlay?.(track)

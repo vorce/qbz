@@ -58,6 +58,18 @@
     track_count: number;
   }
 
+  interface ArtistSearchResult {
+    id: number;
+    name: string;
+  }
+
+  interface SearchResults<T> {
+    items: T[];
+    total: number;
+    offset: number;
+    limit: number;
+  }
+
   interface LibraryStats {
     track_count: number;
     album_count: number;
@@ -76,6 +88,7 @@
 
   interface Props {
     onAlbumClick?: (album: LocalAlbum) => void;
+    onQobuzArtistClick?: (artistId: number) => void;
     onTrackPlay?: (track: LocalTrack) => void;
     onTrackPlayNext?: (track: LocalTrack) => void;
     onTrackPlayLater?: (track: LocalTrack) => void;
@@ -84,6 +97,7 @@
 
   let {
     onAlbumClick,
+    onQobuzArtistClick,
     onTrackPlay,
     onTrackPlayNext,
     onTrackPlayLater,
@@ -636,6 +650,56 @@
     return normalized.trim() || trimmed;
   }
 
+  function normalizeArtistName(name: string): string {
+    return name
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  async function resolveQobuzArtistId(name: string): Promise<number | null> {
+    const query = name.trim();
+    if (!query) return null;
+
+    const results = await invoke<SearchResults<ArtistSearchResult>>('search_artists', {
+      query,
+      limit: 5,
+      offset: 0
+    });
+
+    if (!results.items.length) return null;
+
+    const normalizedQuery = normalizeArtistName(query);
+    const exactMatch = results.items.find(
+      artist => normalizeArtistName(artist.name) === normalizedQuery
+    );
+    return (exactMatch ?? results.items[0]).id;
+  }
+
+  async function handleLocalArtistClick(name?: string) {
+    if (!name || !onQobuzArtistClick) return;
+    try {
+      const artistId = await resolveQobuzArtistId(name);
+      if (artistId) {
+        onQobuzArtistClick(artistId);
+      } else {
+        console.warn('No Qobuz artist match for local artist:', name);
+      }
+    } catch (err) {
+      console.error('Failed to resolve Qobuz artist for local artist:', name, err);
+    }
+  }
+
+  function handleLocalAlbumLink(track: LocalTrack) {
+    if (!track.album_group_key) return;
+    const album = albums.find(item => item.id === track.album_group_key);
+    if (album) {
+      handleAlbumClick(album);
+    }
+  }
+
   function groupTracks(items: LocalTrack[], mode: TrackGroupMode) {
     const prefix = `track-${mode}`;
     const sorted = [...items].sort((a, b) => {
@@ -812,6 +876,9 @@
               quality={getQualityBadge(track)}
               hideDownload={true}
               hideFavorite={true}
+              onArtistClick={track.artist && track.artist !== selectedAlbum?.artist
+                ? () => handleLocalArtistClick(track.artist)
+                : undefined}
               onPlay={() => handleTrackPlay(track)}
               menuActions={{
                 onPlayNow: () => handleTrackPlay(track),
@@ -1285,6 +1352,8 @@
                             quality={getQualityBadge(track)}
                             hideDownload={true}
                             hideFavorite={true}
+                            onArtistClick={track.artist ? () => handleLocalArtistClick(track.artist) : undefined}
+                            onAlbumClick={track.album_group_key ? () => handleLocalAlbumLink(track) : undefined}
                             onPlay={() => handleTrackPlay(track)}
                             menuActions={{
                               onPlayNow: () => handleTrackPlay(track),
@@ -1305,6 +1374,8 @@
                           quality={getQualityBadge(track)}
                           hideDownload={true}
                           hideFavorite={true}
+                          onArtistClick={track.artist ? () => handleLocalArtistClick(track.artist) : undefined}
+                          onAlbumClick={track.album_group_key ? () => handleLocalAlbumLink(track) : undefined}
                           onPlay={() => handleTrackPlay(track)}
                           menuActions={{
                             onPlayNow: () => handleTrackPlay(track),

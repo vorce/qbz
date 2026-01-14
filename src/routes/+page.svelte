@@ -1607,6 +1607,7 @@
           onTrackPlayNext={queueLocalTrackNext}
           onTrackPlayLater={queueLocalTrackLater}
           onSetLocalQueue={handleSetLocalQueue}
+          onQobuzArtistClick={handleArtistClick}
         />
       {:else if activeView === 'playlist' && selectedPlaylistId}
         <PlaylistDetailView
