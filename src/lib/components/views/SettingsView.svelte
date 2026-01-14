@@ -11,7 +11,6 @@
     getDownloadCacheStats,
     clearDownloadCache,
     openDownloadCacheFolder,
-    setDownloadCacheLimit,
     type DownloadCacheStats
   } from '$lib/stores/downloadState';
   import { clearCache as clearLyricsCache } from '$lib/stores/lyricsStore';
@@ -26,6 +25,8 @@
     setSystemNotificationsEnabled,
     loadSystemNotificationsPreference
   } from '$lib/services/playbackService';
+  import { setLocale, locale, t } from '$lib/i18n';
+  import { get } from 'svelte/store';
 
   interface Props {
     onBack?: () => void;
@@ -63,7 +64,6 @@
   // Download cache state (offline storage)
   let downloadStats = $state<DownloadCacheStats | null>(null);
   let isClearingDownloads = $state(false);
-  let downloadCacheLimit = $state('2 GB'); // Default 2GB
 
   // Lyrics cache state
   let isClearingLyrics = $state(false);
@@ -119,6 +119,21 @@
     'warm': 'Warm'
   };
 
+  // Language mapping: display name -> locale code
+  const languageToLocale: Record<string, string | null> = {
+    'Auto': null,
+    'English': 'en',
+    'Español': 'es'
+  };
+
+  const localeToLanguage: Record<string, string> = {
+    'en': 'English',
+    'es': 'Español'
+  };
+
+  // Available languages (only those with translations)
+  const availableLanguages = ['Auto', 'English', 'Español'];
+
   // Audio settings
   let streamingQuality = $state('Hi-Res');
   let preferHighest = $state(true);
@@ -147,7 +162,6 @@
 
   // Appearance settings
   let theme = $state('Dark');
-  let compactMode = $state(false);
   let toastsEnabled = $state(true);
   let systemNotificationsEnabled = $state(true);
   let language = $state('Auto');
@@ -196,10 +210,12 @@
       preferHighest = savedPreferHighest === 'true';
     }
 
-    // Load language setting
-    const savedLanguage = localStorage.getItem('qbz-language');
-    if (savedLanguage) {
-      language = savedLanguage;
+    // Load language setting from i18n locale
+    const currentLocale = get(locale);
+    if (currentLocale && localeToLanguage[currentLocale]) {
+      language = localeToLanguage[currentLocale];
+    } else {
+      language = 'Auto';
     }
 
     // Load UI zoom level
@@ -519,7 +535,18 @@
 
   function handleLanguageChange(lang: string) {
     language = lang;
-    localStorage.setItem('qbz-language', lang);
+    const localeCode = languageToLocale[lang];
+    if (localeCode) {
+      // Set specific locale
+      setLocale(localeCode);
+    } else {
+      // 'Auto' - use browser locale, defaulting to 'en'
+      const browserLocale = navigator.language.split('-')[0];
+      const supportedLocale = ['en', 'es'].includes(browserLocale) ? browserLocale : 'en';
+      setLocale(supportedLocale);
+      // Clear the stored locale so it uses browser detection on next load
+      localStorage.removeItem('qbz-locale');
+    }
   }
 
   interface AudioSettings {
@@ -624,18 +651,6 @@
   async function loadDownloadStats() {
     try {
       downloadStats = await getDownloadCacheStats();
-      // Set the limit dropdown to match current limit
-      if (downloadStats.limitBytes) {
-        const limitGb = downloadStats.limitBytes / (1024 * 1024 * 1024);
-        if (limitGb <= 0.5) downloadCacheLimit = '500 MB';
-        else if (limitGb <= 1) downloadCacheLimit = '1 GB';
-        else if (limitGb <= 2) downloadCacheLimit = '2 GB';
-        else if (limitGb <= 5) downloadCacheLimit = '5 GB';
-        else if (limitGb <= 10) downloadCacheLimit = '10 GB';
-        else downloadCacheLimit = 'Unlimited';
-      } else {
-        downloadCacheLimit = 'Unlimited';
-      }
     } catch (err) {
       console.error('Failed to load download stats:', err);
     }
@@ -659,27 +674,6 @@
       await openDownloadCacheFolder();
     } catch (err) {
       console.error('Failed to open download folder:', err);
-    }
-  }
-
-  async function handleDownloadLimitChange(limit: string) {
-    downloadCacheLimit = limit;
-    let limitMb: number | null = null;
-
-    switch (limit) {
-      case '500 MB': limitMb = 500; break;
-      case '1 GB': limitMb = 1024; break;
-      case '2 GB': limitMb = 2048; break;
-      case '5 GB': limitMb = 5120; break;
-      case '10 GB': limitMb = 10240; break;
-      case 'Unlimited': limitMb = null; break;
-    }
-
-    try {
-      await setDownloadCacheLimit(limitMb);
-      await loadDownloadStats();
-    } catch (err) {
-      console.error('Failed to set download limit:', err);
     }
   }
 
@@ -750,15 +744,15 @@
     {#if onBack}
       <button class="back-btn" onclick={onBack}>
         <ArrowLeft size={16} />
-        <span>Back</span>
+        <span>{$t('actions.back')}</span>
       </button>
     {/if}
-    <h1 class="title">Settings</h1>
+    <h1 class="title">{$t('settings.title')}</h1>
   </div>
 
   <!-- Account Section -->
   <section class="section">
-    <h3 class="section-title">Account</h3>
+    <h3 class="section-title">{$t('settings.account.title')}</h3>
     <div class="account-card">
       <div class="avatar">{userName.charAt(0).toUpperCase()}</div>
       <div class="account-info">
@@ -768,15 +762,15 @@
         {/if}
         <div class="subscription">{subscription}</div>
       </div>
-      <button class="logout-btn" onclick={onLogout}>Logout</button>
+      <button class="logout-btn" onclick={onLogout}>{$t('settings.account.logout')}</button>
     </div>
   </section>
 
   <!-- Audio Section -->
   <section class="section">
-    <h3 class="section-title">Audio</h3>
+    <h3 class="section-title">{$t('settings.audio.title')}</h3>
     <div class="setting-row">
-      <span class="setting-label">Streaming Quality</span>
+      <span class="setting-label">{$t('settings.audio.streamingQuality')}</span>
       <Dropdown
         value={streamingQuality}
         options={['MP3', 'CD Quality', 'Hi-Res', 'Hi-Res+']}
@@ -784,12 +778,12 @@
       />
     </div>
     <div class="setting-row">
-      <span class="setting-label">Prefer highest available</span>
+      <span class="setting-label">{$t('settings.audio.preferHighest')}</span>
       <Toggle enabled={preferHighest} onchange={handlePreferHighestChange} />
     </div>
     <div class="setting-row">
       <div class="label-with-tooltip">
-        <span class="setting-label">Output Device</span>
+        <span class="setting-label">{$t('settings.audio.outputDevice')}</span>
         <Tooltip text="Select your preferred audio output device. Changes take effect on app restart." />
       </div>
       <Dropdown
@@ -803,48 +797,48 @@
     </div>
     <div class="setting-row">
       <div class="label-with-tooltip">
-        <span class="setting-label">Exclusive Mode</span>
-        <Tooltip text="Locks the audio device for exclusive use by QBZ for better quality" />
+        <span class="setting-label">{$t('settings.audio.exclusiveMode')}</span>
+        <Tooltip text={$t('settings.audio.exclusiveModeDesc')} />
       </div>
       <Toggle enabled={exclusiveMode} onchange={handleExclusiveModeChange} />
     </div>
     <div class="setting-row">
       <div class="label-with-tooltip">
-        <span class="setting-label">DAC Passthrough</span>
-        <Tooltip text="Bypass the system audio mixer to send audio directly to your DAC at its native sample rate. Recommended for external DACs." />
+        <span class="setting-label">{$t('settings.audio.dacPassthrough')}</span>
+        <Tooltip text={$t('settings.audio.dacPassthroughDesc')} />
       </div>
       <Toggle enabled={dacPassthrough} onchange={handleDacPassthroughChange} />
     </div>
     <div class="setting-row last">
-      <span class="setting-label">Sample Rate</span>
+      <span class="setting-label">{$t('settings.audio.currentSampleRate')}</span>
       <span class="setting-value">192 kHz</span>
     </div>
   </section>
 
   <!-- Playback Section -->
   <section class="section">
-    <h3 class="section-title">Playback</h3>
+    <h3 class="section-title">{$t('settings.playback.title')}</h3>
     <div class="setting-row">
-      <span class="setting-label">Gapless Playback</span>
+      <span class="setting-label">{$t('settings.playback.gapless')}</span>
       <Toggle enabled={gaplessPlayback} onchange={(v) => (gaplessPlayback = v)} />
     </div>
     <div class="setting-row">
-      <span class="setting-label">Crossfade</span>
+      <span class="setting-label">{$t('settings.playback.crossfade')}</span>
       <div class="slider-container">
         <VolumeSlider value={crossfade} onchange={(v) => (crossfade = v)} max={12} showValue />
       </div>
     </div>
     <div class="setting-row last">
-      <span class="setting-label">Normalize Volume</span>
+      <span class="setting-label">{$t('settings.playback.normalizeVolume')}</span>
       <Toggle enabled={normalizeVolume} onchange={(v) => (normalizeVolume = v)} />
     </div>
   </section>
 
   <!-- Appearance Section -->
   <section class="section">
-    <h3 class="section-title">Appearance</h3>
+    <h3 class="section-title">{$t('settings.appearance.title')}</h3>
     <div class="setting-row">
-      <span class="setting-label">Theme</span>
+      <span class="setting-label">{$t('settings.appearance.theme')}</span>
       <Dropdown
         value={theme}
         options={['Dark', 'Light', 'OLED Black', 'Warm']}
@@ -852,15 +846,15 @@
       />
     </div>
     <div class="setting-row">
-      <span class="setting-label">Language</span>
+      <span class="setting-label">{$t('settings.appearance.language')}</span>
       <Dropdown
         value={language}
-        options={['Auto', 'English', 'Español', 'Français', 'Deutsch', 'Italiano', 'Português']}
+        options={availableLanguages}
         onchange={handleLanguageChange}
       />
     </div>
     <div class="setting-row">
-      <span class="setting-label">UI Scale</span>
+      <span class="setting-label">{$t('settings.appearance.uiScale')}</span>
       <Dropdown
         value={zoomLevel}
         options={zoomOptions}
@@ -868,26 +862,22 @@
       />
     </div>
     <div class="setting-row">
-      <span class="setting-label">Compact Mode</span>
-      <Toggle enabled={compactMode} onchange={(v) => (compactMode = v)} />
-    </div>
-    <div class="setting-row">
-      <span class="setting-label">In-app Toasts</span>
+      <span class="setting-label">{$t('settings.appearance.inAppToasts')}</span>
       <Toggle enabled={toastsEnabled} onchange={(v) => { toastsEnabled = v; setToastsEnabled(v); }} />
     </div>
     <div class="setting-row last">
-      <span class="setting-label">System Notifications</span>
+      <span class="setting-label">{$t('settings.appearance.systemNotifications')}</span>
       <Toggle enabled={systemNotificationsEnabled} onchange={(v) => { systemNotificationsEnabled = v; setSystemNotificationsEnabled(v); }} />
     </div>
   </section>
 
   <!-- Library Section -->
   <section class="section">
-    <h3 class="section-title">Library</h3>
+    <h3 class="section-title">{$t('settings.library.title')}</h3>
     <div class="setting-row last">
       <div class="setting-with-description">
-        <span class="setting-label">Fetch Qobuz Artist Images</span>
-        <span class="setting-description">Show artist photos from Qobuz in local library</span>
+        <span class="setting-label">{$t('settings.library.fetchArtistImages')}</span>
+        <span class="setting-description">{$t('settings.library.fetchArtistImagesDesc')}</span>
       </div>
       <Toggle enabled={fetchQobuzArtistImages} onchange={(v) => {
         fetchQobuzArtistImages = v;
@@ -898,34 +888,34 @@
 
   <!-- Integrations Section -->
   <section class="section">
-    <h3 class="section-title">Integrations</h3>
+    <h3 class="section-title">{$t('settings.integrations.title')}</h3>
 
     {#if lastfmConnected}
       <div class="setting-row">
         <div class="lastfm-connected">
-          <span class="setting-label">Last.fm</span>
-          <span class="lastfm-username">Connected as {lastfmUsername}</span>
+          <span class="setting-label">{$t('settings.integrations.lastfm')}</span>
+          <span class="lastfm-username">{$t('settings.integrations.connectedAs', { values: { username: lastfmUsername }})}</span>
         </div>
         <button
           class="connect-btn connected"
           onclick={handleLastfmDisconnect}
         >
-          Disconnect
+          {$t('settings.integrations.disconnect')}
         </button>
       </div>
       <div class="setting-row last">
-        <span class="setting-label">Scrobbling</span>
+        <span class="setting-label">{$t('settings.integrations.scrobbling')}</span>
         <Toggle enabled={scrobbling} onchange={handleScrobblingChange} />
       </div>
     {:else}
       <div class="setting-row" class:last={!showLastfmConfig && !lastfmAuthToken}>
-        <span class="setting-label">Last.fm</span>
+        <span class="setting-label">{$t('settings.integrations.lastfm')}</span>
         <button
           class="connect-btn"
           onclick={handleLastfmConnect}
           disabled={lastfmConnecting}
         >
-          {lastfmConnecting ? 'Connecting...' : 'Connect'}
+          {lastfmConnecting ? 'Connecting...' : $t('settings.integrations.connect')}
         </button>
       </div>
 
@@ -990,98 +980,90 @@
 
   <!-- Storage Section (Memory Cache) -->
   <section class="section">
-    <h3 class="section-title">Storage</h3>
+    <h3 class="section-title">{$t('settings.storage.title')}</h3>
     <div class="setting-row">
-      <span class="setting-label">Cache Size</span>
+      <span class="setting-label">{$t('settings.storage.cacheSize')}</span>
       <span class="setting-value">
         {#if cacheStats}
           {formatBytes(cacheStats.current_size_bytes)} / {formatBytes(cacheStats.max_size_bytes)}
         {:else}
-          Loading...
+          {$t('actions.loading')}
         {/if}
       </span>
     </div>
     <div class="setting-row">
-      <span class="setting-label">Cached Tracks</span>
+      <span class="setting-label">{$t('settings.storage.cachedTracks')}</span>
       <span class="setting-value">
         {#if cacheStats}
-          {cacheStats.cached_tracks} tracks
+          {cacheStats.cached_tracks} {$t('album.tracks')}
         {:else}
           -
         {/if}
       </span>
     </div>
     <div class="setting-row last">
-      <span class="setting-label">Clear Cache</span>
+      <span class="setting-label">{$t('settings.storage.clearCache')}</span>
       <button
         class="clear-btn"
         onclick={handleClearCache}
         disabled={isClearing || !cacheStats || cacheStats.current_size_bytes === 0}
       >
-        {isClearing ? 'Clearing...' : 'Clear'}
+        {isClearing ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
     </div>
   </section>
 
   <!-- Downloads Section (Offline Storage) -->
   <section class="section">
-    <h3 class="section-title">Downloads</h3>
+    <h3 class="section-title">{$t('settings.downloads.title')}</h3>
     <div class="setting-row">
-      <span class="setting-label">Downloaded Tracks</span>
+      <span class="setting-label">{$t('settings.downloads.downloadedTracks')}</span>
       <span class="setting-value">
         {#if downloadStats}
-          {downloadStats.readyTracks} tracks ({formatBytes(downloadStats.totalSizeBytes)})
+          {downloadStats.readyTracks} {$t('album.tracks')} ({formatBytes(downloadStats.totalSizeBytes)})
         {:else}
-          Loading...
+          {$t('actions.loading')}
         {/if}
       </span>
     </div>
     <div class="setting-row">
-      <span class="setting-label">Storage Limit</span>
-      <Dropdown
-        value={downloadCacheLimit}
-        options={['500 MB', '1 GB', '2 GB', '5 GB', '10 GB', 'Unlimited']}
-        onchange={handleDownloadLimitChange}
-      />
-    </div>
-    <div class="setting-row">
-      <span class="setting-label">Clear Downloads</span>
+      <span class="setting-label">{$t('settings.downloads.clearDownloads')}</span>
       <button
         class="clear-btn"
         onclick={handleClearDownloads}
         disabled={isClearingDownloads || !downloadStats || downloadStats.readyTracks === 0}
       >
-        {isClearingDownloads ? 'Clearing...' : 'Clear All'}
+        {isClearingDownloads ? $t('settings.storage.clearing') : $t('actions.clearAll')}
       </button>
     </div>
     <div class="setting-row last">
-      <span class="setting-label">Open Folder</span>
+      <span class="setting-label">{$t('settings.downloads.openFolder')}</span>
       <button
         class="folder-btn"
         onclick={handleOpenDownloadFolder}
-        title="Open download cache folder"
+        title={$t('settings.downloads.openFolder')}
       >
         <FolderOpen size={16} />
-        <span>Open</span>
+        <span>{$t('actions.open')}</span>
       </button>
     </div>
   </section>
 
   <!-- Lyrics Section -->
   <section class="section">
-    <h3 class="section-title">Lyrics</h3>
+    <h3 class="section-title">{$t('settings.lyrics.title')}</h3>
     <div class="setting-row">
       <span class="setting-label">Provider</span>
       <span class="setting-value">LRCLIB / lyrics.ovh</span>
     </div>
     <div class="setting-row last">
-      <span class="setting-label">Clear Lyrics Cache</span>
+      <span class="setting-label">{$t('settings.lyrics.clearLyrics')}</span>
       <button
         class="clear-btn"
         onclick={handleClearLyricsCache}
         disabled={isClearingLyrics}
       >
-        {isClearingLyrics ? 'Clearing...' : 'Clear'}
+        {isClearingLyrics ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
     </div>
   </section>
@@ -1097,7 +1079,7 @@
       {:else}
         <ChevronRight size={18} />
       {/if}
-      <span>API Keys</span>
+      <span>{$t('settings.integrations.apiKeys')}</span>
       {#if hasAnyUserCredentials()}
         <span class="keys-badge">Custom</span>
       {/if}

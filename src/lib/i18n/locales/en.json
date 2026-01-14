@@ -11,73 +11,179 @@
     "artists": "Artists",
     "tracks": "Tracks",
     "playlists": "Playlists",
+    "favorites": "Favorites",
+    "settings": "Settings",
     "newReleases": "New Releases",
+    "pressAwards": "Press Awards",
     "radio": "Radio",
-    "recentlyAdded": "Recently Added"
+    "recentlyAdded": "Recently Added",
+    "backTo": "Back to"
   },
   "home": {
     "title": "Home",
     "featuredForYou": "Featured for you",
     "recentlyPlayed": "Recently Played",
     "newReleases": "New Releases",
+    "pressAwards": "Press Awards",
     "madeForYou": "Made for You",
-    "topPicks": "Top Picks"
+    "topPicks": "Top Picks",
+    "yourPlaylists": "Your Playlists",
+    "seeAll": "See All"
   },
   "search": {
     "title": "Search",
     "placeholder": "Search albums, artists, tracks...",
     "all": "All",
+    "albums": "Albums",
+    "tracks": "Tracks",
+    "artists": "Artists",
     "noResults": "No results found",
-    "searching": "Searching..."
+    "searching": "Searching...",
+    "recentSearches": "Recent Searches",
+    "clearHistory": "Clear History"
+  },
+  "library": {
+    "title": "Local Library",
+    "albums": "Albums",
+    "artists": "Artists",
+    "tracks": "Tracks",
+    "folders": "Folders",
+    "noAlbums": "No albums in library",
+    "noArtists": "No artists in library",
+    "noTracks": "No tracks in library",
+    "noFolders": "No folders added",
+    "addFolder": "Add Folder",
+    "removeFolder": "Remove",
+    "scan": "Scan",
+    "scanning": "Scanning...",
+    "stopScan": "Stop",
+    "scanComplete": "Scan complete",
+    "scanCancelled": "Scan cancelled",
+    "scanError": "Scan error",
+    "searchPlaceholder": "Search...",
+    "searchAlbums": "Search albums...",
+    "searchArtists": "Search artists...",
+    "searchTracks": "Search tracks, albums, artists...",
+    "trackCount": "{count} tracks",
+    "albumCount": "{count} albums",
+    "artistCount": "{count} artists",
+    "groupBy": "Group by",
+    "sortBy": "Sort by",
+    "viewAs": "View as",
+    "grid": "Grid",
+    "list": "List",
+    "fetchingArtwork": "Fetching artwork..."
   },
   "album": {
     "tracks": "tracks",
     "track": "track",
     "by": "by",
     "released": "Released",
+    "releaseDate": "Release Date",
     "label": "Label",
-    "genre": "Genre"
+    "genre": "Genre",
+    "duration": "Duration",
+    "quality": "Quality",
+    "play": "Play",
+    "shuffle": "Shuffle",
+    "addToQueue": "Add to Queue",
+    "addToPlaylist": "Add to Playlist",
+    "download": "Download",
+    "downloadAll": "Download All",
+    "disc": "Disc"
   },
   "artist": {
     "albums": "Albums",
+    "discography": "Discography",
+    "eps": "EPs & Singles",
+    "epsSingles": "EPs & Singles",
+    "live": "Live Albums",
+    "liveAlbums": "Live Albums",
+    "compilations": "Compilations",
+    "appearsOn": "Appears On",
     "popularTracks": "Popular Tracks",
     "similarArtists": "Similar Artists",
-    "followers": "followers"
+    "biography": "Biography",
+    "readMore": "Read More",
+    "readLess": "Read Less",
+    "followers": "followers",
+    "loadMore": "Load More",
+    "noAlbums": "No albums",
+    "noBiography": "No biography available"
   },
   "playlist": {
     "tracks": "tracks",
+    "track": "track",
     "createNew": "Create New...",
+    "createPlaylist": "Create Playlist",
+    "deletePlaylist": "Delete Playlist",
+    "renamePlaylist": "Rename Playlist",
     "allPlaylists": "All Playlists",
-    "myPlaylists": "My Playlists"
+    "myPlaylists": "My Playlists",
+    "qobuzPlaylists": "Qobuz Playlists",
+    "emptyPlaylist": "This playlist is empty",
+    "addTracks": "Add Tracks",
+    "removeTracks": "Remove",
+    "playlistName": "Playlist Name",
+    "description": "Description",
+    "public": "Public",
+    "private": "Private"
+  },
+  "favorites": {
+    "title": "Favorites",
+    "albums": "Albums",
+    "tracks": "Tracks",
+    "artists": "Artists",
+    "noFavorites": "No favorites yet",
+    "addedToFavorites": "Added to favorites",
+    "removedFromFavorites": "Removed from favorites"
   },
   "player": {
     "nowPlaying": "Now Playing",
     "queue": "Queue",
+    "upNext": "Up Next",
+    "history": "History",
     "lyrics": "Lyrics",
+    "noLyrics": "No lyrics available",
+    "fetchingLyrics": "Fetching lyrics...",
     "shuffle": "Shuffle",
     "repeat": "Repeat",
     "repeatOne": "Repeat One",
+    "repeatOff": "Repeat Off",
     "previous": "Previous",
     "next": "Next",
     "play": "Play",
     "pause": "Pause",
     "volume": "Volume",
-    "mute": "Mute"
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "clearQueue": "Clear Queue",
+    "queueEmpty": "Queue is empty",
+    "playNext": "Play Next",
+    "addToQueue": "Add to Queue",
+    "removeFromQueue": "Remove from Queue",
+    "saveQueue": "Save as Playlist"
   },
   "quality": {
-    "mp3": "MP3",
+    "mp3": "MP3 320kbps",
     "cdQuality": "CD Quality",
+    "cdQualityDesc": "16-bit / 44.1kHz FLAC",
     "hiRes": "Hi-Res",
-    "ultraHiRes": "Ultra Hi-Res",
+    "hiResDesc": "24-bit up to 96kHz FLAC",
+    "ultraHiRes": "Hi-Res 24-bit",
+    "ultraHiResDesc": "24-bit up to 192kHz FLAC",
     "flac": "FLAC",
     "bitDepth": "{depth}-bit",
     "sampleRate": "{rate} kHz",
-    "lossless": "Lossless"
+    "lossless": "Lossless",
+    "max": "Max"
   },
   "actions": {
     "play": "Play",
     "playAll": "Play All",
+    "playNow": "Play Now",
     "shuffle": "Shuffle",
+    "shuffleAll": "Shuffle All",
     "addToQueue": "Add to Queue",
     "addToPlaylist": "Add to Playlist",
     "addToFavorites": "Add to Favorites",
@@ -86,13 +192,26 @@
     "share": "Share",
     "viewAlbum": "View Album",
     "viewArtist": "View Artist",
+    "goToArtist": "Go to Artist",
+    "goToAlbum": "Go to Album",
     "more": "More",
     "back": "Back",
     "seeAll": "See All",
     "cancel": "Cancel",
     "save": "Save",
     "delete": "Delete",
-    "edit": "Edit"
+    "edit": "Edit",
+    "close": "Close",
+    "open": "Open",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "clear": "Clear",
+    "clearAll": "Clear All",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK",
+    "loading": "Loading..."
   },
   "settings": {
     "title": "Settings",
@@ -106,8 +225,10 @@
     "audio": {
       "title": "Audio",
       "streamingQuality": "Streaming Quality",
-      "preferHighest": "Prefer highest available",
+      "preferHighest": "Prefer Highest Available",
+      "preferHighestDesc": "Automatically select highest quality for your subscription",
       "outputDevice": "Output Device",
+      "audioDevice": "Audio Device",
       "exclusiveMode": "Exclusive Mode",
       "exclusiveModeDesc": "Lock audio device for exclusive use",
       "dacPassthrough": "DAC Passthrough",
@@ -131,22 +252,59 @@
         "warm": "Warm"
       },
       "accentColor": "Accent Color",
-      "compactMode": "Compact Mode",
-      "language": "Language"
+      "language": "Language",
+      "uiScale": "UI Scale",
+      "inAppToasts": "In-app Toasts",
+      "systemNotifications": "System Notifications"
+    },
+    "library": {
+      "title": "Library",
+      "fetchArtistImages": "Fetch Qobuz Artist Images",
+      "fetchArtistImagesDesc": "Show artist photos from Qobuz in local library"
     },
     "integrations": {
       "title": "Integrations",
       "lastfm": "Last.fm",
+      "spotify": "Spotify",
+      "tidal": "Tidal",
+      "discogs": "Discogs",
       "connected": "Connected",
+      "connectedAs": "Connected as {username}",
       "notConnected": "Not connected",
       "connect": "Connect",
       "disconnect": "Disconnect",
-      "scrobbling": "Scrobbling"
+      "scrobbling": "Scrobbling",
+      "configureApi": "Configure API",
+      "apiKeys": "API Keys",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "consumerKey": "Consumer Key",
+      "consumerSecret": "Consumer Secret"
     },
     "storage": {
       "title": "Storage",
+      "cachedTracks": "Cached Tracks",
       "cacheSize": "Cache Size",
-      "clearCache": "Clear Cache"
+      "clearCache": "Clear Cache",
+      "clearing": "Clearing..."
+    },
+    "downloads": {
+      "title": "Downloads",
+      "downloadedTracks": "Downloaded Tracks",
+      "clearDownloads": "Clear All",
+      "openFolder": "Open Folder"
+    },
+    "lyrics": {
+      "title": "Lyrics",
+      "lyricsCache": "Lyrics Cache",
+      "clearLyrics": "Clear Lyrics"
+    },
+    "about": {
+      "title": "About",
+      "version": "Version",
+      "sourceCode": "Source Code",
+      "reportIssue": "Report Issue",
+      "checkUpdates": "Check for Updates"
     }
   },
   "auth": {
@@ -156,7 +314,25 @@
     "loginButton": "Sign In",
     "loggingIn": "Signing in...",
     "loginError": "Login failed. Please check your credentials.",
-    "welcomeBack": "Welcome back"
+    "welcomeBack": "Welcome back",
+    "rememberMe": "Remember me"
+  },
+  "notifications": {
+    "trackAdded": "Track added to queue",
+    "tracksAdded": "{count} tracks added to queue",
+    "albumAdded": "Album added to queue",
+    "addedToPlaylist": "Added to playlist",
+    "removedFromPlaylist": "Removed from playlist",
+    "playlistCreated": "Playlist created",
+    "playlistDeleted": "Playlist deleted",
+    "downloadStarted": "Download started",
+    "downloadComplete": "Download complete",
+    "downloadFailed": "Download failed",
+    "scanComplete": "Library scan complete",
+    "scanCancelled": "Library scan cancelled",
+    "scanFailed": "Library scan failed",
+    "settingsSaved": "Settings saved",
+    "copied": "Copied to clipboard"
   },
   "errors": {
     "generic": "Something went wrong",
@@ -164,12 +340,20 @@
     "notFound": "Not found",
     "unauthorized": "Please log in to continue",
     "trackNotAvailable": "This track is not available for streaming",
-    "qualityNotAvailable": "Requested quality is not available"
+    "qualityNotAvailable": "Requested quality is not available",
+    "loadFailed": "Failed to load",
+    "playbackFailed": "Playback failed",
+    "downloadFailed": "Download failed",
+    "saveFailed": "Failed to save"
   },
   "time": {
     "hours": "h",
     "minutes": "min",
-    "seconds": "s"
+    "seconds": "s",
+    "justNow": "Just now",
+    "minutesAgo": "{count} min ago",
+    "hoursAgo": "{count}h ago",
+    "daysAgo": "{count}d ago"
   },
   "empty": {
     "noAlbums": "No albums yet",
@@ -177,6 +361,14 @@
     "noTracks": "No tracks yet",
     "noPlaylists": "No playlists yet",
     "noFavorites": "No favorites yet",
-    "queueEmpty": "Queue is empty"
+    "queueEmpty": "Queue is empty",
+    "noResults": "No results found",
+    "noContent": "No content available"
+  },
+  "confirm": {
+    "deletePlaylist": "Are you sure you want to delete this playlist?",
+    "clearQueue": "Clear all tracks from queue?",
+    "clearCache": "Clear all cached data?",
+    "logout": "Are you sure you want to log out?"
   }
 }
