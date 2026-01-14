@@ -19,7 +19,7 @@ fn is_flatpak() -> bool {
     std::env::var("FLATPAK_ID").is_ok() || std::path::Path::new("/.flatpak-info").exists()
 }
 
-/// Get the tray icon - uses file path in Flatpak, embedded data otherwise
+/// Get the tray icon - loads from file in Flatpak, embedded data otherwise
 fn load_tray_icon() -> Image<'static> {
     // In Flatpak, try to use the installed icon file first
     // This works better with StatusNotifierItem/libayatana-appindicator
@@ -27,8 +27,12 @@ fn load_tray_icon() -> Image<'static> {
         let icon_path = PathBuf::from("/app/share/icons/hicolor/32x32/apps/com.blitzkriegfc.qbz.png");
         if icon_path.exists() {
             log::info!("Flatpak detected, loading tray icon from: {:?}", icon_path);
-            if let Ok(icon) = Image::from_path(&icon_path) {
-                return icon;
+            if let Ok(icon_data) = std::fs::read(&icon_path) {
+                if let Ok(img) = image::load_from_memory(&icon_data) {
+                    let (width, height) = img.dimensions();
+                    let rgba = img.into_rgba8().into_raw();
+                    return Image::new_owned(rgba, width, height);
+                }
             }
             log::warn!("Failed to load icon from path, falling back to embedded");
         }
