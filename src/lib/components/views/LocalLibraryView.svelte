@@ -118,6 +118,7 @@
   type TabType = 'albums' | 'artists' | 'tracks';
   let activeTab = $state<TabType>('albums');
   let showSettings = $state(false);
+  let showHiddenAlbums = $state(false);
   let albumSearch = $state('');
   let albumViewMode = $state<'grid' | 'list'>('grid');
   type AlbumGroupMode = 'alpha' | 'artist';
@@ -132,6 +133,7 @@
 
   // Data state
   let albums = $state<LocalAlbum[]>([]);
+  let hiddenAlbums = $state<LocalAlbum[]>([]);
   let artists = $state<LocalArtist[]>([]);
   let tracks = $state<LocalTrack[]>([]);
   let stats = $state<LibraryStats | null>(null);
@@ -224,7 +226,7 @@
 
       // If not found in loaded albums, we need to fetch album list first
       if (!album) {
-        const allAlbums = await invoke<LocalAlbum[]>('library_get_albums', { limit: 1000, offset: 0 });
+        const allAlbums = await invoke<LocalAlbum[]>('library_get_albums', { includeHidden: false });
         albums = allAlbums;
         album = allAlbums.find(a => a.id === albumId);
       }
@@ -253,7 +255,7 @@
     error = null;
     try {
       const [albumsResult, statsResult] = await Promise.all([
-        invoke<LocalAlbum[]>('library_get_albums', { limit: 100, offset: 0 }),
+        invoke<LocalAlbum[]>('library_get_albums', { includeHidden: false }),
         invoke<LibraryStats>('library_get_stats')
       ]);
       albums = albumsResult;
@@ -597,6 +599,44 @@
       return `${(bytes / 1048576).toFixed(1)} MB`;
     }
     return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  async function handleHideAlbum(album: LocalAlbum) {
+    try {
+      await invoke('library_set_album_hidden', { albumGroupKey: album.id, hidden: true });
+      await loadLibraryData();
+    } catch (err) {
+      console.error('Failed to hide album:', err);
+      alert(`Failed to hide album: ${err}`);
+    }
+  }
+
+  async function handleShowAlbum(album: LocalAlbum) {
+    try {
+      await invoke('library_set_album_hidden', { albumGroupKey: album.id, hidden: false });
+      await loadHiddenAlbums();
+      await loadLibraryData();
+    } catch (err) {
+      console.error('Failed to show album:', err);
+      alert(`Failed to show album: ${err}`);
+    }
+  }
+
+  async function loadHiddenAlbums() {
+    try {
+      hiddenAlbums = await invoke<LocalAlbum[]>('library_get_albums', { includeHidden: true });
+      const visibleAlbumIds = new Set(albums.map(a => a.id));
+      hiddenAlbums = hiddenAlbums.filter(a => !visibleAlbumIds.has(a.id));
+    } catch (err) {
+      console.error('Failed to load hidden albums:', err);
+    }
+  }
+
+  async function toggleHiddenAlbumsView() {
+    showHiddenAlbums = !showHiddenAlbums;
+    if (showHiddenAlbums && hiddenAlbums.length === 0) {
+      await loadHiddenAlbums();
+    }
   }
 
   function getQualityBadge(track: LocalTrack): string {
@@ -1166,6 +1206,12 @@
         {/if}
 
         <div class="settings-actions">
+          <button class="secondary-btn" onclick={toggleHiddenAlbumsView}>
+            <span>{showHiddenAlbums ? 'Show Active Albums' : 'View Hidden Albums'}</span>
+            {#if hiddenAlbums.length > 0}
+              <span class="count">({hiddenAlbums.length})</span>
+            {/if}
+          </button>
           {#if hasDiscogsCredentials}
             <button
               class="secondary-btn"
@@ -1234,6 +1280,55 @@
           <button class="retry-btn" onclick={loadLibraryData}>Retry</button>
         </div>
       {:else if activeTab === 'albums'}
+        {#if showHiddenAlbums}
+          <!-- Hidden Albums View -->
+          <div class="albums-section">
+            <div class="section-header">
+              <h3>Hidden Albums ({hiddenAlbums.length})</h3>
+              <button class="secondary-btn" onclick={toggleHiddenAlbumsView}>
+                <span>Back to Active Albums</span>
+              </button>
+            </div>
+            {#if hiddenAlbums.length === 0}
+              <div class="empty-state">
+                <Disc3 size={64} />
+                <p>No hidden albums</p>
+              </div>
+            {:else}
+              <div class="album-list">
+                {#each hiddenAlbums as album (album.id)}
+                  <div class="album-row" role="button" tabindex="0">
+                    <div class="album-row-art" onclick={() => handleAlbumClick(album)}>
+                      {#if album.artwork_path}
+                        <img src={getArtworkUrl(album.artwork_path)} alt={album.title} loading="lazy" decoding="async" />
+                      {:else}
+                        <div class="artwork-placeholder">
+                          <Disc3 size={28} />
+                        </div>
+                      {/if}
+                    </div>
+                    <div class="album-row-info" onclick={() => handleAlbumClick(album)}>
+                      <div class="album-row-title">{album.title}</div>
+                      <div class="album-row-artist">{album.artist}</div>
+                      <div class="album-row-meta">
+                        {#if album.year}<span>{album.year}</span><span class="separator">•</span>{/if}
+                        <span>{album.track_count} tracks</span>
+                        <span class="separator">•</span>
+                        <span>{formatTotalDuration(album.total_duration_secs)}</span>
+                        <span class="separator">•</span>
+                        <span class="quality-badge" class:hires={isAlbumHiRes(album)}>{getAlbumQualityBadge(album)}</span>
+                      </div>
+                    </div>
+                    <button class="show-album-btn" onclick={() => handleShowAlbum(album)} title="Show album">
+                      <span>Show</span>
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <!-- Active Albums View -->
         {#if albums.length === 0}
           <div class="empty">
             <Disc3 size={48} />
@@ -1344,8 +1439,8 @@
                     {:else}
                       <div class="album-list">
                         {#each group.albums as album (album.id)}
-                          <div class="album-row" role="button" tabindex="0" onclick={() => handleAlbumClick(album)}>
-                            <div class="album-row-art">
+                          <div class="album-row" role="button" tabindex="0">
+                            <div class="album-row-art" onclick={() => handleAlbumClick(album)}>
                               {#if album.artwork_path}
                                 <img src={getArtworkUrl(album.artwork_path)} alt={album.title} loading="lazy" decoding="async" />
                               {:else}
@@ -1354,7 +1449,7 @@
                                 </div>
                               {/if}
                             </div>
-                            <div class="album-row-info">
+                            <div class="album-row-info" onclick={() => handleAlbumClick(album)}>
                               <div class="album-row-title truncate">{album.title}</div>
                               <div class="album-row-meta">
                                 <span>{album.artist}</span>
@@ -1363,10 +1458,19 @@
                                 <span>{formatTotalDuration(album.total_duration_secs)}</span>
                               </div>
                             </div>
-                            <div class="album-row-quality">
+                            <div class="album-row-quality" onclick={() => handleAlbumClick(album)}>
                               <span class="quality-badge" class:hires={isAlbumHiRes(album)}>
                                 {getAlbumQualityBadge(album)}
                               </span>
+                            </div>
+                            <div class="album-row-actions">
+                              <button
+                                class="icon-btn"
+                                onclick={(e: MouseEvent) => { e.stopPropagation(); handleHideAlbum(album); }}
+                                title="Hide album"
+                              >
+                                <X size={14} />
+                              </button>
                             </div>
                           </div>
                         {/each}
@@ -1391,6 +1495,7 @@
               {/if}
             </div>
           {/if}
+        {/if}
         {/if}
       {:else if activeTab === 'artists'}
         {#if artists.length === 0}

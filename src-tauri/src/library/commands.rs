@@ -332,14 +332,13 @@ pub async fn library_stop_scan(state: State<'_, LibraryState>) -> Result<(), Str
 
 #[tauri::command]
 pub async fn library_get_albums(
-    limit: Option<u32>,
-    offset: Option<u32>,
+    include_hidden: Option<bool>,
     state: State<'_, LibraryState>,
 ) -> Result<Vec<LocalAlbum>, String> {
     log::info!("Command: library_get_albums");
 
     let db = state.db.lock().await;
-    db.get_albums(limit.unwrap_or(50), offset.unwrap_or(0))
+    db.get_albums(include_hidden.unwrap_or(false))
         .map_err(|e| e.to_string())
 }
 
@@ -811,4 +810,42 @@ pub async fn library_set_album_artwork(
         .map_err(|e| e.to_string())?;
 
     Ok(cached_path)
+}
+
+// === Album Settings ===
+
+#[tauri::command]
+pub async fn library_get_album_settings(
+    album_group_key: String,
+    state: State<'_, LibraryState>,
+) -> Result<Option<crate::library::AlbumSettings>, String> {
+    log::info!("Command: library_get_album_settings {}", album_group_key);
+
+    let db = state.db.lock().await;
+    db.get_album_settings(&album_group_key)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn library_set_album_hidden(
+    album_group_key: String,
+    hidden: bool,
+    state: State<'_, LibraryState>,
+) -> Result<(), String> {
+    log::info!("Command: library_set_album_hidden {} = {}", album_group_key, hidden);
+
+    let db = state.db.lock().await;
+    db.set_album_hidden(&album_group_key, hidden)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn library_get_hidden_albums(
+    state: State<'_, LibraryState>,
+) -> Result<Vec<String>, String> {
+    log::info!("Command: library_get_hidden_albums");
+
+    let db = state.db.lock().await;
+    db.get_hidden_albums()
+        .map_err(|e| e.to_string())
 }

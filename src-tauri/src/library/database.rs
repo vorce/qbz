@@ -110,6 +110,14 @@ impl LibraryDatabase {
 
             CREATE INDEX IF NOT EXISTS idx_playlist_local_tracks_playlist
                 ON playlist_local_tracks(qobuz_playlist_id);
+
+            -- Album settings (per-album customization)
+            CREATE TABLE IF NOT EXISTS album_settings (
+                album_group_key TEXT PRIMARY KEY,
+                hidden INTEGER DEFAULT 0,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
         "#,
             )
             .map_err(|e| LibraryError::Database(format!("Failed to create schema: {}", e)))?;
@@ -375,12 +383,10 @@ impl LibraryDatabase {
 
     // === Query Methods ===
 
-    /// Get all albums (paginated)
-    pub fn get_albums(&self, limit: u32, offset: u32) -> Result<Vec<LocalAlbum>, LibraryError> {
-        let mut stmt = self
-            .conn
-            .prepare(
-                r#"
+    /// Get all albums with optional hidden filter
+    pub fn get_albums(&self, include_hidden: bool) -> Result<Vec<LocalAlbum>, LibraryError> {
+        let query = if include_hidden {
+            r#"
             SELECT
                 group_key,
                 MIN(title) as title,
@@ -411,13 +417,52 @@ impl LibraryDatabase {
             )
             GROUP BY group_key
             ORDER BY artist, title
-            LIMIT ? OFFSET ?
-        "#,
+            "#
+        } else {
+            r#"
+            SELECT
+                group_key,
+                MIN(title) as title,
+                CASE
+                    WHEN COUNT(DISTINCT artist) > 1 THEN 'Various Artists'
+                    ELSE MIN(artist)
+                END as artist,
+                MIN(year) as year,
+                MAX(artwork_path) as artwork,
+                COUNT(*) as track_count,
+                SUM(duration_secs) as total_duration,
+                MAX(format) as format,
+                MAX(bit_depth) as bit_depth,
+                MAX(sample_rate) as sample_rate,
+                MAX(group_key) as directory_path
+            FROM (
+                SELECT
+                    COALESCE(album_group_key, album || '|' || COALESCE(album_artist, artist)) as group_key,
+                    COALESCE(album_group_title, album) as title,
+                    COALESCE(album_artist, artist) as artist,
+                    year,
+                    artwork_path,
+                    duration_secs,
+                    format,
+                    bit_depth,
+                    sample_rate
+                FROM local_tracks
             )
+            WHERE group_key NOT IN (
+                SELECT album_group_key FROM album_settings WHERE hidden = 1
+            )
+            GROUP BY group_key
+            ORDER BY artist, title
+            "#
+        };
+
+        let mut stmt = self
+            .conn
+            .prepare(query)
             .map_err(|e| LibraryError::Database(e.to_string()))?;
 
         let rows = stmt
-            .query_map(params![limit, offset], |row| {
+            .query_map([], |row| {
                 let group_key: String = row.get(0)?;
                 let album: String = row.get(1)?;
                 let artist: String = row.get(2)?;
@@ -1236,5 +1281,60 @@ impl LibraryDatabase {
         ).map_err(|e| LibraryError::Database(format!("Failed to clear playlist local tracks: {}", e)))?;
 
         Ok(())
+    }
+
+    // === Album Settings ===
+
+    /// Get album settings
+    pub fn get_album_settings(&self, album_group_key: &str) -> Result<Option<crate::library::AlbumSettings>, LibraryError> {
+        let result = self.conn.query_row(
+            "SELECT album_group_key, hidden, created_at, updated_at
+             FROM album_settings WHERE album_group_key = ?1",
+            params![album_group_key],
+            |row| {
+                Ok(crate::library::AlbumSettings {
+                    album_group_key: row.get(0)?,
+                    hidden: row.get::<_, i32>(1)? != 0,
+                    created_at: row.get(2)?,
+                    updated_at: row.get(3)?,
+                })
+            },
+        ).optional()
+        .map_err(|e| LibraryError::Database(format!("Failed to get album settings: {}", e)))?;
+
+        Ok(result)
+    }
+
+    /// Set album hidden status
+    pub fn set_album_hidden(&self, album_group_key: &str, hidden: bool) -> Result<(), LibraryError> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        self.conn.execute(
+            "INSERT INTO album_settings (album_group_key, hidden, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(album_group_key) DO UPDATE SET
+                hidden = excluded.hidden,
+                updated_at = excluded.updated_at",
+            params![album_group_key, hidden as i32, now, now],
+        ).map_err(|e| LibraryError::Database(format!("Failed to set album hidden: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// Get all hidden albums
+    pub fn get_hidden_albums(&self) -> Result<Vec<String>, LibraryError> {
+        let mut stmt = self.conn
+            .prepare("SELECT album_group_key FROM album_settings WHERE hidden = 1")
+            .map_err(|e| LibraryError::Database(e.to_string()))?;
+
+        let rows = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|e| LibraryError::Database(e.to_string()))?;
+
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| LibraryError::Database(e.to_string()))
     }
 }

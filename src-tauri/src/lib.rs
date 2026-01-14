@@ -381,6 +381,10 @@ pub fn run() {
             library::commands::library_fetch_missing_artwork,
             library::commands::library_fetch_album_artwork,
             library::commands::library_set_album_artwork,
+            // Album settings commands
+            library::commands::library_get_album_settings,
+            library::commands::library_set_album_hidden,
+            library::commands::library_get_hidden_albums,
             // Chromecast casting commands
             cast::commands::cast_start_discovery,
             cast::commands::cast_stop_discovery,
