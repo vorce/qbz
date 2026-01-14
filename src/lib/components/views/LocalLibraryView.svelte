@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
+  import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import { onMount } from 'svelte';
   import {
     HardDrive, Music, Disc3, Mic2, FolderPlus, Trash2, RefreshCw,
-    Settings, X, Play, Plus, AlertCircle, Clock, ImageDown, ListPlus
+    Settings, X, Play, AlertCircle, ImageDown, Search, LayoutGrid, List
   } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
@@ -18,6 +18,8 @@
     artist: string;
     album: string;
     album_artist?: string;
+    album_group_key?: string;
+    album_group_title?: string;
     track_number?: number;
     disc_number?: number;
     year?: number;
@@ -92,6 +94,16 @@
   type TabType = 'albums' | 'artists' | 'tracks';
   let activeTab = $state<TabType>('albums');
   let showSettings = $state(false);
+  let albumSearch = $state('');
+  let albumViewMode = $state<'grid' | 'list'>('grid');
+  type AlbumGroupMode = 'alpha' | 'artist';
+  let albumGroupMode = $state<AlbumGroupMode>('alpha');
+  let showGroupMenu = $state(false);
+  let trackSearch = $state('');
+  type TrackGroupMode = 'album' | 'artist' | 'name';
+  let trackGroupMode = $state<TrackGroupMode>('album');
+  let showTrackGroupMenu = $state(false);
+  let trackSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Data state
   let albums = $state<LocalAlbum[]>([]);
@@ -187,10 +199,10 @@
     }
   }
 
-  async function loadTracks() {
+  async function loadTracks(query = '') {
     loading = true;
     try {
-      tracks = await invoke<LocalTrack[]>('library_search', { query: '', limit: 500 });
+      tracks = await invoke<LocalTrack[]>('library_search', { query, limit: 1000 });
     } catch (err) {
       console.error('Failed to load tracks:', err);
       error = String(err);
@@ -206,7 +218,7 @@
     if (tab === 'artists' && artists.length === 0) {
       loadArtists();
     } else if (tab === 'tracks' && tracks.length === 0) {
-      loadTracks();
+      loadTracks(trackSearch.trim());
     }
   }
 
@@ -325,8 +337,7 @@
     selectedAlbum = album;
     try {
       albumTracks = await invoke<LocalTrack[]>('library_get_album_tracks', {
-        album: album.title,
-        artist: album.artist
+        albumGroupKey: album.id
       });
     } catch (err) {
       console.error('Failed to load album tracks:', err);
@@ -353,7 +364,7 @@
       artist: t.artist,
       album: t.album,
       duration_secs: t.duration_secs,
-      artwork_url: t.artwork_path ? `file://${t.artwork_path}` : null,
+      artwork_url: t.artwork_path ? getArtworkUrl(t.artwork_path) : null,
       hires: (t.bit_depth && t.bit_depth > 16) || t.sample_rate > 44100,
       bit_depth: t.bit_depth ?? null,
       sample_rate: t.sample_rate ?? null,
@@ -426,15 +437,264 @@
     return (album.bit_depth ?? 16) >= 24 || album.sample_rate > 48000;
   }
 
+  function extractDiscNumber(track: LocalTrack): number {
+    if (track.disc_number && track.disc_number > 0) return track.disc_number;
+
+    const album = track.album ?? '';
+    const match = album.match(/(?:disc|disk|cd)\s*([0-9]+)/i);
+    if (match) {
+      const parsed = Number(match[1]);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    }
+
+    return 1;
+  }
+
+  function buildAlbumSections(tracks: LocalTrack[]) {
+    const sorted = [...tracks].sort((a, b) => {
+      const aDisc = extractDiscNumber(a);
+      const bDisc = extractDiscNumber(b);
+      if (aDisc !== bDisc) return aDisc - bDisc;
+      const aTrack = a.track_number ?? 0;
+      const bTrack = b.track_number ?? 0;
+      if (aTrack !== bTrack) return aTrack - bTrack;
+      return a.title.localeCompare(b.title);
+    });
+
+    const groups = new Map<number, LocalTrack[]>();
+    for (const track of sorted) {
+      const disc = extractDiscNumber(track);
+      if (!groups.has(disc)) {
+        groups.set(disc, []);
+      }
+      groups.get(disc)?.push(track);
+    }
+
+    const discs = [...groups.keys()].sort((a, b) => a - b);
+    return discs.map(disc => ({
+      disc,
+      label: `Disc ${disc}`,
+      tracks: groups.get(disc) ?? []
+    }));
+  }
+
   function getArtworkUrl(path?: string): string {
     if (!path) return '';
-    // Use asset:// protocol for Tauri 2.0 to load local files in WebView
-    return `asset://localhost/${encodeURIComponent(path)}`;
+    return convertFileSrc(path);
+  }
+
+  function matchesAlbumSearch(album: LocalAlbum, query: string): boolean {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    return (
+      album.title.toLowerCase().includes(needle) ||
+      album.artist.toLowerCase().includes(needle)
+    );
+  }
+
+  const alphaIndexLetters = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
+
+  function alphaGroupKey(title: string): string {
+    const trimmed = title.trim();
+    if (!trimmed) return '#';
+    const first = trimmed[0].toUpperCase();
+    return first >= 'A' && first <= 'Z' ? first : '#';
+  }
+
+  function slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'group';
+  }
+
+  function groupIdForKey(prefix: string, key: string): string {
+    if (key === '#') {
+      return `${prefix}-num`;
+    }
+    return `${prefix}-${slugify(key)}`;
+  }
+
+  function groupAlbums(items: LocalAlbum[], mode: AlbumGroupMode) {
+    const prefix = `album-${mode}`;
+    const sorted = [...items].sort((a, b) => {
+      if (mode === 'artist') {
+        const artistCmp = a.artist.localeCompare(b.artist);
+        if (artistCmp !== 0) return artistCmp;
+        return a.title.localeCompare(b.title);
+      }
+      return a.title.localeCompare(b.title);
+    });
+
+    const groups = new Map<string, LocalAlbum[]>();
+    for (const album of sorted) {
+      const key = mode === 'artist' ? album.artist : alphaGroupKey(album.title);
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)?.push(album);
+    }
+
+    const keys = [...groups.keys()].sort((a, b) => {
+      if (mode === 'alpha') {
+        if (a === '#') return -1;
+        if (b === '#') return 1;
+      }
+      return a.localeCompare(b);
+    });
+
+    return keys.map(key => ({
+      key,
+      id: groupIdForKey(prefix, key),
+      albums: groups.get(key) ?? []
+    }));
+  }
+
+  function scrollToGroup(prefix: string, letter: string, available: Set<string>) {
+    if (!available.has(letter)) return;
+    const id = groupIdForKey(prefix, letter);
+    const target = document.getElementById(id);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function scrollToGroupId(groupId?: string) {
+    if (!groupId) return;
+    const target = document.getElementById(groupId);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function scheduleTrackSearch() {
+    if (trackSearchTimer) {
+      clearTimeout(trackSearchTimer);
+    }
+    trackSearchTimer = setTimeout(() => {
+      loadTracks(trackSearch.trim());
+    }, 250);
+  }
+
+  function trackSortValue(track: LocalTrack) {
+    const disc = track.disc_number ?? 0;
+    const trackNumber = track.track_number ?? 0;
+    return { disc, trackNumber };
+  }
+
+  function normalizeAlbumTitle(title: string): string {
+    const trimmed = title.trim();
+    if (!trimmed) return trimmed;
+
+    let normalized = trimmed.replace(/\s*[\[(](disc|disk|cd)\s*\d+[\])]\s*$/i, '');
+    normalized = normalized.replace(/\s+(disc|disk|cd)\s*\d+\s*$/i, '');
+    return normalized.trim() || trimmed;
+  }
+
+  function groupTracks(items: LocalTrack[], mode: TrackGroupMode) {
+    const prefix = `track-${mode}`;
+    const sorted = [...items].sort((a, b) => {
+      if (mode === 'album') {
+        const albumCmp = a.album.localeCompare(b.album);
+        if (albumCmp !== 0) return albumCmp;
+        const artistCmp = a.artist.localeCompare(b.artist);
+        if (artistCmp !== 0) return artistCmp;
+        const aOrder = trackSortValue(a);
+        const bOrder = trackSortValue(b);
+        if (aOrder.disc !== bOrder.disc) return aOrder.disc - bOrder.disc;
+        if (aOrder.trackNumber !== bOrder.trackNumber) return aOrder.trackNumber - bOrder.trackNumber;
+        return a.title.localeCompare(b.title);
+      }
+      if (mode === 'artist') {
+        const artistCmp = a.artist.localeCompare(b.artist);
+        if (artistCmp !== 0) return artistCmp;
+        const albumCmp = a.album.localeCompare(b.album);
+        if (albumCmp !== 0) return albumCmp;
+        const aOrder = trackSortValue(a);
+        const bOrder = trackSortValue(b);
+        if (aOrder.disc !== bOrder.disc) return aOrder.disc - bOrder.disc;
+        if (aOrder.trackNumber !== bOrder.trackNumber) return aOrder.trackNumber - bOrder.trackNumber;
+        return a.title.localeCompare(b.title);
+      }
+      const titleCmp = a.title.localeCompare(b.title);
+      if (titleCmp !== 0) return titleCmp;
+      const artistCmp = a.artist.localeCompare(b.artist);
+      if (artistCmp !== 0) return artistCmp;
+      return a.album.localeCompare(b.album);
+    });
+
+    const groups = new Map<string, { title: string; subtitle?: string; tracks: LocalTrack[]; artists: Set<string> }>();
+    for (const track of sorted) {
+      if (mode === 'album') {
+        const title = track.album_group_title?.trim() || normalizeAlbumTitle(track.album);
+        const albumArtist = track.album_artist?.trim() || '';
+        const groupKey = track.album_group_key?.trim()
+          ? track.album_group_key
+          : albumArtist
+            ? `${title}|||${albumArtist}`
+            : title;
+        const entry = groups.get(groupKey);
+        if (!entry) {
+          groups.set(groupKey, {
+            title,
+            subtitle: albumArtist || undefined,
+            tracks: [track],
+            artists: new Set([track.artist || 'Unknown Artist'])
+          });
+        } else {
+          entry.tracks.push(track);
+          if (albumArtist && !entry.subtitle) {
+            entry.subtitle = albumArtist;
+          }
+          entry.artists.add(track.artist || 'Unknown Artist');
+        }
+      } else if (mode === 'artist') {
+        const key = track.artist || 'Unknown Artist';
+        if (!groups.has(key)) {
+          groups.set(key, { title: key, tracks: [], artists: new Set([key]) });
+        }
+        groups.get(key)?.tracks.push(track);
+      } else {
+        const key = alphaGroupKey(track.title);
+        if (!groups.has(key)) {
+          groups.set(key, { title: key, tracks: [], artists: new Set() });
+        }
+        groups.get(key)?.tracks.push(track);
+      }
+    }
+
+    const keys = [...groups.keys()].sort((a, b) => {
+      if (mode === 'name') {
+        if (a === '#') return -1;
+        if (b === '#') return 1;
+      }
+      if (mode === 'album') {
+        const titleCmp = (groups.get(a)?.title ?? a).localeCompare(groups.get(b)?.title ?? b);
+        if (titleCmp !== 0) return titleCmp;
+      }
+      return a.localeCompare(b);
+    });
+
+    return keys.map(key => ({
+      key,
+      id: groupIdForKey(prefix, key),
+      title: groups.get(key)?.title ?? key,
+      subtitle: (() => {
+        const entry = groups.get(key);
+        if (!entry) return undefined;
+        if (mode === 'album') {
+          if (entry.subtitle) return entry.subtitle;
+          const artists = [...entry.artists];
+          if (artists.length > 1) return 'Various Artists';
+          return artists[0];
+        }
+        return entry.subtitle;
+      })(),
+      tracks: groups.get(key)?.tracks ?? []
+    }));
   }
 </script>
 
 <div class="library-view">
   {#if selectedAlbum}
+    {@const albumSections = buildAlbumSections(albumTracks)}
+    {@const showDiscHeaders = albumSections.length > 1}
     <!-- Album Detail View -->
     <div class="album-detail">
       <button class="back-btn" onclick={() => (selectedAlbum = null)}>
@@ -481,23 +741,28 @@
       </div>
 
       <div class="track-list">
-        {#each albumTracks as track, index (track.id)}
-          <TrackRow
-            number={track.track_number ?? index + 1}
-            title={track.title}
-            artist={track.artist !== selectedAlbum?.artist ? track.artist : undefined}
-            duration={formatDuration(track.duration_secs)}
-            quality={getQualityBadge(track)}
-            hideDownload={true}
-            hideFavorite={true}
-            onPlay={() => handleTrackPlay(track)}
-            menuActions={{
-              onPlayNow: () => handleTrackPlay(track),
-              onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
-              onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
-              onAddToPlaylist: () => openPlaylistPicker(track)
-            }}
-          />
+        {#each albumSections as section (section.disc)}
+          {#if showDiscHeaders}
+            <div class="disc-header">{section.label}</div>
+          {/if}
+          {#each section.tracks as track, index (track.id)}
+            <TrackRow
+              number={track.track_number ?? index + 1}
+              title={track.title}
+              artist={track.artist !== selectedAlbum?.artist ? track.artist : undefined}
+              duration={formatDuration(track.duration_secs)}
+              quality={getQualityBadge(track)}
+              hideDownload={true}
+              hideFavorite={true}
+              onPlay={() => handleTrackPlay(track)}
+              menuActions={{
+                onPlayNow: () => handleTrackPlay(track),
+                onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+                onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
+                onAddToPlaylist: () => openPlaylistPicker(track)
+              }}
+            />
+          {/each}
         {/each}
       </div>
     </div>
@@ -653,17 +918,151 @@
             <p class="empty-hint">Add folders and scan to build your library</p>
           </div>
         {:else}
-          <div class="album-grid">
-            {#each albums as album (album.id)}
-              <AlbumCard
-                artwork={getArtworkUrl(album.artwork_path)}
-                title={album.title}
-                artist={album.artist}
-                quality={getAlbumQualityBadge(album)}
-                onclick={() => handleAlbumClick(album)}
+          {@const filteredAlbums = albumSearch.trim()
+            ? albums.filter(album => matchesAlbumSearch(album, albumSearch))
+            : albums}
+
+          <div class="album-controls">
+            <div class="search-container">
+              <Search size={16} class="search-icon" />
+              <input
+                type="text"
+                placeholder="Search albums or artists..."
+                bind:value={albumSearch}
+                class="search-input"
               />
-            {/each}
+              {#if albumSearch}
+                <button class="clear-search" onclick={() => (albumSearch = '')}>
+                  <X size={14} />
+                </button>
+              {/if}
+            </div>
+
+            <div class="dropdown-container">
+              <button
+                class="control-btn"
+                onclick={() => (showGroupMenu = !showGroupMenu)}
+                title="Group albums"
+              >
+                <span>{albumGroupMode === 'alpha' ? 'Group: A-Z' : 'Group: Artist'}</span>
+              </button>
+              {#if showGroupMenu}
+                <div class="dropdown-menu">
+                  <button
+                    class="dropdown-item"
+                    class:selected={albumGroupMode === 'alpha'}
+                    onclick={() => { albumGroupMode = 'alpha'; showGroupMenu = false; }}
+                  >
+                    Alphabetical (A-Z)
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={albumGroupMode === 'artist'}
+                    onclick={() => { albumGroupMode = 'artist'; showGroupMenu = false; }}
+                  >
+                    Artist
+                  </button>
+                </div>
+              {/if}
+            </div>
+
+            <button
+              class="control-btn icon-only"
+              onclick={() => (albumViewMode = albumViewMode === 'list' ? 'grid' : 'list')}
+              title={albumViewMode === 'list' ? 'Grid view' : 'List view'}
+            >
+              {#if albumViewMode === 'list'}
+                <LayoutGrid size={16} />
+              {:else}
+                <List size={16} />
+              {/if}
+            </button>
+
+            <span class="album-count">{filteredAlbums.length} albums</span>
           </div>
+
+          {#if filteredAlbums.length === 0}
+            <div class="empty">
+              <Disc3 size={48} />
+              <p>No albums match your search</p>
+              <p class="empty-hint">Try a different artist or album name</p>
+            </div>
+          {:else}
+          {@const groupedAlbums = groupAlbums(filteredAlbums, albumGroupMode)}
+          {@const alphaGroups = albumGroupMode === 'alpha'
+            ? new Set(groupedAlbums.map(group => group.key))
+            : new Set<string>()}
+
+            <div class="album-sections">
+              <div class="album-group-list">
+                {#each groupedAlbums as group (group.id)}
+                  <div class="album-group" id={group.id}>
+                    <div class="album-group-header">
+                      <span class="album-group-title">{group.key}</span>
+                      <span class="album-group-count">{group.albums.length}</span>
+                    </div>
+                    {#if albumViewMode === 'grid'}
+                      <div class="album-grid">
+                        {#each group.albums as album (album.id)}
+                          <AlbumCard
+                            artwork={getArtworkUrl(album.artwork_path)}
+                            title={album.title}
+                            artist={album.artist}
+                            quality={getAlbumQualityBadge(album)}
+                            onclick={() => handleAlbumClick(album)}
+                          />
+                        {/each}
+                      </div>
+                    {:else}
+                      <div class="album-list">
+                        {#each group.albums as album (album.id)}
+                          <div class="album-row" role="button" tabindex="0" onclick={() => handleAlbumClick(album)}>
+                            <div class="album-row-art">
+                              {#if album.artwork_path}
+                                <img src={getArtworkUrl(album.artwork_path)} alt={album.title} loading="lazy" decoding="async" />
+                              {:else}
+                                <div class="artwork-placeholder">
+                                  <Disc3 size={28} />
+                                </div>
+                              {/if}
+                            </div>
+                            <div class="album-row-info">
+                              <div class="album-row-title truncate">{album.title}</div>
+                              <div class="album-row-meta">
+                                <span>{album.artist}</span>
+                                {#if album.year}<span>{album.year}</span>{/if}
+                                <span>{album.track_count} tracks</span>
+                                <span>{formatTotalDuration(album.total_duration_secs)}</span>
+                              </div>
+                            </div>
+                            <div class="album-row-quality">
+                              <span class="quality-badge" class:hires={isAlbumHiRes(album)}>
+                                {getAlbumQualityBadge(album)}
+                              </span>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+
+              {#if albumGroupMode === 'alpha'}
+                <div class="alpha-index">
+                  {#each alphaIndexLetters as letter}
+                    <button
+                      class="alpha-letter"
+                      class:disabled={!alphaGroups.has(letter)}
+                      onclick={() => scrollToGroup('album-alpha', letter, alphaGroups)}
+                    >
+                      {letter}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
         {/if}
       {:else if activeTab === 'artists'}
         {#if artists.length === 0}
@@ -693,25 +1092,165 @@
             <p>No tracks in library</p>
           </div>
         {:else}
-          <div class="track-list">
-            {#each tracks as track, index (track.id)}
-              <TrackRow
-                number={index + 1}
-                title={track.title}
-                artist={track.artist}
-                duration={formatDuration(track.duration_secs)}
-                quality={getQualityBadge(track)}
-                hideDownload={true}
-                hideFavorite={true}
-                onPlay={() => handleTrackPlay(track)}
-                menuActions={{
-                  onPlayNow: () => handleTrackPlay(track),
-                  onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
-                  onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
-                  onAddToPlaylist: () => openPlaylistPicker(track)
-                }}
+          <div class="track-controls">
+            <div class="search-container">
+              <Search size={16} class="search-icon" />
+              <input
+                type="text"
+                placeholder="Search tracks, albums, artists..."
+                bind:value={trackSearch}
+                oninput={scheduleTrackSearch}
+                class="search-input"
               />
-            {/each}
+              {#if trackSearch}
+                <button class="clear-search" onclick={() => { trackSearch = ''; loadTracks(''); }}>
+                  <X size={14} />
+                </button>
+              {/if}
+            </div>
+
+            <div class="dropdown-container">
+              <button
+                class="control-btn"
+                onclick={() => (showTrackGroupMenu = !showTrackGroupMenu)}
+                title="Group tracks"
+              >
+                <span>
+                  {trackGroupMode === 'album'
+                    ? 'Group: Album'
+                    : trackGroupMode === 'artist'
+                      ? 'Group: Artist'
+                      : 'Group: Name'}
+                </span>
+              </button>
+              {#if showTrackGroupMenu}
+                <div class="dropdown-menu">
+                  <button
+                    class="dropdown-item"
+                    class:selected={trackGroupMode === 'album'}
+                    onclick={() => { trackGroupMode = 'album'; showTrackGroupMenu = false; }}
+                  >
+                    Album
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={trackGroupMode === 'artist'}
+                    onclick={() => { trackGroupMode = 'artist'; showTrackGroupMenu = false; }}
+                  >
+                    Artist
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={trackGroupMode === 'name'}
+                    onclick={() => { trackGroupMode = 'name'; showTrackGroupMenu = false; }}
+                  >
+                    Name (A-Z)
+                  </button>
+                </div>
+              {/if}
+            </div>
+
+            <span class="album-count">{tracks.length} tracks</span>
+          </div>
+
+          {@const groupedTracks = groupTracks(tracks, trackGroupMode)}
+          {@const trackIndexTargets = trackGroupMode === 'artist'
+            ? (() => {
+                const map = new Map<string, string>();
+                for (const group of groupedTracks) {
+                  const letter = alphaGroupKey(group.title);
+                  if (!map.has(letter)) {
+                    map.set(letter, group.id);
+                  }
+                }
+                return map;
+              })()
+            : new Map<string, string>()}
+          {@const trackAlphaGroups = trackGroupMode === 'name'
+            ? new Set(groupedTracks.map(group => group.key))
+            : trackGroupMode === 'artist'
+              ? new Set(trackIndexTargets.keys())
+              : new Set<string>()}
+
+          <div class="track-sections">
+            <div class="track-group-list">
+              {#each groupedTracks as group (group.id)}
+                <div class="track-group" id={group.id}>
+                  <div class="track-group-header">
+                    <div class="track-group-title">{group.title}</div>
+                    {#if group.subtitle}
+                      <div class="track-group-subtitle">{group.subtitle}</div>
+                    {/if}
+                    <div class="track-group-count">{group.tracks.length} tracks</div>
+                  </div>
+
+                  <div class="track-list">
+                    {#if trackGroupMode === 'album'}
+                      {@const trackSections = buildAlbumSections(group.tracks)}
+                      {@const showTrackDiscHeaders = trackSections.length > 1}
+                      {#each trackSections as section (section.disc)}
+                        {#if showTrackDiscHeaders}
+                          <div class="disc-header">{section.label}</div>
+                        {/if}
+                        {#each section.tracks as track, index (track.id)}
+                          <TrackRow
+                            number={track.track_number ?? index + 1}
+                            title={track.title}
+                            artist={track.artist}
+                            duration={formatDuration(track.duration_secs)}
+                            quality={getQualityBadge(track)}
+                            hideDownload={true}
+                            hideFavorite={true}
+                            onPlay={() => handleTrackPlay(track)}
+                            menuActions={{
+                              onPlayNow: () => handleTrackPlay(track),
+                              onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+                              onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
+                              onAddToPlaylist: () => openPlaylistPicker(track)
+                            }}
+                          />
+                        {/each}
+                      {/each}
+                    {:else}
+                      {#each group.tracks as track, index (track.id)}
+                        <TrackRow
+                          number={track.track_number ?? index + 1}
+                          title={track.title}
+                          artist={track.artist}
+                          duration={formatDuration(track.duration_secs)}
+                          quality={getQualityBadge(track)}
+                          hideDownload={true}
+                          hideFavorite={true}
+                          onPlay={() => handleTrackPlay(track)}
+                          menuActions={{
+                            onPlayNow: () => handleTrackPlay(track),
+                            onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+                            onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
+                            onAddToPlaylist: () => openPlaylistPicker(track)
+                          }}
+                        />
+                      {/each}
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            </div>
+
+            {#if trackGroupMode === 'name' || trackGroupMode === 'artist'}
+              <div class="alpha-index">
+                {#each alphaIndexLetters as letter}
+                  <button
+                    class="alpha-letter"
+                    class:disabled={!trackAlphaGroups.has(letter)}
+                    onclick={() => trackGroupMode === 'artist'
+                      ? scrollToGroupId(trackIndexTargets.get(letter))
+                      : scrollToGroup(`track-${trackGroupMode}`, letter, trackAlphaGroups)}
+                  >
+                    {letter}
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
         {/if}
       {/if}
@@ -778,7 +1317,7 @@
   }
 
   .header-content h1 {
-    font-size: 32px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0 0 4px 0;
@@ -1045,6 +1584,125 @@
     opacity: 0.7;
   }
 
+  /* Album Controls */
+  .album-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .search-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 8px 12px;
+    flex: 1;
+    max-width: 420px;
+  }
+
+  .search-icon {
+    color: var(--text-muted);
+  }
+
+  .search-input {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    width: 100%;
+    outline: none;
+  }
+
+  .search-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .clear-search {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  .clear-search:hover {
+    color: var(--text-primary);
+  }
+
+  .control-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .control-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .control-btn.icon-only {
+    width: 36px;
+    height: 36px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .album-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: auto;
+  }
+
+  .dropdown-container {
+    position: relative;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 6px;
+    min-width: 180px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    z-index: 20;
+  }
+
+  .dropdown-item {
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 150ms ease;
+  }
+
+  .dropdown-item:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .dropdown-item.selected {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+  }
+
   /* Content */
   .content {
     min-height: 200px;
@@ -1095,6 +1753,211 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 24px;
+  }
+
+  .album-sections {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .album-group-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .album-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .album-group-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .album-group-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .album-group-count {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* Album List */
+  .album-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .album-row {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 150ms ease;
+  }
+
+  .album-row:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .album-row-art {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .album-row-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .album-row-info {
+    min-width: 0;
+  }
+
+  .album-row-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .album-row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .album-row-meta span + span::before {
+    content: "\2022";
+    margin: 0 8px;
+    color: var(--text-muted);
+  }
+
+  .album-row-quality {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .album-row-quality .quality-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 3px 8px;
+  }
+
+  .album-row-quality .quality-badge.hires {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border-color: transparent;
+  }
+
+  /* Track Controls */
+  .track-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .track-sections {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .track-group-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .track-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .track-group-header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .track-group-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .track-group-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .track-group-count {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .alpha-index {
+    position: sticky;
+    top: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 4px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .alpha-letter {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    opacity: 0.9;
+  }
+
+  .alpha-letter:hover {
+    color: var(--accent-primary);
+  }
+
+  .alpha-letter.disabled {
+    opacity: 0.25;
+    cursor: default;
+    pointer-events: none;
   }
 
   /* Artist Grid */
@@ -1149,6 +2012,20 @@
   .track-list {
     display: flex;
     flex-direction: column;
+  }
+
+  .disc-header {
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .track-list .disc-header:first-child {
+    margin-top: 0;
   }
 
   /* Album Detail */
@@ -1212,7 +2089,7 @@
   }
 
   .album-info h1 {
-    font-size: 32px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0 0 8px 0;

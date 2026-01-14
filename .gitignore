@@ -38,3 +38,11 @@ src-tauri/target/
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Flatpak build artifacts
+flatpak-build/
+flatpak-repo/
+.flatpak-builder/
+
+# Local build temp
+/.tmp/

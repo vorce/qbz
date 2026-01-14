@@ -10,11 +10,16 @@ use tokio::time::sleep;
 
 use crate::playlist_import::errors::PlaylistImportError;
 use crate::playlist_import::models::{ImportPlaylist, ImportProvider, ImportTrack};
+use crate::playlist_import::providers::ProviderCredentials;
 
 const RATE_LIMIT_DELAY_MS: u64 = 200; // Delay between API calls to avoid 429
 
 const TIDAL_TOKEN_URL: &str = "https://auth.tidal.com/v1/oauth2/token";
 const TIDAL_API_BASE: &str = "https://openapi.tidal.com/v2";
+
+// Compile-time embedded credentials (from build environment)
+const EMBEDDED_CLIENT_ID: Option<&str> = option_env!("TIDAL_API_CLIENT_ID");
+const EMBEDDED_CLIENT_SECRET: Option<&str> = option_env!("TIDAL_API_CLIENT_SECRET");
 
 pub fn parse_playlist_id(url: &str) -> Option<String> {
     if !url.contains("tidal.com") {
@@ -37,8 +42,11 @@ pub fn parse_playlist_id(url: &str) -> Option<String> {
     None
 }
 
-pub async fn fetch_playlist(playlist_id: &str) -> Result<ImportPlaylist, PlaylistImportError> {
-    let token = get_app_token().await?;
+pub async fn fetch_playlist(
+    playlist_id: &str,
+    user_creds: Option<ProviderCredentials>,
+) -> Result<ImportPlaylist, PlaylistImportError> {
+    let token = get_app_token(user_creds).await?;
     let country_code = env::var("TIDAL_COUNTRY_CODE").unwrap_or_else(|_| "US".to_string());
 
     let client = reqwest::Client::new();
@@ -328,11 +336,20 @@ fn parse_duration_ms(value: &str) -> Option<u64> {
     }
 }
 
-async fn get_app_token() -> Result<String, PlaylistImportError> {
-    let client_id = env::var("TIDAL_API_CLIENT_ID")
-        .map_err(|_| PlaylistImportError::MissingCredentials("TIDAL_API_CLIENT_ID".to_string()))?;
-    let client_secret = env::var("TIDAL_API_CLIENT_SECRET")
-        .map_err(|_| PlaylistImportError::MissingCredentials("TIDAL_API_CLIENT_SECRET".to_string()))?;
+async fn get_app_token(user_creds: Option<ProviderCredentials>) -> Result<String, PlaylistImportError> {
+    // Priority: user-provided > embedded > runtime env vars
+    let client_id = user_creds
+        .as_ref()
+        .and_then(|c| c.client_id.clone())
+        .or_else(|| EMBEDDED_CLIENT_ID.map(String::from))
+        .or_else(|| env::var("TIDAL_API_CLIENT_ID").ok())
+        .ok_or_else(|| PlaylistImportError::MissingCredentials("TIDAL_API_CLIENT_ID".to_string()))?;
+    let client_secret = user_creds
+        .as_ref()
+        .and_then(|c| c.client_secret.clone())
+        .or_else(|| EMBEDDED_CLIENT_SECRET.map(String::from))
+        .or_else(|| env::var("TIDAL_API_CLIENT_SECRET").ok())
+        .ok_or_else(|| PlaylistImportError::MissingCredentials("TIDAL_API_CLIENT_SECRET".to_string()))?;
 
     let auth = STANDARD.encode(format!("{}:{}", client_id, client_secret));
 

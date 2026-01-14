@@ -5,6 +5,7 @@ use std::sync::Arc;
 use tauri::State;
 use tokio::sync::Mutex;
 
+use crate::api_keys::ApiKeysState;
 use crate::discogs::DiscogsClient;
 use crate::library::{
     cue_to_tracks, get_artwork_cache_dir, CueParser, LibraryDatabase, LibraryScanner, LibraryStats,
@@ -160,13 +161,20 @@ pub async fn library_scan(state: State<'_, LibraryState>) -> Result<(), String> 
 
             match MetadataExtractor::extract(audio_path) {
                 Ok(mut track) => {
-                    // Try to extract embedded artwork, fallback to folder artwork
+                    // Try to extract embedded artwork, fallback to cached folder artwork
                     let artwork_cache = get_artwork_cache_dir();
-                    if let Some(artwork_path) = MetadataExtractor::extract_artwork(audio_path, &artwork_cache) {
-                        track.artwork_path = Some(artwork_path);
-                    } else if let Some(folder_art) = MetadataExtractor::find_folder_artwork(audio_path) {
-                        track.artwork_path = Some(folder_art);
+                    let mut artwork_path =
+                        MetadataExtractor::extract_artwork(audio_path, &artwork_cache);
+                    if artwork_path.is_none() {
+                        if let Some(folder_art) = MetadataExtractor::find_folder_artwork(audio_path)
+                        {
+                            artwork_path = MetadataExtractor::cache_artwork_file(
+                                Path::new(&folder_art),
+                                &artwork_cache,
+                            );
+                        }
                     }
+                    track.artwork_path = artwork_path;
 
                     let db = state.db.lock().await;
                     if let Err(e) = db.insert_track(&track) {
@@ -174,6 +182,10 @@ pub async fn library_scan(state: State<'_, LibraryState>) -> Result<(), String> 
                             file_path: path_str,
                             error: e.to_string(),
                         });
+                    } else if let (Some(artwork_path), false) =
+                        (track.artwork_path.as_ref(), track.album_group_key.is_empty())
+                    {
+                        let _ = db.update_album_group_artwork(&track.album_group_key, artwork_path);
                     }
                 }
                 Err(e) => {
@@ -222,12 +234,38 @@ async fn process_cue_file(cue_path: &Path, state: &State<'_, LibraryState>) -> R
     let format = MetadataExtractor::detect_format(audio_path);
 
     // Convert CUE to tracks
-    let tracks = cue_to_tracks(&cue, properties.duration_secs, format, &properties);
+    let mut tracks = cue_to_tracks(&cue, properties.duration_secs, format, &properties);
+
+    let artwork_cache = get_artwork_cache_dir();
+    let mut artwork_path =
+        MetadataExtractor::extract_artwork(audio_path, &artwork_cache);
+    if artwork_path.is_none() {
+        if let Some(folder_art) = MetadataExtractor::find_folder_artwork(audio_path) {
+            artwork_path = MetadataExtractor::cache_artwork_file(
+                Path::new(&folder_art),
+                &artwork_cache,
+            );
+        }
+    }
+    if let Some(path) = artwork_path.as_ref() {
+        for track in tracks.iter_mut() {
+            track.artwork_path = Some(path.clone());
+        }
+    }
 
     // Insert tracks
     let db = state.db.lock().await;
+    let group_key = tracks
+        .first()
+        .map(|track| track.album_group_key.clone())
+        .unwrap_or_default();
+
     for track in tracks {
         db.insert_track(&track).map_err(|e| e.to_string())?;
+    }
+
+    if let (Some(path), false) = (artwork_path.as_ref(), group_key.is_empty()) {
+        let _ = db.update_album_group_artwork(&group_key, path);
     }
 
     Ok(())
@@ -258,14 +296,13 @@ pub async fn library_get_albums(
 
 #[tauri::command]
 pub async fn library_get_album_tracks(
-    album: String,
-    artist: String,
+    album_group_key: String,
     state: State<'_, LibraryState>,
 ) -> Result<Vec<LocalTrack>, String> {
-    log::info!("Command: library_get_album_tracks {} - {}", artist, album);
+    log::info!("Command: library_get_album_tracks {}", album_group_key);
 
     let db = state.db.lock().await;
-    db.get_album_tracks(&album, &artist)
+    db.get_album_tracks(&album_group_key)
         .map_err(|e| e.to_string())
 }
 
@@ -584,11 +621,21 @@ pub async fn playlist_increment_play_count(
 
 // === Discogs Artwork ===
 
-/// Check if Discogs credentials are configured
+/// Check if Discogs credentials are configured (embedded or user-provided)
 #[tauri::command]
-pub fn discogs_has_credentials() -> bool {
+pub async fn discogs_has_credentials(
+    api_keys: State<'_, ApiKeysState>,
+) -> Result<bool, String> {
+    // Check user-provided credentials first
+    let keys = api_keys.lock().await;
+    if keys.discogs.is_set() {
+        return Ok(true);
+    }
+    drop(keys);
+
+    // Fall back to embedded/env credentials
     let client = DiscogsClient::new();
-    client.has_credentials()
+    Ok(client.has_credentials())
 }
 
 /// Fetch missing artwork from Discogs for albums without artwork
@@ -596,10 +643,18 @@ pub fn discogs_has_credentials() -> bool {
 #[tauri::command]
 pub async fn library_fetch_missing_artwork(
     state: State<'_, LibraryState>,
+    api_keys: State<'_, ApiKeysState>,
 ) -> Result<u32, String> {
     log::info!("Command: library_fetch_missing_artwork");
 
-    let discogs = DiscogsClient::new();
+    // Get user-provided credentials if available
+    let keys = api_keys.lock().await;
+    let discogs = DiscogsClient::with_user_credentials(
+        keys.discogs.client_id.clone(),
+        keys.discogs.client_secret.clone(),
+    );
+    drop(keys);
+
     if !discogs.has_credentials() {
         return Err("Discogs credentials not configured".to_string());
     }
@@ -608,7 +663,7 @@ pub async fn library_fetch_missing_artwork(
     let mut updated_count = 0u32;
 
     // Get all albums without artwork
-    let albums_without_artwork: Vec<(String, String)> = {
+    let albums_without_artwork: Vec<(String, String, String)> = {
         let db = state.db.lock().await;
         db.get_albums_without_artwork()
             .map_err(|e| e.to_string())?
@@ -616,12 +671,12 @@ pub async fn library_fetch_missing_artwork(
 
     log::info!("Found {} albums without artwork", albums_without_artwork.len());
 
-    for (artist, album) in albums_without_artwork {
+    for (group_key, album, artist) in albums_without_artwork {
         // Try to fetch from Discogs
         if let Some(artwork_path) = discogs.fetch_artwork(&artist, &album, &artwork_cache).await {
             // Update all tracks in this album with the artwork
             let db = state.db.lock().await;
-            if db.update_album_artwork(&album, &artist, &artwork_path).is_ok() {
+            if db.update_album_group_artwork(&group_key, &artwork_path).is_ok() {
                 updated_count += 1;
                 log::info!("Updated artwork for {} - {}", artist, album);
             }
@@ -641,10 +696,18 @@ pub async fn library_fetch_album_artwork(
     artist: String,
     album: String,
     state: State<'_, LibraryState>,
+    api_keys: State<'_, ApiKeysState>,
 ) -> Result<Option<String>, String> {
     log::info!("Command: library_fetch_album_artwork {} - {}", artist, album);
 
-    let discogs = DiscogsClient::new();
+    // Get user-provided credentials if available
+    let keys = api_keys.lock().await;
+    let discogs = DiscogsClient::with_user_credentials(
+        keys.discogs.client_id.clone(),
+        keys.discogs.client_secret.clone(),
+    );
+    drop(keys);
+
     if !discogs.has_credentials() {
         return Err("Discogs credentials not configured".to_string());
     }
@@ -652,10 +715,17 @@ pub async fn library_fetch_album_artwork(
     let artwork_cache = get_artwork_cache_dir();
 
     if let Some(artwork_path) = discogs.fetch_artwork(&artist, &album, &artwork_cache).await {
-        // Update all tracks in this album with the artwork
         let db = state.db.lock().await;
-        db.update_album_artwork(&album, &artist, &artwork_path)
-            .map_err(|e| e.to_string())?;
+        if let Some(group_key) = db
+            .find_album_group_key(&album, &artist)
+            .map_err(|e| e.to_string())?
+        {
+            db.update_album_group_artwork(&group_key, &artwork_path)
+                .map_err(|e| e.to_string())?;
+        } else {
+            db.update_album_artwork(&album, &artist, &artwork_path)
+                .map_err(|e| e.to_string())?;
+        }
         Ok(Some(artwork_path))
     } else {
         Ok(None)

@@ -31,11 +31,29 @@ struct SearchResult {
     result_type: String,
 }
 
+// Compile-time embedded credentials (from build environment)
+const EMBEDDED_CONSUMER_KEY: Option<&str> = option_env!("DISCOGS_API_CLIENT_KEY");
+const EMBEDDED_CONSUMER_SECRET: Option<&str> = option_env!("DISCOGS_API_CLIENT_SECRET");
+
 impl DiscogsClient {
     /// Create a new Discogs client with optional credentials
+    /// Priority: user-provided > embedded > runtime env vars
     pub fn new() -> Self {
-        let consumer_key = std::env::var("DISCOGS_API_CLIENT_KEY").ok();
-        let consumer_secret = std::env::var("DISCOGS_API_CLIENT_SECRET").ok();
+        Self::with_user_credentials(None, None)
+    }
+
+    /// Create a new Discogs client with user-provided credentials (override)
+    pub fn with_user_credentials(
+        user_key: Option<String>,
+        user_secret: Option<String>,
+    ) -> Self {
+        // Priority: user-provided > embedded > runtime env vars
+        let consumer_key = user_key
+            .or_else(|| EMBEDDED_CONSUMER_KEY.map(String::from))
+            .or_else(|| std::env::var("DISCOGS_API_CLIENT_KEY").ok());
+        let consumer_secret = user_secret
+            .or_else(|| EMBEDDED_CONSUMER_SECRET.map(String::from))
+            .or_else(|| std::env::var("DISCOGS_API_CLIENT_SECRET").ok());
 
         let client = Client::builder()
             .timeout(Duration::from_secs(10))

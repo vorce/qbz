@@ -7,6 +7,14 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import {
+  isCasting,
+  castPlay,
+  castPause,
+  castSeek,
+  castSetVolume,
+  castStop
+} from '$lib/stores/castStore';
 
 // ============ Types ============
 
@@ -51,7 +59,6 @@ let currentTime = 0;
 let duration = 0;
 let volume = 75;
 let isFavorite = false;
-
 // Event listener state (replaces polling)
 let eventUnlisten: UnlistenFn | null = null;
 let isAdvancingTrack = false;
@@ -212,13 +219,21 @@ export async function togglePlay(): Promise<void> {
   notifyListeners();
 
   try {
+    if (isCasting()) {
+      if (newIsPlaying) {
+        await castPlay();
+      } else {
+        await castPause();
+      }
+      return;
+    }
+
     if (newIsPlaying) {
       // Check if we need to load the track first (session restore)
       if (pendingSessionRestore && pendingSessionRestore.trackId === currentTrack.id) {
         console.log('[Player] Loading restored track:', pendingSessionRestore.trackId);
         const savedPosition = pendingSessionRestore.position;
         pendingSessionRestore = null; // Clear before loading
-
         // Load the track from Qobuz
         await invoke('play_track', { trackId: currentTrack.id });
 
@@ -233,6 +248,7 @@ export async function togglePlay(): Promise<void> {
             }
           }, 500);
         }
+
       } else {
         await invoke('resume_playback');
       }
@@ -264,6 +280,11 @@ export async function seek(position: number): Promise<void> {
   notifyListeners();
 
   try {
+    if (isCasting()) {
+      await castSeek(Math.floor(clampedPosition));
+      return;
+    }
+
     await invoke('seek', { position: Math.floor(clampedPosition) });
   } catch (err) {
     console.error('Failed to seek:', err);
@@ -279,6 +300,11 @@ export async function setVolume(newVolume: number): Promise<void> {
   notifyListeners();
 
   try {
+    if (isCasting()) {
+      await castSetVolume(clampedVolume);
+      return;
+    }
+
     await invoke('set_volume', { volume: clampedVolume / 100 });
   } catch (err) {
     console.error('Failed to set volume:', err);
@@ -290,7 +316,11 @@ export async function setVolume(newVolume: number): Promise<void> {
  */
 export async function stop(): Promise<void> {
   try {
-    await invoke('stop_playback');
+    if (isCasting()) {
+      await castStop();
+    } else {
+      await invoke('stop_playback');
+    }
     isPlaying = false;
     currentTrack = null;
     currentTime = 0;

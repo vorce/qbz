@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::library::{AudioFormat, AudioProperties, LibraryError, LocalTrack};
+use crate::library::{AudioFormat, AudioProperties, LibraryError, LocalTrack, MetadataExtractor};
 
 /// Parsed CUE sheet
 #[derive(Debug, Clone)]
@@ -222,6 +222,9 @@ pub fn cue_to_tracks(
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
 
+    let (album_group_key, album_group_title) =
+        MetadataExtractor::album_group_info(Path::new(&cue.audio_file), cue.title.as_deref());
+
     for (i, cue_track) in cue.tracks.iter().enumerate() {
         // Calculate end time (next track's start or audio end)
         let end_secs = if i + 1 < cue.tracks.len() {
@@ -246,6 +249,8 @@ pub fn cue_to_tracks(
                 .clone()
                 .unwrap_or_else(|| "Unknown Album".to_string()),
             album_artist: cue.performer.clone(),
+            album_group_key: album_group_key.clone(),
+            album_group_title: album_group_title.clone(),
             track_number: Some(cue_track.number),
             disc_number: None,
             year: None,

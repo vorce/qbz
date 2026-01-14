@@ -1,0 +1,107 @@
+name: release-aur
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 1.0.0)"
+        required: true
+        type: string
+
+jobs:
+  update-aur:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for release assets
+        if: github.event_name == 'release'
+        run: |
+          echo "Waiting 60s for release assets to be available..."
+          sleep 60
+
+      - name: Download release tarball and get checksum
+        id: checksum
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          TARBALL_URL="https://github.com/vicrodh/qbz/releases/download/v${VERSION}/qbz_${VERSION}_amd64.tar.gz"
+          echo "Downloading: $TARBALL_URL"
+          curl -fsSL -o /tmp/qbz.tar.gz "$TARBALL_URL"
+          SHA256=$(sha256sum /tmp/qbz.tar.gz | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "Checksum: $SHA256"
+
+      - name: Setup SSH for AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          echo "Host aur.archlinux.org" >> ~/.ssh/config
+          echo "  IdentityFile ~/.ssh/aur" >> ~/.ssh/config
+          echo "  User aur" >> ~/.ssh/config
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Clone AUR repo
+        run: |
+          git clone ssh://aur@aur.archlinux.org/qbz-bin.git /tmp/aur-qbz-bin
+
+      - name: Update PKGBUILD
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA256: ${{ steps.checksum.outputs.sha256 }}
+        run: |
+          cd /tmp/aur-qbz-bin
+
+          # Copy PKGBUILD from main repo (source of truth)
+          cp ${{ github.workspace }}/packaging/aur/PKGBUILD .
+
+          # Update version
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+
+          # Reset pkgrel to 1 for new version
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+
+          # Update checksum
+          sed -i "s/^sha256sums=.*/sha256sums=('${SHA256}')/" PKGBUILD
+
+          cat PKGBUILD
+
+      - name: Generate .SRCINFO
+        run: |
+          cd /tmp/aur-qbz-bin
+          docker run --rm -v "$PWD":/pkg -w /pkg -e HOST_UID=$(id -u) -e HOST_GID=$(id -g) archlinux:latest bash -c "
+            pacman -Sy --noconfirm pacman-contrib sudo
+            useradd -m builder
+            chown -R builder:builder /pkg
+            sudo -u builder makepkg --printsrcinfo > .SRCINFO
+            chown -R \$HOST_UID:\$HOST_GID /pkg
+          "
+          cat .SRCINFO
+
+      - name: Commit and push to AUR
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cd /tmp/aur-qbz-bin
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to v${VERSION}"
+          git push

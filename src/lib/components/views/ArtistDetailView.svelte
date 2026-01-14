@@ -92,6 +92,7 @@
   let topTracksSection = $state<HTMLDivElement | null>(null);
   let discographySection = $state<HTMLDivElement | null>(null);
   let epsSinglesSection = $state<HTMLDivElement | null>(null);
+  let liveAlbumsSection = $state<HTMLDivElement | null>(null);
   let compilationsSection = $state<HTMLDivElement | null>(null);
   let playlistsSection = $state<HTMLDivElement | null>(null);
   let activeJumpSection = $state('about');
@@ -276,6 +277,7 @@
   let hasMoreAlbums = $derived(!!onLoadMore && artist.albumsFetched < artist.totalAlbums);
   let hasTopTracks = $derived(topTracks.length > 0 || tracksLoading);
   let hasEpsSingles = $derived(artist.epsSingles.length > 0);
+  let hasLiveAlbums = $derived(artist.liveAlbums.length > 0);
   let hasCompilations = $derived(artist.compilations.length > 0);
   let hasPlaylists = $derived(artist.playlists.length > 0);
   let jumpSections = $derived.by(() => [
@@ -283,6 +285,7 @@
     { id: 'popular', label: 'Popular Tracks', el: topTracksSection, visible: hasTopTracks },
     { id: 'discography', label: 'Discography', el: discographySection, visible: true },
     { id: 'eps', label: 'EPs & Singles', el: epsSinglesSection, visible: hasEpsSingles },
+    { id: 'live', label: 'Live Albums', el: liveAlbumsSection, visible: hasLiveAlbums },
     { id: 'compilations', label: 'Compilations', el: compilationsSection, visible: hasCompilations },
     { id: 'playlists', label: 'Playlists', el: playlistsSection, visible: hasPlaylists },
   ].filter(section => section.visible));
@@ -327,7 +330,7 @@
       {
         root: artistDetailEl,
         rootMargin: '-20% 0px -60% 0px',
-        threshold: [0, 0.2, 0.5, 1]
+        threshold: [0.5]  // Single threshold for better performance
       }
     );
 
@@ -360,6 +363,8 @@
           src={artist.image}
           alt={artist.name}
           class="artist-image"
+          loading="lazy"
+          decoding="async"
           onerror={handleImageError}
         />
       {/if}
@@ -431,6 +436,8 @@
                     src={getSimilarArtistImage(similar)}
                     alt={similar.name}
                     class="similar-avatar"
+                    loading="lazy"
+                    decoding="async"
                     onerror={() => handleSimilarArtistImageError(similar.id)}
                   />
                 {/if}
@@ -491,7 +498,7 @@
               <div class="track-number">{index + 1}</div>
               <div class="track-artwork">
                 {#if track.album?.image?.thumbnail || track.album?.image?.small}
-                  <img src={track.album?.image?.thumbnail || track.album?.image?.small} alt={track.title} />
+                  <img src={track.album?.image?.thumbnail || track.album?.image?.small} alt={track.title} loading="lazy" decoding="async" />
                 {:else}
                   <div class="track-artwork-placeholder">
                     <Music size={16} />
@@ -577,6 +584,25 @@
     </div>
   {/if}
 
+  {#if artist.liveAlbums.length > 0}
+    <div class="divider"></div>
+
+    <div class="discography section-anchor" bind:this={liveAlbumsSection}>
+      <h2 class="section-title">Live Albums</h2>
+      <div class="albums-grid">
+        {#each artist.liveAlbums as album}
+          <AlbumCard
+            artwork={album.artwork}
+            title={album.title}
+            artist={album.year || ''}
+            quality={album.quality}
+            onclick={() => onAlbumClick?.(album.id)}
+          />
+        {/each}
+      </div>
+    </div>
+  {/if}
+
   {#if artist.compilations.length > 0}
     <div class="divider"></div>
 
@@ -610,7 +636,7 @@
           >
             <div class="playlist-artwork">
               {#if playlist.artwork}
-                <img src={playlist.artwork} alt={playlist.title} />
+                <img src={playlist.artwork} alt={playlist.title} loading="lazy" decoding="async" />
               {:else}
                 <div class="playlist-artwork-placeholder">
                   <Music size={18} />
@@ -728,7 +754,7 @@
   }
 
   .artist-name {
-    font-size: 36px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 8px;
@@ -1187,7 +1213,7 @@
     }
 
     .artist-name {
-      font-size: 28px;
+      font-size: 24px;
     }
 
     .biography {

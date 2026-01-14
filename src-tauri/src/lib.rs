@@ -5,6 +5,7 @@
 
 pub mod api;
 pub mod api_cache;
+pub mod api_keys;
 pub mod cache;
 pub mod cast;
 pub mod commands;
@@ -108,12 +109,15 @@ pub fn run() {
         .expect("Failed to initialize library database");
 
     // Initialize casting state (Chromecast, DLNA, AirPlay)
+    // CastState creates the media server, DLNA shares it
     let cast_state = cast::CastState::new()
         .expect("Failed to initialize Chromecast state");
-    let dlna_state = cast::dlna::commands::DlnaState::new()
+    let dlna_state = cast::dlna::commands::DlnaState::new(cast_state.media_server.clone())
         .expect("Failed to initialize DLNA state");
-    let airplay_state = cast::airplay::commands::AirPlayState::new()
-        .expect("Failed to initialize AirPlay state");
+    // AirPlay state - DISABLED until RAOP implementation is complete
+    // See qbz-nix-docs/AIRPLAY_IMPLEMENTATION_STATUS.md for details
+    // let airplay_state = cast::airplay::commands::AirPlayState::new()
+    //     .expect("Failed to initialize AirPlay state");
 
     // Initialize download cache state
     let download_cache_state = download_cache::DownloadCacheState::new()
@@ -133,6 +137,8 @@ pub fn run() {
     // Initialize audio settings state
     let audio_settings_state = config::audio_settings::AudioSettingsState::new()
         .expect("Failed to initialize audio settings");
+    // Initialize API keys state (for user-provided credentials)
+    let api_keys_state = api_keys::create_api_keys_state();
 
     // Read saved audio device setting for player initialization
     let saved_device = audio_settings_state
@@ -157,6 +163,11 @@ pub fn run() {
                 log::error!("Failed to initialize tray icon: {}", e);
             }
 
+            // Initialize media controls (MPRIS) now that we have an AppHandle
+            app.state::<AppState>()
+                .media_controls
+                .init(app.handle().clone());
+
             // Start background task to emit playback events
             let app_handle = app.handle().clone();
             let player_state = app.state::<AppState>().player.state.clone();
@@ -167,8 +178,24 @@ pub fn run() {
                 let mut last_track_id: u64 = 0;
 
                 loop {
-                    std::thread::sleep(std::time::Duration::from_millis(250));
+                    // Check playing/track state first to determine sleep duration
+                    let is_playing = player_state.is_playing();
+                    let track_id = player_state.current_track_id();
 
+                    // Adaptive polling:
+                    // - fast (250ms) when playing
+                    // - slow (1000ms) when paused/stopped with a track loaded
+                    // - very slow (5000ms) when no track is loaded (idle)
+                    let sleep_duration = if is_playing {
+                        std::time::Duration::from_millis(250)
+                    } else if track_id == 0 {
+                        std::time::Duration::from_millis(5000)
+                    } else {
+                        std::time::Duration::from_millis(1000)
+                    };
+                    std::thread::sleep(sleep_duration);
+
+                    // Re-check after sleep (state might have changed)
                     let is_playing = player_state.is_playing();
                     let position = player_state.current_position();
                     let duration = player_state.duration();
@@ -182,6 +209,8 @@ pub fn run() {
                         || (is_playing && position != last_position)
                     );
 
+                    let should_update_mpris = should_emit || (track_id == 0 && last_track_id != 0);
+
                     if should_emit {
                         let event = player::PlaybackEvent {
                             is_playing,
@@ -191,10 +220,18 @@ pub fn run() {
                             volume,
                         };
                         let _ = app_handle.emit("playback:state", &event);
-
                         last_position = position;
                         last_is_playing = is_playing;
                         last_track_id = track_id;
+                    }
+
+                    if should_update_mpris {
+                        let media_controls = &app_handle.state::<AppState>().media_controls;
+                        if track_id == 0 {
+                            media_controls.set_stopped();
+                        } else {
+                            media_controls.set_playback_with_progress(is_playing, position);
+                        }
                     }
                 }
             });
@@ -204,13 +241,14 @@ pub fn run() {
         .manage(library_state)
         .manage(cast_state)
         .manage(dlna_state)
-        .manage(airplay_state)
+        // .manage(airplay_state)  // AirPlay DISABLED
         .manage(download_cache_state)
         .manage(lyrics_state)
         .manage(reco_state)
         .manage(api_cache_state)
         .manage(session_store_state)
         .manage(audio_settings_state)
+        .manage(api_keys_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -236,6 +274,7 @@ pub fn run() {
             commands::get_similar_artists,
             // Playback commands
             commands::play_track,
+            commands::prefetch_track,
             commands::pause_playback,
             commands::resume_playback,
             commands::stop_playback,
@@ -361,23 +400,26 @@ pub fn run() {
             cast::dlna::commands::dlna_connect,
             cast::dlna::commands::dlna_disconnect,
             cast::dlna::commands::dlna_get_status,
+            cast::dlna::commands::dlna_play_track,
             cast::dlna::commands::dlna_load_media,
             cast::dlna::commands::dlna_play,
             cast::dlna::commands::dlna_pause,
             cast::dlna::commands::dlna_stop,
+            cast::dlna::commands::dlna_seek,
             cast::dlna::commands::dlna_set_volume,
-            // AirPlay casting commands
-            cast::airplay::commands::airplay_start_discovery,
-            cast::airplay::commands::airplay_stop_discovery,
-            cast::airplay::commands::airplay_get_devices,
-            cast::airplay::commands::airplay_connect,
-            cast::airplay::commands::airplay_disconnect,
-            cast::airplay::commands::airplay_get_status,
-            cast::airplay::commands::airplay_load_media,
-            cast::airplay::commands::airplay_play,
-            cast::airplay::commands::airplay_pause,
-            cast::airplay::commands::airplay_stop,
-            cast::airplay::commands::airplay_set_volume,
+            // AirPlay casting commands - DISABLED until RAOP implementation is complete
+            // See docs/AIRPLAY_IMPLEMENTATION_STATUS.md for details
+            // cast::airplay::commands::airplay_start_discovery,
+            // cast::airplay::commands::airplay_stop_discovery,
+            // cast::airplay::commands::airplay_get_devices,
+            // cast::airplay::commands::airplay_connect,
+            // cast::airplay::commands::airplay_disconnect,
+            // cast::airplay::commands::airplay_get_status,
+            // cast::airplay::commands::airplay_load_media,
+            // cast::airplay::commands::airplay_play,
+            // cast::airplay::commands::airplay_pause,
+            // cast::airplay::commands::airplay_stop,
+            // cast::airplay::commands::airplay_set_volume,
             // Download cache commands
             download_cache::commands::download_track,
             download_cache::commands::is_track_downloaded,
@@ -411,6 +453,17 @@ pub fn run() {
             config::audio_settings::set_audio_exclusive_mode,
             config::audio_settings::set_audio_dac_passthrough,
             config::audio_settings::set_audio_sample_rate,
+            // API keys commands (user-provided credentials)
+            api_keys::set_spotify_credentials,
+            api_keys::clear_spotify_credentials,
+            api_keys::has_spotify_user_credentials,
+            api_keys::set_tidal_credentials,
+            api_keys::clear_tidal_credentials,
+            api_keys::has_tidal_user_credentials,
+            api_keys::set_discogs_credentials,
+            api_keys::clear_discogs_credentials,
+            api_keys::has_discogs_user_credentials,
+            api_keys::get_embedded_credentials_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

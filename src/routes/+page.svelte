@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
+  import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import { listen, emitTo, type UnlistenFn } from '@tauri-apps/api/event';
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
@@ -83,6 +83,7 @@
     togglePlay,
     seek as playerSeek,
     setVolume as playerSetVolume,
+    stop as stopPlayback,
     setPendingSessionRestore,
     startPolling,
     stopPolling,
@@ -116,6 +117,16 @@
     type BackendQueueTrack,
     type RepeatMode
   } from '$lib/stores/queueStore';
+
+  type MediaControlPayload = {
+    action: string;
+    direction?: 'forward' | 'backward';
+    offset_secs?: number;
+    position_secs?: number;
+    volume?: number;
+  };
+
+  const MEDIA_SEEK_FALLBACK_SECS = 10;
 
   // Types
   import type {
@@ -201,6 +212,13 @@
     type LyricsLine
   } from '$lib/stores/lyricsStore';
 
+  // Cast state management
+  import {
+    subscribe as subscribeCast,
+    getCastState,
+    isCasting
+  } from '$lib/stores/castStore';
+
   // Components
   import TitleBar from '$lib/components/TitleBar.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
@@ -246,6 +264,9 @@
   let isFullScreenOpen = $state(false);
   let isFocusModeOpen = $state(false);
   let isCastPickerOpen = $state(false);
+
+  // Cast State
+  let isCastConnected = $state(false);
 
   // Playlist Modal State (from uiStore subscription)
   let isPlaylistModalOpen = $state(false);
@@ -521,7 +542,7 @@
         await playQueueTrack(nextTrackResult);
       } else {
         // No next track - stop playback
-        await invoke('stop_playback');
+        await stopPlayback();
         setIsPlaying(false);
         showToast('Queue ended', 'info');
       }
@@ -616,6 +637,35 @@
     if (!success) {
       showToast('Failed to reorder queue', 'error');
     }
+  }
+
+  // Save current queue as a new playlist
+  function handleSaveQueueAsPlaylist() {
+    // Collect all track IDs from queue (current track + upcoming)
+    const trackIds: number[] = [];
+
+    // Add current track if present
+    if (currentTrack) {
+      trackIds.push(currentTrack.id);
+    }
+
+    // Add all upcoming tracks
+    for (const track of queue) {
+      const numericId = parseInt(track.id, 10);
+      if (!isNaN(numericId) && !trackIds.includes(numericId)) {
+        trackIds.push(numericId);
+      }
+    }
+
+    if (trackIds.length === 0) {
+      showToast('Queue is empty', 'info');
+      return;
+    }
+
+    // Open playlist modal in addTrack mode with queue tracks
+    openAddToPlaylist(trackIds);
+    // Close queue panel
+    closeQueue();
   }
 
   // Play all tracks from album (starting from first track)
@@ -848,7 +898,7 @@
   async function handleLocalTrackPlay(track: LocalLibraryTrack) {
     console.log('Playing local track:', track);
 
-    const artwork = track.artwork_path ? `asset://localhost/${encodeURIComponent(track.artwork_path)}` : '';
+    const artwork = track.artwork_path ? convertFileSrc(track.artwork_path) : '';
     const quality = track.bit_depth && track.sample_rate
       ? (track.bit_depth >= 24 || track.sample_rate > 48000
         ? `${track.bit_depth}bit/${track.sample_rate / 1000}kHz`
@@ -893,6 +943,7 @@
       showToast('Playlist created', 'success');
     }
     sidebarRef?.refreshPlaylists();
+    sidebarRef?.refreshPlaylistSettings();
   }
 
   function openImportPlaylist() {
@@ -901,6 +952,7 @@
 
   function handlePlaylistImported(summary: { qobuz_playlist_id?: number | null }) {
     sidebarRef?.refreshPlaylists();
+    sidebarRef?.refreshPlaylistSettings();
     if (summary.qobuz_playlist_id) {
       selectPlaylist(summary.qobuz_playlist_id);
     }
@@ -1288,6 +1340,11 @@
       lyricsSidebarVisible = state.sidebarVisible;
     });
 
+    // Subscribe to cast state changes
+    const unsubscribeCast = subscribeCast(() => {
+      isCastConnected = isCasting();
+    });
+
     // Start lyrics watcher for track changes
     startLyricsWatching();
 
@@ -1305,6 +1362,7 @@
     let unlistenTrayPlayPause: UnlistenFn | null = null;
     let unlistenTrayNext: UnlistenFn | null = null;
     let unlistenTrayPrevious: UnlistenFn | null = null;
+    let unlistenMediaControls: UnlistenFn | null = null;
 
     (async () => {
       unlistenTrayPlayPause = await listen('tray:play_pause', () => {
@@ -1319,6 +1377,65 @@
         console.log('[Tray] Previous');
         await handleSkipBack();
       });
+
+      unlistenMediaControls = await listen('media:control', async (event) => {
+        const payload = event.payload as MediaControlPayload;
+        if (!payload?.action) return;
+
+        const playerState = getPlayerState();
+
+        switch (payload.action) {
+          case 'play':
+            if (!playerState.isPlaying) {
+              await togglePlay();
+            }
+            break;
+          case 'pause':
+            if (playerState.isPlaying) {
+              await togglePlay();
+            }
+            break;
+          case 'toggle':
+            await togglePlay();
+            break;
+          case 'next':
+            await handleSkipForward();
+            break;
+          case 'previous':
+            await handleSkipBack();
+            break;
+          case 'stop':
+            await stopPlayback();
+            break;
+          case 'seek': {
+            const direction = payload.direction === 'backward' ? -1 : 1;
+            const target = playerState.currentTime + direction * MEDIA_SEEK_FALLBACK_SECS;
+            await playerSeek(target);
+            break;
+          }
+          case 'seek_by': {
+            if (typeof payload.offset_secs === 'number') {
+              await playerSeek(playerState.currentTime + payload.offset_secs);
+            }
+            break;
+          }
+          case 'set_position': {
+            if (typeof payload.position_secs === 'number') {
+              await playerSeek(payload.position_secs);
+            }
+            break;
+          }
+          case 'set_volume': {
+            if (typeof payload.volume === 'number') {
+              const normalized = Math.max(0, Math.min(1, payload.volume));
+              await playerSetVolume(Math.round(normalized * 100));
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      });
     })();
 
     return () => {
@@ -1326,6 +1443,7 @@
       unlistenTrayPlayPause?.();
       unlistenTrayNext?.();
       unlistenTrayPrevious?.();
+      unlistenMediaControls?.();
       // Save session before cleanup
       saveSessionBeforeClose();
       cleanupBootstrap();
@@ -1341,6 +1459,7 @@
       unsubscribePlayer();
       unsubscribeQueue();
       unsubscribeLyrics();
+      unsubscribeCast();
       stopLyricsWatching();
       stopActiveLineUpdates();
       stopPolling();
@@ -1363,6 +1482,10 @@
     } else {
       stopActiveLineUpdates();
     }
+    // Cleanup on effect re-run or component unmount
+    return () => {
+      stopActiveLineUpdates();
+    };
   });
 
   // Derived values for NowPlayingBar
@@ -1435,6 +1558,8 @@
       {:else if activeView === 'album' && selectedAlbum}
         <AlbumDetailView
           album={selectedAlbum}
+          activeTrackId={currentTrack?.id ?? null}
+          isPlaybackActive={isPlaying}
           onBack={navGoBack}
           onArtistClick={() => selectedAlbum?.artistId && handleArtistClick(selectedAlbum.artistId)}
           onTrackPlay={handleAlbumTrackPlay}
@@ -1486,6 +1611,8 @@
       {:else if activeView === 'playlist' && selectedPlaylistId}
         <PlaylistDetailView
           playlistId={selectedPlaylistId}
+          activeTrackId={currentTrack?.id ?? null}
+          isPlaybackActive={isPlaying}
           onBack={navGoBack}
           onTrackPlay={handleDisplayTrackPlay}
           onTrackPlayNext={queuePlaylistTrackNext}
@@ -1576,6 +1703,7 @@
         onOpenFullScreen={openFullScreen}
         onOpenMiniPlayer={enterMiniplayerMode}
         onCast={openCastPicker}
+        {isCastConnected}
         onToggleLyrics={toggleLyricsSidebar}
         lyricsActive={lyricsSidebarVisible}
         onArtistClick={() => {
@@ -1599,6 +1727,7 @@
         onOpenFullScreen={openFullScreen}
         onOpenMiniPlayer={enterMiniplayerMode}
         onCast={openCastPicker}
+        {isCastConnected}
       />
     {/if}
     </div><!-- end app-body -->
@@ -1611,7 +1740,7 @@
       upcomingTracks={queue}
       onPlayTrack={handleQueueTrackPlay}
       onClearQueue={handleClearQueue}
-      onSaveAsPlaylist={() => showToast('Save as playlist coming soon', 'info')}
+      onSaveAsPlaylist={handleSaveQueueAsPlaylist}
       onReorderTrack={handleQueueReorder}
     />
 
@@ -1652,6 +1781,7 @@
           openFocusMode();
         }}
         onCast={openCastPicker}
+        {isCastConnected}
         lyricsLines={lyricsLines.map(l => ({ text: l.text }))}
         lyricsActiveIndex={lyricsActiveIndex}
         lyricsActiveProgress={lyricsActiveProgress}
@@ -1722,9 +1852,6 @@
     <CastPicker
       isOpen={isCastPickerOpen}
       onClose={closeCastPicker}
-      onConnect={(deviceId) => {
-        showToast(`Connected to device`, 'success');
-      }}
     />
   </div>
 {/if}
@@ -1751,6 +1878,8 @@
     min-width: 0;
     height: calc(100vh - 136px); /* 104px NowPlayingBar + 32px TitleBar */
     overflow: hidden;
+    position: relative;
+    z-index: 1;
   }
 
   .main-content {
@@ -1759,6 +1888,7 @@
     height: calc(100vh - 136px); /* 104px NowPlayingBar + 32px TitleBar */
     overflow: hidden; /* Views handle their own scrolling */
     padding-right: 8px; /* Gap between scrollbar and window edge */
+    background-color: var(--bg-primary, #0f0f0f);
   }
 
 </style>

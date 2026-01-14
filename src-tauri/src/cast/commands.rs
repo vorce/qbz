@@ -17,7 +17,9 @@ use crate::library::{AudioFormat, LibraryState};
 pub struct CastState {
     pub discovery: Arc<Mutex<DeviceDiscovery>>,
     pub chromecast: ChromecastHandle,
-    pub media_server: Arc<Mutex<MediaServer>>,
+    /// Media server is lazily initialized on first cast operation to save CPU when not casting
+    pub media_server: Arc<Mutex<Option<MediaServer>>>,
+    pub connected_device_ip: Arc<Mutex<Option<String>>>,
 }
 
 impl CastState {
@@ -25,8 +27,20 @@ impl CastState {
         Ok(Self {
             discovery: Arc::new(Mutex::new(DeviceDiscovery::new())),
             chromecast: ChromecastHandle::new(),
-            media_server: Arc::new(Mutex::new(MediaServer::start()?)),
+            // Don't start media server until needed - saves CPU when not casting
+            media_server: Arc::new(Mutex::new(None)),
+            connected_device_ip: Arc::new(Mutex::new(None)),
         })
+    }
+
+    /// Get or create the media server (lazy initialization)
+    pub async fn get_or_create_media_server(&self) -> Result<(), CastError> {
+        let mut server_guard = self.media_server.lock().await;
+        if server_guard.is_none() {
+            log::info!("Starting media server on demand (lazy init)");
+            *server_guard = Some(MediaServer::start()?);
+        }
+        Ok(())
     }
 }
 
@@ -69,12 +83,26 @@ pub async fn cast_connect(device_id: String, state: State<'_, CastState>) -> Res
     state
         .chromecast
         .connect(device.ip.clone(), device.port)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    {
+        let mut connected = state.connected_device_ip.lock().await;
+        *connected = Some(device.ip.clone());
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn cast_disconnect(state: State<'_, CastState>) -> Result<(), String> {
-    state.chromecast.disconnect().map_err(|e| e.to_string())
+    state.chromecast.disconnect().map_err(|e| e.to_string())?;
+
+    {
+        let mut connected = state.connected_device_ip.lock().await;
+        *connected = None;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -110,12 +138,23 @@ pub async fn cast_play_track(
         data
     };
 
+    let target_ip = {
+        let connected = state.connected_device_ip.lock().await;
+        connected.clone()
+    };
+
+    // Ensure media server is started (lazy init)
+    state.get_or_create_media_server().await.map_err(|e| e.to_string())?;
+
     let url = {
-        let mut server = state.media_server.lock().await;
+        let mut server_guard = state.media_server.lock().await;
+        let server = server_guard.as_mut().ok_or("Media server not initialized")?;
         server.register_audio(track_id, audio_data, &content_type);
-        server
-            .get_audio_url(track_id)
-            .ok_or_else(|| "Failed to build media URL".to_string())?
+        let url = match target_ip.as_deref() {
+            Some(ip) => server.get_audio_url_for_target(track_id, ip),
+            None => server.get_audio_url(track_id),
+        };
+        url.ok_or_else(|| "Failed to build media URL".to_string())?
     };
 
     state
@@ -137,14 +176,25 @@ pub async fn cast_play_local_track(
             .ok_or_else(|| "Track not found".to_string())?
     };
 
+    let target_ip = {
+        let connected = state.connected_device_ip.lock().await;
+        connected.clone()
+    };
+
+    // Ensure media server is started (lazy init)
+    state.get_or_create_media_server().await.map_err(|e| e.to_string())?;
+
     let url = {
-        let mut server = state.media_server.lock().await;
+        let mut server_guard = state.media_server.lock().await;
+        let server = server_guard.as_mut().ok_or("Media server not initialized")?;
         server
             .register_file(track_id as u64, &track.file_path)
             .map_err(|e| e.to_string())?;
-        server
-            .get_audio_url(track_id as u64)
-            .ok_or_else(|| "Failed to build media URL".to_string())?
+        let url = match target_ip.as_deref() {
+            Some(ip) => server.get_audio_url_for_target(track_id as u64, ip),
+            None => server.get_audio_url(track_id as u64),
+        };
+        url.ok_or_else(|| "Failed to build media URL".to_string())?
     };
 
     let metadata = MediaMetadata {

@@ -539,7 +539,7 @@
   }
 
   .emoji {
-    font-size: 48px;
+    font-size: 24px;
     margin-bottom: 16px;
   }
 
