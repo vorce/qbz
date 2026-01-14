@@ -18,6 +18,37 @@ let currentToast: Toast | null = null;
 // Track buffering toast specifically so we can dismiss it
 let bufferingToastActive = false;
 
+// Global enable/disable for notifications
+let notificationsEnabled = true;
+
+/**
+ * Load notifications preference from localStorage
+ */
+export function loadNotificationsPreference(): void {
+  const saved = localStorage.getItem('qbz-notifications-enabled');
+  if (saved !== null) {
+    notificationsEnabled = saved === 'true';
+  }
+}
+
+/**
+ * Set notifications enabled/disabled
+ */
+export function setNotificationsEnabled(enabled: boolean): void {
+  notificationsEnabled = enabled;
+  localStorage.setItem('qbz-notifications-enabled', String(enabled));
+  if (!enabled) {
+    hideToast();
+  }
+}
+
+/**
+ * Get notifications enabled state
+ */
+export function getNotificationsEnabled(): boolean {
+  return notificationsEnabled;
+}
+
 // Auto-hide timeout
 let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -45,6 +76,11 @@ export function isBufferingActive(): boolean {
  * @param duration How long to show the toast in ms (default: varies by type)
  */
 export function showToast(message: string, type: ToastType = 'info', duration?: number): void {
+  // Skip if notifications are disabled (except errors which are always shown)
+  if (!notificationsEnabled && type !== 'error') {
+    return;
+  }
+
   // Clear existing timeout
   if (hideTimeout) {
     clearTimeout(hideTimeout);

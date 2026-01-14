@@ -16,6 +16,11 @@
   } from '$lib/stores/downloadState';
   import { clearCache as clearLyricsCache } from '$lib/stores/lyricsStore';
   import { getDevicePrettyName } from '$lib/utils/audioDeviceNames';
+  import {
+    getNotificationsEnabled,
+    setNotificationsEnabled,
+    loadNotificationsPreference
+  } from '$lib/stores/toastStore';
 
   interface Props {
     onBack?: () => void;
@@ -138,6 +143,7 @@
   // Appearance settings
   let theme = $state('Dark');
   let compactMode = $state(false);
+  let notificationsEnabled = $state(true);
   let language = $state('Auto');
 
   // Last.fm integration state
@@ -209,6 +215,10 @@
 
     // Load API keys state
     loadApiKeysState();
+
+    // Load notifications preference
+    loadNotificationsPreference();
+    notificationsEnabled = getNotificationsEnabled();
   });
 
   async function loadLastfmState() {
@@ -840,9 +850,13 @@
         onchange={handleZoomChange}
       />
     </div>
-    <div class="setting-row last">
+    <div class="setting-row">
       <span class="setting-label">Compact Mode</span>
       <Toggle enabled={compactMode} onchange={(v) => (compactMode = v)} />
+    </div>
+    <div class="setting-row last">
+      <span class="setting-label">Notifications</span>
+      <Toggle enabled={notificationsEnabled} onchange={(v) => { notificationsEnabled = v; setNotificationsEnabled(v); }} />
     </div>
   </section>
 
