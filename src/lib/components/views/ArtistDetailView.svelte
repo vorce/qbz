@@ -507,7 +507,20 @@
               </div>
               <div class="track-info">
                 <div class="track-title">{track.title}</div>
-                <div class="track-album">{track.album?.title || ''}</div>
+                {#if track.album?.id && onTrackGoToAlbum}
+                  <button
+                    class="track-album track-link"
+                    type="button"
+                    onclick={(event) => {
+                      event.stopPropagation();
+                      onTrackGoToAlbum?.(track.album!.id);
+                    }}
+                  >
+                    {track.album?.title || ''}
+                  </button>
+                {:else}
+                  <div class="track-album">{track.album?.title || ''}</div>
+                {/if}
               </div>
               <div class="track-duration">{formatDuration(track.duration)}</div>
               <div class="track-actions">
@@ -1184,6 +1197,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .track-link {
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .track-link:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .track-duration {

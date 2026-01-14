@@ -594,6 +594,7 @@
                 quality={getTrackQuality(track)}
                 hideDownload={true}
                 compact={true}
+                onArtistClick={track.artistId && onArtistClick ? () => onArtistClick(track.artistId!) : undefined}
                 onPlay={() => onTrackPlay?.(track)}
                 menuActions={{
                   onPlayNow: () => onTrackPlay?.(track)

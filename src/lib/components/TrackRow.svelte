@@ -27,6 +27,8 @@
     hideFavorite?: boolean;
     compact?: boolean; // Compact mode: smaller height, artist as column
     onPlay?: () => void;
+    onArtistClick?: () => void;
+    onAlbumClick?: () => void;
     onDownload?: () => void;
     onRemoveDownload?: () => void;
     menuActions?: TrackMenuActions;
@@ -59,6 +61,8 @@
     hideFavorite = false,
     compact = false,
     onPlay,
+    onArtistClick,
+    onAlbumClick,
     onDownload,
     onRemoveDownload,
     menuActions
@@ -70,6 +74,8 @@
   // Use override if provided, otherwise use store
   const isFavorite = $derived(isFavoriteOverride ?? favoriteFromStore);
   const playNowAction = $derived(menuActions?.onPlayNow ?? onPlay);
+  const artistClickAction = $derived(onArtistClick ?? menuActions?.onGoToArtist);
+  const albumClickAction = $derived(onAlbumClick ?? menuActions?.onGoToAlbum);
 
   // Subscribe to favorites store (only if trackId is provided)
   onMount(() => {
@@ -88,6 +94,16 @@
     if (trackId !== undefined) {
       await toggleTrackFavorite(trackId);
     }
+  }
+
+  function handleArtistClick(e: MouseEvent) {
+    e.stopPropagation();
+    artistClickAction?.();
+  }
+
+  function handleAlbumClick(e: MouseEvent) {
+    e.stopPropagation();
+    albumClickAction?.();
   }
 </script>
 
@@ -122,18 +138,36 @@
   <div class="track-info">
     <div class="track-title" class:active={isPlaying}>{title}</div>
     {#if artist && !compact}
-      <div class="track-artist">{artist}</div>
+      {#if artistClickAction}
+        <button class="track-artist track-link" type="button" onclick={handleArtistClick}>
+          {artist}
+        </button>
+      {:else}
+        <div class="track-artist">{artist}</div>
+      {/if}
     {/if}
   </div>
 
   <!-- Artist Column (compact mode) -->
   {#if artist && compact}
-    <div class="track-artist-column">{artist}</div>
+    {#if artistClickAction}
+      <button class="track-artist-column track-link" type="button" onclick={handleArtistClick}>
+        {artist}
+      </button>
+    {:else}
+      <div class="track-artist-column">{artist}</div>
+    {/if}
   {/if}
 
   <!-- Album Column -->
   {#if album}
-    <div class="track-album">{album}</div>
+    {#if albumClickAction}
+      <button class="track-album track-link" type="button" onclick={handleAlbumClick}>
+        {album}
+      </button>
+    {:else}
+      <div class="track-album">{album}</div>
+    {/if}
   {/if}
 
   <!-- Duration -->
@@ -318,6 +352,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .track-link {
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .track-link:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .track-duration {

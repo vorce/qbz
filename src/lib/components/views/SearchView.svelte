@@ -385,7 +385,20 @@
               {/if}
               <div class="track-info">
                 <div class="track-title">{track.title}</div>
-                <div class="track-artist">{track.performer?.name || 'Unknown Artist'}</div>
+                {#if track.performer?.id && onTrackGoToArtist}
+                  <button
+                    class="track-artist track-link"
+                    type="button"
+                    onclick={(event) => {
+                      event.stopPropagation();
+                      onTrackGoToArtist?.(track.performer!.id!);
+                    }}
+                  >
+                    {track.performer?.name || 'Unknown Artist'}
+                  </button>
+                {:else}
+                  <div class="track-artist">{track.performer?.name || 'Unknown Artist'}</div>
+                {/if}
               </div>
               <div class="track-quality">{getQualityLabel(track)}</div>
               <div class="track-duration">{formatDuration(track.duration)}</div>
@@ -692,6 +705,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .track-link {
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .track-link:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .track-quality {
