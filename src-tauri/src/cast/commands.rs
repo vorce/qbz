@@ -273,6 +273,7 @@ fn content_type_from_format(format: &AudioFormat) -> &'static str {
         AudioFormat::Wav => "audio/wav",
         AudioFormat::Aiff => "audio/aiff",
         AudioFormat::Ape => "audio/ape",
+        AudioFormat::Mp3 => "audio/mpeg",
         AudioFormat::Unknown => "application/octet-stream",
     }
 }

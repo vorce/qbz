@@ -708,6 +708,7 @@ impl LibraryDatabase {
             "WAV" => AudioFormat::Wav,
             "AIFF" => AudioFormat::Aiff,
             "APE" => AudioFormat::Ape,
+            "MP3" => AudioFormat::Mp3,
             _ => AudioFormat::Unknown,
         }
     }

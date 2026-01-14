@@ -414,6 +414,7 @@ impl MetadataExtractor {
             Some("wav") => AudioFormat::Wav,
             Some("aiff") | Some("aif") => AudioFormat::Aiff,
             Some("ape") => AudioFormat::Ape,
+            Some("mp3") => AudioFormat::Mp3,
             _ => AudioFormat::Unknown,
         }
     }
@@ -665,7 +666,7 @@ mod tests {
         );
         assert_eq!(
             MetadataExtractor::detect_format(Path::new("test.mp3")),
-            AudioFormat::Unknown
+            AudioFormat::Mp3
         );
     }
 }

@@ -10,6 +10,7 @@ pub enum AudioFormat {
     Wav,
     Aiff,
     Ape,
+    Mp3,
     Unknown,
 }
 
@@ -27,6 +28,7 @@ impl std::fmt::Display for AudioFormat {
             AudioFormat::Wav => write!(f, "WAV"),
             AudioFormat::Aiff => write!(f, "AIFF"),
             AudioFormat::Ape => write!(f, "APE"),
+            AudioFormat::Mp3 => write!(f, "MP3"),
             AudioFormat::Unknown => write!(f, "Unknown"),
         }
     }
