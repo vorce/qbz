@@ -164,16 +164,44 @@ export async function playTrack(
  */
 export async function updateMediaMetadata(metadata: MediaMetadata): Promise<void> {
   try {
+    const coverUrl = normalizeCoverUrlForMetadata(metadata.coverUrl);
     await invoke('set_media_metadata', {
       title: metadata.title,
       artist: metadata.artist,
       album: metadata.album,
       durationSecs: metadata.durationSecs,
-      coverUrl: metadata.coverUrl
+      coverUrl
     });
   } catch (err) {
     console.error('Failed to update media metadata:', err);
   }
+}
+
+function normalizeCoverUrlForMetadata(coverUrl?: string | null): string | null {
+  if (!coverUrl) return null;
+  const assetPrefix = 'asset://localhost/';
+  if (coverUrl.startsWith(assetPrefix)) {
+    const encodedPath = coverUrl.slice(assetPrefix.length);
+    try {
+      const decodedPath = decodeURIComponent(encodedPath);
+      return `file://${encodeURI(decodedPath)}`;
+    } catch {
+      return coverUrl;
+    }
+  }
+  if (coverUrl.startsWith('asset://')) {
+    const encodedPath = coverUrl.replace(/^asset:\/\/+/, '');
+    try {
+      const decodedPath = decodeURIComponent(encodedPath);
+      return `file://${encodeURI(decodedPath)}`;
+    } catch {
+      return coverUrl;
+    }
+  }
+  if (coverUrl.startsWith('/')) {
+    return `file://${encodeURI(coverUrl)}`;
+  }
+  return coverUrl;
 }
 
 // ============ System Notifications ============
