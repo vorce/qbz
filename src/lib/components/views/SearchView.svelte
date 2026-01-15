@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
   import { getSearchState, setSearchState, type SearchResults, type SearchAllResults, type SearchTab } from '$lib/stores/searchState';
   import { t } from '$lib/i18n';
 
   let searchInput: HTMLInputElement | null = null;
+  let albumsCarouselRef: HTMLDivElement | null = null;
+  let albumsScrollPosition = $state(0);
 
   onMount(async () => {
     console.log('SearchView mounted!');
@@ -330,6 +332,31 @@
   function getArtistImage(artist: Artist): string {
     return artist.image?.large || artist.image?.thumbnail || artist.image?.small || '';
   }
+
+  function scrollAlbumsCarousel(direction: 'left' | 'right') {
+    if (!albumsCarouselRef) return;
+    
+    const cardWidth = 180; // Album card width
+    const gap = 20; // Gap between cards
+    const scrollAmount = cardWidth + gap;
+    
+    if (direction === 'left') {
+      albumsScrollPosition = Math.max(0, albumsScrollPosition - scrollAmount);
+    } else {
+      const maxScroll = albumsCarouselRef.scrollWidth - albumsCarouselRef.clientWidth;
+      albumsScrollPosition = Math.min(maxScroll, albumsScrollPosition + scrollAmount);
+    }
+    
+    albumsCarouselRef.scrollTo({
+      left: albumsScrollPosition,
+      behavior: 'smooth'
+    });
+  }
+
+  let canScrollLeft = $derived(albumsScrollPosition > 0);
+  let canScrollRight = $derived(
+    albumsCarouselRef ? albumsScrollPosition < albumsCarouselRef.scrollWidth - albumsCarouselRef.clientWidth : false
+  );
 </script>
 
 <div class="search-view">
@@ -428,9 +455,9 @@
         <!-- Most Popular + Artists Section -->
         <div class="top-section">
           <div class="most-popular">
-            <h3>Most Popular</h3>
+            <h3><Crown size={18} /> Most Popular</h3>
             {#if allResults.artists.items.length > 0}
-              <button class="artist-card-large" onclick={() => onArtistClick?.(allResults.artists.items[0].id)}>
+              <button class="artist-card most-popular-card" onclick={() => onArtistClick?.(allResults.artists.items[0].id)}>
                 {#if failedArtistImages.has(allResults.artists.items[0].id) || !getArtistImage(allResults.artists.items[0])}
                   <div class="artist-image-placeholder">
                     <User size={40} />
@@ -499,36 +526,58 @@
 
         <!-- Albums + Tracks Section (50/50) -->
         <div class="bottom-section">
-          <!-- Albums Grid with Navigation -->
+          <!-- Albums Carousel with Navigation -->
           {#if allResults.albums.items.length > 0}
             <div class="albums-section">
               <div class="section-header">
                 <h3>Albums</h3>
-                <button class="view-all-link" onclick={() => handleTabChange('albums')}>
-                  View all ({allResults.albums.total})
-                </button>
+                <div class="carousel-controls">
+                  <button 
+                    class="carousel-btn" 
+                    onclick={() => scrollAlbumsCarousel('left')} 
+                    disabled={!canScrollLeft}
+                    aria-label="Previous albums"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button 
+                    class="carousel-btn" 
+                    onclick={() => scrollAlbumsCarousel('right')} 
+                    disabled={!canScrollRight}
+                    aria-label="Next albums"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                  <button class="view-all-link" onclick={() => handleTabChange('albums')}>
+                    View all ({allResults.albums.total})
+                  </button>
+                </div>
               </div>
-              <div class="albums-grid">
-                {#each allResults.albums.items as album}
-                  <AlbumCard
-                    albumId={album.id}
-                    artwork={getAlbumArtwork(album)}
-                    title={album.title}
-                    artist={album.artist?.name || 'Unknown Artist'}
-                    quality={getQualityLabel(album)}
-                    onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
-                    onPlayNext={onAlbumPlayNext ? () => onAlbumPlayNext(album.id) : undefined}
-                    onPlayLater={onAlbumPlayLater ? () => onAlbumPlayLater(album.id) : undefined}
-                    onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
-                    onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
-                    onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                    isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
-                    onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
-                    onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
-                    {downloadStateVersion}
-                    onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
-                  />
-                {/each}
+              <div class="albums-carousel-wrapper">
+                <div class="albums-carousel" bind:this={albumsCarouselRef}>
+                  {#each allResults.albums.items as album}
+                    <div class="album-card-wrapper">
+                      <AlbumCard
+                        albumId={album.id}
+                        artwork={getAlbumArtwork(album)}
+                        title={album.title}
+                        artist={album.artist?.name || 'Unknown Artist'}
+                        quality={getQualityLabel(album)}
+                        onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
+                        onPlayNext={onAlbumPlayNext ? () => onAlbumPlayNext(album.id) : undefined}
+                        onPlayLater={onAlbumPlayLater ? () => onAlbumPlayLater(album.id) : undefined}
+                        onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
+                        onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
+                        onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
+                        isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
+                        onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
+                        onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                        {downloadStateVersion}
+                        onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
+                      />
+                    </div>
+                  {/each}
+                </div>
               </div>
             </div>
           {/if}
@@ -1120,24 +1169,17 @@
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 16px;
-  }
-
-  .artist-card-large {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    text-align: center;
-    padding: 16px;
-    background-color: var(--bg-secondary);
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: background-color 150ms ease;
-    width: 100%;
+    gap: 8px;
   }
 
-  .artist-card-large:hover {
-    background-color: var(--bg-tertiary);
+  .most-popular-card {
+    box-shadow: 0 0 20px rgba(var(--accent-primary-rgb, 59, 130, 246), 0.15);
+  }
+
+  .most-popular-card:hover {
+    box-shadow: 0 0 25px rgba(var(--accent-primary-rgb, 59, 130, 246), 0.2);
   }
 
   .artists-section h3, .section-header h3 {
@@ -1151,6 +1193,36 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+  }
+
+  .carousel-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .carousel-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .carousel-btn:hover:not(:disabled) {
+    background-color: var(--accent-primary);
+    color: white;
+  }
+
+  .carousel-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
   }
 
   .view-all-link {
@@ -1200,17 +1272,33 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 24px;
+    align-items: start;
   }
 
   .albums-section {
     width: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
-  .albums-grid {
+  .albums-carousel-wrapper {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .albums-carousel {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, 180px);
+    grid-template-rows: repeat(2, auto);
+    grid-auto-flow: column;
     gap: 20px;
-    grid-auto-rows: max-content;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    max-height: calc(2 * 280px + 20px);
+  }
+
+  .album-card-wrapper {
+    width: 180px;
   }
 
   .tracks-section {
@@ -1224,8 +1312,12 @@
   }
 
   @media (max-width: 1400px) {
-    .albums-grid {
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    .albums-carousel {
+      grid-template-columns: repeat(auto-fill, 160px);
+    }
+    
+    .album-card-wrapper {
+      width: 160px;
     }
   }
 
@@ -1245,8 +1337,13 @@
       max-height: 300px;
     }
 
-    .albums-grid {
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    .albums-carousel {
+      grid-template-columns: repeat(auto-fill, 140px);
+      grid-template-rows: auto;
+    }
+    
+    .album-card-wrapper {
+      width: 140px;
     }
   }
 </style>
