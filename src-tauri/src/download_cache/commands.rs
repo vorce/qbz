@@ -42,14 +42,22 @@ async fn post_process_track(
     let new_path = organize_download(track_id, current_path, download_root, &metadata)?;
     
     // 5. Download and save album cover art as cover.jpg
-    if let Some(artwork_url) = &metadata.artwork_url {
+    let artwork_path = if let Some(artwork_url) = &metadata.artwork_url {
         // Extract album directory from the new_path
         if let Some(parent_dir) = std::path::Path::new(&new_path).parent() {
-            if let Err(e) = save_album_artwork(parent_dir, artwork_url).await {
-                log::warn!("Failed to save album artwork for track {}: {}", track_id, e);
+            match save_album_artwork(parent_dir, artwork_url).await {
+                Ok(_) => Some(parent_dir.join("cover.jpg").to_string_lossy().to_string()),
+                Err(e) => {
+                    log::warn!("Failed to save album artwork for track {}: {}", track_id, e);
+                    None
+                }
             }
+        } else {
+            None
         }
-    }
+    } else {
+        None
+    };
     
     // 6. Extract audio properties from FLAC file
     use lofty::AudioFile;
@@ -88,6 +96,7 @@ async fn post_process_track(
         &metadata.album,
         bit_depth,
         sample_rate,
+        artwork_path.as_deref(),
     ) {
         Ok(_) => log::info!("Track {} inserted to local library DB with group key: {}", track_id, album_group_key),
         Err(e) => log::error!("Failed to insert track {} to library DB: {}", track_id, e),

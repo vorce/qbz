@@ -1455,6 +1455,7 @@ impl LibraryDatabase {
         album_group_title: &str,
         bit_depth: Option<u32>,
         sample_rate: Option<f64>,
+        artwork_path: Option<&str>,
     ) -> Result<(), LibraryError> {
         use std::time::SystemTime;
         
@@ -1477,8 +1478,9 @@ impl LibraryDatabase {
                 format, bit_depth, sample_rate, channels,
                 file_size_bytes, last_modified, indexed_at,
                 album_group_key, album_group_title,
+                artwork_path,
                 source, qobuz_track_id
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, 'qobuz_download', ?19)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, 'qobuz_download', ?20)
             "#,
             params![
                 file_path,
@@ -1499,6 +1501,7 @@ impl LibraryDatabase {
                 now,
                 album_group_key,
                 album_group_title,
+                artwork_path,
                 track_id as i64,
             ],
         )

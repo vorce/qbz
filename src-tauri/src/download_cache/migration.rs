@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::api::QobuzClient;
 use crate::library::database::LibraryDatabase;
-use super::metadata::{fetch_complete_metadata, write_flac_tags, embed_artwork, organize_download};
+use super::metadata::{fetch_complete_metadata, write_flac_tags, embed_artwork, organize_download, save_album_artwork};
 
 #[derive(Default, Serialize, Clone, Debug)]
 pub struct MigrationStatus {
@@ -95,7 +95,24 @@ async fn migrate_single_track(
     // 4. Organize file into artist/album structure
     let new_path = organize_download(track_id, &legacy_path_str, download_root, &metadata)?;
     
-    // 5. Extract audio properties from FLAC file
+    // 5. Save album artwork as cover.jpg
+    let artwork_path = if let Some(artwork_url) = &metadata.artwork_url {
+        if let Some(parent_dir) = std::path::Path::new(&new_path).parent() {
+            match save_album_artwork(parent_dir, artwork_url).await {
+                Ok(_) => Some(parent_dir.join("cover.jpg").to_string_lossy().to_string()),
+                Err(e) => {
+                    log::warn!("Failed to save album artwork for track {}: {}", track_id, e);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
+    // 6. Extract audio properties from FLAC file
     use lofty::AudioFile;
     let (bit_depth, sample_rate) = match lofty::read_from_path(&new_path) {
         Ok(tagged_file) => {
@@ -110,7 +127,7 @@ async fn migrate_single_track(
         }
     };
     
-    // 6. Insert into local library DB
+    // 7. Insert into local library DB
     let lib_guard = library_db.lock().await;
     
     let album_artist = metadata.album_artist.as_ref().unwrap_or(&metadata.artist);
@@ -131,6 +148,7 @@ async fn migrate_single_track(
         &metadata.album,
         bit_depth,
         sample_rate,
+        artwork_path.as_deref(),
     )
     .map_err(|e| format!("Failed to insert to library DB: {}", e))?;
     
