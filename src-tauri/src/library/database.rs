@@ -1414,4 +1414,24 @@ impl LibraryDatabase {
         .map_err(|e| LibraryError::Database(format!("Failed to insert Qobuz download: {}", e)))?;
         Ok(())
     }
+
+    /// Remove a Qobuz download from the library by track_id
+    pub fn remove_qobuz_download(&self, qobuz_track_id: u64) -> Result<(), LibraryError> {
+        self.conn.execute(
+            "DELETE FROM local_tracks WHERE qobuz_track_id = ?1 AND source = 'qobuz_download'",
+            params![qobuz_track_id as i64],
+        )
+        .map_err(|e| LibraryError::Database(format!("Failed to remove Qobuz download: {}", e)))?;
+        Ok(())
+    }
+
+    /// Remove all Qobuz downloads from the library
+    pub fn remove_all_qobuz_downloads(&self) -> Result<usize, LibraryError> {
+        let count = self.conn.execute(
+            "DELETE FROM local_tracks WHERE source = 'qobuz_download'",
+            [],
+        )
+        .map_err(|e| LibraryError::Database(format!("Failed to remove all Qobuz downloads: {}", e)))?;
+        Ok(count)
+    }
 }

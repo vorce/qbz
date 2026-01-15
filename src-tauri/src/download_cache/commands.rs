@@ -196,6 +196,7 @@ pub async fn get_download_cache_stats(
 pub async fn remove_downloaded_track(
     track_id: u64,
     cache_state: State<'_, DownloadCacheState>,
+    library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<(), String> {
     log::info!("Command: remove_downloaded_track {}", track_id);
 
@@ -210,6 +211,11 @@ pub async fn remove_downloaded_track(
                 .map_err(|e| format!("Failed to delete file: {}", e))?;
         }
     }
+    drop(db);
+
+    // Also remove from library if it was added
+    let library_db = library_state.db.lock().await;
+    let _ = library_db.remove_qobuz_download(track_id);
 
     Ok(())
 }
@@ -218,6 +224,7 @@ pub async fn remove_downloaded_track(
 #[tauri::command]
 pub async fn clear_download_cache(
     cache_state: State<'_, DownloadCacheState>,
+    library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<(), String> {
     log::info!("Command: clear_download_cache");
 
@@ -225,6 +232,7 @@ pub async fn clear_download_cache(
 
     // Get all file paths and clear DB
     let paths = db.clear_all()?;
+    drop(db);
 
     // Delete all files
     for path in paths {
@@ -243,6 +251,12 @@ pub async fn clear_download_cache(
             }
         }
     }
+
+    // Remove all Qobuz downloads from library
+    let library_db = library_state.db.lock().await;
+    let removed_count = library_db.remove_all_qobuz_downloads()
+        .map_err(|e| format!("Failed to remove downloads from library: {}", e))?;
+    log::info!("Removed {} Qobuz downloads from library", removed_count);
 
     Ok(())
 }
