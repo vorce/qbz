@@ -168,6 +168,7 @@
 
   // Library settings
   let fetchQobuzArtistImages = $state(true);
+  let showQobuzDownloadsInLibrary = $state(false);
 
   // Last.fm integration state
   let lastfmConnected = $state(false);
@@ -231,6 +232,9 @@
     if (savedFetchArtistImages !== null) {
       fetchQobuzArtistImages = savedFetchArtistImages === 'true';
     }
+
+    // Load download settings
+    loadDownloadSettings();
 
     // Load cache stats
     loadCacheStats();
@@ -450,6 +454,15 @@
     }
   }
 
+  async function handleShowDownloadsChange(enabled: boolean) {
+    try {
+      await invoke('set_show_downloads_in_library', { show: enabled });
+      showQobuzDownloadsInLibrary = enabled;
+    } catch (e) {
+      console.error('Failed to update show downloads setting:', e);
+    }
+  }
+
   async function handleSaveTidalCredentials() {
     if (!tidalClientId || !tidalClientSecret) return;
     apiKeysSaving = true;
@@ -653,6 +666,15 @@
       downloadStats = await getDownloadCacheStats();
     } catch (err) {
       console.error('Failed to load download stats:', err);
+    }
+  }
+
+  async function loadDownloadSettings() {
+    try {
+      const settings = await invoke<{download_root: string, show_in_library: boolean}>('get_download_settings');
+      showQobuzDownloadsInLibrary = settings.show_in_library;
+    } catch (err) {
+      console.error('Failed to load download settings:', err);
     }
   }
 
@@ -874,7 +896,7 @@
   <!-- Library Section -->
   <section class="section">
     <h3 class="section-title">{$t('settings.library.title')}</h3>
-    <div class="setting-row last">
+    <div class="setting-row">
       <div class="setting-with-description">
         <span class="setting-label">{$t('settings.library.fetchArtistImages')}</span>
         <span class="setting-description">{$t('settings.library.fetchArtistImagesDesc')}</span>
@@ -883,6 +905,13 @@
         fetchQobuzArtistImages = v;
         localStorage.setItem('qbz-fetch-artist-images', String(v));
       }} />
+    </div>
+    <div class="setting-row last">
+      <div class="setting-with-description">
+        <span class="setting-label">Show Qobuz Downloads in Local Library</span>
+        <span class="setting-description">Display downloaded Qobuz tracks in your Local Library</span>
+      </div>
+      <Toggle enabled={showQobuzDownloadsInLibrary} onchange={handleShowDownloadsChange} />
     </div>
   </section>
 
