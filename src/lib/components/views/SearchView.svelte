@@ -475,7 +475,25 @@
         <!-- Most Popular + Artists Section -->
         <div class="top-section">
           <div class="most-popular">
-            <h3><Crown size={18} /> Most Popular</h3>
+            <h3>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="crown-shimmer" x1="0%" y1="0%" x2="200%" y2="0%">
+                    <stop offset="0%" style="stop-color:gold;stop-opacity:1">
+                      <animate attributeName="stop-color" values="gold;#ffd700;gold" dur="2s" repeatCount="indefinite" />
+                    </stop>
+                    <stop offset="50%" style="stop-color:#ffd700;stop-opacity:1">
+                      <animate attributeName="stop-color" values="#ffd700;gold;#ffd700" dur="2s" repeatCount="indefinite" />
+                    </stop>
+                    <stop offset="100%" style="stop-color:gold;stop-opacity:1">
+                      <animate attributeName="stop-color" values="gold;#ffd700;gold" dur="2s" repeatCount="indefinite" />
+                    </stop>
+                  </linearGradient>
+                </defs>
+                <path d="M2 20h20v-4H2v4zm2-10v4h16v-4h-3l-4-4L9 10H4zm9-9.95L7 8V2H5.5v4.5L11 0l5.5 6.5V2H15v6l-4-7.95z" fill="url(#crown-shimmer)" />
+              </svg>
+              Most Popular
+            </h3>
             {#if allResults.artists.items.length > 0}
               <button class="artist-card most-popular-card" onclick={() => onArtistClick?.(allResults.artists.items[0].id)}>
                 {#if failedArtistImages.has(allResults.artists.items[0].id) || !getArtistImage(allResults.artists.items[0])}
@@ -1206,18 +1224,17 @@
   }
 
   .most-popular h3 :global(svg) {
-    animation: shimmer 2s ease-in-out infinite;
+    color: gold;
   }
 
-  @keyframes shimmer {
-    0%, 100% {
-      opacity: 1;
-      filter: drop-shadow(0 0 2px gold);
-    }
-    50% {
-      opacity: 0.8;
-      filter: drop-shadow(0 0 6px gold);
-    }
+  .most-popular h3 :global(svg path) {
+    fill: url(#crown-shimmer);
+  }
+
+  @keyframes crown-shimmer {
+    0% { stop-color: gold; }
+    50% { stop-color: #ffd700; }
+    100% { stop-color: gold; }
   }
 
   .artist-card {
@@ -1292,11 +1309,22 @@
 
   .artists-grid-compact {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 16px;
     overflow-y: auto;
     max-height: 400px;
     padding-right: 8px;
+  }
+
+  .artists-grid-compact .artist-card {
+    width: 100%;
+    height: auto;
+  }
+
+  .artists-grid-compact .artist-image,
+  .artists-grid-compact .artist-image-placeholder {
+    width: 120px;
+    height: 120px;
   }
 
   .artists-grid-compact::-webkit-scrollbar {
@@ -1317,10 +1345,9 @@
   }
 
   .bottom-section {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
   }
 
   .albums-section {
@@ -1336,7 +1363,7 @@
 
   .albums-carousel {
     display: grid;
-    grid-template-rows: repeat(2, 1fr);
+    grid-template-rows: 1fr;
     grid-auto-flow: column;
     gap: 16px;
     overflow-x: hidden;
@@ -1395,7 +1422,6 @@
     }
 
     .bottom-section {
-      grid-template-columns: 1fr;
       gap: 24px;
     }
 
