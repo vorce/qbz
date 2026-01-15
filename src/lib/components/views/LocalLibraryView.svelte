@@ -140,6 +140,9 @@
   let folders = $state<string[]>([]);
   let scanProgress = $state<ScanProgress | null>(null);
 
+  // Download settings state
+  let showQobuzDownloads = $state(false);
+
   // Loading state
   let loading = $state(false);
   let scanning = $state(false);
@@ -262,6 +265,10 @@
     loading = true;
     error = null;
     try {
+      // Load download settings first
+      const downloadSettings = await invoke<{download_root: string, show_in_library: boolean}>('get_download_settings');
+      showQobuzDownloads = downloadSettings.show_in_library;
+
       const [albumsResult, statsResult] = await Promise.all([
         invoke<LocalAlbum[]>('library_get_albums', { includeHidden: false }),
         invoke<LibraryStats>('library_get_stats')
@@ -443,6 +450,20 @@
       await invoke('library_stop_scan');
     } catch (err) {
       console.error('Failed to stop scan:', err);
+    }
+  }
+
+  async function toggleShowQobuzDownloads() {
+    try {
+      const newValue = !showQobuzDownloads;
+      await invoke('set_show_downloads_in_library', { show: newValue });
+      showQobuzDownloads = newValue;
+      
+      // Reload library to reflect changes
+      await loadLibraryData();
+    } catch (err) {
+      console.error('Failed to toggle Qobuz downloads:', err);
+      error = String(err);
     }
   }
 
@@ -1306,6 +1327,14 @@
         {/if}
 
         <div class="settings-actions">
+          <label class="toggle-setting">
+            <input
+              type="checkbox"
+              checked={showQobuzDownloads}
+              onchange={toggleShowQobuzDownloads}
+            />
+            <span>Show Qobuz Downloaded Songs in Local Library</span>
+          </label>
           <button class="secondary-btn" onclick={toggleHiddenAlbumsView}>
             <span>{showHiddenAlbums ? 'Show Active Albums' : 'View Hidden Albums'}</span>
             {#if hiddenAlbums.length > 0}
@@ -2186,9 +2215,28 @@
     padding-top: 16px;
     border-top: 1px solid var(--bg-tertiary);
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 12px;
+  }
+
+  .toggle-setting {
+    display: flex;
     align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .toggle-setting input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+
+  .toggle-setting span {
+    font-size: 14px;
+    color: var(--text-primary);
   }
 
   .secondary-btn {
