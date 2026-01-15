@@ -86,13 +86,24 @@ function isLiveAlbum(album: QobuzAlbum): boolean {
 
   if (genre.includes('live')) return true;
 
-  return /\blive\b|\blive at\b|\blive in\b|\ben concert\b|\bin concert\b|\bconcert\b|\bunplugged\b|\bsessions?\b/.test(title);
+  // More comprehensive live album patterns
+  return /\blive\b|\blive at\b|\blive in\b|\ben concert\b|\bin concert\b|\bconcert\b|\bunplugged\b|\bsessions?\b|\btour\b|\b(19|20)\d{2}\b.*\blive|\bconcerts?\b|\broadcast\b|\bfm broadcast\b/.test(title);
 }
 
 function isOtherAlbum(album: QobuzAlbum): boolean {
   const title = album.title?.toLowerCase() ?? '';
+  const label = album.label?.name?.toLowerCase() ?? '';
   
-  return /\b(greatest hits|best of|anthology|collection|box set|essentials|retrospective|very best)\b/.test(title);
+  // Greatest hits, compilations, bootlegs, broadcasts, tributes
+  const isCompilation = /\b(greatest hits|best of|anthology|collection|box set|essentials|retrospective|very best|compilation|tribute|cover)\b/.test(title);
+  
+  // Broadcasts, bootlegs, unofficial releases
+  const isBroadcastOrBootleg = /\b(broadcast|fm broadcast|radio|bootleg|unofficial|interview|rarities|outtakes|demos|sessions|rehearsal|soundcheck)\b/.test(title);
+  
+  // Soundtrack, various artists
+  const isVariousOrSoundtrack = /\b(soundtrack|ost|various artists|va)\b/.test(title) || /\b(various|va)\b/.test(label);
+  
+  return isCompilation || isBroadcastOrBootleg || isVariousOrSoundtrack;
 }
 
 function toArtistAlbumSummary(album: QobuzAlbum): ArtistAlbumSummary {
