@@ -28,6 +28,7 @@
     isAlbumFullyDownloaded?: boolean;
     onOpenContainingFolder?: () => void;
     onReDownloadAlbum?: () => void;
+    downloadStateVersion?: number;
   }
 
   let {
@@ -48,8 +49,14 @@
     favoriteEnabled,
     isAlbumFullyDownloaded = false,
     onOpenContainingFolder,
-    onReDownloadAlbum
+    onReDownloadAlbum,
+    downloadStateVersion
   }: Props = $props();
+  
+  const isDownloaded = $derived.by(() => {
+    void downloadStateVersion;
+    return isAlbumFullyDownloaded;
+  });
 
   let imageError = $state(false);
   const cardSize = $derived(size === 'large' ? 180 : 162);
@@ -195,7 +202,7 @@
                 onShareQobuz={onShareQobuz}
                 onShareSonglink={onShareSonglink}
                 onDownload={onDownload}
-                isAlbumFullyDownloaded={isAlbumFullyDownloaded}
+                isAlbumFullyDownloaded={isDownloaded}
                 onOpenContainingFolder={onOpenContainingFolder}
                 onReDownloadAlbum={onReDownloadAlbum}
                 onOpenChange={(open) => (menuOpen = open)}

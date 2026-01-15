@@ -568,6 +568,7 @@
                 isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
                 onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
                 onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                {downloadStateVersion}
                 onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
@@ -595,6 +596,7 @@
                 isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
                 onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
                 onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                {downloadStateVersion}
                 onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
@@ -622,6 +624,7 @@
                 isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
                 onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
                 onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                {downloadStateVersion}
                 onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
@@ -649,6 +652,7 @@
                 isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
                 onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
                 onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                {downloadStateVersion}
                 onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
@@ -676,6 +680,7 @@
                 isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
                 onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
                 onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                {downloadStateVersion}
                 onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
@@ -703,6 +708,7 @@
                 isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
                 onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
                 onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                {downloadStateVersion}
                 onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
@@ -787,6 +793,7 @@
                 isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
                 onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
                 onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                {downloadStateVersion}
                 onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
