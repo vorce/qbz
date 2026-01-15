@@ -1329,6 +1329,9 @@
 
   .most-popular .section-header {
     width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 16px;
   }
 
@@ -1336,7 +1339,7 @@
     font-size: 16px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 0;
+    margin: 0;
     display: flex;
     align-items: center;
     gap: 8px;
