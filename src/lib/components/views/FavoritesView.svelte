@@ -13,6 +13,8 @@
     image: { small?: string; thumbnail?: string; large?: string };
     release_date_original?: string;
     hires: boolean;
+    maximum_bit_depth?: number;
+    maximum_sampling_rate?: number;
   }
 
   interface FavoriteTrack {
@@ -319,6 +321,13 @@
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function getQualityLabel(item: { hires?: boolean; maximum_bit_depth?: number; maximum_sampling_rate?: number }): string {
+    if (item.hires && item.maximum_bit_depth && item.maximum_sampling_rate) {
+      return `${item.maximum_bit_depth}bit/${item.maximum_sampling_rate}kHz`;
+    }
+    return item.hires ? 'Hi-Res' : 'CD Quality';
   }
 
   const alphaIndexLetters = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
@@ -861,7 +870,7 @@
                       title={track.title}
                       artist={track.performer?.name}
                       duration={formatDuration(track.duration)}
-                      quality={track.hires ? 'Hi-Res' : undefined}
+                      quality={getQualityLabel(track)}
                       isFavoriteOverride={true}
                       downloadStatus={downloadInfo.status}
                       downloadProgress={downloadInfo.progress}
@@ -870,7 +879,7 @@
                       onRemoveDownload={onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
                       menuActions={{
                         onPlayNow: () => handleTrackClick(track, globalIndex),
-                        onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(displayTrack) : undefined,
+                        onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(displayTrack) : undefined}
                         onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(displayTrack) : undefined,
                         onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined,
                         onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
@@ -910,7 +919,7 @@
               title={track.title}
               artist={track.performer?.name}
               duration={formatDuration(track.duration)}
-              quality={track.hires ? 'Hi-Res' : undefined}
+              quality={getQualityLabel(track)}
               isFavoriteOverride={true}
               downloadStatus={downloadInfo.status}
               downloadProgress={downloadInfo.progress}
@@ -965,7 +974,7 @@
                         artwork={album.image?.large || album.image?.thumbnail || ''}
                         title={album.title}
                         artist={album.artist.name}
-                        quality={album.hires ? 'Hi-Res' : undefined}
+                        quality={getQualityLabel(album)}
                         onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
                         onPlayNext={onAlbumPlayNext ? () => onAlbumPlayNext(album.id) : undefined}
                         onPlayLater={onAlbumPlayLater ? () => onAlbumPlayLater(album.id) : undefined}
@@ -1036,7 +1045,7 @@
                 artwork={album.image?.large || album.image?.thumbnail || ''}
                 title={album.title}
                 artist={album.artist.name}
-                quality={album.hires ? 'Hi-Res' : undefined}
+                quality={getQualityLabel(album)}
                 onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
                 onPlayNext={onAlbumPlayNext ? () => onAlbumPlayNext(album.id) : undefined}
                 onPlayLater={onAlbumPlayLater ? () => onAlbumPlayLater(album.id) : undefined}
