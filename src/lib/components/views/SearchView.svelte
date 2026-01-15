@@ -10,12 +10,25 @@
   let searchInput: HTMLInputElement | null = null;
   let albumsCarouselRef: HTMLDivElement | null = null;
   let albumsScrollPosition = $state(0);
+  let carouselColumns = $state(3);
 
   onMount(async () => {
     console.log('SearchView mounted!');
     await tick();
     searchInput?.focus();
+    calculateCarouselColumns();
+    window.addEventListener('resize', calculateCarouselColumns);
+    return () => window.removeEventListener('resize', calculateCarouselColumns);
   });
+
+  function calculateCarouselColumns() {
+    if (!albumsCarouselRef?.parentElement) return;
+    const containerWidth = albumsCarouselRef.parentElement.clientWidth;
+    const gap = 16;
+    const minCardWidth = 160;
+    const cols = Math.floor((containerWidth + gap) / (minCardWidth + gap));
+    carouselColumns = Math.max(2, cols);
+  }
 
   // Track which images have failed to load
   let failedTrackImages = $state<Set<number>>(new Set());
@@ -156,6 +169,12 @@
     artistResults = null;
     allResults = null;
   }
+
+  $effect(() => {
+    if (allResults) {
+      setTimeout(() => calculateCarouselColumns(), 100);
+    }
+  });
 
   $effect(() => {
     setSearchState<Album, Track, Artist>({
@@ -336,9 +355,10 @@
   function scrollAlbumsCarousel(direction: 'left' | 'right') {
     if (!albumsCarouselRef) return;
     
-    const cardWidth = 180; // Album card width
-    const gap = 20; // Gap between cards
-    const scrollAmount = cardWidth + gap;
+    const containerWidth = albumsCarouselRef.parentElement?.clientWidth || 0;
+    const gap = 16;
+    const cardWidth = Math.floor((containerWidth - ((carouselColumns - 1) * gap)) / carouselColumns);
+    const scrollAmount = (cardWidth + gap) * carouselColumns;
     
     if (direction === 'left') {
       albumsScrollPosition = Math.max(0, albumsScrollPosition - scrollAmount);
@@ -355,7 +375,7 @@
 
   let canScrollLeft = $derived(albumsScrollPosition > 0);
   let canScrollRight = $derived(
-    albumsCarouselRef ? albumsScrollPosition < albumsCarouselRef.scrollWidth - albumsCarouselRef.clientWidth : false
+    albumsCarouselRef ? albumsScrollPosition < albumsCarouselRef.scrollWidth - albumsCarouselRef.clientWidth - 1 : false
   );
 </script>
 
@@ -606,7 +626,18 @@
                         <Music size={20} />
                       </div>
                     {:else}
-                      <img src={getTrackArtwork(track)} alt={track.title} class="track-artwork" onerror={() => handleTrackImageError(track.id)} />
+                      <div class="track-artwork-container">
+                        <img src={getTrackArtwork(track)} alt={track.title} class="track-artwork" onerror={() => handleTrackImageError(track.id)} />
+                        <button 
+                          class="track-play-overlay"
+                          onclick={(e) => { e.stopPropagation(); onTrackPlay?.(track); }}
+                          aria-label="Play track"
+                        >
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </button>
+                      </div>
                     {/if}
                     <div class="track-info">
                       <div class="track-title">{track.title}</div>
@@ -783,7 +814,7 @@
     width: 100%;
     height: 100%;
     padding: 24px;
-    padding-right: 8px;
+    padding-right: 24px;
     padding-bottom: 100px;
     overflow-y: auto;
   }
@@ -1174,12 +1205,29 @@
     gap: 8px;
   }
 
-  .most-popular-card {
-    box-shadow: 0 0 20px rgba(var(--accent-primary-rgb, 59, 130, 246), 0.15);
+  .most-popular h3 :global(svg) {
+    animation: shimmer 2s ease-in-out infinite;
   }
 
-  .most-popular-card:hover {
-    box-shadow: 0 0 25px rgba(var(--accent-primary-rgb, 59, 130, 246), 0.2);
+  @keyframes shimmer {
+    0%, 100% {
+      opacity: 1;
+      filter: drop-shadow(0 0 2px gold);
+    }
+    50% {
+      opacity: 0.8;
+      filter: drop-shadow(0 0 6px gold);
+    }
+  }
+
+  .artist-card {
+    width: 160px;
+    height: 220px;
+  }
+
+  .most-popular-card {
+    width: 160px;
+    height: 220px;
   }
 
   .artists-section h3, .section-header h3 {
@@ -1283,22 +1331,20 @@
 
   .albums-carousel-wrapper {
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
   }
 
   .albums-carousel {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 180px);
-    grid-template-rows: repeat(2, auto);
+    grid-template-rows: repeat(2, 1fr);
     grid-auto-flow: column;
-    gap: 20px;
+    gap: 16px;
     overflow-x: hidden;
     scroll-behavior: smooth;
-    max-height: calc(2 * 280px + 20px);
   }
 
   .album-card-wrapper {
-    width: 180px;
+    min-width: 160px;
   }
 
   .tracks-section {
@@ -1311,14 +1357,35 @@
     gap: 4px;
   }
 
-  @media (max-width: 1400px) {
-    .albums-carousel {
-      grid-template-columns: repeat(auto-fill, 160px);
-    }
-    
-    .album-card-wrapper {
-      width: 160px;
-    }
+  .track-artwork-container {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .track-play-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    cursor: pointer;
+    transition: background 150ms ease;
+  }
+
+  .track-row:hover .track-play-overlay {
+    display: flex;
+  }
+
+  .track-play-overlay:hover {
+    background: rgba(0, 0, 0, 0.75);
   }
 
   @media (max-width: 1024px) {
@@ -1335,15 +1402,6 @@
     .artists-grid-compact {
       grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
       max-height: 300px;
-    }
-
-    .albums-carousel {
-      grid-template-columns: repeat(auto-fill, 140px);
-      grid-template-rows: auto;
-    }
-    
-    .album-card-wrapper {
-      width: 140px;
     }
   }
 </style>
