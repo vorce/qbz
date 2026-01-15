@@ -1280,8 +1280,8 @@
   }
 
   .artists-grid-compact .artist-card {
-    width: 100%;
-    height: auto;
+    width: 160px;
+    height: 220px;
   }
 
   .artists-grid-compact .artist-image,
@@ -1325,8 +1325,7 @@
   }
 
   .albums-carousel {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 160px));
+    display: flex;
     gap: 16px;
   }
 

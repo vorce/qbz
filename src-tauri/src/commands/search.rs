@@ -64,7 +64,7 @@ pub async fn search_all(
     let client = state.client.lock().await;
     
     let (albums_result, tracks_result, artists_result) = tokio::join!(
-        client.search_albums(&query, 16, 0),
+        client.search_albums(&query, 20, 0),
         client.search_tracks(&query, 8, 0),
         client.search_artists(&query, 5, 0)
     );
