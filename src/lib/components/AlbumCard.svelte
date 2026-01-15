@@ -25,6 +25,9 @@
     onDownload?: () => void;
     showFavorite?: boolean;
     favoriteEnabled?: boolean;
+    isAlbumFullyDownloaded?: boolean;
+    onOpenContainingFolder?: () => void;
+    onReDownloadAlbum?: () => void;
   }
 
   let {
@@ -42,7 +45,10 @@
     onShareSonglink,
     onDownload,
     showFavorite,
-    favoriteEnabled
+    favoriteEnabled,
+    isAlbumFullyDownloaded = false,
+    onOpenContainingFolder,
+    onReDownloadAlbum
   }: Props = $props();
 
   let imageError = $state(false);
@@ -189,6 +195,9 @@
                 onShareQobuz={onShareQobuz}
                 onShareSonglink={onShareSonglink}
                 onDownload={onDownload}
+                isAlbumFullyDownloaded={isAlbumFullyDownloaded}
+                onOpenContainingFolder={onOpenContainingFolder}
+                onReDownloadAlbum={onReDownloadAlbum}
                 onOpenChange={(open) => (menuOpen = open)}
               />
             </div>

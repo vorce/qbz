@@ -3,7 +3,7 @@
   import { ArrowLeft, Play, Shuffle, Heart } from 'lucide-svelte';
   import TrackRow from '../TrackRow.svelte';
   import AlbumMenu from '../AlbumMenu.svelte';
-  import { getDownloadState, type DownloadStatus } from '$lib/stores/downloadState';
+  import { getDownloadState, type DownloadStatus, isAlbumFullyDownloaded } from '$lib/stores/downloadState';
   import {
     subscribe as subscribeAlbumFavorites,
     isAlbumFavorite,
@@ -64,6 +64,8 @@
     downloadStateVersion?: number;
     activeTrackId?: number | null;
     isPlaybackActive?: boolean;
+    onOpenAlbumFolder?: () => void;
+    onReDownloadAlbum?: () => void;
   }
 
   let {
@@ -91,12 +93,19 @@
     onShareAlbumSonglink,
     downloadStateVersion,
     activeTrackId = null,
-    isPlaybackActive = false
+    isPlaybackActive = false,
+    onOpenAlbumFolder,
+    onReDownloadAlbum
   }: Props = $props();
 
   let isFavorite = $state(false);
   let isFavoriteLoading = $state(false);
   let playBtnHovered = $state(false);
+  
+  const albumFullyDownloaded = $derived(
+    isAlbumFullyDownloaded(album.tracks.map(t => t.id))
+  );
+  
   const isVariousArtists = $derived(
     album.artist?.trim().toLowerCase() === 'various artists'
   );
@@ -192,6 +201,9 @@
           onShareQobuz={onShareAlbumQobuz}
           onShareSonglink={onShareAlbumSonglink}
           onDownload={onDownloadAlbum}
+          isAlbumFullyDownloaded={albumFullyDownloaded}
+          onOpenContainingFolder={onOpenAlbumFolder}
+          onReDownloadAlbum={onReDownloadAlbum}
         />
       </div>
     </div>

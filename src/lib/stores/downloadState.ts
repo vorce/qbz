@@ -55,6 +55,16 @@ export function setDownloadState(trackId: number, info: DownloadInfo): void {
   notifyListeners();
 }
 
+// Check if all tracks of an album are downloaded
+export function isAlbumFullyDownloaded(trackIds: number[]): boolean {
+  if (trackIds.length === 0) return false;
+  
+  return trackIds.every(trackId => {
+    const state = getDownloadState(trackId);
+    return state.status === 'ready';
+  });
+}
+
 export function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -194,4 +204,9 @@ export async function openDownloadCacheFolder(): Promise<void> {
 // Set cache limit
 export async function setDownloadCacheLimit(limitMb: number | null): Promise<void> {
   await invoke('set_download_cache_limit', { limitMb });
+}
+
+// Open containing folder for a specific album
+export async function openAlbumFolder(albumId: string): Promise<void> {
+  await invoke('open_album_folder', { albumId });
 }

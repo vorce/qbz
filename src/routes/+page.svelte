@@ -12,6 +12,7 @@
     downloadTrack,
     removeDownload,
     getDownloadState,
+    openAlbumFolder,
     subscribe as subscribeDownloads,
     type DownloadStatus
   } from '$lib/stores/downloadState';
@@ -976,6 +977,41 @@
     }
   }
 
+  async function handleOpenAlbumFolder() {
+    if (!selectedAlbum) return;
+    
+    try {
+      await openAlbumFolder(selectedAlbum.id);
+    } catch (err) {
+      console.error('Failed to open album folder:', err);
+      showToast('Failed to open album folder', 'error');
+    }
+  }
+
+  async function handleReDownloadAlbum() {
+    if (!selectedAlbum) return;
+    
+    showToast(`Re-downloading all tracks from "${selectedAlbum.title}"`, 'info');
+
+    for (const track of selectedAlbum.tracks) {
+      try {
+        await downloadTrack({
+          id: track.id,
+          title: track.title,
+          artist: track.artist || selectedAlbum.artist || 'Unknown',
+          album: selectedAlbum.title,
+          albumId: selectedAlbum.id,
+          durationSecs: track.durationSeconds,
+          quality: track.quality || '-',
+          bitDepth: track.bitDepth,
+          sampleRate: track.samplingRate,
+        });
+      } catch (err) {
+        console.error(`Failed to queue re-download for "${track.title}":`, err);
+      }
+    }
+  }
+
   function getTrackDownloadStatus(trackId: number) {
     // Access downloadStateVersion to trigger reactivity
     void downloadStateVersion;
@@ -1739,6 +1775,8 @@
           onDownloadAlbum={handleDownloadAlbum}
           onShareAlbumQobuz={shareAlbumQobuzLink}
           onShareAlbumSonglink={shareAlbumSonglink}
+          onOpenAlbumFolder={handleOpenAlbumFolder}
+          onReDownloadAlbum={handleReDownloadAlbum}
           {downloadStateVersion}
         />
       {:else if activeView === 'artist' && selectedArtist}

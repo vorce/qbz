@@ -438,6 +438,45 @@ pub async fn open_download_cache_folder(
     Ok(())
 }
 
+/// Open the folder containing a specific album in the system file manager
+#[tauri::command]
+pub async fn open_album_folder(
+    album_id: String,
+    cache_state: State<'_, DownloadCacheState>,
+) -> Result<(), String> {
+    log::info!("Command: open_album_folder for album_id: {}", album_id);
+
+    let db = cache_state.db.lock().await;
+    
+    // Get tracks for this album
+    let tracks = db.get_all_tracks()?;
+    let album_tracks: Vec<_> = tracks
+        .into_iter()
+        .filter(|t| t.album_id.as_deref() == Some(&album_id))
+        .collect();
+
+    if album_tracks.is_empty() {
+        return Err("No downloaded tracks found for this album".to_string());
+    }
+
+    // Get the first track's path and extract the album directory
+    let first_track = &album_tracks[0];
+    let track_path = std::path::Path::new(&first_track.file_path);
+    
+    let album_dir = track_path
+        .parent()
+        .ok_or_else(|| "Could not determine album folder".to_string())?;
+
+    if !album_dir.exists() {
+        return Err("Album folder does not exist".to_string());
+    }
+
+    // Open with system file manager
+    open::that(album_dir).map_err(|e| format!("Failed to open folder: {}", e))?;
+
+    Ok(())
+}
+
 /// Evict tracks if cache exceeds limit (LRU policy)
 async fn evict_if_needed(
     cache_state: &DownloadCacheState,

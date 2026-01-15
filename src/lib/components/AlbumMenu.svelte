@@ -8,7 +8,9 @@
     ListEnd,
     Share2,
     Download,
-    Link
+    Link,
+    FolderOpen,
+    RefreshCw
   } from 'lucide-svelte';
 
   interface Props {
@@ -18,6 +20,9 @@
     onShareSonglink?: () => void;
     onDownload?: () => void;
     onOpenChange?: (open: boolean) => void;
+    isAlbumFullyDownloaded?: boolean;
+    onOpenContainingFolder?: () => void;
+    onReDownloadAlbum?: () => void;
   }
 
   let {
@@ -26,29 +31,37 @@
     onShareQobuz,
     onShareSonglink,
     onDownload,
-    onOpenChange
+    onOpenChange,
+    isAlbumFullyDownloaded = false,
+    onOpenContainingFolder,
+    onReDownloadAlbum
   }: Props = $props();
 
   let isOpen = $state(false);
   let shareOpen = $state(false);
+  let downloadOpen = $state(false);
   let menuRef: HTMLDivElement | null = null;
   let triggerRef: HTMLButtonElement | null = null;
   let menuEl: HTMLDivElement | null = null;
   let shareTriggerRef: HTMLDivElement | null = null;
+  let downloadTriggerRef: HTMLDivElement | null = null;
   let submenuEl: HTMLDivElement | null = null;
+  let downloadSubmenuEl: HTMLDivElement | null = null;
   let menuStyle = $state('');
   let submenuStyle = $state('');
+  let downloadSubmenuStyle = $state('');
   let portalTarget: HTMLElement | null = null;
   const menuId = Symbol('album-menu');
 
   const hasQueue = $derived(!!(onPlayNext || onPlayLater));
   const hasShare = $derived(!!(onShareQobuz || onShareSonglink));
-  const hasDownload = $derived(!!onDownload);
+  const hasDownload = $derived(!!onDownload || isAlbumFullyDownloaded);
   const hasMenu = $derived(hasQueue || hasShare || hasDownload);
 
   function closeMenu() {
     isOpen = false;
     shareOpen = false;
+    downloadOpen = false;
     onOpenChange?.(false);
   }
 
@@ -57,6 +70,7 @@
     if (menuRef?.contains(target)) return;
     if (menuEl?.contains(target)) return;
     if (submenuEl?.contains(target)) return;
+    if (downloadSubmenuEl?.contains(target)) return;
     closeMenu();
   }
 
@@ -139,6 +153,41 @@
     submenuStyle = `left: ${left}px; top: ${top}px;`;
   }
 
+  async function setDownloadSubmenuPosition(retries = 2) {
+    await tick();
+    if (!downloadTriggerRef || !downloadSubmenuEl) {
+      if (retries > 0) {
+        await tick();
+        return setDownloadSubmenuPosition(retries - 1);
+      }
+      return;
+    }
+
+    const triggerRect = downloadTriggerRef.getBoundingClientRect();
+    const submenuRect = downloadSubmenuEl.getBoundingClientRect();
+    const padding = 8;
+
+    const spaceRight = window.innerWidth - triggerRect.right;
+    const openRight = spaceRight >= submenuRect.width + padding;
+
+    let left = openRight
+      ? triggerRect.right + 6
+      : triggerRect.left - submenuRect.width - 6;
+    let top = triggerRect.top - 6;
+
+    if (left < padding) left = padding;
+    if (left + submenuRect.width > window.innerWidth - padding) {
+      left = Math.max(padding, window.innerWidth - submenuRect.width - padding);
+    }
+
+    if (top + submenuRect.height > window.innerHeight - padding) {
+      top = window.innerHeight - submenuRect.height - padding;
+    }
+    if (top < padding) top = padding;
+
+    downloadSubmenuStyle = `left: ${left}px; top: ${top}px;`;
+  }
+
   function handleAction(action?: () => void) {
     if (!action) return;
     action();
@@ -153,6 +202,7 @@
       const handleScroll = () => {
         setMenuPosition();
         if (shareOpen) setSubmenuPosition();
+        if (downloadOpen) setDownloadSubmenuPosition();
       };
 
       window.addEventListener('resize', handleResize);
@@ -181,6 +231,7 @@
         const nextOpen = !isOpen;
         isOpen = nextOpen;
         shareOpen = false;
+        downloadOpen = false;
         onOpenChange?.(nextOpen);
         if (nextOpen) {
           window.dispatchEvent(new CustomEvent('qbz-album-menu-open', { detail: menuId }));
@@ -254,10 +305,45 @@
           {/if}
 
           {#if hasDownload}
-            <button class="menu-item" onclick={() => handleAction(onDownload)}>
-              <Download size={14} />
-              <span>Download album</span>
-            </button>
+            {#if isAlbumFullyDownloaded}
+              <div
+                class="menu-item submenu-trigger"
+                bind:this={downloadTriggerRef}
+                onmouseenter={() => {
+                  downloadOpen = true;
+                  setDownloadSubmenuPosition();
+                }}
+                onclick={() => {
+                  downloadOpen = !downloadOpen;
+                  if (downloadOpen) setDownloadSubmenuPosition();
+                }}
+              >
+                <Download size={14} />
+                <span>Download album</span>
+                <ChevronRight size={14} class="chevron" />
+                {#if downloadOpen}
+                  <div class="submenu" bind:this={downloadSubmenuEl} style={downloadSubmenuStyle}>
+                    {#if onOpenContainingFolder}
+                      <button class="menu-item" onclick={() => handleAction(onOpenContainingFolder)}>
+                        <FolderOpen size={14} />
+                        <span>Open containing folder</span>
+                      </button>
+                    {/if}
+                    {#if onReDownloadAlbum}
+                      <button class="menu-item" onclick={() => handleAction(onReDownloadAlbum)}>
+                        <RefreshCw size={14} />
+                        <span>Re-download album</span>
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <button class="menu-item" onclick={() => handleAction(onDownload)}>
+                <Download size={14} />
+                <span>Download album</span>
+              </button>
+            {/if}
           {/if}
         </div>
       </Portal>
