@@ -164,6 +164,21 @@
     return albumDownloadStatuses.get(albumId) || false;
   }
 
+  $effect(() => {
+    if (downloadStateVersion !== undefined) {
+      const allAlbums = [
+        ...newReleases,
+        ...pressAwards,
+        ...mostStreamed,
+        ...qobuzissimes,
+        ...editorPicks,
+        ...recentAlbums,
+        ...favoriteAlbums
+      ];
+      loadAllAlbumDownloadStatuses(allAlbums);
+    }
+  });
+
   const hasContent = $derived(
     newReleases.length > 0
     || pressAwards.length > 0

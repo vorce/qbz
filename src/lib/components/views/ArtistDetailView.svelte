@@ -142,6 +142,18 @@
     return albumDownloadStatuses.get(albumId) || false;
   }
 
+  $effect(() => {
+    if (downloadStateVersion !== undefined) {
+      const allAlbums = [
+        ...artist.albums,
+        ...artist.epsSingles,
+        ...artist.liveAlbums,
+        ...artist.compilations
+      ];
+      loadAllAlbumDownloadStatuses(allAlbums);
+    }
+  });
+
   interface SimilarArtistsPage {
     items: QobuzArtist[];
     total: number;
