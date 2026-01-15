@@ -247,6 +247,7 @@
   import PlaylistImportModal from '$lib/components/PlaylistImportModal.svelte';
   import CastPicker from '$lib/components/CastPicker.svelte';
   import LyricsSidebar from '$lib/components/lyrics/LyricsSidebar.svelte';
+  import AddToPlaylistModal from '$lib/components/AddToPlaylistModal.svelte';
 
   // Auth State (from authStore subscription)
   let isLoggedIn = $state(false);
@@ -276,6 +277,9 @@
   let isPlaylistImportOpen = $state(false);
   let isAboutModalOpen = $state(false);
   let userPlaylists = $state<{ id: number; name: string; tracks_count: number }[]>([]);
+  
+  // Add to Playlist Modal State (for Now Playing track)
+  let isAddToPlaylistModalOpen = $state(false);
 
   // Sidebar reference for refreshing playlists
   let sidebarRef: { getPlaylists: () => { id: number; name: string; tracks_count: number }[], refreshPlaylists: () => void } | undefined;
@@ -648,6 +652,30 @@
       showToast(result.isFavorite ? 'Added to favorites' : 'Removed from favorites', 'success');
     } else {
       showToast('Failed to update favorites', 'error');
+    }
+  }
+
+  // Add to Playlist handlers
+  function openAddToPlaylistModal() {
+    if (!currentTrack) return;
+    isAddToPlaylistModalOpen = true;
+  }
+
+  function closeAddToPlaylistModal() {
+    isAddToPlaylistModalOpen = false;
+  }
+
+  async function handleAddCurrentTrackToPlaylist(playlistId: number) {
+    if (!currentTrack) return;
+    try {
+      await invoke('add_track_to_playlist', { playlistId, trackId: currentTrack.id });
+      showToast('Added to playlist', 'success');
+      if (sidebarRef) {
+        sidebarRef.refreshPlaylists();
+      }
+    } catch (err) {
+      console.error('Failed to add track to playlist:', err);
+      showToast('Failed to add to playlist', 'error');
     }
   }
 
@@ -1987,6 +2015,7 @@
         onToggleRepeat={toggleRepeat}
         {isFavorite}
         onToggleFavorite={toggleFavorite}
+        onAddToPlaylist={openAddToPlaylistModal}
         onOpenQueue={openQueue}
         onOpenFullScreen={openFullScreen}
         onOpenMiniPlayer={enterMiniplayerMode}
@@ -2140,6 +2169,14 @@
     <CastPicker
       isOpen={isCastPickerOpen}
       onClose={closeCastPicker}
+    />
+
+    <!-- Add to Playlist Modal -->
+    <AddToPlaylistModal
+      isOpen={isAddToPlaylistModalOpen}
+      onClose={closeAddToPlaylistModal}
+      onSelect={handleAddCurrentTrackToPlaylist}
+      trackTitle={currentTrack?.title}
     />
   </div>
 {/if}

@@ -103,92 +103,6 @@
       {/if}
     </div>
 
-    <!-- Item Limits -->
-    <div class="settings-section">
-      <div class="section-title">Item Limits</div>
-      <p class="section-desc">Configure how many items to show in each section</p>
-
-      <div class="limits-grid">
-        <div class="limit-item">
-          <label class="limit-label" for="limit-recent">Recently Played</label>
-          <input
-            id="limit-recent"
-            type="number"
-            class="limit-input"
-            min="1"
-            max="100"
-            value={settings.limits.recentAlbums}
-            onchange={(e) => handleLimitChange('recentAlbums', Number(e.currentTarget.value))}
-          />
-        </div>
-
-        <div class="limit-item">
-          <label class="limit-label" for="limit-continue">Continue Listening</label>
-          <input
-            id="limit-continue"
-            type="number"
-            class="limit-input"
-            min="1"
-            max="100"
-            value={settings.limits.continueTracks}
-            onchange={(e) => handleLimitChange('continueTracks', Number(e.currentTarget.value))}
-          />
-        </div>
-
-        <div class="limit-item">
-          <label class="limit-label" for="limit-artists">Top Artists</label>
-          <input
-            id="limit-artists"
-            type="number"
-            class="limit-input"
-            min="1"
-            max="100"
-            value={settings.limits.topArtists}
-            onchange={(e) => handleLimitChange('topArtists', Number(e.currentTarget.value))}
-          />
-        </div>
-
-        <div class="limit-item">
-          <label class="limit-label" for="limit-fav-albums">Favorite Albums</label>
-          <input
-            id="limit-fav-albums"
-            type="number"
-            class="limit-input"
-            min="1"
-            max="100"
-            value={settings.limits.favoriteAlbums}
-            onchange={(e) => handleLimitChange('favoriteAlbums', Number(e.currentTarget.value))}
-          />
-        </div>
-
-        <div class="limit-item">
-          <label class="limit-label" for="limit-fav-tracks">Favorite Tracks</label>
-          <input
-            id="limit-fav-tracks"
-            type="number"
-            class="limit-input"
-            min="1"
-            max="100"
-            value={settings.limits.favoriteTracks}
-            onchange={(e) => handleLimitChange('favoriteTracks', Number(e.currentTarget.value))}
-          />
-        </div>
-
-        <div class="limit-item">
-          <label class="limit-label" for="limit-featured">Featured Albums</label>
-          <input
-            id="limit-featured"
-            type="number"
-            class="limit-input"
-            min="1"
-            max="100"
-            value={settings.limits.featuredAlbums}
-            onchange={(e) => handleLimitChange('featuredAlbums', Number(e.currentTarget.value))}
-          />
-        </div>
-      </div>
-    </div>
-
     <!-- Sections Order -->
     <div class="settings-section">
       <div class="section-title">{$t('homeSettings.sections')}</div>
@@ -197,42 +111,111 @@
       <div class="sections-list">
         {#each settings.sections as section, index (section.id)}
           <div class="section-item" class:disabled={!section.visible}>
-            <div class="section-controls">
-              <button
-                class="order-btn"
-                onclick={() => handleMoveUp(section.id)}
-                disabled={index === 0}
-                title={$t('homeSettings.moveUp')}
-              >
-                <ChevronUp size={16} />
-              </button>
-              <button
-                class="order-btn"
-                onclick={() => handleMoveDown(section.id)}
-                disabled={index === settings.sections.length - 1}
-                title={$t('homeSettings.moveDown')}
-              >
-                <ChevronDown size={16} />
-              </button>
+            <div class="section-header">
+              <div class="section-controls">
+                <button
+                  class="order-btn"
+                  onclick={() => handleMoveUp(section.id)}
+                  disabled={index === 0}
+                  title={$t('homeSettings.moveUp')}
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <button
+                  class="order-btn"
+                  onclick={() => handleMoveDown(section.id)}
+                  disabled={index === settings.sections.length - 1}
+                  title={$t('homeSettings.moveDown')}
+                >
+                  <ChevronDown size={16} />
+                </button>
+              </div>
+
+              <span class="section-label">
+                {section.label}
+                {#if section.source === 'qobuz'}
+                  <span class="source-badge qobuz">Qobuz</span>
+                {:else if section.source === 'ml'}
+                  <span class="source-badge ml">ML</span>
+                {/if}
+              </span>
+
+              <label class="toggle">
+                <input
+                  type="checkbox"
+                  checked={section.visible}
+                  onchange={(e) => handleToggleSection(section.id, e.currentTarget.checked)}
+                />
+                <span class="toggle-slider"></span>
+              </label>
             </div>
 
-            <span class="section-label">
-              {section.label}
-              {#if section.source === 'qobuz'}
-                <span class="source-badge qobuz">Qobuz</span>
-              {:else if section.source === 'ml'}
-                <span class="source-badge ml">ML</span>
-              {/if}
-            </span>
-
-            <label class="toggle">
-              <input
-                type="checkbox"
-                checked={section.visible}
-                onchange={(e) => handleToggleSection(section.id, e.currentTarget.checked)}
-              />
-              <span class="toggle-slider"></span>
-            </label>
+            {#if section.id === 'recentAlbums' && section.visible}
+              <div class="section-limit">
+                <label class="limit-label" for="limit-recent">Items to show</label>
+                <input
+                  id="limit-recent"
+                  type="number"
+                  class="limit-input"
+                  min="1"
+                  max="100"
+                  value={settings.limits.recentAlbums}
+                  onchange={(e) => handleLimitChange('recentAlbums', Number(e.currentTarget.value))}
+                />
+              </div>
+            {:else if section.id === 'continueTracks' && section.visible}
+              <div class="section-limit">
+                <label class="limit-label" for="limit-continue">Items to show</label>
+                <input
+                  id="limit-continue"
+                  type="number"
+                  class="limit-input"
+                  min="1"
+                  max="100"
+                  value={settings.limits.continueTracks}
+                  onchange={(e) => handleLimitChange('continueTracks', Number(e.currentTarget.value))}
+                />
+              </div>
+            {:else if section.id === 'topArtists' && section.visible}
+              <div class="section-limit">
+                <label class="limit-label" for="limit-artists">Items to show</label>
+                <input
+                  id="limit-artists"
+                  type="number"
+                  class="limit-input"
+                  min="1"
+                  max="100"
+                  value={settings.limits.topArtists}
+                  onchange={(e) => handleLimitChange('topArtists', Number(e.currentTarget.value))}
+                />
+              </div>
+            {:else if section.id === 'favoriteAlbums' && section.visible}
+              <div class="section-limit">
+                <label class="limit-label" for="limit-fav-albums">Items to show</label>
+                <input
+                  id="limit-fav-albums"
+                  type="number"
+                  class="limit-input"
+                  min="1"
+                  max="100"
+                  value={settings.limits.favoriteAlbums}
+                  onchange={(e) => handleLimitChange('favoriteAlbums', Number(e.currentTarget.value))}
+                />
+              </div>
+            {:else if (section.id === 'newReleases' || section.id === 'pressAwards' || section.id === 'mostStreamed' || section.id === 'qobuzissimes' || section.id === 'editorPicks') && section.visible}
+              <div class="section-limit">
+                <label class="limit-label" for="limit-featured">Items to show</label>
+                <input
+                  id="limit-featured-{section.id}"
+                  type="number"
+                  class="limit-input"
+                  min="1"
+                  max="100"
+                  value={settings.limits.featuredAlbums}
+                  onchange={(e) => handleLimitChange('featuredAlbums', Number(e.currentTarget.value))}
+                />
+              </div>
+            {/if}
           </div>
         {/each}
       </div>
@@ -383,8 +366,7 @@
 
   .section-item {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
     padding: 10px 12px;
     background: var(--bg-secondary);
     transition: all 150ms ease;
@@ -396,6 +378,20 @@
 
   .section-item.disabled {
     opacity: 0.5;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-limit {
+    margin-top: 12px;
+    margin-left: 52px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   .section-controls {
@@ -480,27 +476,17 @@
     color: var(--text-primary);
   }
 
-  .limits-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-
-  .limit-item {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
   .limit-label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: var(--text-muted);
+    white-space: nowrap;
   }
 
   .limit-input {
-    padding: 8px 12px;
-    background: var(--bg-secondary);
+    width: 70px;
+    padding: 6px 10px;
+    background: var(--bg-primary);
     border: 1px solid var(--bg-tertiary);
     border-radius: 6px;
     color: var(--text-primary);

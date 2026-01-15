@@ -46,6 +46,7 @@
     onToggleRepeat?: () => void;
     isFavorite?: boolean;
     onToggleFavorite?: () => void;
+    onAddToPlaylist?: () => void;
     onOpenQueue?: () => void;
     onOpenFullScreen?: () => void;
     onOpenMiniPlayer?: () => void;
@@ -81,6 +82,7 @@
     onToggleRepeat,
     isFavorite = false,
     onToggleFavorite,
+    onAddToPlaylist,
     onOpenQueue,
     onOpenFullScreen,
     onOpenMiniPlayer,
@@ -221,7 +223,7 @@
         {/if}
       </button>
 
-      <button class="control-btn" title={$t('actions.addToPlaylist')}>
+      <button class="control-btn" onclick={onAddToPlaylist} title={$t('actions.addToPlaylist')}>
         <Plus size={16} />
       </button>
 
