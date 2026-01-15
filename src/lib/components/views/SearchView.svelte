@@ -566,9 +566,9 @@
                   </button>
                 </div>
               </div>
-              <div class="albums-carousel-wrapper">
-                <div class="albums-carousel" bind:this={albumsCarouselRef}>
-                  {#each allResults.albums.items as album}
+              <div class="albums-carousel-wrapper" bind:this={albumsCarouselContainer}>
+                <div class="albums-carousel">
+                  {#each visibleAlbums as album}
                     <div class="album-card-wrapper">
                       <AlbumCard
                         albumId={album.id}
@@ -1108,6 +1108,8 @@
     border-radius: 12px;
     cursor: pointer;
     transition: background-color 150ms ease;
+    width: 160px;
+    height: 220px;
   }
 
   .artist-card:hover {
@@ -1117,14 +1119,17 @@
   .artist-image {
     width: 120px;
     height: 120px;
+    min-height: 120px;
     border-radius: 50%;
     object-fit: cover;
     margin-bottom: 12px;
+    flex-shrink: 0;
   }
 
   .artist-image-placeholder {
     width: 120px;
     height: 120px;
+    min-height: 120px;
     border-radius: 50%;
     margin-bottom: 12px;
     display: flex;
@@ -1132,6 +1137,7 @@
     justify-content: center;
     background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
     color: var(--text-muted);
+    flex-shrink: 0;
   }
 
   .artist-name {
@@ -1139,6 +1145,13 @@
     font-weight: 500;
     color: var(--text-primary);
     margin-bottom: 4px;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
   }
 
   .artist-albums {
@@ -1210,6 +1223,13 @@
     height: 220px;
   }
 
+  .most-popular-card .artist-image,
+  .most-popular-card .artist-image-placeholder {
+    width: 120px;
+    height: 120px;
+    min-height: 120px;
+  }
+
   .artists-section h3, .section-header h3 {
     font-size: 16px;
     font-weight: 600;
@@ -1272,8 +1292,8 @@
 
   .artists-grid-compact {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 24px;
     overflow-y: auto;
     max-height: 400px;
     padding-right: 8px;
@@ -1288,6 +1308,7 @@
   .artists-grid-compact .artist-image-placeholder {
     width: 120px;
     height: 120px;
+    min-height: 120px;
   }
 
   .artists-grid-compact::-webkit-scrollbar {
