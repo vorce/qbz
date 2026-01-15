@@ -479,6 +479,35 @@ pub async fn open_album_folder(
     Ok(())
 }
 
+/// Check if an album is fully downloaded (all tracks ready)
+#[tauri::command]
+pub async fn check_album_fully_downloaded(
+    album_id: String,
+    cache_state: State<'_, DownloadCacheState>,
+) -> Result<bool, String> {
+    let db = cache_state.db.lock().await;
+    
+    // Get all tracks for this album
+    let tracks = db.get_all_tracks()?;
+    let album_tracks: Vec<_> = tracks
+        .into_iter()
+        .filter(|t| t.album_id.as_deref() == Some(&album_id))
+        .collect();
+
+    if album_tracks.is_empty() {
+        return Ok(false);
+    }
+    
+    // Check if all tracks are ready
+    for track in album_tracks {
+        if track.status != crate::download_cache::DownloadStatus::Ready {
+            return Ok(false);
+        }
+    }
+    
+    Ok(true)
+}
+
 /// Evict tracks if cache exceeds limit (LRU policy)
 async fn evict_if_needed(
     cache_state: &DownloadCacheState,

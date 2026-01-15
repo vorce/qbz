@@ -1012,6 +1012,48 @@
     }
   }
 
+  async function openAlbumFolderById(albumId: string) {
+    try {
+      await openAlbumFolder(albumId);
+    } catch (err) {
+      console.error('Failed to open album folder:', err);
+      showToast('Failed to open album folder', 'error');
+    }
+  }
+
+  async function reDownloadAlbumById(albumId: string) {
+    try {
+      const album = await invoke<QobuzAlbum>('get_album', { albumId });
+      if (!album || !album.tracks || album.tracks.data.length === 0) {
+        showToast('Failed to load album for re-download', 'error');
+        return;
+      }
+
+      showToast(`Re-downloading all tracks from "${album.title}"`, 'info');
+
+      for (const track of album.tracks.data) {
+        try {
+          await downloadTrack({
+            id: track.id,
+            title: track.title,
+            artist: track.performer?.name || album.artist?.name || 'Unknown',
+            album: album.title,
+            albumId: album.id,
+            durationSecs: track.duration,
+            quality: track.hires ? 'Hi-Res' : '-',
+            bitDepth: track.maximum_bit_depth,
+            sampleRate: track.maximum_sampling_rate,
+          });
+        } catch (err) {
+          console.error(`Failed to queue re-download for "${track.title}":`, err);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load album:', err);
+      showToast('Failed to load album for re-download', 'error');
+    }
+  }
+
   function getTrackDownloadStatus(trackId: number) {
     // Access downloadStateVersion to trigger reactivity
     void downloadStateVersion;
@@ -1398,6 +1440,28 @@
   // Download state update trigger
   let downloadStateVersion = $state(0);
 
+  // Cache for album download statuses
+  const albumDownloadCache = new Map<string, boolean>();
+
+  async function checkAlbumFullyDownloaded(albumId: string): Promise<boolean> {
+    // Trigger reactivity with downloadStateVersion
+    void downloadStateVersion;
+    
+    try {
+      const isDownloaded = await invoke<boolean>('check_album_fully_downloaded', { albumId });
+      albumDownloadCache.set(albumId, isDownloaded);
+      return isDownloaded;
+    } catch {
+      albumDownloadCache.set(albumId, false);
+      return false;
+    }
+  }
+
+  function getAlbumDownloadStatus(albumId: string): boolean {
+    void downloadStateVersion;
+    return albumDownloadCache.get(albumId) || false;
+  }
+
   onMount(() => {
     // Bootstrap app (theme, mouse nav, Last.fm restore)
     const { cleanup: cleanupBootstrap } = bootstrapApp();
@@ -1719,6 +1783,10 @@
           onAlbumShareQobuz={shareAlbumQobuzLinkById}
           onAlbumShareSonglink={shareAlbumSonglinkById}
           onAlbumDownload={downloadAlbumById}
+          onOpenAlbumFolder={openAlbumFolderById}
+          onReDownloadAlbum={reDownloadAlbumById}
+          checkAlbumFullyDownloaded={checkAlbumFullyDownloaded}
+          {downloadStateVersion}
           onArtistClick={handleArtistClick}
           onTrackPlay={handleDisplayTrackPlay}
         />
@@ -1731,6 +1799,10 @@
           onAlbumShareQobuz={shareAlbumQobuzLinkById}
           onAlbumShareSonglink={shareAlbumSonglinkById}
           onAlbumDownload={downloadAlbumById}
+          onOpenAlbumFolder={openAlbumFolderById}
+          onReDownloadAlbum={reDownloadAlbumById}
+          checkAlbumFullyDownloaded={checkAlbumFullyDownloaded}
+          {downloadStateVersion}
           onTrackPlay={handleTrackPlay}
           onTrackPlayNext={queueQobuzTrackNext}
           onTrackPlayLater={queueQobuzTrackLater}
@@ -1790,6 +1862,10 @@
           onAlbumShareQobuz={shareAlbumQobuzLinkById}
           onAlbumShareSonglink={shareAlbumSonglinkById}
           onAlbumDownload={downloadAlbumById}
+          onOpenAlbumFolder={openAlbumFolderById}
+          onReDownloadAlbum={reDownloadAlbumById}
+          checkAlbumFullyDownloaded={checkAlbumFullyDownloaded}
+          {downloadStateVersion}
           onLoadMore={loadMoreArtistAlbums}
           isLoadingMore={isArtistAlbumsLoading}
           onTrackPlay={handleDisplayTrackPlay}
@@ -1845,6 +1921,10 @@
           onAlbumShareQobuz={shareAlbumQobuzLinkById}
           onAlbumShareSonglink={shareAlbumSonglinkById}
           onAlbumDownload={downloadAlbumById}
+          onOpenAlbumFolder={openAlbumFolderById}
+          onReDownloadAlbum={reDownloadAlbumById}
+          checkAlbumFullyDownloaded={checkAlbumFullyDownloaded}
+          {downloadStateVersion}
           onTrackPlay={handleDisplayTrackPlay}
           onArtistClick={handleArtistClick}
           onTrackPlayNext={queuePlaylistTrackNext}
@@ -1858,7 +1938,6 @@
           onTrackDownload={handleDisplayTrackDownload}
           onTrackRemoveDownload={handleTrackRemoveDownload}
           getTrackDownloadStatus={getTrackDownloadStatus}
-          {downloadStateVersion}
         />
       {:else if activeView === 'playlist-manager'}
         <PlaylistManagerView

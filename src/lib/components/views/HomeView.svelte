@@ -54,6 +54,10 @@
     onAlbumShareQobuz?: (albumId: string) => void;
     onAlbumShareSonglink?: (albumId: string) => void;
     onAlbumDownload?: (albumId: string) => void;
+    onOpenAlbumFolder?: (albumId: string) => void;
+    onReDownloadAlbum?: (albumId: string) => void;
+    checkAlbumFullyDownloaded?: (albumId: string) => Promise<boolean>;
+    downloadStateVersion?: number;
     onArtistClick?: (artistId: number) => void;
     onTrackPlay?: (track: DisplayTrack) => void;
   }
@@ -67,6 +71,10 @@
     onAlbumShareQobuz,
     onAlbumShareSonglink,
     onAlbumDownload,
+    onOpenAlbumFolder,
+    onReDownloadAlbum,
+    checkAlbumFullyDownloaded,
+    downloadStateVersion,
     onArtistClick,
     onTrackPlay
   }: Props = $props();
@@ -131,6 +139,25 @@
   let favoriteAlbums = $state<AlbumCardData[]>([]);
 
   let failedArtistImages = $state<Set<number>>(new Set());
+
+  // Download status tracking
+  let albumDownloadStatuses = $state<Map<string, boolean>>(new Map());
+
+  async function loadAlbumDownloadStatus(albumId: string) {
+    if (!checkAlbumFullyDownloaded) return false;
+    try {
+      const isDownloaded = await checkAlbumFullyDownloaded(albumId);
+      albumDownloadStatuses.set(albumId, isDownloaded);
+      return isDownloaded;
+    } catch {
+      return false;
+    }
+  }
+
+  function isAlbumDownloaded(albumId: string): boolean {
+    void downloadStateVersion;
+    return albumDownloadStatuses.get(albumId) || false;
+  }
 
   const hasContent = $derived(
     newReleases.length > 0
@@ -510,7 +537,10 @@
                 onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
                 onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
                 onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                onclick={() => onAlbumClick?.(album.id)}
+                isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
+                onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
+                onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
             <div class="spacer"></div>
@@ -534,7 +564,10 @@
                 onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
                 onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
                 onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                onclick={() => onAlbumClick?.(album.id)}
+                isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
+                onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
+                onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
             <div class="spacer"></div>
@@ -558,7 +591,10 @@
                 onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
                 onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
                 onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                onclick={() => onAlbumClick?.(album.id)}
+                isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
+                onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
+                onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
             <div class="spacer"></div>
@@ -582,7 +618,10 @@
                 onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
                 onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
                 onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                onclick={() => onAlbumClick?.(album.id)}
+                isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
+                onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
+                onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
             <div class="spacer"></div>
@@ -606,7 +645,10 @@
                 onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
                 onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
                 onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                onclick={() => onAlbumClick?.(album.id)}
+                isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
+                onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
+                onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
             <div class="spacer"></div>
@@ -630,7 +672,10 @@
                 onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
                 onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
                 onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                onclick={() => onAlbumClick?.(album.id)}
+                isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
+                onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
+                onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
             <div class="spacer"></div>
@@ -711,7 +756,10 @@
                 onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
                 onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
                 onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                onclick={() => onAlbumClick?.(album.id)}
+                isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
+                onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
+                onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
               />
             {/each}
             <div class="spacer"></div>
