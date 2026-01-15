@@ -4,7 +4,7 @@
   import { onMount, onDestroy } from 'svelte';
   import {
     HardDrive, Music, Disc3, Mic2, FolderPlus, Trash2, RefreshCw,
-    Settings, ArrowLeft, X, Play, AlertCircle, ImageDown, Upload, Search, LayoutGrid, List
+    Settings, ArrowLeft, X, Play, AlertCircle, ImageDown, Upload, Search, LayoutGrid, List, Edit3
   } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
@@ -158,6 +158,11 @@
   // Playlist modal state
   let showPlaylistModal = $state(false);
   let selectedTrackForPlaylist = $state<LocalTrack | null>(null);
+
+  // Album edit modal state
+  let showAlbumEditModal = $state(false);
+  let editingAlbumTitle = $state('');
+  let editingAlbumHidden = $state(false);
 
   async function handleAddToPlaylist(playlistId: number) {
     if (!selectedTrackForPlaylist) return;
@@ -639,6 +644,35 @@
     }
   }
 
+  function openAlbumEditModal() {
+    if (!selectedAlbum) return;
+    editingAlbumTitle = selectedAlbum.title;
+    editingAlbumHidden = false;
+    showAlbumEditModal = true;
+  }
+
+  async function saveAlbumEdit() {
+    if (!selectedAlbum) return;
+
+    try {
+      await invoke('library_set_album_hidden', {
+        albumGroupKey: selectedAlbum.id,
+        hidden: editingAlbumHidden
+      });
+
+      showAlbumEditModal = false;
+      
+      if (editingAlbumHidden) {
+        clearLocalAlbum();
+        navGoBack();
+        await loadLibraryData();
+      }
+    } catch (err) {
+      console.error('Failed to save album settings:', err);
+      alert(`Failed to save settings: ${err}`);
+    }
+  }
+
   function getQualityBadge(track: LocalTrack): string {
     const format = track.format.toUpperCase();
     const bitDepth = track.bit_depth ?? 16;
@@ -1038,10 +1072,15 @@
     {@const showDiscHeaders = albumSections.length > 1}
     <!-- Album Detail View -->
     <div class="album-detail">
-      <button class="back-btn" onclick={() => { clearLocalAlbum(); navGoBack(); }}>
-        <ArrowLeft size={16} />
-        <span>Back to Library</span>
-      </button>
+      <div class="nav-row">
+        <button class="back-btn" onclick={() => { clearLocalAlbum(); navGoBack(); }}>
+          <ArrowLeft size={16} />
+          <span>Back to Library</span>
+        </button>
+        <button class="edit-btn" onclick={openAlbumEditModal} title="Edit album">
+          <Edit3 size={16} />
+        </button>
+      </div>
 
       <div class="album-header">
         <div class="album-artwork">
@@ -1439,8 +1478,8 @@
                     {:else}
                       <div class="album-list">
                         {#each group.albums as album (album.id)}
-                          <div class="album-row" role="button" tabindex="0">
-                            <div class="album-row-art" onclick={() => handleAlbumClick(album)}>
+                          <div class="album-row" role="button" tabindex="0" onclick={() => handleAlbumClick(album)}>
+                            <div class="album-row-art">
                               {#if album.artwork_path}
                                 <img src={getArtworkUrl(album.artwork_path)} alt={album.title} loading="lazy" decoding="async" />
                               {:else}
@@ -1449,7 +1488,7 @@
                                 </div>
                               {/if}
                             </div>
-                            <div class="album-row-info" onclick={() => handleAlbumClick(album)}>
+                            <div class="album-row-info">
                               <div class="album-row-title truncate">{album.title}</div>
                               <div class="album-row-meta">
                                 <span>{album.artist}</span>
@@ -1458,19 +1497,10 @@
                                 <span>{formatTotalDuration(album.total_duration_secs)}</span>
                               </div>
                             </div>
-                            <div class="album-row-quality" onclick={() => handleAlbumClick(album)}>
+                            <div class="album-row-quality">
                               <span class="quality-badge" class:hires={isAlbumHiRes(album)}>
                                 {getAlbumQualityBadge(album)}
                               </span>
-                            </div>
-                            <div class="album-row-actions">
-                              <button
-                                class="icon-btn"
-                                onclick={(e: MouseEvent) => { e.stopPropagation(); handleHideAlbum(album); }}
-                                title="Hide album"
-                              >
-                                <X size={14} />
-                              </button>
                             </div>
                           </div>
                         {/each}
@@ -1739,6 +1769,55 @@
   onSelect={handleAddToPlaylist}
   trackTitle={selectedTrackForPlaylist?.title}
 />
+
+<!-- Album Edit Modal -->
+{#if showAlbumEditModal && selectedAlbum}
+  <div class="modal-overlay" onclick={() => showAlbumEditModal = false}>
+    <div class="modal" onclick={(e: MouseEvent) => e.stopPropagation()}>
+      <div class="modal-header">
+        <h2>Edit Album</h2>
+        <button class="close-btn" onclick={() => showAlbumEditModal = false}>
+          <X size={20} />
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="album-title">Album Title</label>
+          <input
+            id="album-title"
+            type="text"
+            bind:value={editingAlbumTitle}
+            placeholder="Album title"
+            readonly
+            disabled
+          />
+          <p class="form-hint">Album title editing coming soon</p>
+        </div>
+
+        <div class="form-group">
+          <label class="toggle-label">
+            <input
+              type="checkbox"
+              bind:checked={editingAlbumHidden}
+            />
+            <span>Hide this album from library</span>
+          </label>
+          <p class="form-hint">Hidden albums can be viewed from Settings</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick={() => showAlbumEditModal = false}>
+          Cancel
+        </button>
+        <button class="primary-btn" onclick={saveAlbumEdit}>
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .library-view {
@@ -2683,6 +2762,193 @@
   }
 
   .play-btn:hover {
+    background: var(--accent-hover);
+  }
+
+  /* Nav row for album detail */
+  .nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .edit-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 150ms ease;
+  }
+
+  .edit-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 440px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    border: 1px solid var(--bg-tertiary);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--bg-tertiary);
+  }
+
+  .modal-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .close-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 150ms ease;
+  }
+
+  .close-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+  }
+
+  .modal-body {
+    padding: 24px;
+    overflow-y: auto;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .form-group input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+    transition: border-color 150ms ease;
+  }
+
+  .form-group input[type="text"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .form-group input[type="text"]:focus:not(:disabled) {
+    outline: none;
+    border-color: var(--accent-primary);
+  }
+
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+
+  .toggle-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+  }
+
+  .toggle-label span {
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .form-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--bg-tertiary);
+  }
+
+  .secondary-btn,
+  .primary-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .secondary-btn {
+    background: transparent;
+    border: 1px solid var(--text-muted);
+    color: var(--text-secondary);
+  }
+
+  .secondary-btn:hover {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+  }
+
+  .primary-btn {
+    background: var(--accent-primary);
+    border: none;
+    color: white;
+  }
+
+  .primary-btn:hover {
     background: var(--accent-hover);
   }
 </style>
