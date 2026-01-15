@@ -1311,7 +1311,7 @@
 
   .top-section {
     display: grid;
-    grid-template-columns: minmax(90px, 1fr) minmax(0, 4fr);
+    grid-template-columns: 180px minmax(0, 1fr);
     gap: 24px;
     align-items: start;
   }
