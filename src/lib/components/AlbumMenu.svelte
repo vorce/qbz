@@ -271,10 +271,12 @@
               bind:this={shareTriggerRef}
               onmouseenter={() => {
                 shareOpen = true;
+                downloadOpen = false;
                 setSubmenuPosition();
               }}
               onclick={() => {
                 shareOpen = !shareOpen;
+                downloadOpen = false;
                 if (shareOpen) setSubmenuPosition();
               }}
             >
@@ -311,10 +313,12 @@
                 bind:this={downloadTriggerRef}
                 onmouseenter={() => {
                   downloadOpen = true;
+                  shareOpen = false;
                   setDownloadSubmenuPosition();
                 }}
                 onclick={() => {
                   downloadOpen = !downloadOpen;
+                  shareOpen = false;
                   if (downloadOpen) setDownloadSubmenuPosition();
                 }}
               >
