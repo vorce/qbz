@@ -1996,7 +1996,7 @@
         {isFavorite}
         onToggleFavorite={toggleFavorite}
         onAddToPlaylist={openAddToPlaylistModal}
-        onOpenQueue={openQueue}
+        onOpenQueue={toggleQueue}
         onOpenFullScreen={openFullScreen}
         onOpenMiniPlayer={enterMiniplayerMode}
         onCast={openCastPicker}
@@ -2020,7 +2020,7 @@
       />
     {:else}
       <NowPlayingBar
-        onOpenQueue={openQueue}
+        onOpenQueue={toggleQueue}
         onOpenFullScreen={openFullScreen}
         onOpenMiniPlayer={enterMiniplayerMode}
         onCast={openCastPicker}
@@ -2071,7 +2071,7 @@
         onToggleFavorite={toggleFavorite}
         onOpenQueue={() => {
           closeFullScreen();
-          openQueue();
+          toggleQueue();
         }}
         onOpenFocusMode={() => {
           closeFullScreen();

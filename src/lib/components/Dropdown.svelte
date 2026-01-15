@@ -94,7 +94,7 @@
   }
 
   .trigger:hover {
-    background-color: #333333;
+    background-color: var(--bg-hover);
   }
 
   .trigger :global(.chevron) {
@@ -148,7 +148,7 @@
   }
 
   .option.selected {
-    background-color: #333333;
+    background-color: var(--bg-hover);
     color: var(--text-primary);
   }
 </style>

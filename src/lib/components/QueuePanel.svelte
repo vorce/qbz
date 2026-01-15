@@ -1,6 +1,5 @@
 <script lang="ts">
   import { X, GripVertical, Play, Search } from 'lucide-svelte';
-  import GlassSurface from './glass/GlassSurface.svelte';
   import { t } from '$lib/i18n';
 
   interface QueueTrack {
@@ -112,7 +111,7 @@
   <div class="backdrop" onclick={onClose} role="presentation"></div>
 
   <!-- Queue Panel -->
-  <GlassSurface rootClassName="queue-panel" enableRipple={false} enableDistortion={false}>
+  <div class="queue-panel-container">
     <!-- Header -->
     <div class="header">
       <h2>{$t('player.queue')}</h2>
@@ -236,7 +235,7 @@
         <button class="save-btn" onclick={onSaveAsPlaylist}>{$t('player.saveQueue')}</button>
       </div>
     {/if}
-  </GlassSurface>
+  </div>
 {/if}
 
 <style>
@@ -247,7 +246,7 @@
     z-index: 40;
   }
 
-  :global(.queue-panel) {
+  :global(.queue-panel-container) {
     position: fixed;
     top: 32px; /* Below TitleBar */
     right: 0;
@@ -257,21 +256,12 @@
     display: flex;
     flex-direction: column;
     animation: slideInRight 200ms ease-out;
-    --glass-bg: rgba(30, 30, 35, 0.85);
-    --glass-blur: 24px;
-    --glass-radius: 0;
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+    background-color: var(--bg-secondary);
+    border-left: 1px solid var(--bg-tertiary);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
   }
 
-  /* Make glass-content flex so inner .content can scroll */
-  :global(.queue-panel .glass-content) {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-  }
+  /* Remove old glass panel override */
 
   @keyframes slideInRight {
     from {
