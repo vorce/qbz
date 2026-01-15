@@ -2,6 +2,7 @@
 
 use tauri::State;
 
+use crate::api_cache::ApiCacheState;
 use crate::cache::CacheStats;
 use crate::AppState;
 
@@ -18,4 +19,12 @@ pub fn clear_cache(state: State<'_, AppState>) -> Result<(), String> {
     log::info!("Command: clear_cache");
     state.audio_cache.clear();
     Ok(())
+}
+
+/// Clear all cached artists (useful when changing language settings)
+#[tauri::command]
+pub async fn clear_artist_cache(cache_state: State<'_, ApiCacheState>) -> Result<usize, String> {
+    log::info!("Command: clear_artist_cache");
+    let cache = cache_state.cache.lock().await;
+    cache.clear_all_artists()
 }

@@ -616,7 +616,6 @@ pub async fn start_legacy_migration(
     let download_root = cache_state.get_cache_path();
     let qobuz_client = state.client.clone();
     let library_db = library_state.db.clone();
-    let app_progress = app_handle.clone();
     let app_complete = app_handle.clone();
     
     // Spawn migration task
@@ -627,9 +626,6 @@ pub async fn start_legacy_migration(
             download_root,
             qobuz_client,
             library_db,
-            move |status| {
-                let _ = app_progress.emit("migration:progress", status);
-            },
         ).await;
         
         let _ = app_complete.emit("migration:complete", status);

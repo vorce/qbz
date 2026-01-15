@@ -555,19 +555,33 @@
     localStorage.setItem('qbz-prefer-highest', String(enabled));
   }
 
-  function handleLanguageChange(lang: string) {
+  async function handleLanguageChange(lang: string) {
     language = lang;
     const localeCode = languageToLocale[lang];
     if (localeCode) {
       // Set specific locale
-      setLocale(localeCode);
+      await setLocale(localeCode);
+      // Clear artist cache to force refetch in new language
+      try {
+        await invoke('clear_artist_cache');
+        console.log('Artist cache cleared after language change');
+      } catch (error) {
+        console.error('Failed to clear artist cache:', error);
+      }
     } else {
       // 'Auto' - use browser locale, defaulting to 'en'
       const browserLocale = navigator.language.split('-')[0];
       const supportedLocale = ['en', 'es'].includes(browserLocale) ? browserLocale : 'en';
-      setLocale(supportedLocale);
+      await setLocale(supportedLocale);
       // Clear the stored locale so it uses browser detection on next load
       localStorage.removeItem('qbz-locale');
+      // Also clear artist cache
+      try {
+        await invoke('clear_artist_cache');
+        console.log('Artist cache cleared after language change');
+      } catch (error) {
+        console.error('Failed to clear artist cache:', error);
+      }
     }
   }
 

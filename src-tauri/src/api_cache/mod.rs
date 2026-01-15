@@ -230,6 +230,32 @@ impl ApiCache {
 
     // ============ Maintenance ============
 
+    /// Clear all cached artists for a specific locale
+    /// This is useful when user changes language and wants fresh data in the new language
+    pub fn clear_artists_by_locale(&self, locale: &str) -> Result<usize, String> {
+        let deleted = self
+            .conn
+            .execute(
+                "DELETE FROM cached_artists WHERE locale = ?",
+                params![locale],
+            )
+            .map_err(|e| format!("Failed to clear cached artists by locale: {}", e))?;
+        
+        log::info!("Cleared {} cached artist(s) for locale '{}'", deleted, locale);
+        Ok(deleted)
+    }
+
+    /// Clear all cached artists (useful for forcing refresh across all languages)
+    pub fn clear_all_artists(&self) -> Result<usize, String> {
+        let deleted = self
+            .conn
+            .execute("DELETE FROM cached_artists", [])
+            .map_err(|e| format!("Failed to clear all cached artists: {}", e))?;
+        
+        log::info!("Cleared {} cached artist(s)", deleted);
+        Ok(deleted)
+    }
+
     /// Clear expired entries from all tables
     pub fn cleanup_expired(&self, ttl_secs: Option<i64>) -> Result<usize, String> {
         let ttl = ttl_secs.unwrap_or(DEFAULT_TTL_SECS);

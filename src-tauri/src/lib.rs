@@ -331,6 +331,7 @@ pub fn run() {
             // Cache commands
             commands::get_cache_stats,
             commands::clear_cache,
+            commands::clear_artist_cache,
             // Last.fm commands
             commands::lastfm_has_embedded_credentials,
             commands::lastfm_has_credentials,

@@ -163,7 +163,6 @@ pub async fn migrate_legacy_downloads(
     download_root: String,
     qobuz_client: Arc<Mutex<QobuzClient>>,
     library_db: Arc<Mutex<LibraryDatabase>>,
-    progress_callback: impl Fn(MigrationStatus) + Send + 'static,
 ) -> MigrationStatus {
     let total = track_ids.len();
     let mut status = MigrationStatus {
@@ -172,8 +171,6 @@ pub async fn migrate_legacy_downloads(
         in_progress: true,
         ..Default::default()
     };
-    
-    progress_callback(status.clone());
     
     for track_id in track_ids {
         let legacy_path = tracks_dir.join(format!("{}.flac", track_id));
@@ -215,7 +212,6 @@ pub async fn migrate_legacy_downloads(
         drop(client_guard);
         
         status.processed += 1;
-        progress_callback(status.clone());
     }
     
     status.in_progress = false;
@@ -228,6 +224,5 @@ pub async fn migrate_legacy_downloads(
         status.failed
     );
     
-    progress_callback(status.clone());
     status
 }
