@@ -432,18 +432,18 @@
             {#if allResults.artists.items.length > 0}
               <button class="artist-card-large" onclick={() => onArtistClick?.(allResults.artists.items[0].id)}>
                 {#if failedArtistImages.has(allResults.artists.items[0].id) || !getArtistImage(allResults.artists.items[0])}
-                  <div class="artist-image-placeholder-large">
-                    <User size={60} />
+                  <div class="artist-image-placeholder">
+                    <User size={40} />
                   </div>
                 {:else}
                   <img 
                     src={getArtistImage(allResults.artists.items[0])} 
                     alt={allResults.artists.items[0].name} 
-                    class="artist-image-large" 
+                    class="artist-image" 
                     onerror={() => handleArtistImageError(allResults.artists.items[0].id)} 
                   />
                 {/if}
-                <div class="artist-name-large">{allResults.artists.items[0].name}</div>
+                <div class="artist-name">{allResults.artists.items[0].name}</div>
                 {#if allResults.artists.items[0].albums_count}
                   <div class="artist-albums">{$t('library.albumCount', { values: { count: allResults.artists.items[0].albums_count } })}</div>
                 {/if}
@@ -478,7 +478,7 @@
               </button>
             </div>
             <div class="artists-grid-compact">
-              {#each allResults.artists.items.slice(0, 5) as artist}
+              {#each allResults.artists.items as artist}
                 <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
                   {#if failedArtistImages.has(artist.id) || !getArtistImage(artist)}
                     <div class="artist-image-placeholder">
@@ -497,17 +497,18 @@
           </div>
         </div>
 
-        <!-- Albums Carousel -->
-        {#if allResults.albums.items.length > 0}
-          <div class="albums-carousel-container">
-            <div class="section-header">
-              <h3>Albums</h3>
-              <button class="view-all-link" onclick={() => handleTabChange('albums')}>
-                View all ({allResults.albums.total})
-              </button>
-            </div>
-            <div class="carousel-wrapper">
-              <div class="albums-carousel">
+        <!-- Albums + Tracks Section (50/50) -->
+        <div class="bottom-section">
+          <!-- Albums Grid with Navigation -->
+          {#if allResults.albums.items.length > 0}
+            <div class="albums-section">
+              <div class="section-header">
+                <h3>Albums</h3>
+                <button class="view-all-link" onclick={() => handleTabChange('albums')}>
+                  View all ({allResults.albums.total})
+                </button>
+              </div>
+              <div class="albums-grid">
                 {#each allResults.albums.items as album}
                   <AlbumCard
                     albumId={album.id}
@@ -530,72 +531,72 @@
                 {/each}
               </div>
             </div>
-          </div>
-        {/if}
+          {/if}
 
-        <!-- Tracks Section -->
-        {#if allResults.tracks.items.length > 0}
-          <div class="tracks-section">
-            <div class="section-header">
-              <h3>Tracks</h3>
-              <button class="view-all-link" onclick={() => handleTabChange('tracks')}>
-                View all ({allResults.tracks.total})
-              </button>
-            </div>
-            <div class="tracks-list-compact">
-              {#each allResults.tracks.items as track, index}
-                <div
-                  class="track-row"
-                  role="button"
-                  tabindex="0"
-                  onclick={() => onTrackPlay?.(track)}
-                  onkeydown={(e) => e.key === 'Enter' && onTrackPlay?.(track)}
-                >
-                  <div class="track-number">{index + 1}</div>
-                  {#if failedTrackImages.has(track.id) || !getTrackArtwork(track)}
-                    <div class="track-artwork-placeholder">
-                      <Music size={20} />
-                    </div>
-                  {:else}
-                    <img src={getTrackArtwork(track)} alt={track.title} class="track-artwork" onerror={() => handleTrackImageError(track.id)} />
-                  {/if}
-                  <div class="track-info">
-                    <div class="track-title">{track.title}</div>
-                    {#if track.performer?.id && onTrackGoToArtist}
-                      <button
-                        class="track-artist track-link"
-                        type="button"
-                        onclick={(event) => {
-                          event.stopPropagation();
-                          onTrackGoToArtist?.(track.performer!.id!);
-                        }}
-                      >
-                        {track.performer?.name || 'Unknown Artist'}
-                      </button>
+          <!-- Tracks Section -->
+          {#if allResults.tracks.items.length > 0}
+            <div class="tracks-section">
+              <div class="section-header">
+                <h3>Tracks</h3>
+                <button class="view-all-link" onclick={() => handleTabChange('tracks')}>
+                  View all ({allResults.tracks.total})
+                </button>
+              </div>
+              <div class="tracks-list-compact">
+                {#each allResults.tracks.items.slice(0, 6) as track, index}
+                  <div
+                    class="track-row"
+                    role="button"
+                    tabindex="0"
+                    onclick={() => onTrackPlay?.(track)}
+                    onkeydown={(e) => e.key === 'Enter' && onTrackPlay?.(track)}
+                  >
+                    <div class="track-number">{index + 1}</div>
+                    {#if failedTrackImages.has(track.id) || !getTrackArtwork(track)}
+                      <div class="track-artwork-placeholder">
+                        <Music size={20} />
+                      </div>
                     {:else}
-                      <div class="track-artist">{track.performer?.name || 'Unknown Artist'}</div>
+                      <img src={getTrackArtwork(track)} alt={track.title} class="track-artwork" onerror={() => handleTrackImageError(track.id)} />
                     {/if}
+                    <div class="track-info">
+                      <div class="track-title">{track.title}</div>
+                      {#if track.performer?.id && onTrackGoToArtist}
+                        <button
+                          class="track-artist track-link"
+                          type="button"
+                          onclick={(event) => {
+                            event.stopPropagation();
+                            onTrackGoToArtist?.(track.performer!.id!);
+                          }}
+                        >
+                          {track.performer?.name || 'Unknown Artist'}
+                        </button>
+                      {:else}
+                        <div class="track-artist">{track.performer?.name || 'Unknown Artist'}</div>
+                      {/if}
+                    </div>
+                    <div class="track-quality">{getQualityLabel(track)}</div>
+                    <div class="track-duration">{formatDuration(track.duration)}</div>
+                    <div class="track-actions">
+                      <TrackMenu
+                        onPlayNow={() => onTrackPlay?.(track)}
+                        onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
+                        onPlayLater={onTrackPlayLater ? () => onTrackPlayLater(track) : undefined}
+                        onAddFavorite={onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined}
+                        onAddToPlaylist={onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined}
+                        onShareQobuz={onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined}
+                        onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
+                        onGoToAlbum={track.album?.id && onTrackGoToAlbum ? (() => { const albumId = track.album!.id!; return () => onTrackGoToAlbum(albumId); })() : undefined}
+                        onGoToArtist={track.performer?.id && onTrackGoToArtist ? (() => { const artistId = track.performer!.id!; return () => onTrackGoToArtist(artistId); })() : undefined}
+                      />
+                    </div>
                   </div>
-                  <div class="track-quality">{getQualityLabel(track)}</div>
-                  <div class="track-duration">{formatDuration(track.duration)}</div>
-                  <div class="track-actions">
-                    <TrackMenu
-                      onPlayNow={() => onTrackPlay?.(track)}
-                      onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
-                      onPlayLater={onTrackPlayLater ? () => onTrackPlayLater(track) : undefined}
-                      onAddFavorite={onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined}
-                      onAddToPlaylist={onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined}
-                      onShareQobuz={onTrackShareQobuz ? () => onShareQobuz(track.id) : undefined}
-                      onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
-                      onGoToAlbum={track.album?.id && onTrackGoToAlbum ? (() => { const albumId = track.album!.id!; return () => onTrackGoToAlbum(albumId); })() : undefined}
-                      onGoToArtist={track.performer?.id && onTrackGoToArtist ? (() => { const artistId = track.performer!.id!; return () => onTrackGoToArtist(artistId); })() : undefined}
-                    />
-                  </div>
-                </div>
-              {/each}
+                {/each}
+              </div>
             </div>
-          </div>
-        {/if}
+          {/if}
+        </div>
       </div>
     {:else if activeTab === 'albums' && albumResults}
       {#if albumResults.items.length === 0}
@@ -1109,8 +1110,9 @@
 
   .top-section {
     display: grid;
-    grid-template-columns: 30% 70%;
+    grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr);
     gap: 24px;
+    align-items: start;
   }
 
   .most-popular h3 {
@@ -1125,10 +1127,10 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 24px;
+    padding: 16px;
     background-color: var(--bg-secondary);
     border: none;
-    border-radius: 16px;
+    border-radius: 12px;
     cursor: pointer;
     transition: background-color 150ms ease;
     width: 100%;
@@ -1136,33 +1138,6 @@
 
   .artist-card-large:hover {
     background-color: var(--bg-tertiary);
-  }
-
-  .artist-image-large {
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-bottom: 16px;
-  }
-
-  .artist-image-placeholder-large {
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-    color: var(--text-muted);
-  }
-
-  .artist-name-large {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 8px;
   }
 
   .artists-section h3, .section-header h3 {
@@ -1187,53 +1162,55 @@
     cursor: pointer;
     padding: 4px 8px;
     border-radius: 4px;
-    transition: background-color 150ms ease;
+    transition: all 150ms ease;
   }
 
   .view-all-link:hover {
     background-color: var(--bg-tertiary);
+    text-decoration: underline;
   }
 
   .artists-grid-compact {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 16px;
+    overflow-y: auto;
+    max-height: 400px;
+    padding-right: 8px;
   }
 
-  .albums-carousel-container {
-    width: 100%;
+  .artists-grid-compact::-webkit-scrollbar {
+    width: 6px;
   }
 
-  .carousel-wrapper {
-    position: relative;
-  }
-
-  .albums-carousel {
-    display: flex;
-    gap: 20px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-behavior: smooth;
-    padding: 8px 0;
-    scrollbar-width: thin;
-    scrollbar-color: var(--bg-tertiary) transparent;
-  }
-
-  .albums-carousel::-webkit-scrollbar {
-    height: 8px;
-  }
-
-  .albums-carousel::-webkit-scrollbar-track {
+  .artists-grid-compact::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  .albums-carousel::-webkit-scrollbar-thumb {
+  .artists-grid-compact::-webkit-scrollbar-thumb {
     background: var(--bg-tertiary);
-    border-radius: 4px;
+    border-radius: 3px;
   }
 
-  .albums-carousel::-webkit-scrollbar-thumb:hover {
+  .artists-grid-compact::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
+  }
+
+  .bottom-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .albums-section {
+    width: 100%;
+  }
+
+  .albums-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 20px;
+    grid-auto-rows: max-content;
   }
 
   .tracks-section {
@@ -1246,14 +1223,30 @@
     gap: 4px;
   }
 
+  @media (max-width: 1400px) {
+    .albums-grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+  }
+
   @media (max-width: 1024px) {
     .top-section {
       grid-template-columns: 1fr;
       gap: 24px;
     }
 
+    .bottom-section {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
     .artists-grid-compact {
       grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      max-height: 300px;
+    }
+
+    .albums-grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     }
   }
 </style>
