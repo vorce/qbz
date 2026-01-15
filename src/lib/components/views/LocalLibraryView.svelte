@@ -8,7 +8,6 @@
   } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
-  import AddToPlaylistModal from '../AddToPlaylistModal.svelte';
   import {
     subscribe as subscribeNav,
     selectLocalAlbum,
@@ -102,6 +101,7 @@
     onTrackPlay?: (track: LocalTrack) => void;
     onTrackPlayNext?: (track: LocalTrack) => void;
     onTrackPlayLater?: (track: LocalTrack) => void;
+    onTrackAddToPlaylist?: (trackId: number) => void;
     onSetLocalQueue?: (trackIds: number[]) => void;
   }
 
@@ -111,6 +111,7 @@
     onTrackPlay,
     onTrackPlayNext,
     onTrackPlayLater,
+    onTrackAddToPlaylist,
     onSetLocalQueue
   }: Props = $props();
 
@@ -157,10 +158,6 @@
   // Qobuz artist images cache (artist name -> image URL)
   let artistImages = $state<Map<string, string>>(new Map());
 
-  // Playlist modal state
-  let showPlaylistModal = $state(false);
-  let selectedTrackForPlaylist = $state<LocalTrack | null>(null);
-
   // Album edit modal state
   let showAlbumEditModal = $state(false);
   let editingAlbumTitle = $state('');
@@ -168,25 +165,6 @@
 
   // Folder selection state
   let selectedFolders = $state<Set<string>>(new Set());
-
-  async function handleAddToPlaylist(playlistId: number) {
-    if (!selectedTrackForPlaylist) return;
-
-    // Get the current count of local tracks to determine position
-    const existingTracks = await invoke<LocalTrack[]>('playlist_get_local_tracks', { playlistId });
-    const position = existingTracks.length;
-
-    await invoke('playlist_add_local_track', {
-      playlistId,
-      localTrackId: selectedTrackForPlaylist.id,
-      position
-    });
-  }
-
-  function openPlaylistPicker(track: LocalTrack) {
-    selectedTrackForPlaylist = track;
-    showPlaylistModal = true;
-  }
 
   let unsubscribeNav: (() => void) | null = null;
 
@@ -1207,7 +1185,7 @@
                 onPlayNow: () => handleTrackPlay(track),
                 onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
                 onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
-                onAddToPlaylist: () => openPlaylistPicker(track)
+                onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined
               }}
             />
           {/each}
@@ -1799,7 +1777,7 @@
                               onPlayNow: () => handleTrackPlay(track),
                               onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
                               onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
-                              onAddToPlaylist: () => openPlaylistPicker(track)
+                              onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined
                             }}
                           />
                         {/each}
@@ -1821,7 +1799,7 @@
                             onPlayNow: () => handleTrackPlay(track),
                             onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
                             onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
-                            onAddToPlaylist: () => openPlaylistPicker(track)
+                            onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined
                           }}
                         />
                       {/each}
@@ -1852,14 +1830,6 @@
     </div>
   {/if}
 </div>
-
-<!-- Add to Playlist Modal -->
-<AddToPlaylistModal
-  isOpen={showPlaylistModal}
-  onClose={() => { showPlaylistModal = false; selectedTrackForPlaylist = null; }}
-  onSelect={handleAddToPlaylist}
-  trackTitle={selectedTrackForPlaylist?.title}
-/>
 
 <!-- Album Edit Modal -->
 {#if showAlbumEditModal && selectedAlbum}

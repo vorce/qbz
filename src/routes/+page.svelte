@@ -1891,6 +1891,7 @@
           onTrackPlay={handleLocalTrackPlay}
           onTrackPlayNext={queueLocalTrackNext}
           onTrackPlayLater={queueLocalTrackLater}
+          onTrackAddToPlaylist={(trackId) => openAddToPlaylist([trackId])}
           onSetLocalQueue={handleSetLocalQueue}
           onQobuzArtistClick={handleArtistClick}
         />
