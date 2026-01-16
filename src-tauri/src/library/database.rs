@@ -586,10 +586,13 @@ impl LibraryDatabase {
         Ok(count)
     }
 
-    /// Clear all tracks
+    /// Clear all LOCAL library tracks (preserves Qobuz downloads)
     pub fn clear_all_tracks(&self) -> Result<(), LibraryError> {
         self.conn
-            .execute("DELETE FROM local_tracks", [])
+            .execute(
+                "DELETE FROM local_tracks WHERE source IS NULL OR source != 'qobuz_download'",
+                [],
+            )
             .map_err(|e| LibraryError::Database(e.to_string()))?;
         Ok(())
     }
