@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ChevronRight, ImagePlus, Edit3, BarChart2, WifiOff } from 'lucide-svelte';
+  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ChevronRight, ImagePlus, Edit3, BarChart2 } from 'lucide-svelte';
   import AlbumMenu from '../AlbumMenu.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
@@ -910,11 +910,6 @@
           class:unavailable={!available}
           title={!available ? $t('offline.trackNotAvailable') : undefined}
         >
-          {#if !available && !track.isLocal}
-            <div class="unavailable-indicator" title={$t('offline.trackNotAvailable')}>
-              <WifiOff size={12} />
-            </div>
-          {/if}
           <TrackRow
             trackId={track.isLocal ? undefined : track.id}
             number={idx + 1}
@@ -1492,16 +1487,6 @@
 
   .track-row-wrapper.unavailable :global(.track-row) {
     filter: grayscale(100%);
-  }
-
-  .unavailable-indicator {
-    position: absolute;
-    left: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    color: var(--text-muted);
   }
 
 </style>

@@ -482,7 +482,7 @@
     "startWithoutLogin": "Iniciar en modo offline sin autenticacion",
     "noNetworkToast": "No hay conexion a internet disponible",
     "checkingNetwork": "Verificando conexion a internet...",
-    "available": "Disponible Offline",
+    "available": "Totalmente Disponible Offline",
     "partiallyAvailable": "Parcialmente Disponible",
     "notAvailableOffline": "No Disponible Offline",
     "viewOnly": "Solo Ver (Offline)",

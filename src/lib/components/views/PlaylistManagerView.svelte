@@ -129,10 +129,10 @@
     if (offlineStatus.isOffline) {
       // In offline mode, use offline-specific filters
       if (filter === 'offline_all' || filter === 'all') {
-        // Show all playlists with ANY local content (full or partial)
+        // Show only playlists where ALL tracks are available offline
         result = result.filter(p => {
           const localStatus = getLocalContentStatus(p.id);
-          return localStatus === 'all_local' || localStatus === 'some_local';
+          return localStatus === 'all_local';
         });
       } else if (filter === 'offline_partial') {
         // Show only playlists with partial local content
@@ -149,8 +149,7 @@
       } else if (filter === 'visible') {
         result = result.filter(p => {
           const settings = playlistSettings.get(p.id);
-          const localStatus = getLocalContentStatus(p.id);
-          return !settings?.hidden && (localStatus === 'all_local' || localStatus === 'some_local');
+          return !settings?.hidden && isPlaylistAvailableOffline(p.id);
         });
       } else if (filter === 'hidden') {
         result = result.filter(p => playlistSettings.get(p.id)?.hidden);
