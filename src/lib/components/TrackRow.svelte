@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Play, Heart } from 'lucide-svelte';
+  import { Play, Heart, HardDrive } from 'lucide-svelte';
   import TrackMenu from './TrackMenu.svelte';
   import DownloadButton from './DownloadButton.svelte';
   import {
@@ -20,6 +20,7 @@
     duration: string;
     quality?: string;
     isPlaying?: boolean;
+    isLocal?: boolean; // Whether this is a local library track
     isFavoriteOverride?: boolean; // Optional override for favorite state
     downloadStatus?: DownloadStatus;
     downloadProgress?: number;
@@ -54,6 +55,7 @@
     duration,
     quality,
     isPlaying = false,
+    isLocal = false,
     isFavoriteOverride,
     downloadStatus = 'none',
     downloadProgress = 0,
@@ -174,7 +176,14 @@
   <div class="track-duration">{duration}</div>
 
   <!-- Quality (always render to maintain column alignment) -->
-  <div class="track-quality">{quality ?? ''}</div>
+  <div class="track-quality">
+    {#if isLocal}
+      <span class="local-icon" title="Local library track">
+        <HardDrive size={12} />
+      </span>
+    {/if}
+    {quality ?? ''}
+  </div>
 
   <!-- Favorite Button -->
   {#if !hideFavorite}
@@ -382,10 +391,21 @@
   }
 
   .track-quality {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
     font-size: 12px;
     color: #666666;
     width: 80px;
     text-align: right;
+  }
+
+  .local-icon {
+    display: flex;
+    align-items: center;
+    color: var(--text-muted);
+    opacity: 0.7;
   }
 
   .favorite-btn {

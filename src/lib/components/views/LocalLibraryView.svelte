@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invoke, convertFileSrc } from '@tauri-apps/api/core';
-  import { open } from '@tauri-apps/plugin-dialog';
+  import { open, ask } from '@tauri-apps/plugin-dialog';
   import { onMount, onDestroy } from 'svelte';
   import {
     HardDrive, Music, Disc3, Mic2, FolderPlus, Trash2, RefreshCw,
@@ -534,27 +534,38 @@
 
   let clearingLibrary = $state(false);
 
-  function handleClearLibrary(event: MouseEvent) {
-    // Prevent double execution
+  async function handleClearLibrary(event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
 
     if (clearingLibrary) return;
 
-    const firstConfirm = confirm(
-      'Clear entire library?\n\n' +
+    // First confirmation using Tauri dialog (async, properly sequential)
+    const firstConfirm = await ask(
       'This will remove ALL indexed tracks from the database.\n' +
       'Your audio files will NOT be deleted.\n\n' +
-      'You will need to re-scan your folders after this.'
+      'You will need to re-scan your folders after this.',
+      {
+        title: 'Clear entire library?',
+        kind: 'warning',
+        okLabel: 'Continue',
+        cancelLabel: 'Cancel'
+      }
     );
 
     if (!firstConfirm) {
       return;
     }
 
-    const secondConfirm = confirm(
-      'Are you absolutely sure?\n\n' +
-      'This action cannot be undone.'
+    // Second confirmation - only shown after first is confirmed
+    const secondConfirm = await ask(
+      'This action cannot be undone.',
+      {
+        title: 'Are you absolutely sure?',
+        kind: 'warning',
+        okLabel: 'Clear Library',
+        cancelLabel: 'Cancel'
+      }
     );
 
     if (!secondConfirm) {
@@ -564,20 +575,18 @@
     // Only proceed if both confirmations passed
     clearingLibrary = true;
 
-    invoke('library_clear')
-      .then(() => loadLibraryData())
-      .then(() => {
-        albums = [];
-        artists = [];
-        tracks = [];
-      })
-      .catch((err) => {
-        console.error('Failed to clear library:', err);
-        alert(`Failed to clear library: ${err}`);
-      })
-      .finally(() => {
-        clearingLibrary = false;
-      });
+    try {
+      await invoke('library_clear');
+      await loadLibraryData();
+      albums = [];
+      artists = [];
+      tracks = [];
+    } catch (err) {
+      console.error('Failed to clear library:', err);
+      alert(`Failed to clear library: ${err}`);
+    } finally {
+      clearingLibrary = false;
+    }
   }
 
   async function handleFetchMissingArtwork() {
@@ -1379,15 +1388,6 @@
               <Play size={16} fill="white" />
               <span>Play All</span>
             </button>
-            <button
-              class="secondary-btn"
-              onclick={handleSetAlbumArtwork}
-              disabled={updatingArtwork}
-              title="Set album artwork"
-            >
-              <Upload size={14} />
-              <span>{updatingArtwork ? 'Updating...' : 'Set Cover'}</span>
-            </button>
           </div>
         </div>
       </div>
@@ -1404,6 +1404,7 @@
               artist={track.artist !== selectedAlbum?.artist ? track.artist : undefined}
               duration={formatDuration(track.duration_secs)}
               quality={getQualityBadge(track)}
+              isLocal={true}
               hideDownload={true}
               hideFavorite={true}
               onArtistClick={track.artist && track.artist !== selectedAlbum?.artist
@@ -2043,6 +2044,7 @@
                             artist={track.artist}
                             duration={formatDuration(track.duration_secs)}
                             quality={getQualityBadge(track)}
+                            isLocal={true}
                             hideDownload={true}
                             hideFavorite={true}
                             onArtistClick={track.artist ? () => handleLocalArtistClick(track.artist) : undefined}
@@ -2065,6 +2067,7 @@
                           artist={track.artist}
                           duration={formatDuration(track.duration_secs)}
                           quality={getQualityBadge(track)}
+                          isLocal={true}
                           hideDownload={true}
                           hideFavorite={true}
                           onArtistClick={track.artist ? () => handleLocalArtistClick(track.artist) : undefined}
@@ -2129,6 +2132,31 @@
             disabled
           />
           <p class="form-hint">Album title editing coming soon</p>
+        </div>
+
+        <div class="form-group">
+          <label>Album Artwork</label>
+          <div class="artwork-row">
+            {#if selectedAlbum.artwork_path}
+              <img
+                src={getArtworkUrl(selectedAlbum.artwork_path)}
+                alt="Current artwork"
+                class="artwork-preview"
+              />
+            {:else}
+              <div class="artwork-preview artwork-placeholder-mini">
+                <Disc3 size={24} />
+              </div>
+            {/if}
+            <button
+              class="secondary-btn"
+              onclick={handleSetAlbumArtwork}
+              disabled={updatingArtwork}
+            >
+              <Upload size={14} />
+              <span>{updatingArtwork ? 'Updating...' : 'Change Cover'}</span>
+            </button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -3442,6 +3470,27 @@
   .form-hint {
     margin-top: 6px;
     font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .artwork-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .artwork-preview {
+    width: 64px;
+    height: 64px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--bg-tertiary);
+  }
+
+  .artwork-placeholder-mini {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: var(--text-muted);
   }
 

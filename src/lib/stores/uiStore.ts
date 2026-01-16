@@ -14,6 +14,7 @@ let isCastPickerOpen = false;
 let isPlaylistModalOpen = false;
 let playlistModalMode: 'create' | 'edit' | 'addTrack' = 'create';
 let playlistModalTrackIds: number[] = [];
+let playlistModalTracksAreLocal = false;
 let isPlaylistImportOpen = false;
 
 // Listeners
@@ -132,16 +133,22 @@ export function getPlaylistModalTrackIds(): number[] {
   return playlistModalTrackIds;
 }
 
-export function openPlaylistModal(mode: 'create' | 'edit' | 'addTrack', trackIds: number[] = []): void {
+export function getPlaylistModalTracksAreLocal(): boolean {
+  return playlistModalTracksAreLocal;
+}
+
+export function openPlaylistModal(mode: 'create' | 'edit' | 'addTrack', trackIds: number[] = [], isLocal = false): void {
   isPlaylistModalOpen = true;
   playlistModalMode = mode;
   playlistModalTrackIds = trackIds;
+  playlistModalTracksAreLocal = isLocal;
   notifyListeners();
 }
 
 export function closePlaylistModal(): void {
   isPlaylistModalOpen = false;
   playlistModalTrackIds = [];
+  playlistModalTracksAreLocal = false;
   notifyListeners();
 }
 
@@ -205,6 +212,7 @@ export interface UIState {
   isPlaylistModalOpen: boolean;
   playlistModalMode: 'create' | 'edit' | 'addTrack';
   playlistModalTrackIds: number[];
+  playlistModalTracksAreLocal: boolean;
   isPlaylistImportOpen: boolean;
 }
 
@@ -217,6 +225,7 @@ export function getUIState(): UIState {
     isPlaylistModalOpen,
     playlistModalMode,
     playlistModalTrackIds,
+    playlistModalTracksAreLocal,
     isPlaylistImportOpen
   };
 }

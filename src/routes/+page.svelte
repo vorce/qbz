@@ -289,6 +289,7 @@
   let isPlaylistModalOpen = $state(false);
   let playlistModalMode = $state<'create' | 'edit' | 'addTrack'>('create');
   let playlistModalTrackIds = $state<number[]>([]);
+  let playlistModalTracksAreLocal = $state(false);
   let isPlaylistImportOpen = $state(false);
   let isAboutModalOpen = $state(false);
   let userPlaylists = $state<{ id: number; name: string; tracks_count: number }[]>([]);
@@ -1221,9 +1222,9 @@
     openPlaylistModal('create', []);
   }
 
-  function openAddToPlaylist(trackIds: number[]) {
+  function openAddToPlaylist(trackIds: number[], isLocal = false) {
     userPlaylists = sidebarRef?.getPlaylists() ?? [];
-    openPlaylistModal('addTrack', trackIds);
+    openPlaylistModal('addTrack', trackIds, isLocal);
   }
 
   function handlePlaylistCreated() {
@@ -1590,6 +1591,7 @@
       isPlaylistModalOpen = uiState.isPlaylistModalOpen;
       playlistModalMode = uiState.playlistModalMode;
       playlistModalTrackIds = uiState.playlistModalTrackIds;
+      playlistModalTracksAreLocal = uiState.playlistModalTracksAreLocal;
       isPlaylistImportOpen = uiState.isPlaylistImportOpen;
     });
 
@@ -1986,7 +1988,7 @@
           onTrackPlay={handleLocalTrackPlay}
           onTrackPlayNext={queueLocalTrackNext}
           onTrackPlayLater={queueLocalTrackLater}
-          onTrackAddToPlaylist={(trackId) => openAddToPlaylist([trackId])}
+          onTrackAddToPlaylist={(trackId) => openAddToPlaylist([trackId], true)}
           onSetLocalQueue={handleSetLocalQueue}
           onQobuzArtistClick={handleArtistClick}
         />
@@ -2229,6 +2231,7 @@
       isOpen={isPlaylistModalOpen}
       mode={playlistModalMode}
       trackIds={playlistModalTrackIds}
+      isLocalTracks={playlistModalTracksAreLocal}
       {userPlaylists}
       onClose={closePlaylistModal}
       onSuccess={handlePlaylistCreated}

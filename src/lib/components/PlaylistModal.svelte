@@ -19,6 +19,7 @@
     onSuccess?: (playlist?: Playlist) => void;
     onDelete?: (playlistId: number) => void;
     isHidden?: boolean;
+    isLocalTracks?: boolean;
   }
 
   let {
@@ -30,7 +31,8 @@
     onClose,
     onSuccess,
     onDelete,
-    isHidden = false
+    isHidden = false,
+    isLocalTracks = false
   }: Props = $props();
 
   // Form state
@@ -154,11 +156,22 @@
     error = null;
 
     try {
-      await invoke('add_tracks_to_playlist', {
-        playlistId: selectedPlaylistId,
-        trackIds
-      });
-      void logPlaylistAdd(trackIds, selectedPlaylistId);
+      if (isLocalTracks) {
+        // Add local tracks one by one
+        for (let i = 0; i < trackIds.length; i++) {
+          await invoke('playlist_add_local_track', {
+            playlistId: selectedPlaylistId,
+            localTrackId: trackIds[i],
+            position: i
+          });
+        }
+      } else {
+        await invoke('add_tracks_to_playlist', {
+          playlistId: selectedPlaylistId,
+          trackIds
+        });
+        void logPlaylistAdd(trackIds, selectedPlaylistId);
+      }
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -188,11 +201,22 @@
 
       // Then add tracks
       if (trackIds.length > 0) {
-        await invoke('add_tracks_to_playlist', {
-          playlistId: newPlaylist.id,
-          trackIds
-        });
-        void logPlaylistAdd(trackIds, newPlaylist.id);
+        if (isLocalTracks) {
+          // Add local tracks one by one
+          for (let i = 0; i < trackIds.length; i++) {
+            await invoke('playlist_add_local_track', {
+              playlistId: newPlaylist.id,
+              localTrackId: trackIds[i],
+              position: i
+            });
+          }
+        } else {
+          await invoke('add_tracks_to_playlist', {
+            playlistId: newPlaylist.id,
+            trackIds
+          });
+          void logPlaylistAdd(trackIds, newPlaylist.id);
+        }
       }
 
       onSuccess?.(newPlaylist);
@@ -261,7 +285,7 @@
 
         {#if mode === 'addTrack'}
           <div class="track-info">
-            Adding {trackIds.length} track{trackIds.length !== 1 ? 's' : ''}
+            Adding {trackIds.length} {isLocalTracks ? 'local ' : ''}track{trackIds.length !== 1 ? 's' : ''}
           </div>
 
           <div class="form-group">
