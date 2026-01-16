@@ -2067,6 +2067,7 @@
             onTrackDownload={handleDisplayTrackDownload}
             onTrackRemoveDownload={handleTrackRemoveDownload}
             getTrackDownloadStatus={getTrackDownloadStatus}
+            onPlaylistSelect={selectPlaylist}
           />
         {/if}
       {:else if activeView === 'playlist-manager'}
