@@ -1566,7 +1566,7 @@
     width: 100%;
     height: 100%;
     overflow-y: auto;
-    padding: 24px 32px;
+    padding: 0 32px 24px 32px;
     padding-right: 24px; /* Less padding on right for scrollbar */
   }
 
@@ -1593,6 +1593,7 @@
   }
 
   .header {
+    padding-top: 24px;
     margin-bottom: 32px;
   }
 
