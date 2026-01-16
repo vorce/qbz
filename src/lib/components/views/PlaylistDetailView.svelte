@@ -360,7 +360,7 @@
       durationSeconds: track.duration_secs,
       hires: (track.bit_depth && track.bit_depth >= 24) || track.sample_rate > 48000,
       bitDepth: track.bit_depth,
-      samplingRate: track.sample_rate,
+      samplingRate: track.sample_rate / 1000, // Convert Hz to kHz for display
       isLocal: true,
       localTrackId: track.id,
       artworkPath: track.artwork_path
