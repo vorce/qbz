@@ -389,7 +389,7 @@
 
   .modal {
     width: 100%;
-    max-width: 560px;
+    max-width: 660px;
     max-height: 90vh;
     overflow: hidden;
     display: flex;
