@@ -51,6 +51,18 @@
   let menuStyle = $state('');
   let submenuStyle = $state('');
 
+  // Portal action - moves element to body to escape stacking context
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        if (node.parentNode) {
+          node.parentNode.removeChild(node);
+        }
+      }
+    };
+  }
+
   const hasPlayback = $derived(!!(onPlayNow || onPlayNext || onPlayLater));
   const hasLibrary = $derived(!!(onAddFavorite || onAddToPlaylist || onRemoveFromPlaylist));
   const hasShare = $derived(!!(onShareQobuz || onShareSonglink));
@@ -63,7 +75,11 @@
   }
 
   function handleClickOutside(event: MouseEvent) {
-    if (menuRef && !menuRef.contains(event.target as Node)) {
+    const target = event.target as Node;
+    // Check if click is outside both the trigger container and the menu (which is in portal)
+    const isOutsideTrigger = menuRef && !menuRef.contains(target);
+    const isOutsideMenu = menuEl && !menuEl.contains(target);
+    if (isOutsideTrigger && isOutsideMenu) {
       closeMenu();
     }
   }
@@ -169,7 +185,7 @@
     </button>
 
     {#if isOpen}
-      <div class="menu" bind:this={menuEl} style={menuStyle}>
+      <div class="menu" bind:this={menuEl} style={menuStyle} use:portal>
         {#if hasPlayback}
           {#if onPlayNow}
             <button class="menu-item" onclick={() => handleAction(onPlayNow)}>
@@ -311,7 +327,7 @@
     border-radius: 8px;
     padding: 2px 0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    z-index: 10000;
+    z-index: 99999;
   }
 
   .menu-item {
@@ -368,6 +384,6 @@
     border-radius: 8px;
     padding: 2px 0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    z-index: 10001;
+    z-index: 100000;
   }
 </style>
