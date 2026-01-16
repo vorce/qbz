@@ -3,6 +3,7 @@
  *
  * Manages offline mode detection and settings.
  * Polls backend periodically and listens for manual toggle events.
+ * Handles pending playlist sync queue for playlists created offline.
  */
 
 import { invoke } from '@tauri-apps/api/core';
@@ -10,6 +11,17 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 // Types matching Rust backend
 export type OfflineReason = 'no_network' | 'not_logged_in' | 'manual_override';
+
+export interface PendingPlaylist {
+  id: number;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  trackIds: number[];
+  createdAt: number;
+  synced: boolean;
+  qobuzPlaylistId: number | null;
+}
 
 export interface OfflineStatus {
   isOffline: boolean;
@@ -179,6 +191,56 @@ export function cleanupOfflineStore(): void {
     eventUnlisten = null;
   }
   initialized = false;
+}
+
+// ============ Pending Playlist Sync ============
+
+/**
+ * Create a playlist while offline (queued for sync when back online)
+ */
+export async function createPendingPlaylist(
+  name: string,
+  description: string | null,
+  isPublic: boolean,
+  trackIds: number[]
+): Promise<number> {
+  return invoke<number>('create_pending_playlist', {
+    name,
+    description,
+    isPublic,
+    trackIds,
+  });
+}
+
+/**
+ * Get all playlists pending sync
+ */
+export async function getPendingPlaylists(): Promise<PendingPlaylist[]> {
+  return invoke<PendingPlaylist[]>('get_pending_playlists');
+}
+
+/**
+ * Get count of pending playlists
+ */
+export async function getPendingPlaylistCount(): Promise<number> {
+  return invoke<number>('get_pending_playlist_count');
+}
+
+/**
+ * Mark a pending playlist as synced after successful Qobuz creation
+ */
+export async function markPendingPlaylistSynced(
+  pendingId: number,
+  qobuzPlaylistId: number
+): Promise<void> {
+  await invoke('mark_pending_playlist_synced', { pendingId, qobuzPlaylistId });
+}
+
+/**
+ * Delete a pending playlist
+ */
+export async function deletePendingPlaylist(pendingId: number): Promise<void> {
+  await invoke('delete_pending_playlist', { pendingId });
 }
 
 // ============ State Getter ============

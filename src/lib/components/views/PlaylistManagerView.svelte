@@ -1,9 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { ArrowLeft, Filter, ArrowUpDown, LayoutGrid, List, GripVertical, EyeOff, Eye, BarChart2, Play, Pencil, Search, X } from 'lucide-svelte';
+  import { ArrowLeft, Filter, ArrowUpDown, LayoutGrid, List, GripVertical, EyeOff, Eye, BarChart2, Play, Pencil, Search, X, Cloud, CloudOff, Wifi } from 'lucide-svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
+  import { t } from '$lib/i18n';
+  import {
+    subscribe as subscribeOffline,
+    getStatus as getOfflineStatus,
+    getSettings as getOfflineSettings,
+    type OfflineStatus,
+    type OfflineSettings
+  } from '$lib/stores/offlineStore';
 
   interface Playlist {
     id: number;
@@ -14,10 +22,13 @@
     owner: { id: number; name: string };
   }
 
+  type LocalContentStatus = 'unknown' | 'no' | 'some_local' | 'all_local';
+
   interface PlaylistSettings {
     qobuz_playlist_id: number;
     hidden: boolean;
     position: number;
+    hasLocalContent?: LocalContentStatus;
   }
 
   interface PlaylistStats {
@@ -41,6 +52,10 @@
   let playlistSettings = $state<Map<number, PlaylistSettings>>(new Map());
   let playlistStats = $state<Map<number, PlaylistStats>>(new Map());
   let loading = $state(true);
+
+  // Offline state
+  let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
+  let offlineSettings = $state<OfflineSettings>(getOfflineSettings());
 
   // Filter and sort state (persisted)
   let filter = $state<PlaylistFilter>(
@@ -77,6 +92,18 @@
   const displayPlaylists = $derived.by(() => {
     let result = [...playlists];
 
+    // Apply offline filter first - only show playlists with local content
+    if (offlineStatus.isOffline) {
+      result = result.filter(p => {
+        const settings = playlistSettings.get(p.id);
+        const localStatus = settings?.hasLocalContent ?? 'unknown';
+        if (offlineSettings.showPartialPlaylists) {
+          return localStatus === 'all_local' || localStatus === 'some_local';
+        }
+        return localStatus === 'all_local';
+      });
+    }
+
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase();
@@ -111,8 +138,23 @@
     return result;
   });
 
+  // Helper to get local content status for a playlist
+  function getLocalContentStatus(playlistId: number): LocalContentStatus {
+    return playlistSettings.get(playlistId)?.hasLocalContent ?? 'unknown';
+  }
+
   onMount(() => {
     loadData();
+
+    // Subscribe to offline state changes
+    const unsubscribeOffline = subscribeOffline(() => {
+      offlineStatus = getOfflineStatus();
+      offlineSettings = getOfflineSettings();
+    });
+
+    return () => {
+      unsubscribeOffline();
+    };
   });
 
   async function loadData() {
@@ -358,6 +400,7 @@
     <div class="grid">
       {#each displayPlaylists as playlist (playlist.id)}
         {@const isHidden = playlistSettings.get(playlist.id)?.hidden}
+        {@const localStatus = getLocalContentStatus(playlist.id)}
         <div
           class="grid-item"
           class:hidden={isHidden}
@@ -402,6 +445,15 @@
                   <EyeOff size={12} />
                 </div>
               {/if}
+              {#if localStatus === 'all_local'}
+                <div class="local-badge all" title={$t('offline.allLocal')}>
+                  <Wifi size={12} />
+                </div>
+              {:else if localStatus === 'some_local'}
+                <div class="local-badge partial" title={$t('offline.someLocal')}>
+                  <Cloud size={12} />
+                </div>
+              {/if}
             </div>
             <div class="info">
               <span class="name">{playlist.name}</span>
@@ -417,6 +469,7 @@
       {#each displayPlaylists as playlist (playlist.id)}
         {@const isHidden = playlistSettings.get(playlist.id)?.hidden}
         {@const stats = playlistStats.get(playlist.id)}
+        {@const localStatus = getLocalContentStatus(playlist.id)}
         <div
           class="list-item"
           class:hidden={isHidden}
@@ -450,6 +503,15 @@
               {/if}
             </span>
           </div>
+          {#if localStatus === 'all_local'}
+            <span class="local-indicator all" title={$t('offline.allLocal')}>
+              <Wifi size={14} />
+            </span>
+          {:else if localStatus === 'some_local'}
+            <span class="local-indicator partial" title={$t('offline.someLocal')}>
+              <Cloud size={14} />
+            </span>
+          {/if}
           {#if stats && stats.play_count > 0}
             <span class="play-count-badge" title="Play count">
               <BarChart2 size={12} />
@@ -809,6 +871,37 @@
     border-radius: 4px;
     padding: 3px;
     color: var(--text-muted);
+  }
+
+  .local-badge {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 4px;
+    padding: 3px;
+  }
+
+  .local-badge.all {
+    color: #4ade80;
+  }
+
+  .local-badge.partial {
+    color: #fbbf24;
+  }
+
+  .local-indicator {
+    display: flex;
+    align-items: center;
+    margin-right: 8px;
+  }
+
+  .local-indicator.all {
+    color: #4ade80;
+  }
+
+  .local-indicator.partial {
+    color: #fbbf24;
   }
 
   .grid-item .info {
