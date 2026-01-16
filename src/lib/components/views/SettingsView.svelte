@@ -37,6 +37,7 @@
     setAllowCastWhileOffline,
     setAllowImmediateScrobbling,
     setAllowAccumulatedScrobbling,
+    setShowNetworkFoldersInManualOffline,
     checkNetwork,
     type OfflineStatus,
     type OfflineSettings
@@ -722,6 +723,14 @@
     }
   }
 
+  async function handleShowNetworkFoldersChange(enabled: boolean) {
+    try {
+      await setShowNetworkFoldersInManualOffline(enabled);
+    } catch (error) {
+      console.error('Failed to set show network folders in manual offline:', error);
+    }
+  }
+
   async function handleLanguageChange(lang: string) {
     language = lang;
     const localeCode = languageToLocale[lang];
@@ -890,19 +899,36 @@
   async function handleChangeDownloadFolder() {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
-      
+
       const result = await open({
         title: 'Select Downloads Folder',
         directory: true,
         defaultPath: downloadRoot || undefined
       });
-      
+
       if (result) {
         // Validate the path
         const valid = await invoke<boolean>('validate_download_path', { path: result });
         if (!valid) {
           alert('Invalid path or insufficient permissions. Please select a different folder.');
           return;
+        }
+
+        // Check if this is a network folder and warn user
+        interface NetworkPathInfo {
+          isNetwork: boolean;
+          mountInfo: { fsType: string; kind: string } | null;
+          path: string;
+        }
+        const networkInfo = await invoke<NetworkPathInfo>('check_network_path', { path: result });
+        if (networkInfo.isNetwork) {
+          const proceed = confirm(
+            $t('settings.networkDownloadWarning') + '\n\n' +
+            $t('settings.networkDownloadWarningDetail')
+          );
+          if (!proceed) {
+            return;
+          }
         }
 
         // Ask if user wants to move existing downloads
@@ -1187,13 +1213,20 @@
         </div>
         <Toggle enabled={offlineSettings.allowImmediateScrobbling} onchange={handleAllowImmediateScrobblingChange} />
       </div>
-      <div class="setting-row last">
+      <div class="setting-row">
         <div class="setting-info">
           <span class="setting-label">{$t('offline.allowAccumulatedScrobbling')}</span>
           <span class="setting-desc">{$t('offline.allowAccumulatedScrobblingDesc')}</span>
           <small class="setting-note">{$t('offline.scrobbleTimeLimit')}</small>
         </div>
         <Toggle enabled={offlineSettings.allowAccumulatedScrobbling} onchange={handleAllowAccumulatedScrobblingChange} />
+      </div>
+      <div class="setting-row last">
+        <div class="setting-info">
+          <span class="setting-label">{$t('offline.showNetworkFolders')}</span>
+          <span class="setting-desc">{$t('offline.showNetworkFoldersDesc')}</span>
+        </div>
+        <Toggle enabled={offlineSettings.showNetworkFoldersInManualOffline} onchange={handleShowNetworkFoldersChange} />
       </div>
     {/if}
   </section>

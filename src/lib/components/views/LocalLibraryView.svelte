@@ -1511,10 +1511,9 @@
                     <HardDrive size={14} />
                   {/if}
                 </div>
-                <div class="folder-info">
+                <div class="folder-info" title={folder.alias ? folder.path : ''}>
                   {#if folder.alias}
                     <span class="folder-alias">{folder.alias}</span>
-                    <span class="folder-path-small">{folder.path}</span>
                   {:else}
                     <span class="folder-path">{folder.path}</span>
                   {/if}

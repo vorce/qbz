@@ -115,6 +115,8 @@
     "networkFolderDetected": "This folder appears to be on a network drive. It may be unavailable in offline mode.",
     "disabled": "Disabled",
     "unavailable": "Unavailable",
+    "changeFolder": "Change folder location",
+    "selectFolder": "Select folder",
     "networkFs": {
       "auto": "Auto-detect",
       "other": "Other"
@@ -359,6 +361,8 @@
       "clearDownloads": "Clear All",
       "openFolder": "Open Folder"
     },
+    "networkDownloadWarning": "The selected folder is on a network drive.",
+    "networkDownloadWarningDetail": "Downloaded tracks may not be available when the network is disconnected or in offline mode. Are you sure you want to use this location?",
     "lyrics": {
       "title": "Lyrics",
       "lyricsCache": "Lyrics Cache",
@@ -485,7 +489,9 @@
     "allowImmediateScrobblingDesc": "Send scrobbles to Last.fm immediately while in manual offline mode",
     "allowAccumulatedScrobbling": "Accumulated Scrobbling",
     "allowAccumulatedScrobblingDesc": "Queue scrobbles for later when back online",
-    "scrobbleTimeLimit": "Last.fm accepts scrobbles up to 2 weeks old"
+    "scrobbleTimeLimit": "Last.fm accepts scrobbles up to 2 weeks old",
+    "showNetworkFolders": "Show Network Folder Content",
+    "showNetworkFoldersDesc": "Display content from network-mounted folders (NAS, Samba, etc.) while in manual offline mode"
   },
   "filter": {
     "all": "All"

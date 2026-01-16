@@ -479,6 +479,32 @@ impl LibraryDatabase {
         Ok(())
     }
 
+    /// Update folder path (moves the folder to a new location)
+    /// This also clears the last_scan since the new path needs to be scanned
+    pub fn update_folder_path(&self, id: i64, new_path: &str) -> Result<(), LibraryError> {
+        // Check if new path already exists as a different folder
+        let existing: Option<i64> = self.conn
+            .query_row(
+                "SELECT id FROM library_folders WHERE path = ? AND id != ?",
+                params![new_path, id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| LibraryError::Database(e.to_string()))?;
+
+        if existing.is_some() {
+            return Err(LibraryError::Database("A folder with this path already exists".to_string()));
+        }
+
+        self.conn
+            .execute(
+                "UPDATE library_folders SET path = ?, last_scan = NULL WHERE id = ?",
+                params![new_path, id],
+            )
+            .map_err(|e| LibraryError::Database(e.to_string()))?;
+        Ok(())
+    }
+
     // === Track Management ===
 
     /// Insert or update a track

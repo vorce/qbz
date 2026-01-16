@@ -365,6 +365,7 @@ pub fn run() {
             library::commands::library_get_folder,
             library::commands::library_update_folder_settings,
             library::commands::library_set_folder_enabled,
+            library::commands::library_update_folder_path,
             library::commands::library_check_folder_accessible,
             library::commands::library_scan,
             library::commands::library_scan_folder,
@@ -523,6 +524,7 @@ pub fn run() {
             offline::commands::set_allow_cast_while_offline,
             offline::commands::set_allow_immediate_scrobbling,
             offline::commands::set_allow_accumulated_scrobbling,
+            offline::commands::set_show_network_folders_in_manual_offline,
             offline::commands::check_network,
             // Offline playlist sync queue commands
             offline::commands::create_pending_playlist,

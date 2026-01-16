@@ -36,6 +36,7 @@ export interface OfflineSettings {
   allowCastWhileOffline: boolean;
   allowImmediateScrobbling: boolean;
   allowAccumulatedScrobbling: boolean;
+  showNetworkFoldersInManualOffline: boolean;
 }
 
 // Store state
@@ -51,6 +52,7 @@ let settings: OfflineSettings = {
   allowCastWhileOffline: false,
   allowImmediateScrobbling: false,
   allowAccumulatedScrobbling: true,
+  showNetworkFoldersInManualOffline: false,
 };
 
 let initialized = false;
@@ -232,6 +234,20 @@ export async function setAllowAccumulatedScrobbling(enabled: boolean): Promise<v
     notifyListeners();
   } catch (error) {
     console.error('Failed to set allow accumulated scrobbling:', error);
+    throw error;
+  }
+}
+
+/**
+ * Set whether to show network folder content in manual offline mode
+ */
+export async function setShowNetworkFoldersInManualOffline(enabled: boolean): Promise<void> {
+  try {
+    await invoke('set_show_network_folders_in_manual_offline', { enabled });
+    settings.showNetworkFoldersInManualOffline = enabled;
+    notifyListeners();
+  } catch (error) {
+    console.error('Failed to set show network folders in manual offline:', error);
     throw error;
   }
 }

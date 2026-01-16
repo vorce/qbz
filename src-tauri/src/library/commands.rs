@@ -101,6 +101,7 @@ pub async fn library_get_folders(state: State<'_, LibraryState>) -> Result<Vec<S
 }
 
 /// Get all library folders with full metadata
+/// Also refreshes network detection for folders without user override
 #[tauri::command]
 pub async fn library_get_folders_with_metadata(
     state: State<'_, LibraryState>,
@@ -108,7 +109,50 @@ pub async fn library_get_folders_with_metadata(
     log::info!("Command: library_get_folders_with_metadata");
 
     let db = state.db.lock().await;
-    db.get_folders_with_metadata().map_err(|e| e.to_string())
+    let mut folders = db.get_folders_with_metadata().map_err(|e| e.to_string())?;
+
+    // Refresh network detection for folders without user override
+    for folder in &mut folders {
+        if !folder.user_override_network {
+            let path = Path::new(&folder.path);
+            let network_info = crate::network::is_network_path(path);
+
+            // Update if detection differs from stored value
+            if network_info.is_network != folder.is_network {
+                log::info!(
+                    "Updating network status for folder {}: {} -> {}",
+                    folder.path,
+                    folder.is_network,
+                    network_info.is_network
+                );
+
+                // Extract network filesystem type
+                let fs_type = network_info.mount_info.as_ref().and_then(|mi| {
+                    if let crate::network::MountKind::Network(nfs) = &mi.kind {
+                        Some(format!("{:?}", nfs).to_lowercase())
+                    } else {
+                        None
+                    }
+                });
+
+                // Update database
+                let _ = db.update_folder_settings(
+                    folder.id,
+                    folder.alias.as_deref(),
+                    folder.enabled,
+                    network_info.is_network,
+                    fs_type.as_deref(),
+                    false, // not user override
+                );
+
+                // Update the folder struct for return
+                folder.is_network = network_info.is_network;
+                folder.network_fs_type = fs_type;
+            }
+        }
+    }
+
+    Ok(folders)
 }
 
 /// Get a single folder by ID
@@ -162,6 +206,58 @@ pub async fn library_set_folder_enabled(
 
     let db = state.db.lock().await;
     db.set_folder_enabled(id, enabled).map_err(|e| e.to_string())
+}
+
+/// Update folder path (move folder to new location)
+#[tauri::command]
+pub async fn library_update_folder_path(
+    id: i64,
+    new_path: String,
+    state: State<'_, LibraryState>,
+) -> Result<LibraryFolder, String> {
+    log::info!("Command: library_update_folder_path {} -> {}", id, new_path);
+
+    // Verify the new path exists and is a directory
+    let path_ref = Path::new(&new_path);
+    if !path_ref.exists() {
+        return Err("The selected folder does not exist".to_string());
+    }
+    if !path_ref.is_dir() {
+        return Err("The selected path is not a folder".to_string());
+    }
+
+    let db = state.db.lock().await;
+    db.update_folder_path(id, &new_path).map_err(|e| e.to_string())?;
+
+    // Check if it's a network folder and update network info
+    let network_info = crate::network::is_network_path(path_ref);
+    if network_info.is_network {
+        // Extract network filesystem type from mount_info
+        let fs_type = network_info.mount_info.as_ref().and_then(|mi| {
+            if let crate::network::MountKind::Network(nfs) = &mi.kind {
+                Some(format!("{:?}", nfs).to_lowercase())
+            } else {
+                None
+            }
+        });
+
+        // Get current folder settings to preserve enabled state
+        let current = db.get_folder_by_id(id).map_err(|e| e.to_string())?;
+        if let Some(folder) = current {
+            db.update_folder_settings(
+                id,
+                folder.alias.as_deref(),
+                folder.enabled,
+                true, // is_network
+                fs_type.as_deref(),
+                false, // not user override
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    db.get_folder_by_id(id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Folder not found after update".to_string())
 }
 
 /// Check network accessibility for a folder
@@ -459,6 +555,39 @@ pub async fn library_scan_folder(
 
     if !folder.enabled {
         return Err("Cannot scan disabled folder".to_string());
+    }
+
+    // Refresh network detection if not user overridden
+    if !folder.user_override_network {
+        let path = Path::new(&folder.path);
+        let network_info = crate::network::is_network_path(path);
+
+        if network_info.is_network != folder.is_network {
+            log::info!(
+                "Updating network status for folder {} during scan: {} -> {}",
+                folder.path,
+                folder.is_network,
+                network_info.is_network
+            );
+
+            let fs_type = network_info.mount_info.as_ref().and_then(|mi| {
+                if let crate::network::MountKind::Network(nfs) = &mi.kind {
+                    Some(format!("{:?}", nfs).to_lowercase())
+                } else {
+                    None
+                }
+            });
+
+            let db = state.db.lock().await;
+            let _ = db.update_folder_settings(
+                folder.id,
+                folder.alias.as_deref(),
+                folder.enabled,
+                network_info.is_network,
+                fs_type.as_deref(),
+                false,
+            );
+        }
     }
 
     // Reset cancel flag and progress

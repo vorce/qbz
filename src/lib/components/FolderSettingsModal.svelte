@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { X, HardDrive, Network, RefreshCw, Power, PowerOff, AlertTriangle } from 'lucide-svelte';
+  import { open } from '@tauri-apps/plugin-dialog';
+  import { X, HardDrive, Network, RefreshCw, Power, PowerOff, AlertTriangle, FolderOpen } from 'lucide-svelte';
   import { t } from '$lib/i18n';
 
   // LibraryFolder type matching Rust backend
@@ -33,6 +34,8 @@
 
   // Form state
   let alias = $state('');
+  let currentPath = $state('');
+  let pathChanged = $state(false);
   let enabled = $state(true);
   let isNetwork = $state(false);
   let networkFsType = $state('');
@@ -60,6 +63,8 @@
   $effect(() => {
     if (isOpen && folder) {
       alias = folder.alias || '';
+      currentPath = folder.path;
+      pathChanged = false;
       enabled = folder.enabled;
       isNetwork = folder.isNetwork;
       networkFsType = folder.networkFsType || '';
@@ -92,6 +97,14 @@
     error = null;
 
     try {
+      // If path was changed, update it first
+      if (pathChanged && currentPath !== folder.path) {
+        await invoke('library_update_folder_path', {
+          id: folder.id,
+          newPath: currentPath
+        });
+      }
+
       const updatedFolder = await invoke<LibraryFolder>('library_update_folder_settings', {
         id: folder.id,
         alias: alias.trim() || null,
@@ -107,6 +120,34 @@
       error = String(err);
     } finally {
       loading = false;
+    }
+  }
+
+  async function handleChangePath() {
+    try {
+      const result = await open({
+        directory: true,
+        multiple: false,
+        defaultPath: currentPath,
+        title: $t('library.selectFolder')
+      });
+
+      if (result && typeof result === 'string') {
+        currentPath = result;
+        pathChanged = true;
+        // Re-check accessibility for the new path
+        checkingAccessibility = true;
+        try {
+          accessible = await invoke<boolean>('library_check_folder_accessible', { path: currentPath });
+        } catch (err) {
+          accessible = false;
+        } finally {
+          checkingAccessibility = false;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to open folder picker:', err);
+      error = String(err);
     }
   }
 
@@ -150,10 +191,10 @@
   // Get display name for folder
   function getDisplayName(): string {
     if (!folder) return '';
-    if (folder.alias) return folder.alias;
+    if (alias) return alias;
     // Get last part of path
-    const parts = folder.path.split('/').filter(Boolean);
-    return parts[parts.length - 1] || folder.path;
+    const parts = currentPath.split('/').filter(Boolean);
+    return parts[parts.length - 1] || currentPath;
   }
 </script>
 
@@ -190,8 +231,11 @@
           </div>
           <div class="folder-details">
             <span class="folder-name">{getDisplayName()}</span>
-            <span class="folder-path">{folder.path}</span>
+            <span class="folder-path" class:path-changed={pathChanged}>{currentPath}</span>
           </div>
+          <button class="change-path-btn" onclick={handleChangePath} disabled={loading} title={$t('library.changeFolder')}>
+            <FolderOpen size={16} />
+          </button>
           <div class="folder-status">
             {#if checkingAccessibility}
               <span class="status checking">
@@ -413,6 +457,35 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .folder-path.path-changed {
+    color: var(--accent-primary);
+  }
+
+  .change-path-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 150ms ease;
+    flex-shrink: 0;
+  }
+
+  .change-path-btn:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .change-path-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .folder-status {

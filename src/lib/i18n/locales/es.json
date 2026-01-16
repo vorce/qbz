@@ -115,6 +115,8 @@
     "networkFolderDetected": "Esta carpeta parece estar en una unidad de red. Puede no estar disponible en modo offline.",
     "disabled": "Deshabilitada",
     "unavailable": "No disponible",
+    "changeFolder": "Cambiar ubicacion de carpeta",
+    "selectFolder": "Seleccionar carpeta",
     "networkFs": {
       "auto": "Auto-detectar",
       "other": "Otro"
@@ -359,6 +361,8 @@
       "clearDownloads": "Limpiar Todo",
       "openFolder": "Abrir Carpeta"
     },
+    "networkDownloadWarning": "La carpeta seleccionada está en una unidad de red.",
+    "networkDownloadWarningDetail": "Las pistas descargadas pueden no estar disponibles cuando la red esté desconectada o en modo offline. ¿Estás seguro de que quieres usar esta ubicación?",
     "lyrics": {
       "title": "Letras",
       "lyricsCache": "Caché de Letras",
@@ -485,7 +489,9 @@
     "allowImmediateScrobblingDesc": "Enviar scrobbles a Last.fm inmediatamente en modo offline manual",
     "allowAccumulatedScrobbling": "Scrobbling Acumulado",
     "allowAccumulatedScrobblingDesc": "Almacenar scrobbles para enviar cuando vuelvas a estar en linea",
-    "scrobbleTimeLimit": "Last.fm acepta scrobbles de hasta 2 semanas de antiguedad"
+    "scrobbleTimeLimit": "Last.fm acepta scrobbles de hasta 2 semanas de antiguedad",
+    "showNetworkFolders": "Mostrar Contenido de Carpetas de Red",
+    "showNetworkFoldersDesc": "Mostrar contenido de carpetas montadas en red (NAS, Samba, etc.) mientras estas en modo offline manual"
   },
   "filter": {
     "all": "Todos"
