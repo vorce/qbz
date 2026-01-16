@@ -488,6 +488,12 @@ pub mod commands {
         store.set_show_partial_playlists(enabled)
     }
 
+    /// Check if network connectivity is available
+    #[tauri::command]
+    pub async fn check_network() -> bool {
+        super::check_network_connectivity().await
+    }
+
     // === Pending Playlist Sync Commands ===
 
     /// Create a playlist while offline (queued for sync)

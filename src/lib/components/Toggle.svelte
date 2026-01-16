@@ -21,12 +21,14 @@
   .toggle {
     position: relative;
     width: 44px;
+    min-width: 44px;
     height: 24px;
     border-radius: 9999px;
     border: none;
     background-color: #333333;
     cursor: pointer;
     transition: background-color 150ms ease;
+    flex-shrink: 0;
   }
 
   .toggle.enabled {

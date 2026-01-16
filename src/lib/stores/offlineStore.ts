@@ -142,6 +142,18 @@ async function fetchSettings(): Promise<void> {
 }
 
 /**
+ * Check network connectivity
+ */
+export async function checkNetwork(): Promise<boolean> {
+  try {
+    return await invoke<boolean>('check_network');
+  } catch (error) {
+    console.error('Failed to check network:', error);
+    return false;
+  }
+}
+
+/**
  * Toggle manual offline mode
  */
 export async function setManualOffline(enabled: boolean): Promise<void> {

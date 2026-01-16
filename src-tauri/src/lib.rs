@@ -512,6 +512,7 @@ pub fn run() {
             offline::commands::get_offline_settings,
             offline::commands::set_manual_offline,
             offline::commands::set_show_partial_playlists,
+            offline::commands::check_network,
             // Offline playlist sync queue commands
             offline::commands::create_pending_playlist,
             offline::commands::get_pending_playlists,

@@ -34,9 +34,11 @@
     getSettings as getOfflineSettings,
     setManualOffline,
     setShowPartialPlaylists,
+    checkNetwork,
     type OfflineStatus,
     type OfflineSettings
   } from '$lib/stores/offlineStore';
+  import { showToast } from '$lib/stores/toastStore';
 
   interface Props {
     onBack?: () => void;
@@ -85,6 +87,7 @@
   // Offline mode state
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
   let offlineSettings = $state<OfflineSettings>(getOfflineSettings());
+  let isCheckingNetwork = $state(false);
 
   // Audio device state
   let audioDevices = $state<AudioDevice[]>([]);
@@ -580,10 +583,30 @@
 
   // Offline mode handlers
   async function handleManualOfflineChange(enabled: boolean) {
+    // If enabling offline mode, just do it directly
+    if (enabled) {
+      try {
+        await setManualOffline(true);
+      } catch (error) {
+        console.error('Failed to enable manual offline mode:', error);
+      }
+      return;
+    }
+
+    // If disabling offline mode, verify network connectivity first
+    isCheckingNetwork = true;
     try {
-      await setManualOffline(enabled);
+      const hasNetwork = await checkNetwork();
+      if (hasNetwork) {
+        await setManualOffline(false);
+      } else {
+        showToast($t('offline.noNetworkToast'), 'error');
+      }
     } catch (error) {
-      console.error('Failed to set manual offline mode:', error);
+      console.error('Failed to disable manual offline mode:', error);
+      showToast($t('offline.noNetworkToast'), 'error');
+    } finally {
+      isCheckingNetwork = false;
     }
   }
 
@@ -1455,6 +1478,12 @@
   </section>
 </div>
 
+{#if isCheckingNetwork}
+  <div class="network-check-overlay" aria-busy="true" aria-label={$t('offline.checkingNetwork')}>
+    <div class="network-check-spinner"></div>
+  </div>
+{/if}
+
 <style>
   .settings-view {
     width: 100%;
@@ -2023,6 +2052,35 @@
 
   .status-indicator.offline {
     color: #fbbf24;
+  }
+
+  /* Network check overlay */
+  .network-check-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+
+  .network-check-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>
 

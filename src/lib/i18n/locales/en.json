@@ -444,6 +444,8 @@
     "notAvailable": "Not Available Offline",
     "trackNotAvailable": "This track is not available offline",
     "featureDisabled": "This feature requires internet connection",
-    "startWithoutLogin": "Start in offline mode without logging in"
+    "startWithoutLogin": "Start in offline mode without logging in",
+    "noNetworkToast": "No internet connection available",
+    "checkingNetwork": "Checking network connection..."
   }
 }

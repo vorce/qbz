@@ -444,6 +444,8 @@
     "notAvailable": "No Disponible Offline",
     "trackNotAvailable": "Esta pista no esta disponible offline",
     "featureDisabled": "Esta funcion requiere conexion a internet",
-    "startWithoutLogin": "Iniciar en modo offline sin autenticacion"
+    "startWithoutLogin": "Iniciar en modo offline sin autenticacion",
+    "noNetworkToast": "No hay conexion a internet disponible",
+    "checkingNetwork": "Verificando conexion a internet..."
   }
 }

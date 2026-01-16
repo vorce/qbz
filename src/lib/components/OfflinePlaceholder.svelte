@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { WifiOff, CloudOff, Power, Library } from 'lucide-svelte';
+  import { Library } from 'lucide-svelte';
   import { t } from '$lib/i18n';
   import type { OfflineReason } from '$lib/stores/offlineStore';
 
@@ -9,24 +9,12 @@
   }
 
   let { reason = null, onGoToLibrary }: Props = $props();
-
-  // Get icon based on reason
-  function getIcon(r: OfflineReason | null) {
-    switch (r) {
-      case 'no_network': return WifiOff;
-      case 'not_logged_in': return CloudOff;
-      case 'manual_override': return Power;
-      default: return WifiOff;
-    }
-  }
-
-  const icon = $derived(getIcon(reason));
 </script>
 
 <div class="offline-placeholder" role="alert" aria-live="polite">
   <div class="content">
     <div class="icon-container" aria-hidden="true">
-      <svelte:component this={icon} size={64} strokeWidth={1.5} />
+      <img src="/offline.svg" alt="" class="offline-icon" />
     </div>
     <h2>
       {#if reason === 'no_network'}
@@ -78,6 +66,12 @@
     color: var(--color-text-tertiary);
     margin-bottom: 24px;
     opacity: 0.6;
+  }
+
+  .offline-icon {
+    width: 64px;
+    height: 64px;
+    filter: brightness(0) invert(0.6);
   }
 
   h2 {
