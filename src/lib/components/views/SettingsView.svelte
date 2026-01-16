@@ -103,26 +103,39 @@
   let apiKeysSection: HTMLElement;
   let activeSection = $state('audio');
 
-  interface NavSection {
-    id: string;
-    label: string;
-    el: HTMLElement | undefined;
+  // Navigation section definitions (static, refs resolved at click/scroll time)
+  const navSectionDefs = [
+    { id: 'audio', label: 'Audio' },
+    { id: 'playback', label: 'Playback' },
+    { id: 'offline', label: 'Offline' },
+    { id: 'appearance', label: 'Appearance' },
+    { id: 'downloads', label: 'Downloads' },
+    { id: 'library', label: 'Library' },
+    { id: 'integrations', label: 'Integrations' },
+    { id: 'storage', label: 'Storage' },
+    { id: 'lyrics', label: 'Lyrics' },
+    { id: 'api-keys', label: 'API Keys' },
+  ];
+
+  // Get section element by id (resolved at call time, not definition time)
+  function getSectionEl(id: string): HTMLElement | undefined {
+    switch (id) {
+      case 'audio': return audioSection;
+      case 'playback': return playbackSection;
+      case 'offline': return offlineModeSection;
+      case 'appearance': return appearanceSection;
+      case 'downloads': return downloadsSection;
+      case 'library': return librarySection;
+      case 'integrations': return integrationsSection;
+      case 'storage': return storageSection;
+      case 'lyrics': return lyricsSection;
+      case 'api-keys': return apiKeysSection;
+      default: return undefined;
+    }
   }
 
-  const navSections = $derived<NavSection[]>([
-    { id: 'audio', label: 'Audio', el: audioSection },
-    { id: 'playback', label: 'Playback', el: playbackSection },
-    { id: 'offline', label: 'Offline', el: offlineModeSection },
-    { id: 'appearance', label: 'Appearance', el: appearanceSection },
-    { id: 'downloads', label: 'Downloads', el: downloadsSection },
-    { id: 'library', label: 'Library', el: librarySection },
-    { id: 'integrations', label: 'Integrations', el: integrationsSection },
-    { id: 'storage', label: 'Storage', el: storageSection },
-    { id: 'lyrics', label: 'Lyrics', el: lyricsSection },
-    { id: 'api-keys', label: 'API Keys', el: apiKeysSection },
-  ]);
-
-  function scrollToSection(el: HTMLElement | undefined, id: string) {
+  function scrollToSection(id: string) {
+    const el = getSectionEl(id);
     if (!el) return;
     activeSection = id;
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -330,19 +343,19 @@
     // Scroll tracking for navigation
     const handleScroll = () => {
       if (!settingsViewEl) return;
-      const scrollTop = settingsViewEl.scrollTop;
-      const offset = 120; // Account for sticky nav height
+      const offset = 60; // Account for sticky nav height
 
       // Find which section is currently in view
-      for (const section of navSections) {
-        if (!section.el) continue;
-        const rect = section.el.getBoundingClientRect();
+      for (const def of navSectionDefs) {
+        const el = getSectionEl(def.id);
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
         const containerRect = settingsViewEl.getBoundingClientRect();
         const relativeTop = rect.top - containerRect.top;
 
         if (relativeTop <= offset + 50 && relativeTop + rect.height > offset) {
-          if (activeSection !== section.id) {
-            activeSection = section.id;
+          if (activeSection !== def.id) {
+            activeSection = def.id;
           }
           break;
         }
@@ -1014,11 +1027,11 @@
 
   <!-- Settings Navigation -->
   <nav class="settings-nav">
-    {#each navSections as section}
+    {#each navSectionDefs as section}
       <button
         class="nav-link"
         class:active={activeSection === section.id}
-        onclick={() => scrollToSection(section.el, section.id)}
+        onclick={() => scrollToSection(section.id)}
       >
         {section.label}
       </button>
