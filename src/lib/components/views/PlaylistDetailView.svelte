@@ -238,13 +238,25 @@
     }
   }
 
+  // Helper to notify parent of track counts (called imperatively, not reactively)
+  function notifyParentOfCounts() {
+    if (playlist) {
+      const qobuzCount = playlist.tracks_count ?? 0;
+      const localCount = localTracks.length;
+      onPlaylistCountUpdate?.(playlistId, qobuzCount, localCount);
+    }
+  }
+
   // Reload playlist when playlistId changes
   $effect(() => {
     // Access playlistId to create dependency
     const id = playlistId;
-    loadPlaylist();
+    // Load all data and notify parent when done
+    (async () => {
+      await Promise.all([loadPlaylist(), loadLocalTracks()]);
+      notifyParentOfCounts();
+    })();
     loadSettings();
-    loadLocalTracks();
     loadStats();
   });
 
@@ -255,14 +267,6 @@
     }
   });
 
-  // Notify parent of actual track counts after loading (single source of truth)
-  $effect(() => {
-    if (playlist && !loading) {
-      const qobuzCount = playlist.tracks_count ?? 0;
-      const localCount = localTracks.length;
-      onPlaylistCountUpdate?.(playlistId, qobuzCount, localCount);
-    }
-  });
 
   async function loadLocalTracks() {
     try {
@@ -549,6 +553,7 @@
         // Remove local track
         await invoke('playlist_remove_local_track', { playlistId, localTrackId: track.localTrackId });
         await loadLocalTracks();
+        notifyParentOfCounts();
       } else if (track.playlistTrackId) {
         // Remove Qobuz track using playlist_track_id
         await invoke('remove_tracks_from_playlist', {
@@ -556,6 +561,7 @@
           playlistTrackIds: [track.playlistTrackId]
         });
         await loadPlaylist();
+        notifyParentOfCounts();
       }
       // Notify parent to refresh sidebar counts
       onPlaylistUpdated?.();
@@ -612,10 +618,11 @@
     }
   }
 
-  function handleEditSuccess() {
+  async function handleEditSuccess() {
     editModalOpen = false;
-    loadPlaylist(); // Reload playlist data
+    await loadPlaylist(); // Reload playlist data
     loadSettings(); // Reload settings (including hidden status)
+    notifyParentOfCounts();
     onPlaylistUpdated?.();
   }
 
