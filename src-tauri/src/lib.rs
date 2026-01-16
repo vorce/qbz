@@ -512,6 +512,12 @@ pub fn run() {
             offline::commands::get_offline_settings,
             offline::commands::set_manual_offline,
             offline::commands::set_show_partial_playlists,
+            // Offline playlist sync queue commands
+            offline::commands::create_pending_playlist,
+            offline::commands::get_pending_playlists,
+            offline::commands::get_pending_playlist_count,
+            offline::commands::mark_pending_playlist_synced,
+            offline::commands::delete_pending_playlist,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

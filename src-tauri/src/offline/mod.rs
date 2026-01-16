@@ -5,8 +5,9 @@
 //! - Login state checking
 //! - Manual offline mode toggle
 //! - Offline settings persistence
+//! - Pending playlist sync queue (playlists created offline)
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -38,6 +39,20 @@ pub struct OfflineSettings {
     pub show_partial_playlists: bool,
 }
 
+/// A playlist created offline, pending sync to Qobuz
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingPlaylist {
+    pub id: i64,
+    pub name: String,
+    pub description: Option<String>,
+    pub is_public: bool,
+    pub track_ids: Vec<u64>,
+    pub created_at: i64,
+    pub synced: bool,
+    pub qobuz_playlist_id: Option<u64>,
+}
+
 /// SQLite-backed storage for offline settings
 pub struct OfflineStore {
     conn: Connection,
@@ -63,7 +78,19 @@ impl OfflineStore {
                 show_partial_playlists INTEGER NOT NULL DEFAULT 1
             );
             INSERT OR IGNORE INTO offline_settings (id, manual_offline_mode, show_partial_playlists)
-            VALUES (1, 0, 1);"
+            VALUES (1, 0, 1);
+
+            CREATE TABLE IF NOT EXISTS pending_playlist_sync (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                is_public INTEGER NOT NULL DEFAULT 0,
+                track_ids TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                synced INTEGER NOT NULL DEFAULT 0,
+                qobuz_playlist_id INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS idx_pending_playlist_synced ON pending_playlist_sync(synced);"
         ).map_err(|e| format!("Failed to create offline settings table: {}", e))?;
 
         Ok(Self { conn })
@@ -102,6 +129,101 @@ impl OfflineStore {
             )
             .map_err(|e| format!("Failed to set show partial playlists: {}", e))?;
         Ok(())
+    }
+
+    // === Pending Playlist Sync Methods ===
+
+    /// Create a new pending playlist (created while offline)
+    pub fn create_pending_playlist(
+        &self,
+        name: &str,
+        description: Option<&str>,
+        is_public: bool,
+        track_ids: &[u64],
+    ) -> Result<i64, String> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        let track_ids_json = serde_json::to_string(track_ids)
+            .map_err(|e| format!("Failed to serialize track IDs: {}", e))?;
+
+        self.conn
+            .execute(
+                "INSERT INTO pending_playlist_sync (name, description, is_public, track_ids, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![name, description, is_public as i64, track_ids_json, now],
+            )
+            .map_err(|e| format!("Failed to create pending playlist: {}", e))?;
+
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    /// Get all pending (unsynced) playlists
+    pub fn get_pending_playlists(&self) -> Result<Vec<PendingPlaylist>, String> {
+        let mut stmt = self.conn
+            .prepare(
+                "SELECT id, name, description, is_public, track_ids, created_at, synced, qobuz_playlist_id
+                 FROM pending_playlist_sync WHERE synced = 0 ORDER BY created_at ASC"
+            )
+            .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+
+        let playlists = stmt
+            .query_map([], |row| {
+                let track_ids_json: String = row.get(4)?;
+                let track_ids: Vec<u64> = serde_json::from_str(&track_ids_json).unwrap_or_default();
+
+                Ok(PendingPlaylist {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    is_public: row.get::<_, i64>(3)? != 0,
+                    track_ids,
+                    created_at: row.get(5)?,
+                    synced: row.get::<_, i64>(6)? != 0,
+                    qobuz_playlist_id: row.get::<_, Option<i64>>(7)?.map(|id| id as u64),
+                })
+            })
+            .map_err(|e| format!("Failed to query pending playlists: {}", e))?;
+
+        playlists
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("Failed to collect pending playlists: {}", e))
+    }
+
+    /// Mark a pending playlist as synced with its Qobuz ID
+    pub fn mark_playlist_synced(&self, pending_id: i64, qobuz_playlist_id: u64) -> Result<(), String> {
+        self.conn
+            .execute(
+                "UPDATE pending_playlist_sync SET synced = 1, qobuz_playlist_id = ?1 WHERE id = ?2",
+                params![qobuz_playlist_id as i64, pending_id],
+            )
+            .map_err(|e| format!("Failed to mark playlist as synced: {}", e))?;
+        Ok(())
+    }
+
+    /// Delete a pending playlist (e.g., if user cancels before sync)
+    pub fn delete_pending_playlist(&self, pending_id: i64) -> Result<(), String> {
+        self.conn
+            .execute(
+                "DELETE FROM pending_playlist_sync WHERE id = ?1",
+                params![pending_id],
+            )
+            .map_err(|e| format!("Failed to delete pending playlist: {}", e))?;
+        Ok(())
+    }
+
+    /// Get count of pending playlists
+    pub fn get_pending_playlist_count(&self) -> Result<u32, String> {
+        self.conn
+            .query_row(
+                "SELECT COUNT(*) FROM pending_playlist_sync WHERE synced = 0",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|count| count as u32)
+            .map_err(|e| format!("Failed to count pending playlists: {}", e))
     }
 }
 
@@ -233,5 +355,59 @@ pub mod commands {
     ) -> Result<(), String> {
         let store = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
         store.set_show_partial_playlists(enabled)
+    }
+
+    // === Pending Playlist Sync Commands ===
+
+    /// Create a playlist while offline (queued for sync)
+    #[tauri::command]
+    pub fn create_pending_playlist(
+        name: String,
+        description: Option<String>,
+        is_public: bool,
+        track_ids: Vec<u64>,
+        state: State<'_, OfflineState>,
+    ) -> Result<i64, String> {
+        let store = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+        store.create_pending_playlist(&name, description.as_deref(), is_public, &track_ids)
+    }
+
+    /// Get all playlists pending sync
+    #[tauri::command]
+    pub fn get_pending_playlists(
+        state: State<'_, OfflineState>,
+    ) -> Result<Vec<PendingPlaylist>, String> {
+        let store = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+        store.get_pending_playlists()
+    }
+
+    /// Get count of pending playlists
+    #[tauri::command]
+    pub fn get_pending_playlist_count(
+        state: State<'_, OfflineState>,
+    ) -> Result<u32, String> {
+        let store = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+        store.get_pending_playlist_count()
+    }
+
+    /// Mark a pending playlist as synced after successful Qobuz creation
+    #[tauri::command]
+    pub fn mark_pending_playlist_synced(
+        pending_id: i64,
+        qobuz_playlist_id: u64,
+        state: State<'_, OfflineState>,
+    ) -> Result<(), String> {
+        let store = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+        store.mark_playlist_synced(pending_id, qobuz_playlist_id)
+    }
+
+    /// Delete a pending playlist
+    #[tauri::command]
+    pub fn delete_pending_playlist(
+        pending_id: i64,
+        state: State<'_, OfflineState>,
+    ) -> Result<(), String> {
+        let store = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+        store.delete_pending_playlist(pending_id)
     }
 }
