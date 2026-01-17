@@ -86,7 +86,7 @@
   const isHiRes = $derived(tier === 'max' || tier === 'hires');
 </script>
 
-<div class="quality-badge">
+<div class="quality-badge" title="{tierLabel}: {displayText}">
   <!-- Icon -->
   <img
     src={iconPath}
@@ -111,6 +111,7 @@
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: help;
   }
   
   [data-theme="light"] .quality-badge {

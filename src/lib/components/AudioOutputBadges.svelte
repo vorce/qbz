@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
   import { getDevicePrettyName, isExternalDevice } from '$lib/utils/audioDeviceNames';
+  import { currentTrack } from '$lib/stores/playerStore';
 
   interface AudioSettings {
     output_device: string | null;
@@ -22,6 +23,12 @@
     is_default: boolean;
   }
 
+  interface HardwareAudioStatus {
+    hardware_sample_rate: number | null;
+    hardware_format: string | null;
+    is_active: boolean;
+  }
+
   // Props
   interface Props {
     showTooltips?: boolean;
@@ -33,6 +40,7 @@
   let settings = $state<AudioSettings | null>(null);
   let outputStatus = $state<AudioOutputStatus | null>(null);
   let pipewireSinks = $state<PipewireSink[]>([]);
+  let hardwareStatus = $state<HardwareAudioStatus | null>(null);
   let isHovering = $state(false);
 
   // Derived state
@@ -59,13 +67,62 @@
 
   const isExternal = $derived(currentDevice ? isExternalDevice(currentDevice) : false);
 
-  // Badge states - based on settings
-  const dacPassthroughActive = $derived(
-    settings?.dac_passthrough === true
-  );
+  // Get track sample rate from metadata
+  const trackSampleRate = $derived.by(() => {
+    if (!$currentTrack) return null;
+    return $currentTrack.sampling_rate ?? null;
+  });
+
+  // DAC badge state logic - 3 states: green, yellow, gray
+  const dacBadgeState = $derived.by(() => {
+    if (!settings?.dac_passthrough) {
+      return 'off'; // Gray - setting disabled
+    }
+
+    // DAC passthrough is ON
+    if (!hardwareStatus?.is_active || !hardwareStatus.hardware_sample_rate) {
+      return 'active'; // Green - DAC on but no way to verify (trust it works)
+    }
+
+    // We have hardware info - check for resampling
+    if (trackSampleRate && hardwareStatus.hardware_sample_rate) {
+      const hwRate = hardwareStatus.hardware_sample_rate;
+      const trackRate = trackSampleRate * 1000; // Convert kHz to Hz
+
+      if (Math.abs(hwRate - trackRate) < 100) {
+        // Rates match (within 100Hz tolerance)
+        return 'active'; // Green - working correctly
+      } else {
+        // Rates don't match - resampling detected
+        return 'warning'; // Yellow - resampling despite DAC passthrough
+      }
+    }
+
+    return 'active'; // Default to green when DAC is on
+  });
+
   const exclusiveModeActive = $derived(
     settings?.exclusive_mode === true
   );
+
+  // Dynamic tooltip for DAC badge
+  const dacTooltip = $derived.by(() => {
+    if (!settings?.dac_passthrough) {
+      return 'DAC Passthrough desactivado - el sistema puede resamplear';
+    }
+
+    if (dacBadgeState === 'warning' && hardwareStatus?.hardware_sample_rate && trackSampleRate) {
+      const hwRate = (hardwareStatus.hardware_sample_rate / 1000).toFixed(1);
+      return `⚠ DAC Passthrough activo pero hay resampling\nArchivo: ${trackSampleRate} kHz → Hardware: ${hwRate} kHz`;
+    }
+
+    if (hardwareStatus?.hardware_sample_rate) {
+      const hwRate = (hardwareStatus.hardware_sample_rate / 1000).toFixed(1);
+      return `DAC Passthrough activo - ${hwRate} kHz bit-perfect`;
+    }
+
+    return 'DAC Passthrough activo';
+  });
 
   // Whether to show badges at all (only if at least one setting is enabled or device is external)
   const shouldShowBadges = $derived(
@@ -74,14 +131,16 @@
 
   async function loadStatus() {
     try {
-      const [settingsResult, statusResult, sinksResult] = await Promise.all([
+      const [settingsResult, statusResult, sinksResult, hwStatus] = await Promise.all([
         invoke<AudioSettings>('get_audio_settings'),
         invoke<AudioOutputStatus>('get_audio_output_status'),
-        invoke<PipewireSink[]>('get_pipewire_sinks').catch(() => [] as PipewireSink[])
+        invoke<PipewireSink[]>('get_pipewire_sinks').catch(() => [] as PipewireSink[]),
+        invoke<HardwareAudioStatus>('get_hardware_audio_status').catch(() => null)
       ]);
       settings = settingsResult;
       outputStatus = statusResult;
       pipewireSinks = sinksResult;
+      hardwareStatus = hwStatus;
     } catch (err) {
       console.error('Failed to load audio status:', err);
     }
@@ -100,9 +159,11 @@
 >
   <!-- DAC Badge -->
   <div
-    class="badge"
-    class:active={dacPassthroughActive}
-    title={showTooltips ? (dacPassthroughActive ? 'DAC Passthrough active' : 'DAC Passthrough inactive') : undefined}
+    class="badge dac-badge"
+    class:active={dacBadgeState === 'active'}
+    class:warning={dacBadgeState === 'warning'}
+    class:off={dacBadgeState === 'off'}
+    title={showTooltips ? dacTooltip : undefined}
   >
     <span class="badge-label">DAC</span>
   </div>
@@ -158,12 +219,26 @@
     color: rgba(255, 255, 255, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.06);
     transition: all 200ms ease;
+    cursor: help;
   }
 
+  /* DAC Badge States */
   .badge.active {
     background: rgba(34, 197, 94, 0.2);
     color: #22c55e;
     border-color: rgba(34, 197, 94, 0.4);
+  }
+
+  .badge.warning {
+    background: rgba(234, 179, 8, 0.2);
+    color: #eab308;
+    border-color: rgba(234, 179, 8, 0.4);
+  }
+
+  .badge.off {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.06);
   }
 
   .badge-label {
@@ -181,8 +256,9 @@
     min-width: 180px;
     max-width: 300px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    z-index: 200;
+    z-index: 9999;
     animation: tooltip-appear 150ms ease;
+    pointer-events: none;
   }
 
   @keyframes tooltip-appear {

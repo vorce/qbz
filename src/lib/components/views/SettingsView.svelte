@@ -65,6 +65,12 @@
     is_default: boolean;
   }
 
+  interface HardwareAudioStatus {
+    hardware_sample_rate: number | null;
+    hardware_format: string | null;
+    is_active: boolean;
+  }
+
   let { onBack, onLogout, userName = 'User', userEmail = '', subscription = 'Qobuz' }: Props = $props();
 
   // Cache state (memory cache)
@@ -141,6 +147,7 @@
 
   // Audio device state - use PipeWire sinks directly for friendly names
   let pipewireSinks = $state<PipewireSink[]>([]);
+  let hardwareStatus = $state<HardwareAudioStatus | null>(null);
 
   // Map of description -> sink name (for looking up sink name when user selects)
   const sinkDescriptionToName = $derived.by(() => {
@@ -764,7 +771,12 @@
       const sinks = await invoke<PipewireSink[]>('get_pipewire_sinks').catch(() => [] as PipewireSink[]);
       pipewireSinks = sinks;
 
+      // Load hardware audio status
+      const hwStatus = await invoke<HardwareAudioStatus>('get_hardware_audio_status').catch(() => null);
+      hardwareStatus = hwStatus;
+
       console.log('[Audio] PipeWire sinks:', sinks.map(s => ({ name: s.name, desc: s.description })));
+      console.log('[Audio] Hardware status:', hwStatus);
     } catch (err) {
       console.error('Failed to load audio devices:', err);
     }
@@ -1161,7 +1173,16 @@
     </div>
     <div class="setting-row last">
       <span class="setting-label">{$t('settings.audio.currentSampleRate')}</span>
-      <span class="setting-value">192 kHz</span>
+      <span class="setting-value" class:muted={!hardwareStatus?.is_active}>
+        {#if hardwareStatus?.is_active && hardwareStatus.hardware_sample_rate}
+          {(hardwareStatus.hardware_sample_rate / 1000).toFixed(1)} kHz
+          {#if hardwareStatus.hardware_format}
+            <span class="format-detail">({hardwareStatus.hardware_format})</span>
+          {/if}
+        {:else}
+          {$t('settings.audio.noActivePlayback')}
+        {/if}
+      </span>
     </div>
   </section>
 
@@ -1907,6 +1928,17 @@
   .setting-value {
     font-size: 14px;
     color: var(--text-muted);
+  }
+
+  .setting-value.muted {
+    opacity: 0.5;
+    font-style: italic;
+  }
+
+  .format-detail {
+    font-size: 12px;
+    opacity: 0.7;
+    margin-left: 4px;
   }
 
   .label-with-tooltip {

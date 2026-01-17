@@ -303,7 +303,8 @@
       "exclusiveModeDesc": "Lock audio device for exclusive use",
       "dacPassthrough": "DAC Passthrough",
       "dacPassthroughDesc": "Bypass system mixer for bit-perfect output",
-      "currentSampleRate": "Current Sample Rate"
+      "currentSampleRate": "Current Sample Rate",
+      "noActivePlayback": "No active playback"
     },
     "playback": {
       "title": "Playback",
