@@ -5,7 +5,7 @@
   import {
     HardDrive, Music, Disc3, Mic2, FolderPlus, Trash2, RefreshCw,
     Settings, ArrowLeft, X, Play, AlertCircle, ImageDown, Upload, Search, LayoutGrid, List, Edit3,
-    Network, Power, PowerOff
+    Network, Power, PowerOff, ChevronLeft, ChevronRight
   } from 'lucide-svelte';
   import FolderSettingsModal from '../FolderSettingsModal.svelte';
   import { t } from '$lib/i18n';
@@ -194,6 +194,8 @@
   let discogsImageOptions = $state<DiscogsImageOption[]>([]);
   let selectedDiscogsImage = $state<string | null>(null);
   let fetchingDiscogsImages = $state(false);
+  let discogsImagePage = $state(0);
+  const IMAGES_PER_PAGE = 4;
 
   // Folder selection state (by folder ID)
   let selectedFolders = $state<Set<number>>(new Set());
@@ -834,6 +836,7 @@
       fetchingDiscogsImages = true;
       discogsImageOptions = [];
       selectedDiscogsImage = null;
+      discogsImagePage = 0;
 
       const options = await invoke<DiscogsImageOption[]>('discogs_search_artwork', {
         artist: selectedAlbum.artist,
@@ -851,23 +854,54 @@
     }
   }
 
+  // Computed values for Discogs image pagination
+  const paginatedDiscogsImages = $derived(
+    discogsImageOptions.slice(
+      discogsImagePage * IMAGES_PER_PAGE,
+      (discogsImagePage + 1) * IMAGES_PER_PAGE
+    )
+  );
+
+  const hasMoreDiscogsPages = $derived(
+    discogsImageOptions.length > (discogsImagePage + 1) * IMAGES_PER_PAGE
+  );
+
+  const hasPrevDiscogsPages = $derived(discogsImagePage > 0);
+
+  function nextDiscogsPage() {
+    if (hasMoreDiscogsPages) {
+      discogsImagePage++;
+    }
+  }
+
+  function prevDiscogsPage() {
+    if (hasPrevDiscogsPages) {
+      discogsImagePage--;
+    }
+  }
+
   async function saveAlbumEdit() {
     if (!selectedAlbum) return;
 
     try {
       // If a Discogs image was selected, download and set it
       if (selectedDiscogsImage) {
+        console.log('Downloading Discogs artwork from:', selectedDiscogsImage);
+
         const localPath = await invoke<string>('discogs_download_artwork', {
           imageUrl: selectedDiscogsImage,
           artist: selectedAlbum.artist,
           album: selectedAlbum.title
         });
 
+        console.log('Downloaded to:', localPath);
+
         await invoke('library_set_album_artwork', {
           albumGroupKey: selectedAlbum.id,
           artworkPath: localPath
         });
 
+        console.log('Set album artwork successfully');
         applyAlbumArtworkUpdate(selectedAlbum.id, localPath);
       }
 
@@ -875,6 +909,11 @@
         albumGroupKey: selectedAlbum.id,
         hidden: editingAlbumHidden
       });
+
+      // Reset Discogs state
+      discogsImageOptions = [];
+      selectedDiscogsImage = null;
+      discogsImagePage = 0;
 
       showAlbumEditModal = false;
 
@@ -2206,7 +2245,7 @@
             {/if}
             <div class="artwork-actions">
               <button
-                class="secondary-btn"
+                class="discogs-btn"
                 onclick={handleSetAlbumArtwork}
                 disabled={updatingArtwork}
               >
@@ -2227,16 +2266,41 @@
 
         {#if discogsImageOptions.length > 0}
           <div class="form-group">
-            <label>Select Artwork from Discogs</label>
+            <div class="discogs-header">
+              <label>Select Artwork from Discogs</label>
+              {#if discogsImageOptions.length > IMAGES_PER_PAGE}
+                <div class="carousel-controls">
+                  <button
+                    class="carousel-btn"
+                    onclick={prevDiscogsPage}
+                    disabled={!hasPrevDiscogsPages}
+                    title="Previous"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span class="page-indicator">
+                    {discogsImagePage + 1} / {Math.ceil(discogsImageOptions.length / IMAGES_PER_PAGE)}
+                  </span>
+                  <button
+                    class="carousel-btn"
+                    onclick={nextDiscogsPage}
+                    disabled={!hasMoreDiscogsPages}
+                    title="Next"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              {/if}
+            </div>
             <div class="discogs-options">
-              {#each discogsImageOptions as option, i}
+              {#each paginatedDiscogsImages as option, i}
                 <button
                   class="discogs-option"
                   class:selected={selectedDiscogsImage === option.url}
                   onclick={() => selectedDiscogsImage = option.url}
                   title={option.release_title ? `${option.release_title}${option.release_year ? ` (${option.release_year})` : ''}` : ''}
                 >
-                  <img src={option.url} alt={`Option ${i + 1}`} />
+                  <img src={option.url} alt={`Option ${discogsImagePage * IMAGES_PER_PAGE + i + 1}`} />
                   <div class="option-info">
                     {#if option.release_title}
                       <div class="release-title">{option.release_title}{#if option.release_year} ({option.release_year}){/if}</div>
@@ -3683,6 +3747,51 @@
   .discogs-option .image-dims {
     opacity: 0.8;
     font-size: 9px;
+  }
+
+  .discogs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .carousel-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .carousel-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--bg-quaternary);
+    border-radius: 6px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .carousel-btn:hover:not(:disabled) {
+    background: var(--bg-quaternary);
+    border-color: var(--text-muted);
+  }
+
+  .carousel-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .page-indicator {
+    font-size: 12px;
+    color: var(--text-muted);
+    min-width: 40px;
+    text-align: center;
   }
 
   .modal-footer {
