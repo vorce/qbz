@@ -4,7 +4,7 @@
 **Branch:** `feature/api-keys-refactor`
 **Status:** ✅ Ready for merge to `main`
 **Working Tree:** Clean (verified)
-**Commits:** 14 commits ahead of main
+**New commits to merge:** 1 commit (removes API key injection from workflows)
 
 ---
 
@@ -25,7 +25,7 @@ git status
 
 # Verify commits ready
 git log --oneline origin/main..HEAD
-# Should show 14 commits
+# Should show 3 commits (1 new + 1 merge + 1 doc update)
 ```
 
 **All checks passed:** ✅
@@ -49,24 +49,21 @@ git log --oneline origin/main..HEAD
 
 ---
 
-## 📋 Commits to Merge (14 total)
+## 📋 Current Status
+
+**Previous merge (already in main):** 14 commits with API keys refactor, Discogs UI, and catalog number support ✅
+
+**New commits to merge:**
 
 ```
-59e7562 Add merge handoff document with copy-pasteable commands
-34ab753 Add post-merge cleanup instructions for API Keys UI
-7d07f9a Add merge preparation documentation
-81b65bd Add comprehensive CHANGELOG for API keys refactor
-80ba2bf Fix Discogs artwork selection UI issues
-732a489 Improve Discogs artwork selection with multi-release images
-279d433 Add catalog number support for precise Discogs searches
-2a5c181 Fix Discogs artwork selection to show unique images
-dab5c28 Add Discogs artwork selection UI in album edit modal
-dd70f0a Refactor Discogs integration to use Cloudflare Workers proxy
-9099123 Refactor Spotify and Tidal playlist import to use proxy
-179a6b7 Refactor Last.fm integration to use Cloudflare Workers proxy
-3a49e3f Remove embedded Last.fm API secret for Flathub compliance
-b7048fa feat: register qbz:// URI scheme for OAuth callbacks
+b182d2d Remove API key injection from GitHub workflows
+76ed4e0 Merge main into feature/api-keys-refactor (brings audio config updates)
+2495636 Update HANDOFF document to emphasize API Keys UI cleanup requirement
 ```
+
+**What this merge will add to main:**
+- Removal of API key injection from GitHub workflows (release-linux.yml, release-flatpak.yml)
+- Updated HANDOFF documentation
 
 ---
 
