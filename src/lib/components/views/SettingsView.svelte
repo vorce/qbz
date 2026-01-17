@@ -827,6 +827,14 @@
 
   async function handleDacPassthroughChange(enabled: boolean) {
     dacPassthrough = enabled;
+
+    // Auto-disable incompatible playback settings
+    if (enabled) {
+      gaplessPlayback = false;
+      crossfade = 0;
+      console.log('DAC passthrough enabled: disabled gapless playback and crossfade');
+    }
+
     try {
       await invoke('set_audio_dac_passthrough', { enabled });
       // DAC passthrough may also require reinit for proper effect (uses PipeWire default)
@@ -834,6 +842,38 @@
       console.log('DAC passthrough changed and audio reinitialized:', enabled);
     } catch (err) {
       console.error('Failed to change DAC passthrough:', err);
+    }
+  }
+
+  async function handleGaplessPlaybackChange(enabled: boolean) {
+    gaplessPlayback = enabled;
+
+    // Auto-disable DAC passthrough if incompatible
+    if (enabled && dacPassthrough) {
+      dacPassthrough = false;
+      console.log('Gapless playback enabled: disabled DAC passthrough');
+      try {
+        await invoke('set_audio_dac_passthrough', { enabled: false });
+        await invoke('reinit_audio_device', { device: null });
+      } catch (err) {
+        console.error('Failed to disable DAC passthrough:', err);
+      }
+    }
+  }
+
+  async function handleCrossfadeChange(value: number) {
+    crossfade = value;
+
+    // Auto-disable DAC passthrough if crossfade > 0
+    if (value > 0 && dacPassthrough) {
+      dacPassthrough = false;
+      console.log('Crossfade enabled: disabled DAC passthrough');
+      try {
+        await invoke('set_audio_dac_passthrough', { enabled: false });
+        await invoke('reinit_audio_device', { device: null });
+      } catch (err) {
+        console.error('Failed to disable DAC passthrough:', err);
+      }
     }
   }
 
@@ -1130,12 +1170,12 @@
     <h3 class="section-title">{$t('settings.playback.title')}</h3>
     <div class="setting-row">
       <span class="setting-label">{$t('settings.playback.gapless')}</span>
-      <Toggle enabled={gaplessPlayback} onchange={(v) => (gaplessPlayback = v)} />
+      <Toggle enabled={gaplessPlayback} onchange={handleGaplessPlaybackChange} />
     </div>
     <div class="setting-row">
       <span class="setting-label">{$t('settings.playback.crossfade')}</span>
       <div class="slider-container">
-        <VolumeSlider value={crossfade} onchange={(v) => (crossfade = v)} max={12} showValue />
+        <VolumeSlider value={crossfade} onchange={handleCrossfadeChange} max={12} showValue />
       </div>
     </div>
     <div class="setting-row last">

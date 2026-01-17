@@ -639,28 +639,36 @@ impl Player {
                         );
                         *pause_suspend_deadline = None;
 
+                        // Get DAC passthrough setting
+                        let dac_passthrough = thread_settings
+                            .lock()
+                            .ok()
+                            .map(|s| s.dac_passthrough)
+                            .unwrap_or(false);
+
                         // Check if we need to recreate the stream
-                        let needs_new_stream = stream_opt.is_none()
-                            || *current_sample_rate != Some(sample_rate)
+                        // Only recreate on format change if DAC passthrough is enabled
+                        let format_changed = *current_sample_rate != Some(sample_rate)
                             || *current_channels != Some(channels);
+                        let needs_new_stream = stream_opt.is_none()
+                            || (dac_passthrough && format_changed);
 
                         if needs_new_stream {
                             if stream_opt.is_some() {
-                                log::info!(
-                                    "Sample rate changed from {:?}Hz to {}Hz - recreating OutputStream",
-                                    *current_sample_rate,
-                                    sample_rate
-                                );
+                                if dac_passthrough && format_changed {
+                                    log::info!(
+                                        "Sample rate/channels changed from {:?}Hz/{:?}ch to {}Hz/{}ch - recreating OutputStream (DAC passthrough)",
+                                        *current_sample_rate,
+                                        *current_channels,
+                                        sample_rate,
+                                        channels
+                                    );
+                                } else {
+                                    log::info!("Creating initial OutputStream");
+                                }
                                 // Drop old stream
                                 drop(stream_opt.take());
                             }
-
-                            // Get audio settings (exclusive mode / DAC passthrough)
-                            let dac_passthrough = thread_settings
-                                .lock()
-                                .ok()
-                                .map(|s| s.dac_passthrough)
-                                .unwrap_or(false);
 
                             log::info!("DAC passthrough enabled: {}", dac_passthrough);
 
@@ -741,6 +749,15 @@ impl Player {
                                     }
                                 }
                             }
+                        } else if format_changed {
+                            // Format changed but DAC passthrough is disabled - reuse existing stream
+                            log::info!(
+                                "Audio format changed from {:?}Hz/{:?}ch to {}Hz/{}ch - reusing OutputStream (DAC passthrough disabled, gapless enabled)",
+                                *current_sample_rate,
+                                *current_channels,
+                                sample_rate,
+                                channels
+                            );
                         }
 
                         let Some(ref stream) = *stream_opt else {
