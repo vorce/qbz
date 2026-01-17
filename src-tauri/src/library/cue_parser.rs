@@ -257,6 +257,7 @@ pub fn cue_to_tracks(
             disc_number: inferred_disc,
             year: None,
             genre: None,
+            catalog_number: None,
             duration_secs: duration,
             format: format.clone(),
             bit_depth: properties.bit_depth,

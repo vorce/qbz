@@ -51,6 +51,7 @@ pub struct LocalTrack {
     pub disc_number: Option<u32>,
     pub year: Option<u32>,
     pub genre: Option<String>,
+    pub catalog_number: Option<String>,
 
     // Audio properties
     pub duration_secs: u64,
@@ -88,6 +89,7 @@ impl Default for LocalTrack {
             disc_number: None,
             year: None,
             genre: None,
+            catalog_number: None,
             duration_secs: 0,
             format: AudioFormat::Unknown,
             bit_depth: None,
@@ -120,6 +122,7 @@ pub struct LocalAlbum {
     pub title: String,
     pub artist: String,
     pub year: Option<u32>,
+    pub catalog_number: Option<String>,
     pub artwork_path: Option<String>,
     pub track_count: u32,
     pub total_duration_secs: u64,

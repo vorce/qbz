@@ -147,20 +147,31 @@ impl DiscogsClient {
 
     /// Search for album artwork options
     /// Returns up to 10 image options from the first matching release
+    /// If catalog_number is provided, searches by that first, then falls back to artist + album
     pub async fn search_artwork_options(
         &self,
         artist: &str,
         album: &str,
+        catalog_number: Option<&str>,
     ) -> Result<Vec<DiscogsImageOption>, String> {
-        // Build search query
-        let query = format!("{} {}", artist, album);
+        // Build search query - prefer catalog number if available
+        let query = if let Some(catno) = catalog_number.filter(|s| !s.trim().is_empty()) {
+            catno.to_string()
+        } else {
+            format!("{} {}", artist, album)
+        };
         let url = format!(
             "{}/search?q={}&type=release",
             DISCOGS_PROXY_URL,
             urlencoding::encode(&query)
         );
 
-        log::debug!("Searching Discogs artwork options for: {} - {}", artist, album);
+        log::debug!(
+            "Searching Discogs artwork options for: {} - {} (catalog: {:?})",
+            artist,
+            album,
+            catalog_number
+        );
 
         let response = self.client.get(&url).send().await
             .map_err(|e| format!("Failed to search Discogs: {}", e))?;

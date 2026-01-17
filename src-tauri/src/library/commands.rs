@@ -1720,11 +1720,19 @@ pub async fn playlist_get_offline_available(
 pub async fn discogs_search_artwork(
     artist: String,
     album: String,
+    catalog_number: Option<String>,
 ) -> Result<Vec<crate::discogs::DiscogsImageOption>, String> {
-    log::info!("Command: discogs_search_artwork {} - {}", artist, album);
+    log::info!(
+        "Command: discogs_search_artwork {} - {} (catalog: {:?})",
+        artist,
+        album,
+        catalog_number
+    );
 
     let client = DiscogsClient::new();
-    client.search_artwork_options(&artist, &album).await
+    client
+        .search_artwork_options(&artist, &album, catalog_number.as_deref())
+        .await
 }
 
 /// Download and save Discogs artwork

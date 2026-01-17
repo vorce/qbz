@@ -58,6 +58,7 @@
     title: string;
     artist: string;
     year?: number;
+    catalog_number?: string;
     artwork_path?: string;
     track_count: number;
     total_duration_secs: number;
@@ -834,7 +835,8 @@
 
       const options = await invoke<DiscogsImageOption[]>('discogs_search_artwork', {
         artist: selectedAlbum.artist,
-        album: selectedAlbum.title
+        album: selectedAlbum.title,
+        catalogNumber: selectedAlbum.catalog_number || null
       });
 
       discogsImageOptions = options;
@@ -1419,6 +1421,7 @@
             <p class="artist">{selectedAlbum.artist}</p>
           {/if}
           <p class="meta">
+            {#if selectedAlbum.catalog_number}Cat# {selectedAlbum.catalog_number} &bull; {/if}
             {#if selectedAlbum.year}{selectedAlbum.year} &bull; {/if}
             {selectedAlbum.track_count} tracks &bull;
             {formatTotalDuration(selectedAlbum.total_duration_secs)}
