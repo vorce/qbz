@@ -180,6 +180,50 @@ fn is_isomp4(data: &[u8]) -> bool {
     &data[4..8] == b"ftyp"
 }
 
+/// Extract audio metadata (sample rate, channels) without full decode.
+/// This is much faster than decode_with_symphonia as it only reads headers.
+fn extract_audio_metadata(data: &[u8]) -> Result<(u32, u16), String> {
+    // For non-isomp4 files (FLAC, etc.), try rodio's decoder first - it reads headers quickly
+    if !is_isomp4(data) {
+        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            Decoder::new(BufReader::new(Cursor::new(data.to_vec())))
+        }));
+
+        if let Ok(Ok(decoder)) = result {
+            return Ok((decoder.sample_rate(), decoder.channels()));
+        }
+    }
+
+    // Fallback to symphonia probe for codec params (no decode needed)
+    let source = Box::new(CursorMediaSource::new(data.to_vec())) as Box<dyn MediaSource>;
+    let mss = MediaSourceStream::new(source, Default::default());
+
+    let mut hint = Hint::new();
+    hint.with_extension("m4a");
+
+    let format_opts = FormatOptions {
+        enable_gapless: true,
+        ..Default::default()
+    };
+    let metadata_opts: MetadataOptions = Default::default();
+    let probed = get_probe()
+        .format(&hint, mss, &format_opts, &metadata_opts)
+        .map_err(|err| format!("Symphonia probe failed: {}", err))?;
+
+    let track = probed
+        .format
+        .default_track()
+        .ok_or_else(|| "Symphonia: no supported audio tracks".to_string())?;
+
+    let sample_rate = track.codec_params.sample_rate
+        .ok_or_else(|| "No sample rate in codec params".to_string())?;
+    let channels = track.codec_params.channels
+        .map(|c| c.count() as u16)
+        .ok_or_else(|| "No channel info in codec params".to_string())?;
+
+    Ok((sample_rate, channels))
+}
+
 fn decode_with_fallback(
     data: &[u8],
 ) -> Result<Box<dyn Source<Item = i16> + Send>, String> {
@@ -1104,13 +1148,9 @@ impl Player {
     pub fn play_data(&self, data: Vec<u8>, track_id: u64) -> Result<(), String> {
         log::info!("Player: Playing {} bytes of audio data for track {}", data.len(), track_id);
 
-        // Extract audio metadata (sample rate and channels)
-        // We decode to get metadata, then the audio thread will decode again for playback
-        let audio_specs = decode_with_symphonia(&data)
+        // Extract audio metadata (sample rate and channels) - fast header-only read
+        let (sample_rate, channels) = extract_audio_metadata(&data)
             .map_err(|e| format!("Failed to extract audio metadata: {}", e))?;
-
-        let sample_rate = audio_specs.sample_rate;
-        let channels = audio_specs.channels;
 
         log::info!(
             "Player: Detected audio format - {}Hz, {} channels",
