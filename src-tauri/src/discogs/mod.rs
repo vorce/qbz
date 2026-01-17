@@ -1,6 +1,6 @@
 //! Discogs API client for fetching album artwork
 //!
-//! Uses the Discogs database API to search for releases and download cover images.
+//! Uses Cloudflare Workers proxy to search the Discogs database and download cover images.
 
 use reqwest::Client;
 use serde::Deserialize;
@@ -8,11 +8,12 @@ use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
+// Cloudflare Workers proxy URL - handles credentials
+const DISCOGS_PROXY_URL: &str = "https://qbz-api-proxy.blitzkriegfc.workers.dev/discogs";
+
 /// Discogs API client
 pub struct DiscogsClient {
     client: Client,
-    consumer_key: Option<String>,
-    consumer_secret: Option<String>,
 }
 
 /// Search result from Discogs API
@@ -31,46 +32,66 @@ pub struct SearchResult {
     pub result_type: String,
 }
 
-// Compile-time embedded credentials (from build environment)
-const EMBEDDED_CONSUMER_KEY: Option<&str> = option_env!("DISCOGS_API_CLIENT_KEY");
-const EMBEDDED_CONSUMER_SECRET: Option<&str> = option_env!("DISCOGS_API_CLIENT_SECRET");
+/// Image option for artwork selection
+#[derive(Debug, Deserialize, serde::Serialize, Clone)]
+pub struct DiscogsImageOption {
+    pub url: String,
+    pub width: u32,
+    pub height: u32,
+    #[serde(rename = "type")]
+    pub image_type: String,
+    pub release_title: Option<String>,
+    pub release_year: Option<u32>,
+}
+
+/// Release details from Discogs API
+#[derive(Debug, Deserialize)]
+struct ReleaseDetails {
+    id: u64,
+    title: String,
+    year: Option<u32>,
+    images: Option<Vec<ReleaseImage>>,
+}
+
+/// Image from release details
+#[derive(Debug, Deserialize)]
+struct ReleaseImage {
+    uri: String,
+    width: u32,
+    height: u32,
+    #[serde(rename = "type")]
+    image_type: String,
+}
 
 impl DiscogsClient {
-    /// Create a new Discogs client with optional credentials
-    /// Priority: user-provided > embedded > runtime env vars
+    /// Create a new Discogs client (proxy handles credentials)
     pub fn new() -> Self {
         Self::with_user_credentials(None, None)
     }
 
-    /// Create a new Discogs client with user-provided credentials (override)
+    /// Create a new Discogs client - compatibility method (proxy handles credentials)
     pub fn with_user_credentials(
-        user_key: Option<String>,
-        user_secret: Option<String>,
+        _user_key: Option<String>,
+        _user_secret: Option<String>,
     ) -> Self {
-        // Priority: user-provided > embedded > runtime env vars
-        let consumer_key = user_key
-            .or_else(|| EMBEDDED_CONSUMER_KEY.map(String::from))
-            .or_else(|| std::env::var("DISCOGS_API_CLIENT_KEY").ok());
-        let consumer_secret = user_secret
-            .or_else(|| EMBEDDED_CONSUMER_SECRET.map(String::from))
-            .or_else(|| std::env::var("DISCOGS_API_CLIENT_SECRET").ok());
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::USER_AGENT,
+            reqwest::header::HeaderValue::from_static("QBZ/1.0.0"),
+        );
 
         let client = Client::builder()
             .timeout(Duration::from_secs(10))
-            .user_agent("QBZ/0.1.0 +https://github.com/vicrodh/qbz")
+            .default_headers(headers)
             .build()
             .expect("Failed to create HTTP client");
 
-        Self {
-            client,
-            consumer_key,
-            consumer_secret,
-        }
+        Self { client }
     }
 
-    /// Check if credentials are configured
+    /// Check if credentials are configured (always true - proxy handles credentials)
     pub fn has_credentials(&self) -> bool {
-        self.consumer_key.is_some() && self.consumer_secret.is_some()
+        true
     }
 
     /// Search for album artwork and download if found
@@ -81,11 +102,6 @@ impl DiscogsClient {
         album: &str,
         cache_dir: &Path,
     ) -> Option<String> {
-        if !self.has_credentials() {
-            log::debug!("Discogs credentials not configured, skipping artwork fetch");
-            return None;
-        }
-
         // Search for the release
         let cover_url = self.search_release(artist, album).await?;
 
@@ -109,16 +125,12 @@ impl DiscogsClient {
 
     /// Search for a release and return the cover image URL
     async fn search_release(&self, artist: &str, album: &str) -> Option<String> {
-        let key = self.consumer_key.as_ref()?;
-        let secret = self.consumer_secret.as_ref()?;
-
         // Build search query
         let query = format!("{} {}", artist, album);
         let url = format!(
-            "https://api.discogs.com/database/search?q={}&type=release&key={}&secret={}",
-            urlencoding::encode(&query),
-            key,
-            secret
+            "{}/search?q={}&type=release",
+            DISCOGS_PROXY_URL,
+            urlencoding::encode(&query)
         );
 
         log::debug!("Searching Discogs for: {} - {}", artist, album);
@@ -154,20 +166,195 @@ impl DiscogsClient {
         None
     }
 
-    /// Search for artists and return search results
-    pub async fn search_artist(&self, query: &str) -> Result<SearchResponse, String> {
-        if !self.has_credentials() {
-            return Err("Discogs credentials not configured".to_string());
+    /// Get detailed release information including all images
+    async fn get_release_details(&self, release_id: u64) -> Result<ReleaseDetails, String> {
+        let url = format!("{}/release/{}", DISCOGS_PROXY_URL, release_id);
+
+        log::debug!("Fetching Discogs release details for ID: {}", release_id);
+
+        let response = self.client.get(&url).send().await
+            .map_err(|e| format!("Failed to fetch release details: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("Failed to fetch release details: {}", response.status()));
         }
 
-        let key = self.consumer_key.as_ref().unwrap();
-        let secret = self.consumer_secret.as_ref().unwrap();
+        let details: ReleaseDetails = response.json().await
+            .map_err(|e| format!("Failed to parse release details: {}", e))?;
 
+        Ok(details)
+    }
+
+    /// Search for album artwork options
+    /// Returns up to 10 image options, with detailed images from top 2 releases interleaved
+    /// If catalog_number is provided, searches by that first, then falls back to artist + album
+    pub async fn search_artwork_options(
+        &self,
+        artist: &str,
+        album: &str,
+        catalog_number: Option<&str>,
+    ) -> Result<Vec<DiscogsImageOption>, String> {
+        // Build search query - prefer catalog number if available
+        let query = if let Some(catno) = catalog_number.filter(|s| !s.trim().is_empty()) {
+            catno.to_string()
+        } else {
+            format!("{} {}", artist, album)
+        };
         let url = format!(
-            "https://api.discogs.com/database/search?q={}&type=artist&key={}&secret={}",
-            urlencoding::encode(query),
-            key,
-            secret
+            "{}/search?q={}&type=release",
+            DISCOGS_PROXY_URL,
+            urlencoding::encode(&query)
+        );
+
+        log::debug!(
+            "Searching Discogs artwork options for: {} - {} (catalog: {:?})",
+            artist,
+            album,
+            catalog_number
+        );
+
+        let response = self.client.get(&url).send().await
+            .map_err(|e| format!("Failed to search Discogs: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("Discogs search failed with status: {}", response.status()));
+        }
+
+        let search: SearchResponse = response.json().await
+            .map_err(|e| format!("Failed to parse Discogs response: {}", e))?;
+
+        // Get IDs of top 2 relevant releases
+        let mut release_ids: Vec<u64> = Vec::new();
+        let mut other_results: Vec<&SearchResult> = Vec::new();
+
+        for result in search.results.iter().take(20) {
+            if result.result_type == "release" || result.result_type == "master" {
+                if release_ids.len() < 2 {
+                    release_ids.push(result.id);
+                } else {
+                    other_results.push(result);
+                }
+            }
+        }
+
+        if release_ids.is_empty() {
+            return Err("No releases found on Discogs".to_string());
+        }
+
+        let mut all_images = Vec::new();
+        let mut seen_urls = std::collections::HashSet::new();
+
+        // Fetch detailed images from top 2 releases
+        for (idx, release_id) in release_ids.iter().enumerate() {
+            match self.get_release_details(*release_id).await {
+                Ok(details) => {
+                    if let Some(images) = details.images {
+                        let mut count = 0;
+                        for img in images {
+                            if !img.uri.is_empty()
+                                && !img.uri.contains("spacer.gif")
+                                && seen_urls.insert(img.uri.clone())
+                                && count < 4
+                            {
+                                all_images.push(DiscogsImageOption {
+                                    url: img.uri,
+                                    width: img.width,
+                                    height: img.height,
+                                    image_type: img.image_type,
+                                    release_title: Some(details.title.clone()),
+                                    release_year: details.year,
+                                });
+                                count += 1;
+                            }
+                        }
+                        log::debug!("Added {} images from release #{} ({})", count, idx + 1, details.title);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("Failed to fetch details for release {}: {}", release_id, e);
+                }
+            }
+        }
+
+        // Add up to 2 more images from other search results
+        for result in other_results.iter().take(10) {
+            if all_images.len() >= 10 {
+                break;
+            }
+
+            // Prefer cover image
+            let image_url = if let Some(cover) = &result.cover_image {
+                if !cover.is_empty() && !cover.contains("spacer.gif") {
+                    Some((cover.clone(), 600, 600, "primary".to_string()))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            let image_url = image_url.or_else(|| {
+                result.thumb.as_ref().and_then(|thumb| {
+                    if !thumb.is_empty() && !thumb.contains("spacer.gif") {
+                        Some((thumb.clone(), 150, 150, "secondary".to_string()))
+                    } else {
+                        None
+                    }
+                })
+            });
+
+            if let Some((url, width, height, img_type)) = image_url {
+                if seen_urls.insert(url.clone()) {
+                    all_images.push(DiscogsImageOption {
+                        url,
+                        width,
+                        height,
+                        image_type: img_type,
+                        release_title: Some(result.title.clone()),
+                        release_year: None,
+                    });
+                }
+            }
+        }
+
+        if all_images.is_empty() {
+            return Err("No artwork found on Discogs".to_string());
+        }
+
+        // Return up to 10 unique images
+        all_images.truncate(10);
+        log::info!("Returning {} artwork options from Discogs", all_images.len());
+        Ok(all_images)
+    }
+
+    /// Download image from URL and return local path
+    pub async fn download_artwork_from_url(
+        &self,
+        image_url: &str,
+        cache_dir: &Path,
+        artist: &str,
+        album: &str,
+    ) -> Result<String, String> {
+        // Generate cache filename
+        let filename = format!(
+            "discogs_{:x}.jpg",
+            Self::simple_hash(&format!("{}_{}", artist, album))
+        );
+        let cache_path = cache_dir.join(&filename);
+
+        // Download the image
+        self.download_image(image_url, &cache_path).await
+            .ok_or_else(|| "Failed to download image".to_string())?;
+
+        Ok(cache_path.to_string_lossy().to_string())
+    }
+
+    /// Search for artists and return search results
+    pub async fn search_artist(&self, query: &str) -> Result<SearchResponse, String> {
+        let url = format!(
+            "{}/search?q={}&type=artist",
+            DISCOGS_PROXY_URL,
+            urlencoding::encode(query)
         );
 
         log::debug!("Searching Discogs for artist: {}", query);
@@ -186,17 +373,19 @@ impl DiscogsClient {
     }
 
     /// Download an image to the cache directory
-    async fn download_image(&self, url: &str, path: &Path) -> Option<()> {
-        log::debug!("Downloading Discogs artwork: {}", url);
+    async fn download_image(&self, image_url: &str, path: &Path) -> Option<()> {
+        log::debug!("Downloading Discogs artwork: {}", image_url);
 
-        let key = self.consumer_key.as_ref()?;
-        let secret = self.consumer_secret.as_ref()?;
+        // Use proxy to download image with authentication
+        let proxy_url = format!(
+            "{}/image?url={}",
+            DISCOGS_PROXY_URL,
+            urlencoding::encode(image_url)
+        );
 
-        // Discogs requires auth even for image downloads
         let response = self
             .client
-            .get(url)
-            .header("Authorization", format!("Discogs key={}, secret={}", key, secret))
+            .get(&proxy_url)
             .send()
             .await
             .ok()?;

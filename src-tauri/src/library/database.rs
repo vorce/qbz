@@ -327,6 +327,24 @@ impl LibraryDatabase {
             ).map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
         }
 
+        // Migration: Add catalog_number column to local_tracks
+        let has_catalog_number: bool = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('local_tracks') WHERE name = 'catalog_number'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|count| count > 0)
+            .unwrap_or(false);
+
+        if !has_catalog_number {
+            log::info!("Running migration: adding catalog_number to local_tracks");
+            self.conn
+                .execute_batch("ALTER TABLE local_tracks ADD COLUMN catalog_number TEXT;")
+                .map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
+        }
+
         Ok(())
     }
 
@@ -531,11 +549,11 @@ impl LibraryDatabase {
             .execute(
                 r#"INSERT OR REPLACE INTO local_tracks
                (file_path, title, artist, album, album_artist, track_number,
-                disc_number, year, genre, duration_secs, format, bit_depth,
+                disc_number, year, genre, catalog_number, duration_secs, format, bit_depth,
                 sample_rate, channels, file_size_bytes, cue_file_path,
                 cue_start_secs, cue_end_secs, artwork_path, last_modified, indexed_at,
                 album_group_key, album_group_title)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
                 params![
                     track.file_path,
                     track.title,
@@ -546,6 +564,7 @@ impl LibraryDatabase {
                     track.disc_number,
                     track.year,
                     track.genre,
+                    track.catalog_number,
                     track.duration_secs,
                     track.format.to_string(),
                     track.bit_depth,
@@ -645,6 +664,7 @@ impl LibraryDatabase {
                     ELSE MIN(artist)
                 END as artist,
                 MIN(year) as year,
+                MIN(catalog_number) as catalog_number,
                 MAX(CASE WHEN artwork_path IS NOT NULL THEN artwork_path END) as artwork,
                 COUNT(*) as track_count,
                 SUM(duration_secs) as total_duration,
@@ -658,6 +678,7 @@ impl LibraryDatabase {
                     COALESCE(album_group_title, album) as title,
                     COALESCE(album_artist, artist) as artist,
                     year,
+                    catalog_number,
                     artwork_path,
                     duration_secs,
                     format,
@@ -682,6 +703,7 @@ impl LibraryDatabase {
                     ELSE MIN(artist)
                 END as artist,
                 MIN(year) as year,
+                MIN(catalog_number) as catalog_number,
                 MAX(CASE WHEN artwork_path IS NOT NULL THEN artwork_path END) as artwork,
                 COUNT(*) as track_count,
                 SUM(duration_secs) as total_duration,
@@ -695,6 +717,7 @@ impl LibraryDatabase {
                     COALESCE(album_group_title, album) as title,
                     COALESCE(album_artist, artist) as artist,
                     year,
+                    catalog_number,
                     artwork_path,
                     duration_secs,
                     format,
@@ -723,25 +746,26 @@ impl LibraryDatabase {
                 let group_key: String = row.get(0)?;
                 let album: String = row.get(1)?;
                 let artist: String = row.get(2)?;
-                let artwork_path: Option<String> = row.get(4)?;
-                
+                let artwork_path: Option<String> = row.get(5)?;
+
                 log::info!("Album {} by {}: artwork_path = {:?}", album, artist, artwork_path);
-                
+
                 Ok(LocalAlbum {
                     id: group_key.clone(),
                     title: album,
                     artist,
                     year: row.get(3)?,
+                    catalog_number: row.get(4)?,
                     artwork_path,
-                    track_count: row.get(5)?,
-                    total_duration_secs: row.get(6)?,
+                    track_count: row.get(6)?,
+                    total_duration_secs: row.get(7)?,
                     format: Self::parse_format(
-                        &row.get::<_, Option<String>>(7)?.unwrap_or_default(),
+                        &row.get::<_, Option<String>>(8)?.unwrap_or_default(),
                     ),
-                    bit_depth: row.get(8)?,
-                    sample_rate: row.get::<_, Option<u32>>(9)?.unwrap_or(44100),
+                    bit_depth: row.get(9)?,
+                    sample_rate: row.get::<_, Option<u32>>(10)?.unwrap_or(44100),
                     directory_path: row
-                        .get::<_, Option<String>>(10)?
+                        .get::<_, Option<String>>(11)?
                         .unwrap_or_else(|| group_key.clone()),
                 })
             })
@@ -991,6 +1015,7 @@ impl LibraryDatabase {
             disc_number: row.get(7)?,
             year: row.get(8)?,
             genre: row.get(9)?,
+            catalog_number: row.get(26).ok().flatten(),
             duration_secs: row.get(10)?,
             format: Self::parse_format(&row.get::<_, String>(11)?),
             bit_depth: row.get(12)?,
@@ -1594,6 +1619,7 @@ impl LibraryDatabase {
                 disc_number: row.get(9)?,
                 year: row.get(10)?,
                 genre: row.get(11)?,
+                catalog_number: None,
                 duration_secs: row.get(12)?,
                 format: Self::parse_format(&row.get::<_, String>(13)?),
                 bit_depth: row.get(14)?,
@@ -1642,6 +1668,7 @@ impl LibraryDatabase {
                     disc_number: row.get(9)?,
                     year: row.get(10)?,
                     genre: row.get(11)?,
+                    catalog_number: None,
                     duration_secs: row.get(12)?,
                     format: Self::parse_format(&row.get::<_, String>(13)?),
                     bit_depth: row.get(14)?,
