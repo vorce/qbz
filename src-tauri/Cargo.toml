@@ -67,6 +67,7 @@ lofty = "0.18"
 rusqlite = { version = "0.31", features = ["bundled"] }
 dirs = "5"
 filetime = "0.2"
+glob = "0.3"
 
 # File dialogs - platform specific (see target dependencies below)
 

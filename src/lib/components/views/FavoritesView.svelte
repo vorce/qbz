@@ -1,9 +1,10 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
-  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown } from 'lucide-svelte';
+  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
+  import PlaylistCollage from '../PlaylistCollage.svelte';
   import { type DownloadStatus } from '$lib/stores/downloadState';
 
   interface FavoriteAlbum {
@@ -37,6 +38,15 @@
     albums_count?: number;
   }
 
+  interface FavoritePlaylist {
+    id: number;
+    name: string;
+    tracks_count: number;
+    images?: string[];
+    duration: number;
+    owner: { id: number; name: string };
+  }
+
   interface Props {
     onAlbumClick?: (albumId: string) => void;
     onAlbumPlay?: (albumId: string) => void;
@@ -62,6 +72,7 @@
     onTrackDownload?: (track: DisplayTrack) => void;
     onTrackRemoveDownload?: (trackId: number) => void;
     getTrackDownloadStatus?: (trackId: number) => { status: DownloadStatus; progress: number };
+    onPlaylistSelect?: (playlistId: number) => void;
   }
 
   interface DisplayTrack {
@@ -105,17 +116,20 @@
     onTrackGoToArtist,
     onTrackDownload,
     onTrackRemoveDownload,
-    getTrackDownloadStatus
+    getTrackDownloadStatus,
+    onPlaylistSelect
   }: Props = $props();
 
-  type TabType = 'tracks' | 'albums' | 'artists';
+  type TabType = 'tracks' | 'albums' | 'artists' | 'playlists';
   let activeTab = $state<TabType>('tracks');
 
   let favoriteAlbums = $state<FavoriteAlbum[]>([]);
   let favoriteTracks = $state<FavoriteTrack[]>([]);
   let favoriteArtists = $state<FavoriteArtist[]>([]);
+  let favoritePlaylists = $state<FavoritePlaylist[]>([]);
 
   let loading = $state(false);
+  let loadingPlaylists = $state(false);
 
   // Download status tracking
   let albumDownloadStatuses = $state<Map<string, boolean>>(new Map());
@@ -147,6 +161,7 @@
   let trackSearch = $state('');
   let albumSearch = $state('');
   let artistSearch = $state('');
+  let playlistSearch = $state('');
 
   let albumViewMode = $state<'grid' | 'list'>('grid');
   type AlbumGroupMode = 'alpha' | 'artist';
@@ -191,6 +206,15 @@
     const query = artistSearch.toLowerCase();
     return favoriteArtists.filter(a =>
       a.name.toLowerCase().includes(query)
+    );
+  });
+
+  let filteredPlaylists = $derived.by(() => {
+    if (!playlistSearch.trim()) return favoritePlaylists;
+    const query = playlistSearch.toLowerCase();
+    return favoritePlaylists.filter(p =>
+      p.name.toLowerCase().includes(query) ||
+      p.owner.name.toLowerCase().includes(query)
     );
   });
 
@@ -303,6 +327,35 @@
     }
   }
 
+  async function loadFavoritePlaylists() {
+    loadingPlaylists = true;
+    error = null;
+    try {
+      // Get IDs of favorited playlists from local DB
+      const favoriteIds = await invoke<number[]>('playlist_get_favorites');
+      if (favoriteIds.length === 0) {
+        favoritePlaylists = [];
+        return;
+      }
+      // Fetch full playlist data for each favorited playlist
+      const playlists: FavoritePlaylist[] = [];
+      for (const id of favoriteIds) {
+        try {
+          const playlist = await invoke<FavoritePlaylist>('get_playlist', { playlistId: id });
+          playlists.push(playlist);
+        } catch (err) {
+          console.warn(`Failed to load playlist ${id}:`, err);
+        }
+      }
+      favoritePlaylists = playlists;
+    } catch (err) {
+      console.error('Failed to load favorite playlists:', err);
+      error = String(err);
+    } finally {
+      loadingPlaylists = false;
+    }
+  }
+
   function handleTabChange(tab: TabType) {
     activeTab = tab;
     showAlbumGroupMenu = false;
@@ -314,6 +367,8 @@
       loadFavorites(tab);
     } else if (tab === 'artists' && favoriteArtists.length === 0) {
       loadFavorites(tab);
+    } else if (tab === 'playlists' && favoritePlaylists.length === 0) {
+      loadFavoritePlaylists();
     }
   }
 
@@ -605,6 +660,14 @@
       <Mic2 size={16} />
       <span>Artists</span>
     </button>
+    <button
+      class="tab"
+      class:active={activeTab === 'playlists'}
+      onclick={() => handleTabChange('playlists')}
+    >
+      <ListMusic size={16} />
+      <span>Playlists</span>
+    </button>
   </div>
 
   <!-- Toolbar with search and actions -->
@@ -636,7 +699,7 @@
             <X size={14} />
           </button>
         {/if}
-      {:else}
+      {:else if activeTab === 'artists'}
         <input
           type="text"
           placeholder="Search artists..."
@@ -645,6 +708,18 @@
         />
         {#if artistSearch}
           <button class="search-clear" onclick={() => artistSearch = ''}>
+            <X size={14} />
+          </button>
+        {/if}
+      {:else}
+        <input
+          type="text"
+          placeholder="Search playlists..."
+          bind:value={playlistSearch}
+          class="search-input"
+        />
+        {#if playlistSearch}
+          <button class="search-clear" onclick={() => playlistSearch = ''}>
             <X size={14} />
           </button>
         {/if}
@@ -796,8 +871,10 @@
         {filteredTracks.length}{trackSearch ? ` / ${favoriteTracks.length}` : ''} tracks
       {:else if activeTab === 'albums'}
         {filteredAlbums.length}{albumSearch ? ` / ${favoriteAlbums.length}` : ''} albums
-      {:else}
+      {:else if activeTab === 'artists'}
         {filteredArtists.length}{artistSearch ? ` / ${favoriteArtists.length}` : ''} artists
+      {:else}
+        {filteredPlaylists.length}{playlistSearch ? ` / ${favoritePlaylists.length}` : ''} playlists
       {/if}
     </span>
   </div>
@@ -1166,6 +1243,36 @@
               {#if artist.albums_count}
                 <div class="artist-albums">{artist.albums_count} albums</div>
               {/if}
+            </button>
+          {/each}
+        </div>
+      {/if}
+    {:else if activeTab === 'playlists'}
+      {#if loadingPlaylists}
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Loading playlists...</p>
+        </div>
+      {:else if favoritePlaylists.length === 0}
+        <div class="empty">
+          <ListMusic size={48} />
+          <p>No favorite playlists yet</p>
+          <p class="empty-hint">Click the heart icon on playlists to add them here</p>
+        </div>
+      {:else if filteredPlaylists.length === 0}
+        <div class="empty">
+          <Search size={48} />
+          <p>No playlists match "{playlistSearch}"</p>
+        </div>
+      {:else}
+        <div class="playlist-grid">
+          {#each filteredPlaylists as playlist (playlist.id)}
+            <button class="playlist-card" onclick={() => onPlaylistSelect?.(playlist.id)}>
+              <div class="playlist-artwork">
+                <PlaylistCollage artworks={playlist.images ?? []} size={140} />
+              </div>
+              <div class="playlist-name">{playlist.name}</div>
+              <div class="playlist-meta">{playlist.tracks_count} tracks</div>
             </button>
           {/each}
         </div>
@@ -1769,5 +1876,53 @@
     opacity: 0.25;
     cursor: default;
     pointer-events: none;
+  }
+
+  /* Playlist grid styles */
+  .playlist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 24px;
+  }
+
+  .playlist-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    background-color: var(--bg-secondary);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+
+  .playlist-card:hover {
+    background-color: var(--bg-tertiary);
+  }
+
+  .playlist-artwork {
+    width: 140px;
+    height: 140px;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .playlist-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: center;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .playlist-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
   }
 </style>

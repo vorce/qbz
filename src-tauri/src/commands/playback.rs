@@ -392,8 +392,50 @@ pub fn get_playback_state(state: State<'_, AppState>) -> Result<PlaybackState, S
 /// Audio device information
 #[derive(serde::Serialize)]
 pub struct AudioDevice {
-    pub name: String,
+    pub name: String,           // Technical name (internal use)
+    pub display_name: String,   // Friendly name for UI
     pub is_default: bool,
+    pub device_type: Option<String>,  // "USB", "PCI", "HDMI", etc.
+}
+
+/// Get friendly device names from PipeWire/PulseAudio
+#[cfg(target_os = "linux")]
+fn get_pipewire_device_descriptions() -> std::collections::HashMap<String, String> {
+    use std::process::Command;
+
+    let mut map = std::collections::HashMap::new();
+
+    // Try pactl (PipeWire/PulseAudio)
+    if let Ok(output) = Command::new("pactl").args(&["list", "sinks"]).output() {
+        if let Ok(text) = String::from_utf8(output.stdout) {
+            let mut current_name: Option<String> = None;
+
+            for line in text.lines() {
+                let line = line.trim();
+
+                // Extract Name: field
+                if let Some(name) = line.strip_prefix("Name: ") {
+                    current_name = Some(name.to_string());
+                }
+
+                // Extract Description: field
+                if let Some(desc) = line.strip_prefix("Description: ") {
+                    if let Some(name) = &current_name {
+                        map.insert(name.clone(), desc.to_string());
+                        log::debug!("Device mapping: {} -> {}", name, desc);
+                    }
+                }
+            }
+        }
+    }
+
+    log::info!("Found {} device descriptions from PipeWire/PulseAudio", map.len());
+    map
+}
+
+#[cfg(not(target_os = "linux"))]
+fn get_pipewire_device_descriptions() -> std::collections::HashMap<String, String> {
+    std::collections::HashMap::new()
 }
 
 /// Get available audio output devices
@@ -409,13 +451,56 @@ pub fn get_audio_devices() -> Result<Vec<AudioDevice>, String> {
         .default_output_device()
         .and_then(|d| d.name().ok());
 
+    // Get friendly names from PipeWire/PulseAudio
+    let friendly_names = get_pipewire_device_descriptions();
+
     let devices: Vec<AudioDevice> = host
         .output_devices()
         .map_err(|e| format!("Failed to enumerate devices: {}", e))?
         .filter_map(|device| {
             device.name().ok().map(|name| {
                 let is_default = default_device_name.as_ref().map(|d| d == &name).unwrap_or(false);
-                AudioDevice { name, is_default }
+
+                // Try to get friendly name from PipeWire/PulseAudio
+                let display_name = friendly_names
+                    .get(&name)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        // Fallback: clean up technical name slightly
+                        name.replace("alsa_output.", "")
+                            .replace("_", " ")
+                            .replace("pro-output", "")
+                            .trim()
+                            .to_string()
+                    });
+
+                // Detect device type from technical name
+                let device_type = if name.contains("usb") || name.contains("USB") {
+                    Some("USB".to_string())
+                } else if name.contains("hdmi") || name.contains("HDMI") {
+                    Some("HDMI".to_string())
+                } else if name.contains("pci") || name.contains("PCI") {
+                    Some("PCI".to_string())
+                } else if name.contains("bluetooth") || name.contains("bluez") {
+                    Some("Bluetooth".to_string())
+                } else {
+                    None
+                };
+
+                log::debug!(
+                    "Device: {} -> {} (type: {:?}, default: {})",
+                    name,
+                    display_name,
+                    device_type,
+                    is_default
+                );
+
+                AudioDevice {
+                    name,
+                    display_name,
+                    is_default,
+                    device_type,
+                }
             })
         })
         .collect();
@@ -451,8 +536,18 @@ pub fn get_audio_output_status(
 pub fn reinit_audio_device(
     device: Option<String>,
     state: tauri::State<'_, crate::AppState>,
+    audio_settings_state: tauri::State<'_, crate::config::audio_settings::AudioSettingsState>,
 ) -> Result<(), String> {
     log::info!("Command: reinit_audio_device {:?}", device);
+
+    // Reload settings from database to ensure Player has latest config (including backend_type)
+    if let Ok(store) = audio_settings_state.store.lock() {
+        if let Ok(fresh_settings) = store.get_settings() {
+            log::info!("Reloading audio settings before reinit (backend_type: {:?})", fresh_settings.backend_type);
+            let _ = state.player.reload_settings(fresh_settings);
+        }
+    }
+
     state.player.reinit_device(device)
 }
 
@@ -469,92 +564,68 @@ pub struct PipewireSink {
     pub is_default: bool,
 }
 
-/// Get PipeWire/PulseAudio sink information with friendly names (Linux)
+/// Get audio output devices using CPAL (works on all platforms including Linux/PipeWire)
+/// CRITICAL: Uses CPAL device names so they match what the player can open
 #[cfg(target_os = "linux")]
 #[tauri::command]
 pub fn get_pipewire_sinks() -> Result<Vec<PipewireSink>, String> {
-    log::info!("Command: get_pipewire_sinks (Linux)");
+    log::info!("Command: get_pipewire_sinks (Linux, using CPAL)");
 
-    use std::process::Command;
+    use rodio::cpal::traits::{DeviceTrait, HostTrait};
 
-    // Get default sink name first
-    let default_sink = Command::new("pactl")
-        .args(["get-default-sink"])
-        .output()
-        .ok()
-        .and_then(|o| {
-            if o.status.success() {
-                String::from_utf8(o.stdout).ok().map(|s| s.trim().to_string())
-            } else {
-                None
-            }
-        });
+    let host = rodio::cpal::default_host();
 
-    // Get all sinks
-    let output = Command::new("pactl")
-        .args(["list", "sinks"])
-        .output()
-        .map_err(|e| format!("Failed to run pactl: {}. Is PulseAudio/PipeWire installed?", e))?;
+    // Get default device name from CPAL
+    let default_device_name = host
+        .default_output_device()
+        .and_then(|d| d.name().ok());
 
-    if !output.status.success() {
-        return Err("pactl command failed".to_string());
-    }
+    log::info!("CPAL default device: {:?}", default_device_name);
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut sinks = Vec::new();
+    // Enumerate all output devices using CPAL
+    let sinks: Vec<PipewireSink> = host
+        .output_devices()
+        .map_err(|e| format!("Failed to enumerate devices: {}", e))?
+        .enumerate()
+        .filter_map(|(idx, device)| {
+            match device.name() {
+                Ok(name) => {
+                    let is_default = default_device_name.as_ref().map(|d| d == &name).unwrap_or(false);
 
-    // Parse pactl output
-    let mut current_name: Option<String> = None;
-    let mut current_description: Option<String> = None;
-    let mut current_volume: Option<u32> = None;
+                    // Get detailed device info for logging
+                    let configs_info = device.supported_output_configs()
+                        .ok()
+                        .map(|configs| {
+                            let config_strs: Vec<String> = configs
+                                .take(3) // Just first 3 configs for brevity
+                                .map(|c| format!("{}ch/{}Hz", c.channels(), c.max_sample_rate().0))
+                                .collect();
+                            config_strs.join(", ")
+                        })
+                        .unwrap_or_else(|| "no configs".to_string());
 
-    for line in stdout.lines() {
-        let line = line.trim();
+                    log::info!("  [{}] Device: '{}' (default: {}) - Configs: {}",
+                        idx, name, is_default, configs_info);
 
-        // New sink starts with "Sink #"
-        if line.starts_with("Sink #") {
-            // Save previous sink if complete
-            if let (Some(name), Some(desc)) = (current_name.take(), current_description.take()) {
-                let is_default = default_sink.as_ref().map(|d| d == &name).unwrap_or(false);
-                sinks.push(PipewireSink {
-                    name,
-                    description: desc,
-                    volume: current_volume.take(),
-                    is_default,
-                });
-            }
-            current_volume = None;
-        } else if line.starts_with("Name:") {
-            current_name = Some(line.trim_start_matches("Name:").trim().to_string());
-        } else if line.starts_with("Description:") {
-            current_description = Some(line.trim_start_matches("Description:").trim().to_string());
-        } else if line.starts_with("Volume:") {
-            // Parse volume like "Volume: front-left: 65536 / 100% / 0.00 dB"
-            if let Some(percent_pos) = line.find('%') {
-                // Find the number before %
-                let before_percent = &line[..percent_pos];
-                if let Some(slash_pos) = before_percent.rfind('/') {
-                    let vol_str = before_percent[slash_pos + 1..].trim();
-                    if let Ok(vol) = vol_str.parse::<u32>() {
-                        current_volume = Some(vol);
-                    }
+                    // CRITICAL: Use CPAL device name as both name and description
+                    // This ensures the name we save is the exact name CPAL can find later
+                    Some(PipewireSink {
+                        name: name.clone(),
+                        description: name, // CPAL names are already user-friendly in PipeWire
+                        volume: None,      // Volume not available via CPAL
+                        is_default,
+                    })
+                }
+                Err(e) => {
+                    log::warn!("  [{}] Failed to get device name: {}", idx, e);
+                    None
                 }
             }
-        }
-    }
+        })
+        .collect();
 
-    // Don't forget the last sink
-    if let (Some(name), Some(desc)) = (current_name, current_description) {
-        let is_default = default_sink.as_ref().map(|d| d == &name).unwrap_or(false);
-        sinks.push(PipewireSink {
-            name,
-            description: desc,
-            volume: current_volume,
-            is_default,
-        });
-    }
+    log::info!("Found {} audio output devices via CPAL", sinks.len());
 
-    log::info!("Found {} PipeWire sinks", sinks.len());
     Ok(sinks)
 }
 
@@ -591,4 +662,54 @@ pub fn get_pipewire_sinks() -> Result<Vec<PipewireSink>, String> {
 
     log::info!("Found {} audio output devices", sinks.len());
     Ok(sinks)
+}
+
+/// Set the default PipeWire/PulseAudio sink
+/// This is used when the user selects an audio device in settings
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub fn set_pipewire_default_sink(sink_name: String) -> Result<(), String> {
+    use std::process::Command;
+
+    log::info!("Command: set_pipewire_default_sink {}", sink_name);
+
+    let output = Command::new("pactl")
+        .args(["set-default-sink", &sink_name])
+        .output()
+        .map_err(|e| format!("Failed to run pactl: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("pactl set-default-sink failed: {}", stderr));
+    }
+
+    log::info!("Set default sink to: {}", sink_name);
+    Ok(())
+}
+
+/// Set the default sink (no-op on non-Linux)
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+pub fn set_pipewire_default_sink(_sink_name: String) -> Result<(), String> {
+    log::info!("Command: set_pipewire_default_sink (no-op on non-Linux)");
+    Ok(())
+}
+
+/// DEBUG: Get CPAL device names for comparison with PipeWire sinks
+#[tauri::command]
+pub fn debug_get_cpal_devices() -> Result<Vec<String>, String> {
+    use rodio::cpal::traits::{DeviceTrait, HostTrait};
+    
+    log::info!("Command: debug_get_cpal_devices");
+    
+    let host = rodio::cpal::default_host();
+    
+    let devices: Vec<String> = host
+        .output_devices()
+        .map_err(|e| format!("Failed to enumerate devices: {}", e))?
+        .filter_map(|device| device.name().ok())
+        .collect();
+    
+    log::info!("CPAL devices: {:?}", devices);
+    Ok(devices)
 }
