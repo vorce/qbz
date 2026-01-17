@@ -2,17 +2,27 @@
   interface Props {
     enabled: boolean;
     onchange: (enabled: boolean) => void;
+    disabled?: boolean;
   }
 
-  let { enabled, onchange }: Props = $props();
+  let { enabled, onchange, disabled = false }: Props = $props();
+
+  function handleClick() {
+    if (!disabled) {
+      onchange(!enabled);
+    }
+  }
 </script>
 
 <button
   class="toggle"
   class:enabled
-  onclick={() => onchange(!enabled)}
+  class:disabled
+  onclick={handleClick}
   role="switch"
   aria-checked={enabled}
+  aria-disabled={disabled}
+  {disabled}
 >
   <div class="thumb"></div>
 </button>
@@ -33,6 +43,15 @@
 
   .toggle.enabled {
     background-color: var(--accent-primary);
+  }
+
+  .toggle.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .toggle.disabled.enabled {
+    background-color: #555555;
   }
 
   .thumb {

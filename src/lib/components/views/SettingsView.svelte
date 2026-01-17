@@ -226,6 +226,20 @@
   // Show ALSA plugin selector only when ALSA backend is selected (derived)
   let showAlsaPluginSelector = $derived(selectedBackend === 'ALSA Direct');
 
+  // Smart toggle states - auto-disable incompatible features
+  let exclusiveModeDisabled = $derived(selectedBackend === 'PipeWire' || selectedBackend === 'Auto');
+  let exclusiveModeTooltipOverride = $derived(
+    exclusiveModeDisabled
+      ? 'Exclusive mode is only available with ALSA Direct backend. PipeWire is a multiplexed audio server and cannot provide true exclusive access.'
+      : null
+  );
+  let gaplessDisabled = $derived(dacPassthrough);
+  let gaplessTooltipOverride = $derived(
+    gaplessDisabled
+      ? 'Gapless playback is disabled when DAC Passthrough is enabled. Bit-perfect audio requires recreating streams for each sample rate change.'
+      : null
+  );
+
   // Playback settings
   let gaplessPlayback = $state(true);
   let crossfade = $state(0);
@@ -989,6 +1003,15 @@
     const backend = availableBackends.find(b => b.name === backendName);
     const backendType = backendName === 'Auto' ? null : backend?.backend_type ?? null;
 
+    // Auto-disable incompatible features
+    if (backendName === 'PipeWire' || backendName === 'Auto') {
+      if (exclusiveMode) {
+        exclusiveMode = false;
+        await invoke('set_audio_exclusive_mode', { enabled: false });
+        console.log('[Audio] Disabled exclusive mode (incompatible with PipeWire)');
+      }
+    }
+
     try {
       // Save backend preference
       await invoke('set_audio_backend_type', { backendType });
@@ -1385,9 +1408,9 @@
     <div class="setting-row">
       <div class="label-with-tooltip">
         <span class="setting-label">{$t('settings.audio.exclusiveMode')}</span>
-        <Tooltip text={$t('settings.audio.exclusiveModeDesc')} />
+        <Tooltip text={exclusiveModeTooltipOverride || $t('settings.audio.exclusiveModeDesc')} />
       </div>
-      <Toggle enabled={exclusiveMode} onchange={handleExclusiveModeChange} />
+      <Toggle enabled={exclusiveMode} onchange={handleExclusiveModeChange} disabled={exclusiveModeDisabled} />
     </div>
     <div class="setting-row">
       <div class="label-with-tooltip">
@@ -1415,8 +1438,13 @@
   <section class="section" bind:this={playbackSection}>
     <h3 class="section-title">{$t('settings.playback.title')}</h3>
     <div class="setting-row">
-      <span class="setting-label">{$t('settings.playback.gapless')}</span>
-      <Toggle enabled={gaplessPlayback} onchange={handleGaplessPlaybackChange} />
+      <div class="label-with-tooltip">
+        <span class="setting-label">{$t('settings.playback.gapless')}</span>
+        {#if gaplessTooltipOverride}
+          <Tooltip text={gaplessTooltipOverride} />
+        {/if}
+      </div>
+      <Toggle enabled={gaplessPlayback} onchange={handleGaplessPlaybackChange} disabled={gaplessDisabled} />
     </div>
     <div class="setting-row">
       <span class="setting-label">{$t('settings.playback.crossfade')}</span>
