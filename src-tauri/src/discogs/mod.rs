@@ -32,6 +32,16 @@ pub struct SearchResult {
     pub result_type: String,
 }
 
+/// Image option for artwork selection
+#[derive(Debug, Deserialize, serde::Serialize, Clone)]
+pub struct DiscogsImageOption {
+    pub url: String,
+    pub width: u32,
+    pub height: u32,
+    #[serde(rename = "type")]
+    pub image_type: String,
+}
+
 impl DiscogsClient {
     /// Create a new Discogs client (proxy handles credentials)
     pub fn new() -> Self {
@@ -133,6 +143,95 @@ impl DiscogsClient {
 
         log::debug!("No Discogs cover found for {} - {}", artist, album);
         None
+    }
+
+    /// Search for album artwork options
+    /// Returns up to 10 image options from the first matching release
+    pub async fn search_artwork_options(
+        &self,
+        artist: &str,
+        album: &str,
+    ) -> Result<Vec<DiscogsImageOption>, String> {
+        // Build search query
+        let query = format!("{} {}", artist, album);
+        let url = format!(
+            "{}/search?q={}&type=release",
+            DISCOGS_PROXY_URL,
+            urlencoding::encode(&query)
+        );
+
+        log::debug!("Searching Discogs artwork options for: {} - {}", artist, album);
+
+        let response = self.client.get(&url).send().await
+            .map_err(|e| format!("Failed to search Discogs: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("Discogs search failed with status: {}", response.status()));
+        }
+
+        let search: SearchResponse = response.json().await
+            .map_err(|e| format!("Failed to parse Discogs response: {}", e))?;
+
+        // Collect image options from search results
+        let mut images = Vec::new();
+
+        for result in search.results.iter().take(10) {
+            if result.result_type == "release" || result.result_type == "master" {
+                // Add cover image if available
+                if let Some(cover) = &result.cover_image {
+                    if !cover.is_empty() && !cover.contains("spacer.gif") {
+                        images.push(DiscogsImageOption {
+                            url: cover.clone(),
+                            width: 600,  // Discogs standard size
+                            height: 600,
+                            image_type: "primary".to_string(),
+                        });
+                    }
+                }
+
+                // Add thumbnail as alternative
+                if let Some(thumb) = &result.thumb {
+                    if !thumb.is_empty() && !thumb.contains("spacer.gif") {
+                        images.push(DiscogsImageOption {
+                            url: thumb.clone(),
+                            width: 150,  // Discogs thumb size
+                            height: 150,
+                            image_type: "secondary".to_string(),
+                        });
+                    }
+                }
+            }
+        }
+
+        if images.is_empty() {
+            return Err("No artwork found on Discogs".to_string());
+        }
+
+        // Return up to 10 unique images
+        images.truncate(10);
+        Ok(images)
+    }
+
+    /// Download image from URL and return local path
+    pub async fn download_artwork_from_url(
+        &self,
+        image_url: &str,
+        cache_dir: &Path,
+        artist: &str,
+        album: &str,
+    ) -> Result<String, String> {
+        // Generate cache filename
+        let filename = format!(
+            "discogs_{:x}.jpg",
+            Self::simple_hash(&format!("{}_{}", artist, album))
+        );
+        let cache_path = cache_dir.join(&filename);
+
+        // Download the image
+        self.download_image(image_url, &cache_path).await
+            .ok_or_else(|| "Failed to download image".to_string())?;
+
+        Ok(cache_path.to_string_lossy().to_string())
     }
 
     /// Search for artists and return search results

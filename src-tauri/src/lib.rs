@@ -417,6 +417,8 @@ pub fn run() {
             // Discogs artwork commands
             library::commands::discogs_has_credentials,
             library::commands::discogs_search_artist,
+            library::commands::discogs_search_artwork,
+            library::commands::discogs_download_artwork,
             library::commands::library_fetch_missing_artwork,
             library::commands::library_fetch_album_artwork,
             library::commands::library_set_album_artwork,

@@ -113,6 +113,13 @@
     lastScan: number | null;
   }
 
+  interface DiscogsImageOption {
+    url: string;
+    width: number;
+    height: number;
+    image_type: string;
+  }
+
   interface Props {
     onAlbumClick?: (album: LocalAlbum) => void;
     onQobuzArtistClick?: (artistId: number) => void;
@@ -181,6 +188,9 @@
   let showAlbumEditModal = $state(false);
   let editingAlbumTitle = $state('');
   let editingAlbumHidden = $state(false);
+  let discogsImageOptions = $state<DiscogsImageOption[]>([]);
+  let selectedDiscogsImage = $state<string | null>(null);
+  let fetchingDiscogsImages = $state(false);
 
   // Folder selection state (by folder ID)
   let selectedFolders = $state<Set<number>>(new Set());
@@ -809,20 +819,61 @@
     if (!selectedAlbum) return;
     editingAlbumTitle = selectedAlbum.title;
     editingAlbumHidden = false;
+    discogsImageOptions = [];
+    selectedDiscogsImage = null;
     showAlbumEditModal = true;
+  }
+
+  async function fetchDiscogsArtwork() {
+    if (!selectedAlbum || fetchingDiscogsImages) return;
+
+    try {
+      fetchingDiscogsImages = true;
+      discogsImageOptions = [];
+      selectedDiscogsImage = null;
+
+      const options = await invoke<DiscogsImageOption[]>('discogs_search_artwork', {
+        artist: selectedAlbum.artist,
+        album: selectedAlbum.title
+      });
+
+      discogsImageOptions = options;
+      console.log(`Found ${options.length} Discogs artwork options`);
+    } catch (err) {
+      console.error('Failed to fetch Discogs artwork:', err);
+      alert(`Failed to fetch Discogs artwork: ${err}`);
+    } finally {
+      fetchingDiscogsImages = false;
+    }
   }
 
   async function saveAlbumEdit() {
     if (!selectedAlbum) return;
 
     try {
+      // If a Discogs image was selected, download and set it
+      if (selectedDiscogsImage) {
+        const localPath = await invoke<string>('discogs_download_artwork', {
+          imageUrl: selectedDiscogsImage,
+          artist: selectedAlbum.artist,
+          album: selectedAlbum.title
+        });
+
+        await invoke('library_set_album_artwork', {
+          albumGroupKey: selectedAlbum.id,
+          artworkPath: localPath
+        });
+
+        applyAlbumArtworkUpdate(selectedAlbum.id, localPath);
+      }
+
       await invoke('library_set_album_hidden', {
         albumGroupKey: selectedAlbum.id,
         hidden: editingAlbumHidden
       });
 
       showAlbumEditModal = false;
-      
+
       if (editingAlbumHidden) {
         clearLocalAlbum();
         navGoBack();
@@ -2148,16 +2199,45 @@
                 <Disc3 size={24} />
               </div>
             {/if}
-            <button
-              class="secondary-btn"
-              onclick={handleSetAlbumArtwork}
-              disabled={updatingArtwork}
-            >
-              <Upload size={14} />
-              <span>{updatingArtwork ? 'Updating...' : 'Change Cover'}</span>
-            </button>
+            <div class="artwork-actions">
+              <button
+                class="secondary-btn"
+                onclick={handleSetAlbumArtwork}
+                disabled={updatingArtwork}
+              >
+                <Upload size={14} />
+                <span>{updatingArtwork ? 'Updating...' : 'Change Cover'}</span>
+              </button>
+              <button
+                class="discogs-btn"
+                onclick={fetchDiscogsArtwork}
+                disabled={fetchingDiscogsImages}
+              >
+                <img src="/discogs_icon.svg" alt="Discogs" class="discogs-icon" />
+                <span>{fetchingDiscogsImages ? 'Fetching...' : 'Fetch from Discogs'}</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {#if discogsImageOptions.length > 0}
+          <div class="form-group">
+            <label>Select Artwork from Discogs</label>
+            <div class="discogs-options">
+              {#each discogsImageOptions as option, i}
+                <button
+                  class="discogs-option"
+                  class:selected={selectedDiscogsImage === option.url}
+                  onclick={() => selectedDiscogsImage = option.url}
+                >
+                  <img src={option.url} alt={`Option ${i + 1}`} />
+                  <span class="option-info">{option.width}x{option.height}</span>
+                </button>
+              {/each}
+            </div>
+            <p class="form-hint">Click an image to select it, then click Save</p>
+          </div>
+        {/if}
 
         <div class="form-group">
           <label class="toggle-label">
@@ -3492,6 +3572,90 @@
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
+  }
+
+  .artwork-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .discogs-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--bg-quaternary);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .discogs-btn:hover:not(:disabled) {
+    background: var(--bg-quaternary);
+    border-color: var(--text-muted);
+  }
+
+  .discogs-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .discogs-icon {
+    width: 16px;
+    height: 16px;
+    filter: invert(1) brightness(0.8);
+  }
+
+  .discogs-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .discogs-option {
+    position: relative;
+    aspect-ratio: 1;
+    padding: 0;
+    background: var(--bg-tertiary);
+    border: 2px solid transparent;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .discogs-option:hover {
+    border-color: var(--text-muted);
+    transform: scale(1.05);
+  }
+
+  .discogs-option.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  .discogs-option img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .discogs-option .option-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 4px 6px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 10px;
+    text-align: center;
   }
 
   .modal-footer {
