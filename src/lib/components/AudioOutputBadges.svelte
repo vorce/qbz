@@ -142,7 +142,22 @@
 
   onMount(() => {
     loadStatus();
-    // No polling - data is loaded once on mount and refreshed on hover
+
+    // Auto-refresh hardware status when DAC passthrough is active
+    // Fast polling (1s) for instant badge updates without needing hover
+    const pollInterval = setInterval(async () => {
+      // Only poll if DAC passthrough is enabled (otherwise wastes resources)
+      if (settings?.dac_passthrough) {
+        try {
+          hardwareStatus = await invoke<HardwareAudioStatus>('get_hardware_audio_status').catch(() => null);
+        } catch (err) {
+          // Silently fail - don't spam console
+        }
+      }
+    }, 1000); // 1 second - fast enough for instant feedback, light enough not to impact performance
+
+    // Cleanup on unmount
+    return () => clearInterval(pollInterval);
   });
 </script>
 
