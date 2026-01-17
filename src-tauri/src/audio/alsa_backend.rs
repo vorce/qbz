@@ -15,6 +15,7 @@ use rodio::{
     },
     OutputStream, OutputStreamHandle,
 };
+use std::process::Command;
 
 pub struct AlsaBackend {
     host: rodio::cpal::Host,
@@ -43,50 +44,67 @@ impl AlsaBackend {
         Ok(Self { host })
     }
 
-    /// Enumerate ALSA devices with hardware IDs
+    /// Enumerate ALSA devices using aplay -L for complete device list
     fn enumerate_alsa_devices(&self) -> BackendResult<Vec<AudioDevice>> {
         let mut devices = Vec::new();
 
-        // Get all output devices from ALSA host
-        let output_devices = self.host
-            .output_devices()
-            .map_err(|e| format!("Failed to enumerate ALSA devices: {}", e))?;
+        // Use aplay -L to get all ALSA device names (including virtual devices)
+        let output = Command::new("aplay")
+            .arg("-L")
+            .output()
+            .map_err(|e| format!("Failed to run aplay: {}", e))?;
 
-        for (idx, device) in output_devices.enumerate() {
-            let name = device.name().unwrap_or_else(|_| format!("ALSA Device {}", idx));
-
-            // Try to get device ID (hardware name)
-            let id = name.clone();
-
-            // Check if this is the default device
-            let is_default = self.host
-                .default_output_device()
-                .and_then(|d| d.name().ok())
-                .map(|default_name| default_name == name)
-                .unwrap_or(false);
-
-            // Try to get max sample rate from supported configs
-            let max_sample_rate = device
-                .supported_output_configs()
-                .ok()
-                .and_then(|mut configs| {
-                    configs
-                        .max_by_key(|c| c.max_sample_rate().0)
-                        .map(|c| c.max_sample_rate().0)
-                });
-
-            devices.push(AudioDevice {
-                id: id.clone(),
-                name: name.clone(),
-                description: Some(format!("ALSA device: {}", name)),
-                is_default,
-                max_sample_rate,
-            });
+        if !output.status.success() {
+            return Err("aplay -L command failed".to_string());
         }
 
-        log::info!("[ALSA Backend] Enumerated {} devices", devices.len());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut current_device: Option<String> = None;
+        let mut current_description: Option<String> = None;
+
+        for line in stdout.lines() {
+            if line.is_empty() {
+                // Empty line marks end of device entry
+                if let (Some(id), Some(desc)) = (current_device.take(), current_description.take()) {
+                    // Skip null device
+                    if id != "null" {
+                        let is_default = id == "default";
+                        devices.push(AudioDevice {
+                            id: id.clone(),
+                            name: id,
+                            description: Some(desc),
+                            is_default,
+                            max_sample_rate: None, // ALSA devices support variable sample rates
+                        });
+                    }
+                }
+                current_description = None;
+            } else if !line.starts_with(' ') && !line.starts_with('\t') {
+                // Device name (not indented)
+                current_device = Some(line.trim().to_string());
+            } else {
+                // Description (indented)
+                current_description = Some(line.trim().to_string());
+            }
+        }
+
+        // Don't forget last device
+        if let (Some(id), Some(desc)) = (current_device, current_description) {
+            if id != "null" {
+                let is_default = id == "default";
+                devices.push(AudioDevice {
+                    id: id.clone(),
+                    name: id,
+                    description: Some(desc),
+                    is_default,
+                    max_sample_rate: None,
+                });
+            }
+        }
+
+        log::info!("[ALSA Backend] Enumerated {} devices via aplay -L", devices.len());
         for (idx, dev) in devices.iter().enumerate() {
-            log::info!("  [{}] {} (max_rate: {:?})", idx, dev.name, dev.max_sample_rate);
+            log::info!("  [{}] {} - {}", idx, dev.name, dev.description.as_deref().unwrap_or(""));
         }
 
         Ok(devices)

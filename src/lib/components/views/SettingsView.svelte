@@ -216,14 +216,20 @@
   let backendOptions = $derived(['Auto', ...availableBackends.filter(b => b.is_available).map(b => b.name)]);
 
   // Device options based on selected backend (derived)
-  // Apply pretty names for ALSA devices (PipeWire names pass through unchanged)
-  let deviceOptions = $derived(['System Default', ...backendDevices.map(d => getDevicePrettyName(d.name))]);
+  // Apply pretty names for ALSA devices only (PipeWire already has friendly names)
+  let deviceOptions = $derived.by(() => {
+    const shouldTranslate = selectedBackend === 'ALSA Direct' || selectedBackend === 'Auto';
+    const names = backendDevices.map(d => shouldTranslate ? getDevicePrettyName(d.name) : d.name);
+    return ['System Default', ...names];
+  });
 
-  // Map pretty name -> device for lookup when user selects
-  let deviceByPrettyName = $derived.by(() => {
+  // Map display name -> device for lookup when user selects
+  let deviceByDisplayName = $derived.by(() => {
     const map = new Map<string, AudioDevice>();
+    const shouldTranslate = selectedBackend === 'ALSA Direct' || selectedBackend === 'Auto';
     for (const device of backendDevices) {
-      map.set(getDevicePrettyName(device.name), device);
+      const displayName = shouldTranslate ? getDevicePrettyName(device.name) : device.name;
+      map.set(displayName, device);
     }
     return map;
   });
@@ -759,7 +765,12 @@
           // Set selected device from backend devices
           if (settings.output_device) {
             const device = backendDevices.find(d => d.id === settings.output_device);
-            outputDevice = device ? getDevicePrettyName(device.name) : 'System Default';
+            if (device) {
+              const shouldTranslate = settings.backend_type === 'Alsa' || !settings.backend_type;
+              outputDevice = shouldTranslate ? getDevicePrettyName(device.name) : device.name;
+            } else {
+              outputDevice = 'System Default';
+            }
           }
         }
       } else {
@@ -907,8 +918,8 @@
   async function handleBackendDeviceChange(deviceName: string) {
     outputDevice = deviceName;
 
-    // Get device ID from backendDevices using pretty name mapping
-    const device = deviceByPrettyName.get(deviceName);
+    // Get device ID from backendDevices using display name mapping
+    const device = deviceByDisplayName.get(deviceName);
     const deviceId = deviceName === 'System Default' ? null : device?.id ?? null;
 
     try {
