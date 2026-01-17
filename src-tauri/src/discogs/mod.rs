@@ -174,31 +174,46 @@ impl DiscogsClient {
 
         // Collect image options from search results
         let mut images = Vec::new();
+        let mut seen_urls = std::collections::HashSet::new();
 
-        for result in search.results.iter().take(10) {
+        for result in search.results.iter().take(20) {
             if result.result_type == "release" || result.result_type == "master" {
-                // Add cover image if available
-                if let Some(cover) = &result.cover_image {
+                // Prefer cover image, fallback to thumbnail
+                let (image_url, width, height, img_type) = if let Some(cover) = &result.cover_image {
                     if !cover.is_empty() && !cover.contains("spacer.gif") {
-                        images.push(DiscogsImageOption {
-                            url: cover.clone(),
-                            width: 600,  // Discogs standard size
-                            height: 600,
-                            image_type: "primary".to_string(),
-                        });
+                        (cover.clone(), 600, 600, "primary".to_string())
+                    } else if let Some(thumb) = &result.thumb {
+                        if !thumb.is_empty() && !thumb.contains("spacer.gif") {
+                            (thumb.clone(), 150, 150, "secondary".to_string())
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
                     }
+                } else if let Some(thumb) = &result.thumb {
+                    if !thumb.is_empty() && !thumb.contains("spacer.gif") {
+                        (thumb.clone(), 150, 150, "secondary".to_string())
+                    } else {
+                        continue;
+                    }
+                } else {
+                    continue;
+                };
+
+                // Only add if we haven't seen this URL before
+                if seen_urls.insert(image_url.clone()) {
+                    images.push(DiscogsImageOption {
+                        url: image_url,
+                        width,
+                        height,
+                        image_type: img_type,
+                    });
                 }
 
-                // Add thumbnail as alternative
-                if let Some(thumb) = &result.thumb {
-                    if !thumb.is_empty() && !thumb.contains("spacer.gif") {
-                        images.push(DiscogsImageOption {
-                            url: thumb.clone(),
-                            width: 150,  // Discogs thumb size
-                            height: 150,
-                            image_type: "secondary".to_string(),
-                        });
-                    }
+                // Stop once we have enough unique images
+                if images.len() >= 10 {
+                    break;
                 }
             }
         }
