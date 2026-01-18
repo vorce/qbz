@@ -6,8 +6,6 @@
 const CARD_NAMES: Record<string, string> = {
   'sofhdadsp': 'Intel HD Audio',
   'NVidia': 'NVIDIA GPU',
-  'CS201': 'Cambridge Audio USB',
-  'C20': 'Cambridge Audio',
   'Generic': 'Generic Audio',
   'PCH': 'Onboard Audio',
   'HDMI': 'HDMI Audio',

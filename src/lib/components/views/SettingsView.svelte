@@ -227,11 +227,17 @@
   }
 
   // Device options based on selected backend (derived)
-  // Apply pretty names only to raw ALSA device names (Auto may use ALSA or PipeWire)
+  // For ALSA: use description from aplay -L if available, otherwise translate
+  // For PipeWire/PulseAudio: names are already friendly
   let deviceOptions = $derived.by(() => {
-    const names = backendDevices.map(d =>
-      needsTranslation(d.name) ? getDevicePrettyName(d.name) : d.name
-    );
+    const names = backendDevices.map(d => {
+      // If backend provides description (ALSA via aplay -L), use it
+      if (d.description && selectedBackend === 'ALSA Direct') {
+        return d.description;
+      }
+      // Otherwise apply translation if needed
+      return needsTranslation(d.name) ? getDevicePrettyName(d.name) : d.name;
+    });
     return ['System Default', ...names];
   });
 
@@ -239,7 +245,10 @@
   let deviceByDisplayName = $derived.by(() => {
     const map = new Map<string, AudioDevice>();
     for (const device of backendDevices) {
-      const displayName = needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name;
+      // Same logic: prefer description for ALSA
+      const displayName = (device.description && selectedBackend === 'ALSA Direct')
+        ? device.description
+        : (needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name);
       map.set(displayName, device);
     }
     return map;
@@ -782,7 +791,10 @@
         if (settings.output_device) {
           const device = backendDevices.find(d => d.id === settings.output_device);
           if (device) {
-            outputDevice = needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name;
+            // Use description from aplay -L if available (ALSA), otherwise translate
+            outputDevice = (device.description && settings.backend_type === 'Alsa')
+              ? device.description
+              : (needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name);
           } else {
             outputDevice = 'System Default';
           }
