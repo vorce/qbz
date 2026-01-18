@@ -279,6 +279,7 @@
 
   function clearCurrentSearch() {
     setCurrentSearchValue('');
+    searchExpanded = false;
   }
 
   function getTabIcon(tab: TabType) {
@@ -1445,7 +1446,7 @@
     align-items: center;
     gap: 10px;
     padding: 12px 24px;
-    margin: -24px -32px 16px -32px;
+    margin: 0 -32px 16px -32px;
     background-color: var(--bg-primary);
     border-bottom: 1px solid var(--bg-tertiary);
   }
@@ -1547,6 +1548,11 @@
     border-radius: 4px;
     transition: all 150ms ease;
     flex-shrink: 0;
+  }
+
+  .search-clear-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
   }
 
   .search-clear-btn:hover {
