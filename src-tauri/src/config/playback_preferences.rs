@@ -40,12 +40,14 @@ impl AutoplayMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaybackPreferences {
     pub autoplay_mode: AutoplayMode,
+    pub show_context_icon: bool,
 }
 
 impl Default for PlaybackPreferences {
     fn default() -> Self {
         Self {
             autoplay_mode: AutoplayMode::ContinueWithinSource,
+            show_context_icon: true,
         }
     }
 }
@@ -70,11 +72,18 @@ impl PlaybackPreferencesStore {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS playback_preferences (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
-                autoplay_mode TEXT NOT NULL DEFAULT 'continue'
+                autoplay_mode TEXT NOT NULL DEFAULT 'continue',
+                show_context_icon INTEGER NOT NULL DEFAULT 1
             );
-            INSERT OR IGNORE INTO playback_preferences (id, autoplay_mode)
-            VALUES (1, 'continue');"
+            INSERT OR IGNORE INTO playback_preferences (id, autoplay_mode, show_context_icon)
+            VALUES (1, 'continue', 1);"
         ).map_err(|e| format!("Failed to create playback preferences table: {}", e))?;
+
+        // Migration: Add show_context_icon column if it doesn't exist
+        let _ = conn.execute(
+            "ALTER TABLE playback_preferences ADD COLUMN show_context_icon INTEGER NOT NULL DEFAULT 1",
+            []
+        );
 
         Ok(Self { conn })
     }
@@ -82,12 +91,14 @@ impl PlaybackPreferencesStore {
     pub fn get_preferences(&self) -> Result<PlaybackPreferences, String> {
         self.conn
             .query_row(
-                "SELECT autoplay_mode FROM playback_preferences WHERE id = 1",
+                "SELECT autoplay_mode, show_context_icon FROM playback_preferences WHERE id = 1",
                 [],
                 |row| {
                     let autoplay_str: String = row.get(0)?;
+                    let show_icon: i32 = row.get(1)?;
                     Ok(PlaybackPreferences {
                         autoplay_mode: AutoplayMode::from_db_value(&autoplay_str),
+                        show_context_icon: show_icon != 0,
                     })
                 },
             )
@@ -101,6 +112,16 @@ impl PlaybackPreferencesStore {
                 params![mode.to_db_value()],
             )
             .map_err(|e| format!("Failed to set autoplay mode: {}", e))?;
+        Ok(())
+    }
+
+    pub fn set_show_context_icon(&self, show: bool) -> Result<(), String> {
+        self.conn
+            .execute(
+                "UPDATE playback_preferences SET show_context_icon = ?1 WHERE id = 1",
+                params![if show { 1 } else { 0 }],
+            )
+            .map_err(|e| format!("Failed to set show context icon: {}", e))?;
         Ok(())
     }
 }
@@ -125,6 +146,10 @@ impl PlaybackPreferencesState {
     pub fn set_autoplay_mode(&self, mode: AutoplayMode) -> Result<(), String> {
         self.store.lock().unwrap().set_autoplay_mode(mode)
     }
+
+    pub fn set_show_context_icon(&self, show: bool) -> Result<(), String> {
+        self.store.lock().unwrap().set_show_context_icon(show)
+    }
 }
 
 // Tauri commands
@@ -147,4 +172,12 @@ pub fn set_autoplay_mode(
         _ => return Err(format!("Invalid autoplay mode: {}", mode)),
     };
     state.set_autoplay_mode(autoplay_mode)
+}
+
+#[tauri::command]
+pub fn set_show_context_icon(
+    show: bool,
+    state: tauri::State<PlaybackPreferencesState>,
+) -> Result<(), String> {
+    state.set_show_context_icon(show)
 }

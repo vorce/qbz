@@ -576,6 +576,7 @@ pub fn run() {
             // Playback preferences commands
             config::playback_preferences::get_playback_preferences,
             config::playback_preferences::set_autoplay_mode,
+            config::playback_preferences::set_show_context_icon,
             offline::commands::set_allow_immediate_scrobbling,
             offline::commands::set_allow_accumulated_scrobbling,
             offline::commands::set_show_network_folders_in_manual_offline,
