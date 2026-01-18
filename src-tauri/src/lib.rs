@@ -172,6 +172,9 @@ pub fn run() {
     // Initialize offline mode state
     let offline_state = offline::OfflineState::new()
         .expect("Failed to initialize offline state");
+    // Initialize playback preferences state
+    let playback_prefs_state = config::playback_preferences::PlaybackPreferencesState::new()
+        .expect("Failed to initialize playback preferences");
 
     // Read saved audio device and settings for player initialization
     let (saved_device, audio_settings) = audio_settings_state
@@ -296,6 +299,7 @@ pub fn run() {
         .manage(audio_settings_state)
         .manage(download_settings_state)
         .manage(offline_state)
+        .manage(playback_prefs_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -569,6 +573,9 @@ pub fn run() {
             offline::commands::set_manual_offline,
             offline::commands::set_show_partial_playlists,
             offline::commands::set_allow_cast_while_offline,
+            // Playback preferences commands
+            config::playback_preferences::get_playback_preferences,
+            config::playback_preferences::set_autoplay_mode,
             offline::commands::set_allow_immediate_scrobbling,
             offline::commands::set_allow_accumulated_scrobbling,
             offline::commands::set_show_network_folders_in_manual_offline,

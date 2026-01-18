@@ -43,6 +43,11 @@
     type OfflineSettings
   } from '$lib/stores/offlineStore';
   import { showToast } from '$lib/stores/toastStore';
+  import {
+    getPlaybackPreferences,
+    setAutoplayMode,
+    type AutoplayMode
+  } from '$lib/stores/playbackPreferencesStore';
 
   interface Props {
     onBack?: () => void;
@@ -310,6 +315,7 @@
   );
 
   // Playback settings
+  let autoplayMode = $state<AutoplayMode>('continue');
   let gaplessPlayback = $state(true);
   let crossfade = $state(0);
   let normalizeVolume = $state(false);
@@ -416,6 +422,9 @@
     toastsEnabled = getToastsEnabled();
     loadSystemNotificationsPreference();
     systemNotificationsEnabled = getSystemNotificationsEnabled();
+
+    // Load playback preferences
+    loadPlaybackPreferences();
 
     // Check for legacy downloads
     checkLegacyDownloads();
@@ -1098,6 +1107,25 @@
       downloadRoot = settings.download_root;
     } catch (err) {
       console.error('Failed to load download settings:', err);
+    }
+  }
+
+  async function loadPlaybackPreferences() {
+    try {
+      const prefs = await getPlaybackPreferences();
+      autoplayMode = prefs.autoplay_mode;
+    } catch (err) {
+      console.error('Failed to load playback preferences:', err);
+    }
+  }
+
+  async function handleAutoplayModeChange(mode: AutoplayMode) {
+    try {
+      await setAutoplayMode(mode);
+      autoplayMode = mode;
+    } catch (err) {
+      console.error('Failed to set autoplay mode:', err);
+      showToast('Failed to save autoplay preference', 'error');
     }
   }
 

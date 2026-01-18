@@ -4,12 +4,14 @@
 //! - User credentials (encrypted)
 //! - Audio preferences
 //! - Download preferences
+//! - Playback preferences
 //! - UI preferences
 //! - Local playlists
 //! - Cached favorites
 
 pub mod audio_settings;
 pub mod download_settings;
+pub mod playback_preferences;
 
 pub use audio_settings::{
     AudioSettings,
@@ -28,4 +30,12 @@ pub use download_settings::{
     set_download_root,
     set_show_downloads_in_library,
     validate_download_root,
+};
+
+pub use playback_preferences::{
+    AutoplayMode,
+    PlaybackPreferences,
+    PlaybackPreferencesState,
+    get_playback_preferences,
+    set_autoplay_mode,
 };
