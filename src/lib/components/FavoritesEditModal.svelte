@@ -127,7 +127,7 @@
   }
 </script>
 
-<Modal {isOpen} onClose={handleCancel} title="Favorites Settings" maxWidth="920px">
+<Modal {isOpen} onClose={handleCancel} title="Favorites Settings" maxWidth="736px">
   {#snippet children()}
   <div class="modal-columns">
     <!-- Left Column: Icon Customization -->
@@ -315,7 +315,7 @@
     aspect-ratio: 1;
     display: flex;
     align-items: center;
-    justify-center: center;
+    justify-content: center;
     background: var(--bg-secondary);
     border: 2px solid transparent;
     border-radius: 8px;
@@ -339,23 +339,23 @@
   .color-grid {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
-    gap: 8px;
+    gap: 4px;
   }
 
   .color-btn {
     aspect-ratio: 1;
-    max-width: 40px;
-    max-height: 40px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     font-size: 0;
     border: 2px solid transparent;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 150ms ease;
-    padding: 4px;
+    padding: 3px;
   }
 
   .color-btn:hover {
