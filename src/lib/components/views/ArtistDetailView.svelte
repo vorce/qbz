@@ -4,6 +4,7 @@
   import type { ArtistDetail, QobuzArtist } from '$lib/types';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
+  import { setPlaybackContext } from '$lib/stores/playbackContextStore';
 
   interface Track {
     id: number;
@@ -297,7 +298,26 @@
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
-  function handleTrackPlay(track: Track) {
+  function handleTrackPlay(track: Track, trackIndex?: number) {
+    // Create artist top tracks context
+    if (topTracks.length > 0) {
+      const trackIds = topTracks.map(t => t.id);
+      const index = trackIndex !== undefined ? trackIndex : trackIds.indexOf(track.id);
+      
+      if (index >= 0) {
+        setPlaybackContext(
+          'artist_top',
+          artist.id.toString(),
+          artist.name,
+          'qobuz',
+          trackIds,
+          index
+        );
+        console.log(`[Artist] Context created: "${artist.name}" top tracks, ${trackIds.length} tracks, starting at ${index}`);
+      }
+    }
+
+    // Play track
     if (onTrackPlay) {
       onTrackPlay({
         id: track.id,
@@ -747,8 +767,8 @@
               class="track-row"
               role="button"
               tabindex="0"
-              onclick={() => handleTrackPlay(track)}
-              onkeydown={(e) => e.key === 'Enter' && handleTrackPlay(track)}
+              onclick={() => handleTrackPlay(track, index)}
+              onkeydown={(e) => e.key === 'Enter' && handleTrackPlay(track, index)}
             >
               <div class="track-number">{index + 1}</div>
               <div class="track-artwork">
@@ -780,7 +800,7 @@
               <div class="track-duration">{formatDuration(track.duration)}</div>
               <div class="track-actions">
                 <TrackMenu
-                  onPlayNow={() => handleTrackPlay(track)}
+                  onPlayNow={() => handleTrackPlay(track, index)}
                   onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
                   onPlayLater={onTrackPlayLater ? () => onTrackPlayLater(track) : undefined}
                   onAddFavorite={onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined}
