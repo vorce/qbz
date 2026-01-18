@@ -13,6 +13,7 @@
     getStatus as getOfflineStatus,
     type OfflineStatus
   } from '$lib/stores/offlineStore';
+  import { setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { t } from '$lib/i18n';
   import { onMount } from 'svelte';
 
@@ -529,6 +530,28 @@
   }
 
   function handleTrackClick(track: DisplayTrack) {
+    // Create playlist context before playing
+    if (playlist) {
+      const trackIds = displayTracks
+        .filter(t => !t.isLocal) // Only Qobuz tracks in context
+        .map(t => t.id);
+      
+      const trackIndex = trackIds.indexOf(track.id);
+      
+      if (trackIndex >= 0 && trackIds.length > 0) {
+        setPlaybackContext(
+          'playlist',
+          playlist.id.toString(),
+          playlist.name,
+          'qobuz',
+          trackIds,
+          trackIndex
+        );
+        console.log(`[Playlist] Context created: "${playlist.name}", ${trackIds.length} tracks, starting at ${trackIndex}`);
+      }
+    }
+
+    // Handle playback
     if (track.isLocal && track.localTrackId) {
       // Handle local track play
       const localTrack = localTracksMap.get(track.localTrackId);
