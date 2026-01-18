@@ -2325,6 +2325,7 @@
         }}
         onCast={openCastPicker}
         {isCastConnected}
+        onContextClick={handleContextNavigation}
         lyricsLines={lyricsLines.map(l => ({ text: l.text }))}
         lyricsActiveIndex={lyricsActiveIndex}
         lyricsActiveProgress={lyricsActiveProgress}
