@@ -231,27 +231,54 @@
   // For ALSA: use description from aplay -L if available, otherwise translate
   // For PipeWire/PulseAudio: names are already friendly
   let deviceOptions = $derived.by(() => {
-    const names = backendDevices.map(d => {
-      // If backend provides description (ALSA via aplay -L), use it
+    // First pass: generate display names
+    const displayNames = backendDevices.map(d => {
       if (d.description && selectedBackend === 'ALSA Direct') {
         return d.description;
       }
-      // Otherwise apply translation if needed
       return needsTranslation(d.name) ? getDevicePrettyName(d.name) : d.name;
     });
-    return ['System Default', ...names];
+
+    // Second pass: check for duplicates and make unique if needed
+    const counts = new Map<string, number>();
+    const uniqueNames = displayNames.map((name, idx) => {
+      const count = counts.get(name) || 0;
+      counts.set(name, count + 1);
+
+      // If duplicate, append device ID to make it unique
+      if (displayNames.filter(n => n === name).length > 1) {
+        const device = backendDevices[idx];
+        return `${name} [${device.name}]`;
+      }
+      return name;
+    });
+
+    return ['System Default', ...uniqueNames];
   });
 
   // Map display name -> device for lookup when user selects
   let deviceByDisplayName = $derived.by(() => {
     const map = new Map<string, AudioDevice>();
-    for (const device of backendDevices) {
-      // Same logic: prefer description for ALSA
-      const displayName = (device.description && selectedBackend === 'ALSA Direct')
-        ? device.description
-        : (needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name);
+
+    // Use same logic as deviceOptions to generate unique names
+    const displayNames = backendDevices.map(d => {
+      if (d.description && selectedBackend === 'ALSA Direct') {
+        return d.description;
+      }
+      return needsTranslation(d.name) ? getDevicePrettyName(d.name) : d.name;
+    });
+
+    backendDevices.forEach((device, idx) => {
+      let displayName = displayNames[idx];
+
+      // If duplicate, append device ID
+      if (displayNames.filter(n => n === displayName).length > 1) {
+        displayName = `${displayName} [${device.name}]`;
+      }
+
       map.set(displayName, device);
-    }
+    });
+
     return map;
   });
 
