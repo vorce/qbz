@@ -132,34 +132,73 @@ impl AlsaBackend {
         for device in &mut devices {
             if let Some(desc) = description_map.get(&device.name) {
                 device.description = Some(desc.clone());
-            } else if device.name.starts_with("hw:") || device.name.starts_with("plughw:") {
-                // hw: and plughw: devices don't appear in aplay -L
-                // Use card number map to get friendly name
-                let parts: Vec<&str> = device.name.split(':').collect();
-                if parts.len() == 2 {
-                    let nums: Vec<&str> = parts[1].split(',').collect();
-                    if nums.len() == 2 {
-                        let card_num = nums[0];
-
-                        if let Some(card_desc) = card_map.get(card_num) {
-                            let prefix = if device.name.starts_with("plughw:") {
-                                "Plugin Hardware"
-                            } else {
-                                "Direct Hardware - Bit-perfect"
-                            };
-                            device.description = Some(format!("{} ({})", card_desc, prefix));
-                        } else {
-                            // Fallback if card not found in map
-                            let prefix = if device.name.starts_with("plughw:") {
-                                "Plugin Hardware"
-                            } else {
-                                "Direct Hardware - Bit-perfect"
-                            };
-                            device.description = Some(format!("{} {}", prefix, device.name));
-                        }
-                    }
-                }
             }
+        }
+
+        // Fourth: Add hw:X,Y and plughw:X,Y devices manually (CPAL doesn't enumerate these)
+        // Parse aplay -l to create these devices
+        for (card_num, card_desc) in &card_map {
+            // Create hw:X,0 device (bit-perfect direct hardware access)
+            let hw_device_id = format!("hw:{},0", card_num);
+
+            // Test if CPAL can open this device
+            let can_open = self.host
+                .output_devices()
+                .ok()
+                .and_then(|mut devs| devs.find(|d| d.name().ok().as_deref() == Some(&hw_device_id)))
+                .is_some();
+
+            if !can_open {
+                // Try to get supported configs to validate device exists
+                // Create a test device to check if it's valid
+                if let Ok(test_devices) = self.host.output_devices() {
+                    // CPAL may not enumerate hw: devices but can still open them
+                    // We'll add them anyway and let the backend handle errors
+                    devices.push(AudioDevice {
+                        id: hw_device_id.clone(),
+                        name: hw_device_id.clone(),
+                        description: Some(format!("{} (Direct Hardware - Bit-perfect)", card_desc)),
+                        is_default: false,
+                        max_sample_rate: Some(384000), // Assume high sample rate capability
+                    });
+                }
+            } else {
+                // CPAL found it, get real max sample rate
+                let max_sample_rate = self.host
+                    .output_devices()
+                    .ok()
+                    .and_then(|mut devs| {
+                        devs.find(|d| d.name().ok().as_deref() == Some(&hw_device_id))
+                    })
+                    .and_then(|device| {
+                        device
+                            .supported_output_configs()
+                            .ok()
+                            .and_then(|mut configs| {
+                                configs
+                                    .max_by_key(|c| c.max_sample_rate().0)
+                                    .map(|c| c.max_sample_rate().0)
+                            })
+                    });
+
+                devices.push(AudioDevice {
+                    id: hw_device_id.clone(),
+                    name: hw_device_id.clone(),
+                    description: Some(format!("{} (Direct Hardware - Bit-perfect)", card_desc)),
+                    is_default: false,
+                    max_sample_rate,
+                });
+            }
+
+            // Also create plughw:X,0 device (plugin hardware with auto-conversion)
+            let plughw_device_id = format!("plughw:{},0", card_num);
+            devices.push(AudioDevice {
+                id: plughw_device_id.clone(),
+                name: plughw_device_id.clone(),
+                description: Some(format!("{} (Plugin Hardware)", card_desc)),
+                is_default: false,
+                max_sample_rate: Some(384000),
+            });
         }
 
         log::info!("[ALSA Backend] Enumerated {} ALSA devices", devices.len());
