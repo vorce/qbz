@@ -1113,10 +1113,14 @@
   }
 
   async function loadPlaybackPreferences() {
+    console.log('[Settings] Loading playback preferences...');
     try {
       const prefs = await getPlaybackPreferences();
+      console.log('[Settings] Loaded preferences:', prefs);
       autoplayMode = prefs.autoplay_mode;
       showContextIcon = prefs.show_context_icon;
+      console.log('[Settings] Set autoplayMode to:', autoplayMode);
+      console.log('[Settings] Set showContextIcon to:', showContextIcon);
     } catch (err) {
       console.error('Failed to load playback preferences:', err);
     }
