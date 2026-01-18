@@ -46,7 +46,40 @@
 
   const gradients = [
     { id: 'sunset', label: 'Sunset', value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+    { id: 'ocean', label: 'Ocean', value: 'linear-gradient(135deg, #2e3192 0%, #1bffff 100%)' },
+    { id: 'fire', label: 'Fire', value: 'linear-gradient(135deg, #ff0844 0%, #ffb199 100%)' },
+    { id: 'mint', label: 'Mint', value: 'linear-gradient(135deg, #00b09b 0%, #96c93d 100%)' },
+    { id: 'candy', label: 'Candy', value: 'linear-gradient(135deg, #fc6767 0%, #ec008c 100%)' },
+    { id: 'forest', label: 'Forest', value: 'linear-gradient(135deg, #134e5e 0%, #71b280 100%)' },
   ];
+
+  let customGradientColors = $state<string[]>(['#667eea', '#764ba2']);
+  let showCustomGradientPicker = $state(false);
+
+  function addGradientColor() {
+    if (customGradientColors.length < 3) {
+      customGradientColors = [...customGradientColors, '#888888'];
+    }
+  }
+
+  function removeGradientColor(index: number) {
+    if (customGradientColors.length > 2) {
+      customGradientColors = customGradientColors.filter((_, i) => i !== index);
+    }
+  }
+
+  function updateGradientColor(index: number, value: string) {
+    customGradientColors[index] = value;
+  }
+
+  function applyCustomGradient() {
+    const stops = customGradientColors.map((c, i) => {
+      const percent = (i / (customGradientColors.length - 1)) * 100;
+      return `${c} ${percent}%`;
+    }).join(', ');
+    iconBackground = `linear-gradient(135deg, ${stops})`;
+    showCustomGradientPicker = false;
+  }
 
   const tabLabels: Record<string, string> = {
     tracks: 'Tracks',
@@ -200,6 +233,40 @@
               </button>
             {/each}
           </div>
+        </div>
+
+        <div class="color-section">
+          <h4>Custom Gradient</h4>
+          {#if !showCustomGradientPicker}
+            <button class="btn-custom-gradient" onclick={() => showCustomGradientPicker = true}>
+              Create Custom Gradient
+            </button>
+          {:else}
+            <div class="custom-gradient-editor">
+              {#each customGradientColors as color, i}
+                <div class="gradient-color-row">
+                  <input
+                    type="color"
+                    value={color}
+                    oninput={(e) => updateGradientColor(i, e.currentTarget.value)}
+                    class="color-input"
+                  />
+                  {#if customGradientColors.length > 2}
+                    <button class="btn-remove-color" onclick={() => removeGradientColor(i)} title="Remove">
+                      ✕
+                    </button>
+                  {/if}
+                </div>
+              {/each}
+              <div class="gradient-actions">
+                {#if customGradientColors.length < 3}
+                  <button class="btn-add-color" onclick={addGradientColor}>+ Add Color</button>
+                {/if}
+                <button class="btn-apply-gradient" onclick={applyCustomGradient}>Apply</button>
+                <button class="btn-cancel-gradient" onclick={() => showCustomGradientPicker = false}>Cancel</button>
+              </div>
+            </div>
+          {/if}
         </div>
       </div>
     </div>
@@ -522,5 +589,104 @@
   .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .btn-custom-gradient {
+    width: 100%;
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .btn-custom-gradient:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .custom-gradient-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 6px;
+  }
+
+  .gradient-color-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .color-input {
+    flex: 1;
+    height: 32px;
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 4px;
+    cursor: pointer;
+    background: var(--bg-primary);
+  }
+
+  .btn-remove-color {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .btn-remove-color:hover {
+    background: var(--bg-danger);
+    border-color: var(--bg-danger);
+    color: white;
+  }
+
+  .gradient-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .btn-add-color,
+  .btn-apply-gradient,
+  .btn-cancel-gradient {
+    flex: 1;
+    padding: 6px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .btn-add-color:hover,
+  .btn-cancel-gradient:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .btn-apply-gradient {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--bg-primary);
+  }
+
+  .btn-apply-gradient:hover {
+    opacity: 0.9;
   }
 </style>
