@@ -5,6 +5,7 @@
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
+use log::info;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -69,21 +70,44 @@ impl PlaybackPreferencesStore {
         let conn = Connection::open(&db_path)
             .map_err(|e| format!("Failed to open playback preferences database: {}", e))?;
 
+        // Step 1: Create table with old schema (for new installs) or do nothing if exists
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS playback_preferences (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
-                autoplay_mode TEXT NOT NULL DEFAULT 'continue',
-                show_context_icon INTEGER NOT NULL DEFAULT 1
-            );
-            INSERT OR IGNORE INTO playback_preferences (id, autoplay_mode, show_context_icon)
-            VALUES (1, 'continue', 1);"
+                autoplay_mode TEXT NOT NULL DEFAULT 'continue'
+            );"
         ).map_err(|e| format!("Failed to create playback preferences table: {}", e))?;
 
-        // Migration: Add show_context_icon column if it doesn't exist
-        let _ = conn.execute(
-            "ALTER TABLE playback_preferences ADD COLUMN show_context_icon INTEGER NOT NULL DEFAULT 1",
+        // Step 2: Check if show_context_icon column exists
+        let column_exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('playback_preferences') WHERE name='show_context_icon'",
+                [],
+                |row| {
+                    let count: i32 = row.get(0)?;
+                    Ok(count > 0)
+                }
+            )
+            .unwrap_or(false);
+
+        info!("[PlaybackPrefs] Column show_context_icon exists: {}", column_exists);
+
+        // Step 3: Add column if it doesn't exist (migration for existing users)
+        if !column_exists {
+            info!("[PlaybackPrefs] Migrating: adding show_context_icon column");
+            conn.execute(
+                "ALTER TABLE playback_preferences ADD COLUMN show_context_icon INTEGER NOT NULL DEFAULT 1",
+                []
+            ).map_err(|e| format!("Failed to add show_context_icon column: {}", e))?;
+            info!("[PlaybackPrefs] Migration successful");
+        }
+
+        // Step 4: Insert default row if it doesn't exist
+        conn.execute(
+            "INSERT OR IGNORE INTO playback_preferences (id, autoplay_mode, show_context_icon)
+            VALUES (1, 'continue', 1)",
             []
-        );
+        ).map_err(|e| format!("Failed to insert default preferences: {}", e))?;
 
         Ok(Self { conn })
     }
