@@ -565,7 +565,6 @@
     color: rgba(255, 255, 255, 0.5);
     margin: 0;
   }
-  }
 
   .quality-info {
     display: flex;
