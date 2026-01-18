@@ -1444,10 +1444,10 @@
     justify-content: space-between;
     align-items: center;
     gap: 10px;
-    padding: 12px 0;
+    padding: 12px 24px;
+    margin: -24px -32px 16px -32px;
     background-color: var(--bg-primary);
     border-bottom: 1px solid var(--bg-tertiary);
-    margin: 0 0 16px 0;
   }
 
   .nav-left {
