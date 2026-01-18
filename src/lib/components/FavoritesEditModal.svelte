@@ -127,7 +127,7 @@
   }
 </script>
 
-<Modal {isOpen} onClose={handleCancel} title="Favorites Settings" maxWidth="1150px">
+<Modal {isOpen} onClose={handleCancel} title="Favorites Settings" maxWidth="920px">
   {#snippet children()}
   <div class="modal-columns">
     <!-- Left Column: Icon Customization -->
@@ -344,6 +344,8 @@
 
   .color-btn {
     aspect-ratio: 1;
+    max-width: 40px;
+    max-height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
