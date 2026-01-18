@@ -17,9 +17,15 @@
 
   function handleClick(e: MouseEvent) {
     e.stopPropagation();
+    e.preventDefault();
+    console.log('[StackIcon] Button clicked');
+    console.log('[StackIcon] onClick prop:', onClick);
+    console.log('[StackIcon] Current context:', context);
     if (onClick) {
-      console.log('[StackIcon] Clicked - navigating to source');
+      console.log('[StackIcon] Calling onClick callback');
       onClick();
+    } else {
+      console.warn('[StackIcon] No onClick callback provided');
     }
   }
 
