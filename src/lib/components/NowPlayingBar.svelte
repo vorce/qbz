@@ -63,6 +63,7 @@
     isCastConnected?: boolean;
     onArtistClick?: () => void;
     onAlbumClick?: () => void;
+    onContextClick?: () => void;
   }
 
   let {
@@ -98,7 +99,8 @@
     lyricsActive = false,
     isCastConnected = false,
     onArtistClick,
-    onAlbumClick
+    onAlbumClick,
+    onContextClick
   }: Props = $props();
 
   let progressRef: HTMLDivElement;
@@ -297,7 +299,7 @@
           <div class="song-info">
             <span class="song-title" title={trackTitle}>{trackTitle}</span>
             <div class="song-meta">
-              <StackIcon size={12} class="stack-icon" />
+              <StackIcon size={12} class="stack-icon" onClick={onContextClick} />
               {#if artist}
                 <button class="meta-link" onclick={onArtistClick} title={$t('actions.goToArtist')}>
                   {artist}
