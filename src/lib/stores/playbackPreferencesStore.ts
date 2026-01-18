@@ -12,12 +12,14 @@ export type AutoplayMode = 'continue' | 'track_only';
 
 export interface PlaybackPreferences {
   autoplay_mode: AutoplayMode;
+  show_context_icon: boolean;
 }
 
 // ============ State ============
 
 let preferences: PlaybackPreferences = {
-  autoplay_mode: 'continue'
+  autoplay_mode: 'continue',
+  show_context_icon: true
 };
 
 const listeners = new Set<() => void>();
@@ -46,6 +48,15 @@ export async function getPlaybackPreferences(): Promise<PlaybackPreferences> {
 export async function setAutoplayMode(mode: AutoplayMode): Promise<void> {
   await invoke('set_autoplay_mode', { mode });
   preferences.autoplay_mode = mode;
+  notifyListeners();
+}
+
+/**
+ * Set whether to show context icon in player
+ */
+export async function setShowContextIcon(show: boolean): Promise<void> {
+  await invoke('set_show_context_icon', { show });
+  preferences.show_context_icon = show;
   notifyListeners();
 }
 

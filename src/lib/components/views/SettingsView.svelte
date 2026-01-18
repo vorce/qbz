@@ -46,6 +46,7 @@
   import {
     getPlaybackPreferences,
     setAutoplayMode,
+    setShowContextIcon,
     type AutoplayMode
   } from '$lib/stores/playbackPreferencesStore';
 
@@ -316,6 +317,7 @@
 
   // Playback settings
   let autoplayMode = $state<AutoplayMode>('continue');
+  let showContextIcon = $state(true);
   let gaplessPlayback = $state(true);
   let crossfade = $state(0);
   let normalizeVolume = $state(false);
@@ -1114,6 +1116,7 @@
     try {
       const prefs = await getPlaybackPreferences();
       autoplayMode = prefs.autoplay_mode;
+      showContextIcon = prefs.show_context_icon;
     } catch (err) {
       console.error('Failed to load playback preferences:', err);
     }
@@ -1128,6 +1131,18 @@
     } catch (err) {
       console.error('[Settings] Failed to set autoplay mode:', err);
       showToast('Failed to save autoplay preference', 'error');
+    }
+  }
+
+  async function handleShowContextIconChange(show: boolean) {
+    console.log('[Settings] Changing show context icon to:', show);
+    try {
+      await setShowContextIcon(show);
+      showContextIcon = show;
+      console.log('[Settings] Show context icon saved successfully');
+    } catch (err) {
+      console.error('[Settings] Failed to set show context icon:', err);
+      showToast('Failed to save icon visibility preference', 'error');
     }
   }
 
@@ -1477,6 +1492,19 @@
           <span>Play only selected track</span>
         </label>
       </div>
+    </div>
+    <div class="setting-row">
+      <div class="label-with-tooltip">
+        <span class="setting-label">Show track playing context in player</span>
+        <Tooltip>
+          <div style="max-width: 260px;">
+            <strong>English:</strong> Shows the context from which the current track is being played, such as from an album view, artist page, playlist, etc.
+            <br><br>
+            <strong>Español:</strong> Muestra el contexto desde donde se está reproduciendo el track actual, por ejemplo desde la vista de álbum, de artista, playlist, etc.
+          </div>
+        </Tooltip>
+      </div>
+      <Toggle enabled={showContextIcon} onchange={handleShowContextIconChange} />
     </div>
     <div class="setting-row">
       <div class="label-with-tooltip">

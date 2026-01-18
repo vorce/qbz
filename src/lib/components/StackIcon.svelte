@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Layers } from 'lucide-svelte';
   import { subscribe, getCurrentContext, getContextDisplayInfo } from '$lib/stores/playbackContextStore';
+  import { subscribe as subscribePrefs, getCachedPreferences } from '$lib/stores/playbackPreferencesStore';
   
   interface Props {
     size?: number;
@@ -11,8 +12,9 @@
   
   let context = $state(getCurrentContext());
   let displayInfo = $state(context ? getContextDisplayInfo() : null);
+  let showIcon = $state(getCachedPreferences().show_context_icon);
 
-  // Subscribe to context changes with $effect
+  // Subscribe to context changes
   $effect(() => {
     const unsubscribe = subscribe(() => {
       const newContext = getCurrentContext();
@@ -26,15 +28,24 @@
       unsubscribe();
     };
   });
+
+  // Subscribe to preferences changes
+  $effect(() => {
+    const unsubscribe = subscribePrefs(() => {
+      showIcon = getCachedPreferences().show_context_icon;
+      console.log('[StackIcon] Icon visibility:', showIcon);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  });
 </script>
 
-{#if context && displayInfo}
+{#if context && displayInfo && showIcon}
   <div class="stack-icon-wrapper {className}" title="Playing from: {displayInfo}">
     <Layers size={size} strokeWidth={2} />
   </div>
-{:else}
-  <!-- Debug: Icon should be hidden -->
-  <!-- <span style="font-size: 10px; color: red;">No context</span> -->
 {/if}
 
 <style>
