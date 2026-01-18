@@ -15,6 +15,7 @@
     type HomeSettings,
     type HomeSectionId
   } from '$lib/stores/homeSettingsStore';
+  import { setPlaybackContext } from '$lib/stores/playbackContextStore';
   import type { QobuzAlbum, QobuzArtist, QobuzTrack, DisplayTrack } from '$lib/types';
 
   interface TopArtistSeed {
@@ -332,6 +333,28 @@
 
   function getTrackQuality(track: DisplayTrack): string {
     return formatQuality(track.hires, track.bitDepth, track.samplingRate);
+  }
+
+  function handleContinueTrackPlay(track: DisplayTrack, trackIndex: number) {
+    // Create continue listening context
+    if (continueTracks.length > 0) {
+      const trackIds = continueTracks.map(t => t.id);
+      
+      setPlaybackContext(
+        'home_list',
+        'continue_listening',
+        'Continue Listening',
+        'qobuz',
+        trackIds,
+        trackIndex
+      );
+      console.log(`[Home] Context created: Continue Listening, ${trackIds.length} tracks, starting at ${trackIndex}`);
+    }
+
+    // Play track
+    if (onTrackPlay) {
+      onTrackPlay(track);
+    }
   }
 
   function buildTopArtistSeedsFromTracks(tracks: DisplayTrack[]): TopArtistSeed[] {
@@ -741,9 +764,9 @@
                 compact={true}
                 onArtistClick={track.artistId && onArtistClick ? () => onArtistClick(track.artistId!) : undefined}
                 onAlbumClick={track.albumId && onAlbumClick ? () => onAlbumClick(track.albumId!) : undefined}
-                onPlay={() => onTrackPlay?.(track)}
+                onPlay={() => handleContinueTrackPlay(track, index)}
                 menuActions={{
-                  onPlayNow: () => onTrackPlay?.(track)
+                  onPlayNow: () => handleContinueTrackPlay(track, index)
                 }}
               />
             {/each}
