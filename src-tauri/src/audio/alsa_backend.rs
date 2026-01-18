@@ -44,82 +44,64 @@ impl AlsaBackend {
         Ok(Self { host })
     }
 
-    /// Enumerate ALSA devices using aplay -L, filtering only playback devices
+    /// Enumerate ALSA devices via CPAL
     fn enumerate_alsa_devices(&self) -> BackendResult<Vec<AudioDevice>> {
         let mut devices = Vec::new();
 
-        // Use aplay -L to get all ALSA device names
-        let output = Command::new("aplay")
-            .arg("-L")
-            .output()
-            .map_err(|e| format!("Failed to run aplay: {}", e))?;
+        // Get all output devices from ALSA host
+        let output_devices = self.host
+            .output_devices()
+            .map_err(|e| format!("Failed to enumerate ALSA devices: {}", e))?;
 
-        if !output.status.success() {
-            return Err("aplay -L command failed".to_string());
-        }
+        for (idx, device) in output_devices.enumerate() {
+            let name = device.name().unwrap_or_else(|_| format!("ALSA Device {}", idx));
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let mut current_device: Option<String> = None;
-        let mut current_description: Option<String> = None;
-
-        // Helper to check if device is valid for playback
-        let is_valid_device = |id: &str| -> bool {
-            // Only include actual hardware devices and useful virtual devices
-            id == "default"
-                || id == "pipewire"
-                || id == "pulse"
-                || id.starts_with("hw:")
-                || id.starts_with("plughw:")
-                || id.starts_with("sysdefault:CARD=")
-                || id.starts_with("default:CARD=")
-                || id.starts_with("front:CARD=")
-                || id.starts_with("surround")
-                || id.starts_with("hdmi:")
-                || id.starts_with("iec958:")
-        };
-
-        for line in stdout.lines() {
-            if line.is_empty() {
-                // Empty line marks end of device entry
-                if let (Some(id), Some(desc)) = (current_device.take(), current_description.take()) {
-                    if is_valid_device(&id) {
-                        let is_default = id == "default";
-                        devices.push(AudioDevice {
-                            id: id.clone(),
-                            name: id,
-                            description: Some(desc),
-                            is_default,
-                            max_sample_rate: None, // ALSA devices support variable sample rates
-                        });
-                    }
-                }
-                current_description = None;
-            } else if !line.starts_with(' ') && !line.starts_with('\t') {
-                // Device name (not indented)
-                current_device = Some(line.trim().to_string());
-            } else {
-                // Description (indented)
-                current_description = Some(line.trim().to_string());
+            // Skip non-useful devices
+            if name == "null"
+                || name.starts_with("lavrate")
+                || name.starts_with("samplerate")
+                || name.starts_with("speexrate")
+                || name == "jack"
+                || name == "oss"
+                || name == "speex"
+                || name == "upmix"
+                || name == "vdownmix"
+            {
+                continue;
             }
-        }
 
-        // Don't forget last device
-        if let (Some(id), Some(desc)) = (current_device, current_description) {
-            if is_valid_device(&id) {
-                let is_default = id == "default";
-                devices.push(AudioDevice {
-                    id: id.clone(),
-                    name: id,
-                    description: Some(desc),
-                    is_default,
-                    max_sample_rate: None,
+            // ID is the device name
+            let id = name.clone();
+
+            // Check if this is the default device
+            let is_default = self.host
+                .default_output_device()
+                .and_then(|d| d.name().ok())
+                .map(|default_name| default_name == name)
+                .unwrap_or(false);
+
+            // Try to get max sample rate from supported configs
+            let max_sample_rate = device
+                .supported_output_configs()
+                .ok()
+                .and_then(|mut configs| {
+                    configs
+                        .max_by_key(|c| c.max_sample_rate().0)
+                        .map(|c| c.max_sample_rate().0)
                 });
-            }
+
+            devices.push(AudioDevice {
+                id: id.clone(),
+                name: name.clone(),
+                description: Some(format!("ALSA: {}", name)),
+                is_default,
+                max_sample_rate,
+            });
         }
 
-        log::info!("[ALSA Backend] Enumerated {} devices via aplay -L (filtered)", devices.len());
+        log::info!("[ALSA Backend] Enumerated {} devices via CPAL", devices.len());
         for (idx, dev) in devices.iter().enumerate() {
-            log::info!("  [{}] {} - {}", idx, dev.name, dev.description.as_deref().unwrap_or(""));
+            log::info!("  [{}] {} (max_rate: {:?})", idx, dev.name, dev.max_sample_rate);
         }
 
         Ok(devices)

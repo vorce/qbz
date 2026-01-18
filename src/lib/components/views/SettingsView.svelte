@@ -217,15 +217,13 @@
 
   // Helper to check if a device name looks like raw ALSA (needs translation)
   function needsTranslation(name: string): boolean {
-    return name.startsWith('hw:')
-      || name.startsWith('plughw:')
-      || name.startsWith('sysdefault:CARD=')
-      || name.startsWith('default:CARD=')
-      || name.startsWith('front:CARD=')
-      || name.startsWith('surround')
-      || name.startsWith('hdmi:')
-      || name.startsWith('iec958:')
-      || name === 'default';
+    // PipeWire device names start with "alsa_output." - those already have friendly names
+    if (name.startsWith('alsa_output.')) {
+      return false;
+    }
+
+    // Everything else from ALSA needs translation
+    return true;
   }
 
   // Device options based on selected backend (derived)
