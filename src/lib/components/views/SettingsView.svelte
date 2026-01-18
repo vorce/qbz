@@ -2098,6 +2098,13 @@
     padding: 12px 0;
   }
 
+  .setting-row:has(.radio-group) {
+    height: auto;
+    min-height: 48px;
+    padding: 12px 0;
+    align-items: flex-start;
+  }
+
   .setting-value {
     font-size: 14px;
     color: var(--text-muted);

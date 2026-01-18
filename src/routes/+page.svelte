@@ -600,12 +600,16 @@
 
     // Check autoplay preference and create/clear context
     const prefs = getCachedPreferences();
+    console.log('[Album] Autoplay preference:', prefs.autoplay_mode);
+    
     if (selectedAlbum?.tracks) {
       const trackIndex = selectedAlbum.tracks.findIndex(t => t.id === track.id);
+      console.log('[Album] Track index:', trackIndex, 'of', selectedAlbum.tracks.length);
       
       if (prefs.autoplay_mode === 'continue') {
         // Create album context
         const trackIds = selectedAlbum.tracks.map(t => t.id);
+        console.log('[Album] Creating context with', trackIds.length, 'tracks, starting at', trackIndex);
         await setPlaybackContext(
           'album',
           selectedAlbum.id,
@@ -620,6 +624,8 @@
         await clearPlaybackContext();
         console.log('[Album] Context cleared for single track playback');
       }
+    } else {
+      console.log('[Album] No album tracks found, cannot create context');
     }
 
     const artwork = selectedAlbum?.artwork || '';
