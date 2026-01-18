@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown } from 'lucide-svelte';
+  import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown, Pause } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
   import { getSearchState, setSearchState, type SearchResults, type SearchAllResults, type SearchTab } from '$lib/stores/searchState';
   import { setPlaybackContext } from '$lib/stores/playbackContextStore';
+  import { togglePlay } from '$lib/stores/playerStore';
   import { t } from '$lib/i18n';
 
   let searchInput: HTMLInputElement | null = null;
@@ -87,6 +88,8 @@
     onTrackGoToAlbum?: (albumId: string) => void;
     onTrackGoToArtist?: (artistId: number) => void;
     onArtistClick?: (artistId: number) => void;
+    activeTrackId?: number | null;
+    isPlaybackActive?: boolean;
   }
 
   let {
@@ -110,7 +113,9 @@
     onTrackShareSonglink,
     onTrackGoToAlbum,
     onTrackGoToArtist,
-    onArtistClick
+    onArtistClick,
+    activeTrackId = null,
+    isPlaybackActive = false
   }: Props = $props();
 
   interface Album {
@@ -396,6 +401,11 @@
     if (onTrackPlay) {
       onTrackPlay(track);
     }
+  }
+
+  function handlePausePlayback(event: MouseEvent) {
+    event.stopPropagation();
+    void togglePlay();
   }
 
   function getArtistImage(artist: Artist): string {
@@ -744,8 +754,10 @@
               </div>
               <div class="tracks-list-compact">
                 {#each allResults.tracks.items.slice(0, 6) as track, index}
+                  {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
                   <div
                     class="track-row"
+                    class:playing={isActiveTrack}
                     role="button"
                     tabindex="0"
                     onclick={() => handleSearchTrackPlay(track, index)}
@@ -753,20 +765,63 @@
                   >
                     <div class="track-number">{index + 1}</div>
                     {#if failedTrackImages.has(track.id) || !getTrackArtwork(track)}
-                      <div class="track-artwork-placeholder">
-                        <Music size={20} />
+                      <div class="track-artwork-container">
+                        <div class="track-artwork-placeholder">
+                          <Music size={20} />
+                        </div>
+                        <button
+                          class="track-play-overlay"
+                          class:is-playing={isActiveTrack}
+                          onclick={(e) => {
+                            if (isActiveTrack) {
+                              handlePausePlayback(e);
+                            } else {
+                              e.stopPropagation();
+                              handleSearchTrackPlay(track, index);
+                            }
+                          }}
+                          aria-label={isActiveTrack ? 'Pause track' : 'Play track'}
+                        >
+                          <span class="play-icon" aria-hidden="true">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
+                          </span>
+                          <div class="playing-indicator" aria-hidden="true">
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                          </div>
+                          <Pause size={20} class="pause-icon" aria-hidden="true" />
+                        </button>
                       </div>
                     {:else}
                       <div class="track-artwork-container">
                         <img src={getTrackArtwork(track)} alt={track.title} class="track-artwork" onerror={() => handleTrackImageError(track.id)} />
-                        <button 
+                        <button
                           class="track-play-overlay"
-                          onclick={(e) => { e.stopPropagation(); handleSearchTrackPlay(track, index); }}
-                          aria-label="Play track"
+                          class:is-playing={isActiveTrack}
+                          onclick={(e) => {
+                            if (isActiveTrack) {
+                              handlePausePlayback(e);
+                            } else {
+                              e.stopPropagation();
+                              handleSearchTrackPlay(track, index);
+                            }
+                          }}
+                          aria-label={isActiveTrack ? 'Pause track' : 'Play track'}
                         >
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                            <path d="M8 5v14l11-7z"/>
-                          </svg>
+                          <span class="play-icon" aria-hidden="true">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
+                          </span>
+                          <div class="playing-indicator" aria-hidden="true">
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                          </div>
+                          <Pause size={20} class="pause-icon" aria-hidden="true" />
                         </button>
                       </div>
                     {/if}
@@ -849,8 +904,10 @@
       {:else}
         <div class="tracks-list">
           {#each trackResults.items as track, index}
+            {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
             <div
               class="track-row"
+              class:playing={isActiveTrack}
               role="button"
               tabindex="0"
               onclick={() => handleSearchTrackPlay(track, index)}
@@ -858,11 +915,65 @@
             >
               <div class="track-number">{index + 1}</div>
               {#if failedTrackImages.has(track.id) || !getTrackArtwork(track)}
-                <div class="track-artwork-placeholder">
-                  <Music size={20} />
+                <div class="track-artwork-container">
+                  <div class="track-artwork-placeholder">
+                    <Music size={20} />
+                  </div>
+                  <button
+                    class="track-play-overlay"
+                    class:is-playing={isActiveTrack}
+                    onclick={(e) => {
+                      if (isActiveTrack) {
+                        handlePausePlayback(e);
+                      } else {
+                        e.stopPropagation();
+                        handleSearchTrackPlay(track, index);
+                      }
+                    }}
+                    aria-label={isActiveTrack ? 'Pause track' : 'Play track'}
+                  >
+                    <span class="play-icon" aria-hidden="true">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </span>
+                    <div class="playing-indicator" aria-hidden="true">
+                      <div class="bar"></div>
+                      <div class="bar"></div>
+                      <div class="bar"></div>
+                    </div>
+                    <Pause size={20} class="pause-icon" aria-hidden="true" />
+                  </button>
                 </div>
               {:else}
-                <img src={getTrackArtwork(track)} alt={track.title} class="track-artwork" onerror={() => handleTrackImageError(track.id)} />
+                <div class="track-artwork-container">
+                  <img src={getTrackArtwork(track)} alt={track.title} class="track-artwork" onerror={() => handleTrackImageError(track.id)} />
+                  <button
+                    class="track-play-overlay"
+                    class:is-playing={isActiveTrack}
+                    onclick={(e) => {
+                      if (isActiveTrack) {
+                        handlePausePlayback(e);
+                      } else {
+                        e.stopPropagation();
+                        handleSearchTrackPlay(track, index);
+                      }
+                    }}
+                    aria-label={isActiveTrack ? 'Pause track' : 'Play track'}
+                  >
+                    <span class="play-icon" aria-hidden="true">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </span>
+                    <div class="playing-indicator" aria-hidden="true">
+                      <div class="bar"></div>
+                      <div class="bar"></div>
+                      <div class="bar"></div>
+                    </div>
+                    <Pause size={20} class="pause-icon" aria-hidden="true" />
+                  </button>
+                </div>
               {/if}
               <div class="track-info">
                 <div class="track-title">{track.title}</div>
@@ -1613,8 +1724,72 @@
     display: flex;
   }
 
+  .track-row.playing .track-play-overlay {
+    display: flex;
+  }
+
   .track-play-overlay:hover {
     background: rgba(0, 0, 0, 0.75);
+  }
+
+  .track-play-overlay .playing-indicator,
+  .track-play-overlay .pause-icon {
+    display: none;
+  }
+
+  .track-row.playing .track-play-overlay .play-icon {
+    display: none;
+  }
+
+  .track-row.playing .track-play-overlay .playing-indicator {
+    display: flex;
+  }
+
+  .track-row.playing:hover .track-play-overlay .playing-indicator {
+    display: none;
+  }
+
+  .track-row.playing:hover .track-play-overlay .pause-icon {
+    display: inline-flex;
+  }
+
+  .playing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .playing-indicator .bar {
+    width: 3px;
+    background-color: var(--accent-primary);
+    border-radius: 9999px;
+    transform-origin: bottom;
+    animation: search-equalize 1s ease-in-out infinite;
+  }
+
+  .playing-indicator .bar:nth-child(1) {
+    height: 10px;
+  }
+
+  .playing-indicator .bar:nth-child(2) {
+    height: 14px;
+    animation-delay: 0.15s;
+  }
+
+  .playing-indicator .bar:nth-child(3) {
+    height: 8px;
+    animation-delay: 0.3s;
+  }
+
+  @keyframes search-equalize {
+    0%, 100% {
+      transform: scaleY(0.5);
+      opacity: 0.7;
+    }
+    50% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
   }
 
   @media (max-width: 1024px) {

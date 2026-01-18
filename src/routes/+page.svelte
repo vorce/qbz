@@ -2049,6 +2049,8 @@
             onTrackGoToAlbum={handleAlbumClick}
             onTrackGoToArtist={handleArtistClick}
             onArtistClick={handleArtistClick}
+            activeTrackId={currentTrack?.id ?? null}
+            isPlaybackActive={isPlaying}
           />
         {/if}
       {:else if activeView === 'settings'}
@@ -2115,6 +2117,8 @@
           onTrackGoToAlbum={handleAlbumClick}
           onTrackGoToArtist={handleArtistClick}
           onPlaylistClick={selectPlaylist}
+          activeTrackId={currentTrack?.id ?? null}
+          isPlaybackActive={isPlaying}
         />
       {:else if activeView === 'library' || activeView === 'library-album'}
         <LocalLibraryView
