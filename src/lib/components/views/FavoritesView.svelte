@@ -743,98 +743,48 @@
     </button>
   </div>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button
-      class="tab"
-      class:active={activeTab === 'tracks'}
-      onclick={() => handleTabChange('tracks')}
-    >
-      <Music size={16} />
-      <span>Tracks</span>
-    </button>
-    <button
-      class="tab"
-      class:active={activeTab === 'albums'}
-      onclick={() => handleTabChange('albums')}
-    >
-      <Disc3 size={16} />
-      <span>Albums</span>
-    </button>
-    <button
-      class="tab"
-      class:active={activeTab === 'artists'}
-      onclick={() => handleTabChange('artists')}
-    >
-      <Mic2 size={16} />
-      <span>Artists</span>
-    </button>
-    <button
-      class="tab"
-      class:active={activeTab === 'playlists'}
-      onclick={() => handleTabChange('playlists')}
-    >
-      <ListMusic size={16} />
-      <span>Playlists</span>
-    </button>
-  </div>
-
-  <!-- Toolbar with search and actions -->
-  <div class="toolbar">
-    <!-- Search input -->
-    <div class="search-container">
-      <Search size={16} class="search-icon" />
-      {#if activeTab === 'tracks'}
-        <input
-          type="text"
-          placeholder="Search tracks..."
-          bind:value={trackSearch}
-          class="search-input"
-        />
-        {#if trackSearch}
-          <button class="search-clear" onclick={() => trackSearch = ''}>
-            <X size={14} />
-          </button>
-        {/if}
-      {:else if activeTab === 'albums'}
-        <input
-          type="text"
-          placeholder="Search albums..."
-          bind:value={albumSearch}
-          class="search-input"
-        />
-        {#if albumSearch}
-          <button class="search-clear" onclick={() => albumSearch = ''}>
-            <X size={14} />
-          </button>
-        {/if}
-      {:else if activeTab === 'artists'}
-        <input
-          type="text"
-          placeholder="Search artists..."
-          bind:value={artistSearch}
-          class="search-input"
-        />
-        {#if artistSearch}
-          <button class="search-clear" onclick={() => artistSearch = ''}>
-            <X size={14} />
-          </button>
-        {/if}
+  <!-- Navigation Bar (Artist-style) -->
+  <div class="favorites-nav">
+    <div class="nav-left">
+      {#each favoritesPreferences.tab_order as tab}
+        <button
+          class="nav-link"
+          class:active={activeTab === tab}
+          onclick={() => handleTabChange(tab as TabType)}
+        >
+          <svelte:component this={getTabIcon(tab as TabType)} size={16} />
+          <span>{getTabLabel(tab as TabType)}</span>
+        </button>
+      {/each}
+    </div>
+    <div class="nav-right">
+      {#if !searchExpanded}
+        <button class="search-icon-btn" onclick={() => searchExpanded = true} title="Search">
+          <Search size={16} />
+        </button>
       {:else}
-        <input
-          type="text"
-          placeholder="Search playlists..."
-          bind:value={playlistSearch}
-          class="search-input"
-        />
-        {#if playlistSearch}
-          <button class="search-clear" onclick={() => playlistSearch = ''}>
-            <X size={14} />
-          </button>
-        {/if}
+        <div class="search-expanded">
+          <Search size={16} class="search-icon-inline" />
+          <input
+            type="text"
+            placeholder={`Search ${getTabLabel(activeTab).toLowerCase()}...`}
+            value={getCurrentSearchValue()}
+            oninput={(e) => setCurrentSearchValue(e.currentTarget.value)}
+            class="search-input-inline"
+            autofocus
+          />
+          {#if getCurrentSearchValue()}
+            <button class="search-clear-btn" onclick={clearCurrentSearch} title="Clear">
+              <X size={14} />
+            </button>
+          {/if}
+        </div>
       {/if}
     </div>
+  </div>
 
+  <!-- Toolbar with actions -->
+  <div class="toolbar">
     {#if activeTab === 'albums'}
       <div class="toolbar-controls">
         <div class="dropdown-container">
@@ -1486,37 +1436,122 @@
     color: var(--accent-primary);
   }
 
-  .tabs {
+  .favorites-nav {
+    position: sticky;
+    top: 0;
+    z-index: 4;
     display: flex;
-    gap: 8px;
-    margin-bottom: 24px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    background-color: var(--bg-primary);
     border-bottom: 1px solid var(--bg-tertiary);
-    padding-bottom: 16px;
+    margin: 0 0 16px 0;
   }
 
-  .tab {
+  .nav-left {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .nav-link:hover {
+    color: var(--text-secondary);
+  }
+
+  .nav-link.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent-primary);
+  }
+
+  .nav-right {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 20px;
-    background: none;
+  }
+
+  .search-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
     border: none;
-    border-radius: 8px;
+    background: none;
     color: var(--text-muted);
-    font-size: 14px;
-    font-weight: 500;
     cursor: pointer;
+    border-radius: 6px;
     transition: all 150ms ease;
   }
 
-  .tab:hover {
+  .search-icon-btn:hover {
     color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    background: var(--bg-tertiary);
   }
 
-  .tab.active {
+  .search-expanded {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 8px;
+    min-width: 240px;
+  }
+
+  .search-icon-inline {
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .search-input-inline {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
     color: var(--text-primary);
-    background-color: var(--bg-tertiary);
+    font-size: 13px;
+  }
+
+  .search-input-inline::placeholder {
+    color: var(--text-muted);
+  }
+
+  .search-clear-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 150ms ease;
+    flex-shrink: 0;
+  }
+
+  .search-clear-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
   }
 
   .toolbar {
