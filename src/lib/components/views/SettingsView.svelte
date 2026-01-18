@@ -252,16 +252,16 @@
   let showAlsaPluginSelector = $derived(selectedBackend === 'ALSA Direct');
 
   // Smart toggle states - auto-disable incompatible features
-  let exclusiveModeDisabled = $derived(selectedBackend === 'PipeWire' || selectedBackend === 'Auto');
+  let exclusiveModeDisabled = $derived(selectedBackend === 'PipeWire' || selectedBackend === 'Auto' || selectedBackend === 'PulseAudio');
   let exclusiveModeTooltipOverride = $derived(
     exclusiveModeDisabled
-      ? 'Exclusive mode is only available with ALSA Direct backend. PipeWire is a multiplexed audio server and cannot provide true exclusive access.'
+      ? 'Exclusive mode is only available with ALSA Direct backend. PipeWire and PulseAudio are multiplexed audio servers and cannot provide true exclusive access.'
       : null
   );
-  let dacPassthroughDisabled = $derived(selectedBackend === 'ALSA Direct');
+  let dacPassthroughDisabled = $derived(selectedBackend !== 'PipeWire');
   let dacPassthroughTooltipOverride = $derived(
     dacPassthroughDisabled
-      ? 'DAC Passthrough uses pw-metadata to force PipeWire sample rates. It is not compatible with ALSA Direct backend. Use ALSA Direct for true bit-perfect playback without needing this setting.'
+      ? 'DAC Passthrough uses pw-metadata to force PipeWire sample rates. It is only compatible with the PipeWire backend.'
       : null
   );
   let gaplessDisabled = $derived(dacPassthrough);
@@ -776,21 +776,37 @@
         selectedBackend = backend?.name ?? 'Auto';
 
         // Load devices for selected backend
-        if (settings.backend_type) {
-          await loadBackendDevices(settings.backend_type);
+        await loadBackendDevices(settings.backend_type);
 
-          // Set selected device from backend devices
-          if (settings.output_device) {
-            const device = backendDevices.find(d => d.id === settings.output_device);
-            if (device) {
-              outputDevice = needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name;
-            } else {
-              outputDevice = 'System Default';
-            }
+        // Set selected device from backend devices
+        if (settings.output_device) {
+          const device = backendDevices.find(d => d.id === settings.output_device);
+          if (device) {
+            outputDevice = needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name;
+          } else {
+            outputDevice = 'System Default';
           }
         }
       } else {
         selectedBackend = 'Auto';
+        // Auto mode: load devices from first available backend
+        // This allows showing proper device names with translation
+        if (availableBackends.length > 0) {
+          const firstBackend = availableBackends.find(b => b.is_available);
+          if (firstBackend) {
+            await loadBackendDevices(firstBackend.backend_type);
+
+            // Set selected device from backend devices
+            if (settings.output_device) {
+              const device = backendDevices.find(d => d.id === settings.output_device);
+              if (device) {
+                outputDevice = needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name;
+              } else {
+                outputDevice = 'System Default';
+              }
+            }
+          }
+        }
       }
 
       if (settings.alsa_plugin) {
@@ -882,19 +898,21 @@
     const backendType = backendName === 'Auto' ? null : backend?.backend_type ?? null;
 
     // Auto-disable incompatible features
-    if (backendName === 'ALSA Direct') {
+    // DAC Passthrough only works with PipeWire
+    if (backendName !== 'PipeWire') {
       if (dacPassthrough) {
         dacPassthrough = false;
         await invoke('set_audio_dac_passthrough', { enabled: false });
-        console.log('[Audio] Disabled DAC Passthrough (incompatible with ALSA Direct)');
+        console.log('[Audio] Disabled DAC Passthrough (only compatible with PipeWire)');
       }
     }
 
-    if (backendName === 'PipeWire' || backendName === 'Auto') {
+    // Exclusive mode only works with ALSA Direct
+    if (backendName !== 'ALSA Direct') {
       if (exclusiveMode) {
         exclusiveMode = false;
         await invoke('set_audio_exclusive_mode', { enabled: false });
-        console.log('[Audio] Disabled exclusive mode (incompatible with PipeWire)');
+        console.log('[Audio] Disabled exclusive mode (only compatible with ALSA Direct)');
       }
     }
 
@@ -906,14 +924,31 @@
       // Load devices for new backend
       if (backendType) {
         await loadBackendDevices(backendType);
+      } else {
+        // Auto mode: load devices from first available backend for device selection
+        if (availableBackends.length > 0) {
+          const firstBackend = availableBackends.find(b => b.is_available);
+          if (firstBackend) {
+            await loadBackendDevices(firstBackend.backend_type);
+          }
+        }
       }
 
       // Reset to default device when switching backends (always)
       outputDevice = 'System Default';
       await invoke('set_audio_output_device', { device: null });
 
-      // Reinitialize audio
+      // Reinitialize audio - this will recreate the stream completely
       await invoke('reinit_audio_device', { device: null });
+
+      // Stop current playback to prevent stuck/dead streams
+      try {
+        await invoke('stop_playback');
+        console.log('[Audio] Stopped playback after backend change');
+      } catch (err) {
+        // Ignore error if nothing was playing
+        console.log('[Audio] No playback to stop');
+      }
     } catch (err) {
       console.error('[Audio] Failed to change backend:', err);
     }
@@ -1269,8 +1304,8 @@
       </div>
       <Dropdown
         value={outputDevice}
-        options={selectedBackend === 'Auto' ? (audioDeviceOptions.length > 1 ? audioDeviceOptions : ['System Default']) : deviceOptions}
-        onchange={selectedBackend === 'Auto' ? handleOutputDeviceChange : handleBackendDeviceChange}
+        options={deviceOptions}
+        onchange={handleBackendDeviceChange}
         wide
         expandLeft
         compact
