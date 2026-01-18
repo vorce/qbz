@@ -146,66 +146,87 @@ impl AlsaBackend {
             }
         }
 
-        // Add hw: devices for bit-perfect playback (not listed by aplay -L)
-        // Extract unique CARD names from devices we found
-        let mut cards: Vec<String> = Vec::new();
-        for device in &devices {
-            if let Some(card_match) = device.name.strip_prefix("front:CARD=") {
-                if let Some(card_name) = card_match.split(',').next() {
-                    if !cards.contains(&card_name.to_string()) {
-                        cards.push(card_name.to_string());
+        // Add hw:X,Y devices for bit-perfect playback
+        // Parse aplay -l to get card numbers (CPAL requires hw:0,0 format, not hw:CARD=name)
+        let aplay_l_output = Command::new("aplay")
+            .arg("-l")
+            .output()
+            .ok()
+            .and_then(|o| if o.status.success() { Some(o) } else { None });
+
+        if let Some(output) = aplay_l_output {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+
+            // Parse card numbers and names from "card N: NAME [DESCRIPTION]" lines
+            // Example: card 4: C20 [Cambridge Audio USB Audio 2.0], device 0: USB Audio [USB Audio]
+            for line in stdout.lines() {
+                if let Some(card_info) = line.strip_prefix("card ") {
+                    // Extract card number and name
+                    let parts: Vec<&str> = card_info.splitn(2, ':').collect();
+                    if parts.len() == 2 {
+                        let card_num_str = parts[0].trim();
+                        let rest = parts[1].trim();
+
+                        // Extract card name (before space or bracket)
+                        let card_name = rest.split_whitespace().next().unwrap_or("");
+
+                        // Extract device number if present
+                        if let Some(device_info) = line.find(", device ") {
+                            if let Some(dev_start) = line[device_info..].find("device ") {
+                                let dev_part = &line[device_info + dev_start + 7..];
+                                if let Some(dev_num_str) = dev_part.split(':').next() {
+                                    // Create hw:X,Y device
+                                    let hw_device_id = format!("hw:{},{}", card_num_str, dev_num_str.trim());
+
+                                    // Skip if we already added this device
+                                    if devices.iter().any(|d| d.name == hw_device_id) {
+                                        continue;
+                                    }
+
+                                    // Get max sample rate from CPAL
+                                    let max_sample_rate = self.host
+                                        .output_devices()
+                                        .ok()
+                                        .and_then(|mut devs| {
+                                            devs.find(|d| d.name().ok().as_deref() == Some(&hw_device_id))
+                                        })
+                                        .and_then(|device| {
+                                            device
+                                                .supported_output_configs()
+                                                .ok()
+                                                .and_then(|mut configs| {
+                                                    configs
+                                                        .max_by_key(|c| c.max_sample_rate().0)
+                                                        .map(|c| c.max_sample_rate().0)
+                                                })
+                                        });
+
+                                    // Find the friendly description from aplay -L for this card
+                                    let base_description = devices.iter()
+                                        .find(|d| d.name.contains(&format!("CARD={}", card_name)))
+                                        .and_then(|d| d.description.as_ref())
+                                        .map(|desc| {
+                                            desc.split(',').next().unwrap_or(desc).trim().to_string()
+                                        })
+                                        .unwrap_or_else(|| card_name.to_string());
+
+                                    devices.push(AudioDevice {
+                                        id: hw_device_id.clone(),
+                                        name: hw_device_id.clone(),
+                                        description: Some(format!("{} (Direct Hardware - Bit-perfect)", base_description)),
+                                        is_default: false,
+                                        max_sample_rate,
+                                    });
+                                }
+                            }
+                        }
                     }
-                }
-            } else if let Some(card_match) = device.name.strip_prefix("sysdefault:CARD=") {
-                if !cards.contains(&card_match.to_string()) {
-                    cards.push(card_match.to_string());
                 }
             }
         }
 
-        // For each card, add hw:CARD=XXX,DEV=0 device (bit-perfect, no plugins)
-        for card in &cards {
-            let hw_device_id = format!("hw:CARD={},DEV=0", card);
-
-            // Get max sample rate from CPAL
-            let max_sample_rate = self.host
-                .output_devices()
-                .ok()
-                .and_then(|mut devs| {
-                    devs.find(|d| d.name().ok().as_deref() == Some(&hw_device_id))
-                })
-                .and_then(|device| {
-                    device
-                        .supported_output_configs()
-                        .ok()
-                        .and_then(|mut configs| {
-                            configs
-                                .max_by_key(|c| c.max_sample_rate().0)
-                                .map(|c| c.max_sample_rate().0)
-                        })
-                });
-
-            // Find the friendly description from front: or sysdefault: device
-            let base_description = devices.iter()
-                .find(|d| d.name.starts_with(&format!("front:CARD={}", card)) ||
-                         d.name == format!("sysdefault:CARD={}", card))
-                .and_then(|d| d.description.as_ref())
-                .map(|desc| {
-                    // Extract just the card name (first line before comma)
-                    desc.split(',').next().unwrap_or(desc).trim().to_string()
-                })
-                .unwrap_or_else(|| card.clone());
-
-            devices.push(AudioDevice {
-                id: hw_device_id.clone(),
-                name: hw_device_id.clone(),
-                description: Some(format!("{} (Direct Hardware - Bit-perfect)", base_description)),
-                is_default: false,
-                max_sample_rate,
-            });
-        }
-
-        log::info!("[ALSA Backend] Enumerated {} devices via aplay -L (+ {} hw: devices)", devices.len() - cards.len(), cards.len());
+        let hw_device_count = devices.iter().filter(|d| d.name.starts_with("hw:")).count();
+        log::info!("[ALSA Backend] Enumerated {} devices via aplay -L (+ {} hw: devices)", devices.len() - hw_device_count, hw_device_count);
         for (idx, dev) in devices.iter().enumerate() {
             log::info!(
                 "  [{}] {} - {} (max_rate: {:?})",
