@@ -25,6 +25,10 @@
     type Toast as ToastData
   } from '$lib/stores/toastStore';
 
+  // Playback context and preferences
+  import { initPlaybackContextStore } from '$lib/stores/playbackContextStore';
+  import { initPlaybackPreferences } from '$lib/stores/playbackPreferencesStore';
+
   // UI state management
   import {
     subscribe as subscribeUI,
@@ -1578,6 +1582,10 @@
     // Initialize download states
     initDownloadStates();
     startDownloadEventListeners();
+
+    // Initialize playback context and preferences stores
+    initPlaybackContextStore();
+    initPlaybackPreferences();
 
     // Note: loadFavorites() is called in handleLoginSuccess after login is confirmed
     // This prevents API calls before authentication is complete
