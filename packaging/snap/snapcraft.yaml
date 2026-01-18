@@ -1,0 +1,82 @@
+# QBZ Snap package configuration
+# NOTE: Not yet implemented - this is a template for future use
+
+name: qbz
+version: '1.1.5'
+summary: Native Qobuz client for Linux with bit-perfect audio
+description: |
+  QBZ is a native Qobuz streaming client for Linux, designed for audiophiles
+  who need bit-perfect playback without browser sample rate limitations.
+
+  Features:
+  - Bit-perfect hi-res audio playback (up to 192kHz/24-bit)
+  - DAC Passthrough for automatic sample rate switching
+  - ALSA Direct backend for exclusive hardware access
+  - PipeWire and PulseAudio support
+  - Last.fm scrobbling
+  - Chromecast and DLNA casting
+  - Offline mode with local library support
+
+grade: stable
+confinement: strict
+base: core22
+
+architectures:
+  - build-on: amd64
+
+apps:
+  qbz:
+    command: bin/qbz
+    extensions: [gnome]
+    plugs:
+      - network
+      - audio-playback
+      - home
+      - removable-media
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - unity7
+      - gsettings
+      - pulseaudio
+      - alsa
+
+parts:
+  qbz:
+    plugin: rust
+    source: ../..
+    build-packages:
+      - libwebkit2gtk-4.1-dev
+      - libgtk-3-dev
+      - libayatana-appindicator3-dev
+      - librsvg2-dev
+      - patchelf
+      - libssl-dev
+      - libasound2-dev
+      - pkg-config
+      # alsa-utils for aplay command (device enumeration)
+      - alsa-utils
+    stage-packages:
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+      - libayatana-appindicator3-1
+      - libasound2
+      - libssl3
+      # Include alsa-utils in the snap for aplay -L command
+      - alsa-utils
+    override-build: |
+      # Install Node.js for frontend build
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      apt-get install -y nodejs
+
+      # Build frontend
+      npm ci
+      npm run build
+
+      # Build Tauri backend
+      cargo build --release
+
+      # Install binary
+      mkdir -p $SNAPCRAFT_PART_INSTALL/bin
+      cp target/release/qbz-nix $SNAPCRAFT_PART_INSTALL/bin/qbz
