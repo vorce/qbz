@@ -20,6 +20,7 @@
   } from 'lucide-svelte';
   import QualityBadge from './QualityBadge.svelte';
   import AudioOutputBadges from './AudioOutputBadges.svelte';
+  import StackIcon from './StackIcon.svelte';
   import { t } from '$lib/i18n';
   import {
     subscribe as subscribeOffline,
@@ -294,7 +295,10 @@
           </button>
 
           <div class="song-info">
-            <span class="song-title" title={trackTitle}>{trackTitle}</span>
+            <div class="song-title-row">
+              <StackIcon size={14} class="stack-icon" />
+              <span class="song-title" title={trackTitle}>{trackTitle}</span>
+            </div>
             <div class="song-meta">
               {#if artist}
                 <button class="meta-link" onclick={onArtistClick} title={$t('actions.goToArtist')}>
@@ -676,6 +680,20 @@
     align-self: center;
   }
 
+  .song-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .song-title-row :global(.stack-icon) {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
   .song-title {
     font-size: 13px;
     font-weight: 500;
@@ -683,6 +701,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
   }
 
   .song-meta {

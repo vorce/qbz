@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { X, Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Heart, List, Maximize2, MoreHorizontal, Cast } from 'lucide-svelte';
   import QualityBadge from './QualityBadge.svelte';
+  import StackIcon from './StackIcon.svelte';
   import LyricsLines from './lyrics/LyricsLines.svelte';
   import { startActiveLineUpdates } from '$lib/stores/lyricsStore';
 
@@ -244,7 +245,10 @@
         </div>
 
         <div class="track-info">
-          <h1 class="title">{trackTitle}</h1>
+          <div class="title-row">
+            <StackIcon size={18} class="stack-icon" />
+            <h1 class="title">{trackTitle}</h1>
+          </div>
           <h2 class="artist">{artist}</h2>
           <h3 class="album">{album}</h3>
           <div class="quality-info">
@@ -508,14 +512,27 @@
     width: 100%;
   }
 
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .title-row :global(.stack-icon) {
+    flex-shrink: 0;
+  }
+
   .title {
     font-size: 22px;
     font-weight: 600;
     color: white;
-    margin: 0 0 6px;
+    margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 1;
+    min-width: 0;
   }
 
   .artist {

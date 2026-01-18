@@ -12,6 +12,7 @@
     Maximize2,
     ListMusic
   } from 'lucide-svelte';
+  import StackIcon from '$lib/components/StackIcon.svelte';
   import {
     subscribe as subscribePlayer,
     getPlayerState,
@@ -230,7 +231,10 @@
         <Maximize2 size={14} />
       </button>
       <div class="track-info">
-        <div class="title">{playerState.currentTrack?.title ?? 'No track'}</div>
+        <div class="title-row">
+          <StackIcon size={14} class="stack-icon" />
+          <div class="title">{playerState.currentTrack?.title ?? 'No track'}</div>
+        </div>
         <div class="artist-album">
           {playerState.currentTrack?.artist ?? '—'}
           {#if playerState.currentTrack?.album}
@@ -408,6 +412,18 @@
     padding-right: 30px;
   }
 
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .title-row :global(.stack-icon) {
+    flex-shrink: 0;
+  }
+
   .title {
     font-weight: 600;
     font-size: 14px;
@@ -416,6 +432,8 @@
     text-overflow: ellipsis;
     color: #fff;
     line-height: 1.4;
+    flex: 1;
+    min-width: 0;
   }
 
   .artist-album {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { SkipBack, Play, Pause, SkipForward, ChevronDown } from 'lucide-svelte';
+  import StackIcon from './StackIcon.svelte';
   import LyricsLines from './lyrics/LyricsLines.svelte';
   import { startActiveLineUpdates, stopActiveLineUpdates } from '$lib/stores/lyricsStore';
   import { t } from '$lib/i18n';
@@ -184,7 +185,10 @@
       <div class="track-info">
         <img src={artwork} alt="" class="mini-artwork" />
         <div class="track-meta">
-          <div class="track-title">{trackTitle}</div>
+          <div class="track-title-row">
+            <StackIcon size={14} class="stack-icon" />
+            <div class="track-title">{trackTitle}</div>
+          </div>
           <div class="track-artist">{artist}</div>
         </div>
       </div>
@@ -464,6 +468,18 @@
     flex: 1;
   }
 
+  .track-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .track-title-row :global(.stack-icon) {
+    flex-shrink: 0;
+  }
+
   .track-title {
     font-size: 14px;
     font-weight: 600;
@@ -471,6 +487,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
   }
 
   .track-artist {
