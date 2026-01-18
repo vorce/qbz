@@ -349,19 +349,22 @@
     }
   });
 
-  // Sync activeTab when navigating back/forward
+  // Sync activeTab when navigating back/forward (not when clicking tabs directly)
+  let lastUserClickedTab: TabType | null = null;
+  
   $effect(() => {
-    if (!isInitialMount && currentTab && currentTab !== activeTab) {
+    // Only sync if:
+    // 1. Not initial mount
+    // 2. currentTab exists and differs from activeTab
+    // 3. The change is NOT from a user click (navigation back/forward)
+    if (!isInitialMount && currentTab && currentTab !== activeTab && currentTab !== lastUserClickedTab) {
+      console.log('[FavoritesView] Tab changed via navigation (back/forward):', currentTab);
       activeTab = currentTab;
-      if (activeTab === 'tracks' && favoriteTracks.length === 0) {
-        loadFavorites(activeTab);
-      } else if (activeTab === 'albums' && favoriteAlbums.length === 0) {
-        loadFavorites(activeTab);
-      } else if (activeTab === 'artists' && favoriteArtists.length === 0) {
-        loadFavorites(activeTab);
-      } else if (activeTab === 'playlists' && favoritePlaylists.length === 0) {
-        loadFavorites(activeTab);
-      }
+      loadFavorites(activeTab);
+    }
+    // Reset the flag after navigation sync
+    if (lastUserClickedTab) {
+      lastUserClickedTab = null;
     }
   });
 
@@ -459,6 +462,9 @@
   }
 
   function handleTabChange(tab: TabType) {
+    // Mark this as a user click to prevent navigation effect from overriding
+    lastUserClickedTab = tab;
+    
     // Push to navigation history for back button support
     setFavoritesTab(tab);
     
