@@ -37,6 +37,8 @@
 
   interface TrackMenuActions {
     onPlayNow?: () => void;
+    onPlayTrackOnly?: () => void;
+    onPlayFromHere?: () => void;
     onPlayNext?: () => void;
     onPlayLater?: () => void;
     onAddToPlaylist?: () => void;
@@ -217,6 +219,8 @@
   <div class="track-actions">
     <TrackMenu
       onPlayNow={playNowAction}
+      onPlayTrackOnly={menuActions?.onPlayTrackOnly}
+      onPlayFromHere={menuActions?.onPlayFromHere}
       onPlayNext={menuActions?.onPlayNext}
       onPlayLater={menuActions?.onPlayLater}
       onAddFavorite={trackId !== undefined ? () => toggleTrackFavorite(trackId) : undefined}
