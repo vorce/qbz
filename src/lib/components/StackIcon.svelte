@@ -59,7 +59,6 @@
     type="button"
   >
     <Layers size={size} strokeWidth={2} />
-    <span class="arrow">→</span>
   </button>
 {/if}
 
@@ -68,17 +67,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
     color: var(--text-secondary);
     opacity: 0.7;
     transition: all 0.2s;
     flex-shrink: 0;
     background: none;
     border: none;
-    padding: 4px 6px;
+    padding: 4px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 12px;
   }
   
   .stack-icon-wrapper:hover {
@@ -89,15 +86,5 @@
 
   .stack-icon-wrapper:active {
     transform: scale(0.95);
-  }
-
-  .arrow {
-    opacity: 0;
-    transition: opacity 0.2s;
-    margin-left: -2px;
-  }
-
-  .stack-icon-wrapper:hover .arrow {
-    opacity: 1;
   }
 </style>

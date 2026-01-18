@@ -1467,8 +1467,8 @@
     <h3 class="section-title">{$t('settings.playback.title')}</h3>
     <div class="setting-row">
       <div class="setting-info">
-        <span class="setting-label">Autoplay behavior</span>
-        <span class="setting-desc">Choose what happens when you click a track</span>
+        <span class="setting-label">{$t('settings.playback.autoplayBehavior')}</span>
+        <span class="setting-desc">{$t('settings.playback.autoplayBehaviorDesc')}</span>
       </div>
       <div class="radio-group">
         <label class="radio-option">
@@ -1479,7 +1479,7 @@
             checked={autoplayMode === 'continue'}
             onchange={() => handleAutoplayModeChange('continue')}
           />
-          <span>Continue within source</span>
+          <span>{$t('settings.playback.continueWithinSource')}</span>
         </label>
         <label class="radio-option">
           <input
@@ -1489,20 +1489,14 @@
             checked={autoplayMode === 'track_only'}
             onchange={() => handleAutoplayModeChange('track_only')}
           />
-          <span>Play only selected track</span>
+          <span>{$t('settings.playback.playOnlySelectedTrack')}</span>
         </label>
       </div>
     </div>
     <div class="setting-row">
       <div class="label-with-tooltip">
-        <span class="setting-label">Show track playing context in player</span>
-        <Tooltip>
-          <div style="max-width: 260px;">
-            <strong>English:</strong> Shows the context from which the current track is being played, such as from an album view, artist page, playlist, etc.
-            <br><br>
-            <strong>Español:</strong> Muestra el contexto desde donde se está reproduciendo el track actual, por ejemplo desde la vista de álbum, de artista, playlist, etc.
-          </div>
-        </Tooltip>
+        <span class="setting-label">{$t('settings.playback.showContextIcon')}</span>
+        <Tooltip text={$t('settings.playback.showContextIconTooltip')} />
       </div>
       <Toggle enabled={showContextIcon} onchange={handleShowContextIconChange} />
     </div>

@@ -311,7 +311,13 @@
       "gapless": "Reproducción Sin Pausas",
       "crossfade": "Crossfade",
       "crossfadeSeconds": "{seconds}s",
-      "normalizeVolume": "Normalizar Volumen"
+      "normalizeVolume": "Normalizar Volumen",
+      "autoplayBehavior": "Comportamiento de autoreproducción",
+      "autoplayBehaviorDesc": "Elige qué sucede al hacer clic en una pista",
+      "continueWithinSource": "Continuar dentro del contexto",
+      "playOnlySelectedTrack": "Reproducir solo la pista seleccionada",
+      "showContextIcon": "Mostrar contexto de reproducción en el reproductor",
+      "showContextIconTooltip": "Muestra el contexto desde donde se reproduce la pista actual (álbum, artista, playlist, etc.)"
     },
     "appearance": {
       "title": "Apariencia",

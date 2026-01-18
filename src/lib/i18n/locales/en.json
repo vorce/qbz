@@ -311,7 +311,13 @@
       "gapless": "Gapless Playback",
       "crossfade": "Crossfade",
       "crossfadeSeconds": "{seconds}s",
-      "normalizeVolume": "Normalize Volume"
+      "normalizeVolume": "Normalize Volume",
+      "autoplayBehavior": "Autoplay behavior",
+      "autoplayBehaviorDesc": "Choose what happens when you click a track",
+      "continueWithinSource": "Continue within source",
+      "playOnlySelectedTrack": "Play only selected track",
+      "showContextIcon": "Show track playing context in player",
+      "showContextIconTooltip": "Shows the context from which the current track is being played (album, artist, playlist, etc.)"
     },
     "appearance": {
       "title": "Appearance",
