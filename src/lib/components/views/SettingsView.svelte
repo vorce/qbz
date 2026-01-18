@@ -1483,28 +1483,7 @@
         <span class="setting-label">{$t('settings.playback.autoplayBehavior')}</span>
         <span class="setting-desc">{$t('settings.playback.autoplayBehaviorDesc')}</span>
       </div>
-      <div class="radio-group">
-        <label class="radio-option">
-          <input
-            type="radio"
-            name="autoplay-mode"
-            value="continue"
-            checked={autoplayMode === 'continue'}
-            onchange={() => handleAutoplayModeChange('continue')}
-          />
-          <span>{$t('settings.playback.continueWithinSource')}</span>
-        </label>
-        <label class="radio-option">
-          <input
-            type="radio"
-            name="autoplay-mode"
-            value="track_only"
-            checked={autoplayMode === 'track_only'}
-            onchange={() => handleAutoplayModeChange('track_only')}
-          />
-          <span>{$t('settings.playback.playOnlySelectedTrack')}</span>
-        </label>
-      </div>
+      <Toggle enabled={autoplayMode === 'continue'} onchange={(enabled) => handleAutoplayModeChange(enabled ? 'continue' : 'track_only')} />
     </div>
     <div class="setting-row">
       <div class="label-with-tooltip">

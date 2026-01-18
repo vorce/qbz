@@ -385,15 +385,15 @@
     console.log('[ContextNav] Navigating to:', context);
 
     try {
-      switch (context.context_type) {
+      switch (context.type) {
         case 'album':
           // Navigate to album page
-          await handleAlbumClick(context.context_id);
+          await handleAlbumClick(context.id);
           break;
 
         case 'playlist':
           // Navigate to playlist page
-          const playlistId = parseInt(context.context_id);
+          const playlistId = parseInt(context.id);
           if (!isNaN(playlistId)) {
             selectedPlaylistId = playlistId;
             navigateTo('playlist');
@@ -402,7 +402,7 @@
 
         case 'artist_top':
           // Navigate to artist page
-          const artistId = parseInt(context.context_id);
+          const artistId = parseInt(context.id);
           if (!isNaN(artistId)) {
             await handleArtistClick(artistId);
           }
@@ -424,7 +424,7 @@
           break;
 
         default:
-          console.warn('[ContextNav] Unknown context type:', context.context_type);
+          console.warn('[ContextNav] Unknown context type:', context.type);
       }
     } catch (err) {
       console.error('[ContextNav] Navigation failed:', err);
