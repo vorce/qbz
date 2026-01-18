@@ -8,11 +8,12 @@ use std::sync::{Arc, Mutex};
 use log::info;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum AutoplayMode {
     /// Continue playing within the source (album, playlist, etc.)
+    #[serde(rename = "continue")]
     ContinueWithinSource,
     /// Play only the selected track, then stop
+    #[serde(rename = "track_only")]
     PlayTrackOnly,
 }
 
