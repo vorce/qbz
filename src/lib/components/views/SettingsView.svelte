@@ -1449,6 +1449,34 @@
   <section class="section" bind:this={playbackSection}>
     <h3 class="section-title">{$t('settings.playback.title')}</h3>
     <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">Autoplay behavior</span>
+        <span class="setting-desc">Choose what happens when you click a track</span>
+      </div>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input
+            type="radio"
+            name="autoplay-mode"
+            value="continue"
+            checked={autoplayMode === 'continue'}
+            onchange={() => handleAutoplayModeChange('continue')}
+          />
+          <span>Continue within source</span>
+        </label>
+        <label class="radio-option">
+          <input
+            type="radio"
+            name="autoplay-mode"
+            value="track_only"
+            checked={autoplayMode === 'track_only'}
+            onchange={() => handleAutoplayModeChange('track_only')}
+          />
+          <span>Play only selected track</span>
+        </label>
+      </div>
+    </div>
+    <div class="setting-row">
       <div class="label-with-tooltip">
         <span class="setting-label">{$t('settings.playback.gapless')}</span>
         {#if gaplessTooltipOverride}
@@ -2094,6 +2122,39 @@
 
   .slider-container {
     width: 240px;
+  }
+
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .radio-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+
+  .radio-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .radio-option input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent-color, #1db954);
+  }
+
+  .radio-option span {
+    font-size: 14px;
+    color: var(--text-primary);
+    user-select: none;
   }
 
   .connect-btn {
