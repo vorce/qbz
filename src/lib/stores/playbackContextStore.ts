@@ -45,6 +45,8 @@ export async function setPlaybackContext(
   trackIds: number[],
   startPosition: number
 ): Promise<void> {
+  console.log('[PlaybackContext] Setting context:', { contextType, id, label, trackIds: trackIds.length, startPosition });
+  
   await invoke('set_playback_context', {
     contextType,
     id,
@@ -64,6 +66,7 @@ export async function setPlaybackContext(
     current_position: startPosition
   };
 
+  console.log('[PlaybackContext] Context set, notifying listeners. Current context:', currentContext);
   notifyListeners();
 }
 
@@ -71,8 +74,10 @@ export async function setPlaybackContext(
  * Clear the playback context (e.g., when playing single track)
  */
 export async function clearPlaybackContext(): Promise<void> {
+  console.log('[PlaybackContext] Clearing context');
   await invoke('clear_playback_context');
   currentContext = null;
+  console.log('[PlaybackContext] Context cleared, notifying listeners');
   notifyListeners();
 }
 
