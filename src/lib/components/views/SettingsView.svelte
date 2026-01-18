@@ -214,7 +214,8 @@
   let isLoadingDevices = $state(false);
 
   // Backend selector options (derived)
-  let backendOptions = $derived(['Auto', ...availableBackends.filter(b => b.is_available).map(b => b.name)]);
+  // TEMPORARILY hide ALSA Direct until hw: device support is implemented with alsa-rs
+  let backendOptions = $derived(['Auto', ...availableBackends.filter(b => b.is_available && b.name !== 'ALSA Direct').map(b => b.name)]);
 
   // Helper to check if a device name looks like raw ALSA (needs translation)
   function needsTranslation(name: string): boolean {
@@ -813,21 +814,33 @@
       // Load backend and plugin settings
       if (settings.backend_type) {
         const backend = availableBackends.find(b => b.backend_type === settings.backend_type);
-        selectedBackend = backend?.name ?? 'Auto';
+        const backendName = backend?.name ?? 'Auto';
 
-        // Load devices for selected backend
-        await loadBackendDevices(settings.backend_type);
+        // TEMPORARILY: If user had ALSA Direct selected, switch to Auto
+        // (ALSA Direct is temporarily disabled until hw: device support is implemented with alsa-rs)
+        if (backendName === 'ALSA Direct') {
+          selectedBackend = 'Auto';
+          // Switch backend to Auto in backend
+          await invoke('set_audio_backend_type', { backendType: null });
+          console.log('[Audio] Switched from ALSA Direct to Auto (ALSA Direct temporarily disabled)');
+          // Don't load devices for ALSA backend
+          backendDevices = [];
+        } else {
+          selectedBackend = backendName;
+          // Load devices for selected backend
+          await loadBackendDevices(settings.backend_type);
 
-        // Set selected device from backend devices
-        if (settings.output_device) {
-          const device = backendDevices.find(d => d.id === settings.output_device);
-          if (device) {
-            // Use description from aplay -L if available (ALSA), otherwise translate
-            outputDevice = (device.description && settings.backend_type === 'Alsa')
-              ? device.description
-              : (needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name);
-          } else {
-            outputDevice = 'System Default';
+          // Set selected device from backend devices
+          if (settings.output_device) {
+            const device = backendDevices.find(d => d.id === settings.output_device);
+            if (device) {
+              // Use description from aplay -L if available (ALSA), otherwise translate
+              outputDevice = (device.description && settings.backend_type === 'Alsa')
+                ? device.description
+                : (needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name);
+            } else {
+              outputDevice = 'System Default';
+            }
           }
         }
       } else {
