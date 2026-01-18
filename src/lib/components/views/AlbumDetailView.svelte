@@ -10,6 +10,8 @@
     loadAlbumFavorites,
     toggleAlbumFavorite
   } from '$lib/stores/albumFavoritesStore';
+  import { setPlaybackContext, clearPlaybackContext } from '$lib/stores/playbackContextStore';
+  import { getCachedPreferences } from '$lib/stores/playbackPreferencesStore';
 
   interface Track {
     id: number;
@@ -142,6 +144,56 @@
       isFavoriteLoading = false;
     }
   }
+
+  // Helper: Create playback context for this album
+  async function createAlbumContext(startTrackIndex: number) {
+    const trackIds = album.tracks.map(t => t.id);
+    await setPlaybackContext(
+      'album',
+      album.id,
+      album.title,
+      'qobuz',
+      trackIds,
+      startTrackIndex
+    );
+  }
+
+  // Helper: Handle track play with autoplay logic
+  function handleTrackPlay(track: Track, trackIndex: number) {
+    const prefs = getCachedPreferences();
+    
+    // Check autoplay preference (implicit action)
+    if (prefs.autoplay_mode === 'continue') {
+      // Create context and play from here
+      createAlbumContext(trackIndex);
+    } else {
+      // Play only this track (clear context)
+      clearPlaybackContext();
+    }
+    
+    // Trigger actual playback
+    onTrackPlay?.(track);
+  }
+
+  // Explicit action: Play track only (overrides setting)
+  function handlePlayTrackOnly(track: Track) {
+    clearPlaybackContext();
+    onTrackPlay?.(track);
+  }
+
+  // Explicit action: Play from here (overrides setting)
+  function handlePlayFromHere(track: Track, trackIndex: number) {
+    createAlbumContext(trackIndex);
+    onTrackPlay?.(track);
+  }
+
+  // Handle Play All button - always creates context
+  function handlePlayAll() {
+    if (album.tracks.length > 0) {
+      createAlbumContext(0); // Start from first track
+    }
+    onPlayAll?.();
+  }
 </script>
 
 <div class="album-detail">
@@ -179,7 +231,7 @@
           style="background-color: {playBtnHovered ? 'var(--accent-hover)' : 'var(--accent-primary)'}"
           onmouseenter={() => (playBtnHovered = true)}
           onmouseleave={() => (playBtnHovered = false)}
-          onclick={onPlayAll}
+          onclick={handlePlayAll}
         >
           <Play size={18} fill="white" color="white" />
           <span>Play</span>
@@ -224,7 +276,7 @@
 
     <!-- Track Rows -->
     <div class="tracks">
-      {#each album.tracks as track (`${track.id}-${downloadStateVersion}`)}
+      {#each album.tracks as track, trackIndex (`${track.id}-${downloadStateVersion}`)}
         {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
         <TrackRow
           trackId={track.id}
@@ -237,13 +289,19 @@
           downloadStatus={downloadInfo.status}
           downloadProgress={downloadInfo.progress}
           onPlay={() => {
-            onTrackPlay?.(track);
+            handleTrackPlay(track, trackIndex);
           }}
           onDownload={onTrackDownload ? () => onTrackDownload(track) : undefined}
           onRemoveDownload={onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
           menuActions={{
             onPlayNow: () => {
-              onTrackPlay?.(track);
+              handleTrackPlay(track, trackIndex);
+            },
+            onPlayTrackOnly: () => {
+              handlePlayTrackOnly(track);
+            },
+            onPlayFromHere: () => {
+              handlePlayFromHere(track, trackIndex);
             },
             onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
             onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
