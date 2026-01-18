@@ -98,10 +98,67 @@ impl AlsaBackend {
             }
         }
 
+        // Build card number -> card name map from aplay -l
+        let mut card_map = std::collections::HashMap::new();
+        let aplay_l_output = Command::new("aplay")
+            .arg("-l")
+            .output()
+            .ok()
+            .and_then(|o| if o.status.success() { Some(o) } else { None });
+
+        if let Some(output) = aplay_l_output {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if let Some(card_info) = line.strip_prefix("card ") {
+                    // Parse: "card 4: C20 [Cambridge Audio USB Audio 2.0], device 0: ..."
+                    let parts: Vec<&str> = card_info.splitn(2, ':').collect();
+                    if parts.len() == 2 {
+                        let card_num = parts[0].trim();
+                        let rest = parts[1].trim();
+
+                        // Extract description from brackets [...]
+                        if let Some(start) = rest.find('[') {
+                            if let Some(end) = rest.find(']') {
+                                let card_desc = &rest[start + 1..end];
+                                card_map.insert(card_num.to_string(), card_desc.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Third: Update device descriptions from aplay -L map
         for device in &mut devices {
             if let Some(desc) = description_map.get(&device.name) {
                 device.description = Some(desc.clone());
+            } else if device.name.starts_with("hw:") || device.name.starts_with("plughw:") {
+                // hw: and plughw: devices don't appear in aplay -L
+                // Use card number map to get friendly name
+                let parts: Vec<&str> = device.name.split(':').collect();
+                if parts.len() == 2 {
+                    let nums: Vec<&str> = parts[1].split(',').collect();
+                    if nums.len() == 2 {
+                        let card_num = nums[0];
+
+                        if let Some(card_desc) = card_map.get(card_num) {
+                            let prefix = if device.name.starts_with("plughw:") {
+                                "Plugin Hardware"
+                            } else {
+                                "Direct Hardware - Bit-perfect"
+                            };
+                            device.description = Some(format!("{} ({})", card_desc, prefix));
+                        } else {
+                            // Fallback if card not found in map
+                            let prefix = if device.name.starts_with("plughw:") {
+                                "Plugin Hardware"
+                            } else {
+                                "Direct Hardware - Bit-perfect"
+                            };
+                            device.description = Some(format!("{} {}", prefix, device.name));
+                        }
+                    }
+                }
             }
         }
 
@@ -132,6 +189,7 @@ impl AlsaBackend {
             let name = device.name().unwrap_or_else(|_| format!("ALSA Device {}", idx));
 
             // Skip non-useful devices
+            // Keep hw: and plughw: devices - these are bit-perfect
             if name == "null"
                 || name.starts_with("lavrate")
                 || name.starts_with("samplerate")
@@ -141,6 +199,11 @@ impl AlsaBackend {
                 || name == "speex"
                 || name == "upmix"
                 || name == "vdownmix"
+                || name.starts_with("surround")  // Skip surround variants
+                || name.starts_with("usbstream")  // Skip USB stream
+                || name == "pipewire"
+                || name == "pulse"
+                || name == "sysdefault"  // Skip bare sysdefault
             {
                 continue;
             }
