@@ -36,18 +36,16 @@
     { id: 'orange', label: 'Orange', value: '#f97316' },
     { id: 'amber', label: 'Amber', value: '#f59e0b' },
     { id: 'green', label: 'Green', value: '#10b981' },
+    { id: 'cyan', label: 'Cyan', value: '#06b6d4' },
     { id: 'blue', label: 'Blue', value: '#3b82f6' },
     { id: 'purple', label: 'Purple', value: '#a855f7' },
     { id: 'pink', label: 'Pink', value: '#ec4899' },
+    { id: 'rose', label: 'Rose', value: '#f43f5e' },
+    { id: 'slate', label: 'Slate', value: '#64748b' },
   ];
 
   const gradients = [
     { id: 'sunset', label: 'Sunset', value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-    { id: 'ocean', label: 'Ocean', value: 'linear-gradient(135deg, #2e3192 0%, #1bffff 100%)' },
-    { id: 'fire', label: 'Fire', value: 'linear-gradient(135deg, #ff0844 0%, #ffb199 100%)' },
-    { id: 'forest', label: 'Forest', value: 'linear-gradient(135deg, #0ba360 0%, #3cba92 100%)' },
-    { id: 'aurora', label: 'Aurora', value: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' },
-    { id: 'midnight', label: 'Midnight', value: 'linear-gradient(135deg, #000428 0%, #004e92 100%)' },
   ];
 
   const tabLabels: Record<string, string> = {
@@ -338,7 +336,7 @@
 
   .color-grid {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(12, 1fr);
     gap: 2px;
   }
 
