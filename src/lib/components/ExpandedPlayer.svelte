@@ -50,6 +50,7 @@
     onOpenFocusMode?: () => void;
     onCast?: () => void;
     isCastConnected?: boolean;
+    onContextClick?: () => void;
     // Lyrics props
     lyricsLines?: LyricsLine[];
     lyricsActiveIndex?: number;
@@ -89,6 +90,7 @@
     onOpenFocusMode,
     onCast,
     isCastConnected = false,
+    onContextClick,
     lyricsLines = [],
     lyricsActiveIndex = -1,
     lyricsActiveProgress = 0,
@@ -247,7 +249,7 @@
         <div class="track-info">
           <h1 class="title">{trackTitle}</h1>
           <div class="artist-album-row">
-            <StackIcon size={16} class="stack-icon" />
+            <StackIcon size={16} class="stack-icon" onClick={onContextClick} />
             <h2 class="artist">{artist}</h2>
             <span class="separator">·</span>
             <h3 class="album">{album}</h3>

@@ -29,7 +29,8 @@
   import { 
     initPlaybackContextStore,
     setPlaybackContext,
-    clearPlaybackContext 
+    clearPlaybackContext,
+    getCurrentContext
   } from '$lib/stores/playbackContextStore';
   import { 
     initPlaybackPreferences,
@@ -368,6 +369,66 @@
     } catch (err) {
       console.error('Failed to load artist:', err);
       showToast('Failed to load artist', 'error');
+    }
+  }
+
+  /**
+   * Navigate to the source of current playback context
+   */
+  async function handleContextNavigation() {
+    const context = getCurrentContext();
+    if (!context) {
+      console.log('[ContextNav] No context available');
+      return;
+    }
+
+    console.log('[ContextNav] Navigating to:', context);
+
+    try {
+      switch (context.context_type) {
+        case 'album':
+          // Navigate to album page
+          await handleAlbumClick(context.context_id);
+          break;
+
+        case 'playlist':
+          // Navigate to playlist page
+          const playlistId = parseInt(context.context_id);
+          if (!isNaN(playlistId)) {
+            selectedPlaylistId = playlistId;
+            navigateTo('playlist');
+          }
+          break;
+
+        case 'artist_top':
+          // Navigate to artist page
+          const artistId = parseInt(context.context_id);
+          if (!isNaN(artistId)) {
+            await handleArtistClick(artistId);
+          }
+          break;
+
+        case 'favorites':
+          // Navigate to favorites page
+          navigateTo('favorites');
+          break;
+
+        case 'home_list':
+          // Navigate to home page
+          navigateTo('home');
+          break;
+
+        case 'search':
+          // Navigate to search (could restore query if needed)
+          navigateTo('search');
+          break;
+
+        default:
+          console.warn('[ContextNav] Unknown context type:', context.context_type);
+      }
+    } catch (err) {
+      console.error('[ContextNav] Navigation failed:', err);
+      showToast('Failed to navigate to source', 'error');
     }
   }
 
@@ -2201,6 +2262,7 @@
             handleAlbumClick(currentTrack.albumId);
           }
         }}
+        onContextClick={handleContextNavigation}
       />
     {:else}
       <NowPlayingBar
@@ -2293,6 +2355,7 @@
         lyricsSynced={lyricsIsSynced}
         lyricsLoading={lyricsStatus === 'loading'}
         lyricsError={lyricsStatus === 'error' ? lyricsError : (lyricsStatus === 'not_found' ? 'No lyrics found' : null)}
+        onContextClick={handleContextNavigation}
       />
     {/if}
 

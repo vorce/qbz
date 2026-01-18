@@ -22,6 +22,7 @@
     currentTime: number;
     duration: number;
     onSeek: (time: number) => void;
+    onContextClick?: () => void;
     // Lyrics props
     lyricsLines?: LyricsLine[];
     lyricsActiveIndex?: number;
@@ -44,6 +45,7 @@
     currentTime,
     duration,
     onSeek,
+    onContextClick,
     lyricsLines = [],
     lyricsActiveIndex = -1,
     lyricsActiveProgress = 0,
@@ -187,7 +189,7 @@
         <div class="track-meta">
           <div class="track-title">{trackTitle}</div>
           <div class="track-artist-row">
-            <StackIcon size={12} class="stack-icon" />
+            <StackIcon size={12} class="stack-icon" onClick={onContextClick} />
             <div class="track-artist">{artist}</div>
           </div>
         </div>
