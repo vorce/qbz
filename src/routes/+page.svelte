@@ -1348,6 +1348,7 @@
 
   async function handleLocalTrackPlay(track: LocalLibraryTrack) {
     console.log('Playing local track:', track);
+    await clearPlaybackContext();
 
     const artwork = track.artwork_path ? convertFileSrc(track.artwork_path) : '';
     const quality = track.bit_depth && track.sample_rate
