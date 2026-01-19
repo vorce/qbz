@@ -131,6 +131,8 @@
     onTrackPlayLater?: (track: LocalTrack) => void;
     onTrackAddToPlaylist?: (trackId: number) => void;
     onSetLocalQueue?: (trackIds: number[]) => void;
+    activeTrackId?: number | null;
+    isPlaybackActive?: boolean;
   }
 
   let {
@@ -140,7 +142,9 @@
     onTrackPlayNext,
     onTrackPlayLater,
     onTrackAddToPlaylist,
-    onSetLocalQueue
+    onSetLocalQueue,
+    activeTrackId = null,
+    isPlaybackActive = false
   }: Props = $props();
 
   // View state
@@ -1499,6 +1503,7 @@
               artist={track.artist !== selectedAlbum?.artist ? track.artist : undefined}
               duration={formatDuration(track.duration_secs)}
               quality={getQualityBadge(track)}
+              isPlaying={isPlaybackActive && activeTrackId === track.id}
               isLocal={true}
               hideDownload={true}
               hideFavorite={true}
@@ -2139,6 +2144,7 @@
                             artist={track.artist}
                             duration={formatDuration(track.duration_secs)}
                             quality={getQualityBadge(track)}
+                            isPlaying={isPlaybackActive && activeTrackId === track.id}
                             isLocal={true}
                             hideDownload={true}
                             hideFavorite={true}
@@ -2162,6 +2168,7 @@
                           artist={track.artist}
                           duration={formatDuration(track.duration_secs)}
                           quality={getQualityBadge(track)}
+                          isPlaying={isPlaybackActive && activeTrackId === track.id}
                           isLocal={true}
                           hideDownload={true}
                           hideFavorite={true}

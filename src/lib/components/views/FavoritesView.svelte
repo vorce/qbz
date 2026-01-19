@@ -205,11 +205,18 @@
 
   let showArtistGroupMenu = $state(false);
   let artistGroupingEnabled = $state(false);
-  let customIconSrc = $derived.by(() =>
-    favoritesPreferences.custom_icon_path
-      ? convertFileSrc(favoritesPreferences.custom_icon_path)
-      : null
-  );
+  function resolveCustomIconSrc(path: string | null): string | null {
+    if (!path) return null;
+    if (path.startsWith('asset://') || path.startsWith('http://asset.localhost') || path.startsWith('https://asset.localhost')) {
+      return path;
+    }
+    if (path.startsWith('file://')) {
+      return path;
+    }
+    return convertFileSrc(path);
+  }
+
+  let customIconSrc = $derived.by(() => resolveCustomIconSrc(favoritesPreferences.custom_icon_path));
 
   async function scrollToTrack(trackId: number) {
     await tick();

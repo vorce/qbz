@@ -61,6 +61,8 @@
     downloadStateVersion?: number;
     onArtistClick?: (artistId: number) => void;
     onTrackPlay?: (track: DisplayTrack) => void;
+    activeTrackId?: number | null;
+    isPlaybackActive?: boolean;
   }
 
   let {
@@ -77,7 +79,9 @@
     checkAlbumFullyDownloaded,
     downloadStateVersion,
     onArtistClick,
-    onTrackPlay
+    onTrackPlay,
+    activeTrackId = null,
+    isPlaybackActive = false
   }: Props = $props();
 
   // Home settings state
@@ -775,6 +779,7 @@
           </div>
           <div class="track-list compact">
             {#each continueTracks as track, index}
+              {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
               <TrackRow
                 trackId={track.id}
                 number={index + 1}
@@ -783,6 +788,7 @@
                 album={track.album}
                 duration={track.duration}
                 quality={getTrackQuality(track)}
+                isPlaying={isActiveTrack}
                 hideDownload={true}
                 compact={true}
                 onArtistClick={track.artistId && onArtistClick ? () => onArtistClick(track.artistId!) : undefined}

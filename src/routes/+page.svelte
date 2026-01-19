@@ -2058,6 +2058,8 @@
             {downloadStateVersion}
             onArtistClick={handleArtistClick}
             onTrackPlay={handleDisplayTrackPlay}
+            activeTrackId={currentTrack?.id ?? null}
+            isPlaybackActive={isPlaying}
           />
         {/if}
       {:else if activeView === 'search'}
@@ -2168,6 +2170,8 @@
           onTrackAddToPlaylist={(trackId) => openAddToPlaylist([trackId], true)}
           onSetLocalQueue={handleSetLocalQueue}
           onQobuzArtistClick={handleArtistClick}
+          activeTrackId={currentTrack?.id ?? null}
+          isPlaybackActive={isPlaying}
         />
       {:else if activeView === 'playlist' && selectedPlaylistId}
         <PlaylistDetailView
