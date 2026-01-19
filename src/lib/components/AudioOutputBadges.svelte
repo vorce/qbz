@@ -140,6 +140,13 @@
     }
   }
 
+  // Reload status when playback starts
+  $effect(() => {
+    if (outputStatus?.is_playing) {
+      loadStatus();
+    }
+  });
+
   onMount(() => {
     loadStatus();
 
