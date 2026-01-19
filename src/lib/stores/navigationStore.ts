@@ -6,7 +6,20 @@
  * fetched data, but selectedPlaylistId is managed here as it's just an ID.
  */
 
-export type ViewType = 'home' | 'search' | 'library' | 'library-album' | 'settings' | 'album' | 'artist' | 'playlist' | 'playlist-manager' | 'favorites';
+export type ViewType =
+  | 'home'
+  | 'search'
+  | 'library'
+  | 'library-album'
+  | 'settings'
+  | 'album'
+  | 'artist'
+  | 'playlist'
+  | 'playlist-manager'
+  | 'favorites-tracks'
+  | 'favorites-albums'
+  | 'favorites-artists'
+  | 'favorites-playlists';
 export type FavoritesTab = 'tracks' | 'albums' | 'artists' | 'playlists';
 
 // Navigation state
@@ -20,8 +33,38 @@ let selectedPlaylistId: number | null = null;
 // Selected local album ID (for library-album view)
 let selectedLocalAlbumId: string | null = null;
 
-// Selected Favorites tab (for history-aware navigation)
-let selectedFavoritesTab: FavoritesTab = 'tracks';
+// Last visited Favorites tab (used as default when navigating to Favorites)
+let lastFavoritesTab: FavoritesTab = 'tracks';
+
+const favoritesViewMap: Record<FavoritesTab, ViewType> = {
+  tracks: 'favorites-tracks',
+  albums: 'favorites-albums',
+  artists: 'favorites-artists',
+  playlists: 'favorites-playlists'
+};
+
+export function isFavoritesView(view: ViewType): boolean {
+  return view.startsWith('favorites-');
+}
+
+export function favoritesViewForTab(tab: FavoritesTab): ViewType {
+  return favoritesViewMap[tab];
+}
+
+export function getFavoritesTabFromView(view: ViewType): FavoritesTab | null {
+  switch (view) {
+    case 'favorites-tracks':
+      return 'tracks';
+    case 'favorites-albums':
+      return 'albums';
+    case 'favorites-artists':
+      return 'artists';
+    case 'favorites-playlists':
+      return 'playlists';
+    default:
+      return null;
+  }
+}
 
 // Listeners
 const listeners = new Set<() => void>();
@@ -46,30 +89,17 @@ export function subscribe(listener: () => void): () => void {
 /**
  * Navigate to a view
  */
-export function navigateTo(view: ViewType, favoritesTab?: FavoritesTab): void {
-  // For favorites view, allow sub-navigation by tracking tab changes
-  if (view === 'favorites' && favoritesTab && activeView === 'favorites' && favoritesTab !== selectedFavoritesTab) {
-    // Changing tabs within Favorites - push to history
-    viewHistory = [...viewHistory, view];
-    selectedFavoritesTab = favoritesTab;
-    notifyListeners();
-    return;
-  }
-
+export function navigateTo(view: ViewType): void {
   if (view !== activeView) {
     viewHistory = [...viewHistory, view];
     forwardHistory = [];
     activeView = view;
-    
-    // Update favorites tab if specified
-    if (view === 'favorites' && favoritesTab) {
-      selectedFavoritesTab = favoritesTab;
+
+    const tab = getFavoritesTabFromView(view);
+    if (tab) {
+      lastFavoritesTab = tab;
     }
-    
-    notifyListeners();
-  } else if (view === 'favorites' && favoritesTab && favoritesTab !== selectedFavoritesTab) {
-    // Same view but different tab - just update tab without history
-    selectedFavoritesTab = favoritesTab;
+
     notifyListeners();
   }
 }
@@ -84,6 +114,10 @@ export function goBack(): boolean {
     viewHistory = viewHistory.slice(0, -1);
     forwardHistory = [...forwardHistory, lastView];
     activeView = viewHistory[viewHistory.length - 1];
+    const tab = getFavoritesTabFromView(activeView);
+    if (tab) {
+      lastFavoritesTab = tab;
+    }
     notifyListeners();
     return true;
   }
@@ -100,6 +134,10 @@ export function goForward(): boolean {
     forwardHistory = forwardHistory.slice(0, -1);
     viewHistory = [...viewHistory, nextView];
     activeView = nextView;
+    const tab = getFavoritesTabFromView(activeView);
+    if (tab) {
+      lastFavoritesTab = tab;
+    }
     notifyListeners();
     return true;
   }
@@ -175,27 +213,10 @@ export function getSelectedLocalAlbumId(): string | null {
   return selectedLocalAlbumId;
 }
 
-// ============ Favorites Tab Selection ============
-
-/**
- * Get selected Favorites tab
- */
-export function getSelectedFavoritesTab(): FavoritesTab {
-  return selectedFavoritesTab;
-}
-
-/**
- * Set selected Favorites tab (creates history entry if already on favorites view)
- */
-export function setFavoritesTab(tab: FavoritesTab): void {
-  if (activeView === 'favorites' && tab !== selectedFavoritesTab) {
-    // Push to history to allow back navigation
-    viewHistory = [...viewHistory, 'favorites'];
-    selectedFavoritesTab = tab;
-    notifyListeners();
-  } else if (activeView !== 'favorites') {
-    selectedFavoritesTab = tab;
-  }
+// ============ Favorites Navigation ============
+export function navigateToFavorites(tab?: FavoritesTab): void {
+  const targetTab = tab ?? lastFavoritesTab;
+  navigateTo(favoritesViewForTab(targetTab));
 }
 
 // ============ Getters ============
@@ -212,7 +233,6 @@ export interface NavigationState {
   forwardHistory: ViewType[];
   selectedPlaylistId: number | null;
   selectedLocalAlbumId: string | null;
-  selectedFavoritesTab: FavoritesTab;
   canGoBack: boolean;
   canGoForward: boolean;
 }
@@ -224,7 +244,6 @@ export function getNavigationState(): NavigationState {
     forwardHistory: [...forwardHistory],
     selectedPlaylistId,
     selectedLocalAlbumId,
-    selectedFavoritesTab,
     canGoBack: viewHistory.length > 1,
     canGoForward: forwardHistory.length > 0
   };

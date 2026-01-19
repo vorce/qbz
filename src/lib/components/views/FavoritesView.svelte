@@ -8,7 +8,7 @@
   import FavoritesEditModal from '../FavoritesEditModal.svelte';
   import { type DownloadStatus } from '$lib/stores/downloadState';
   import { setPlaybackContext } from '$lib/stores/playbackContextStore';
-  import { setFavoritesTab } from '$lib/stores/navigationStore';
+  import { normalizeFavoritesTabOrder } from '$lib/utils/favorites';
   import type { FavoritesPreferences } from '$lib/types';
 
   interface FavoriteAlbum {
@@ -77,7 +77,8 @@
     onTrackRemoveDownload?: (trackId: number) => void;
     getTrackDownloadStatus?: (trackId: number) => { status: DownloadStatus; progress: number };
     onPlaylistSelect?: (playlistId: number) => void;
-    currentTab?: TabType; // For syncing with navigation store
+    selectedTab?: TabType;
+    onTabNavigate?: (tab: TabType) => void;
   }
 
   interface DisplayTrack {
@@ -123,12 +124,13 @@
     onTrackRemoveDownload,
     getTrackDownloadStatus,
     onPlaylistSelect,
-    currentTab
+    selectedTab,
+    onTabNavigate
   }: Props = $props();
 
   type TabType = 'tracks' | 'albums' | 'artists' | 'playlists';
   let activeTab = $state<TabType>('tracks');
-  let isInitialMount = $state(true);
+  let preferencesLoaded = $state(false);
 
   const tabLabels: Record<TabType, string> = {
     tracks: 'Tracks',
@@ -307,32 +309,37 @@
     trackGroupingEnabled = loadStoredBool('qbz-favorites-track-group-enabled', false);
     artistGroupingEnabled = loadStoredBool('qbz-favorites-artist-group-enabled', false);
     loadFavoritesPreferences().then(() => {
-      // On initial mount, sync with navigation store to load configured first tab
-      if (isInitialMount && currentTab) {
-        activeTab = currentTab;
-        isInitialMount = false;
-      } else if (isInitialMount) {
-        // Load first tab from preferences
+      preferencesLoaded = true;
+      if (selectedTab) {
+        activeTab = selectedTab;
+      } else {
         activeTab = favoritesPreferences.tab_order[0] as TabType;
-        isInitialMount = false;
       }
-      
-      loadFavorites(activeTab);
+      loadTabIfNeeded(activeTab);
     });
   });
 
   async function loadFavoritesPreferences() {
     try {
       const prefs = await invoke<FavoritesPreferences>('get_favorites_preferences');
-      console.log('[FavoritesView] Loaded preferences:', prefs);
-      favoritesPreferences = prefs;
+      favoritesPreferences = {
+        ...prefs,
+        tab_order: normalizeFavoritesTabOrder(prefs.tab_order)
+      };
     } catch (err) {
       console.error('Failed to load favorites preferences:', err);
+      favoritesPreferences = {
+        ...favoritesPreferences,
+        tab_order: normalizeFavoritesTabOrder(favoritesPreferences.tab_order)
+      };
     }
   }
 
   function handlePreferencesSaved(prefs: FavoritesPreferences) {
-    favoritesPreferences = prefs;
+    favoritesPreferences = {
+      ...prefs,
+      tab_order: normalizeFavoritesTabOrder(prefs.tab_order)
+    };
   }
 
 
@@ -349,22 +356,10 @@
     }
   });
 
-  // Sync activeTab when navigating back/forward (not when clicking tabs directly)
-  let lastUserClickedTab: TabType | null = null;
-  
   $effect(() => {
-    // Only sync if:
-    // 1. Not initial mount
-    // 2. currentTab exists and differs from activeTab
-    // 3. The change is NOT from a user click (navigation back/forward)
-    if (!isInitialMount && currentTab && currentTab !== activeTab && currentTab !== lastUserClickedTab) {
-      console.log('[FavoritesView] Tab changed via navigation (back/forward):', currentTab);
-      activeTab = currentTab;
-      loadFavorites(activeTab);
-    }
-    // Reset the flag after navigation sync
-    if (lastUserClickedTab) {
-      lastUserClickedTab = null;
+    if (preferencesLoaded && selectedTab && selectedTab !== activeTab) {
+      activeTab = selectedTab;
+      loadTabIfNeeded(activeTab);
     }
   });
 
@@ -461,17 +456,7 @@
     }
   }
 
-  function handleTabChange(tab: TabType) {
-    // Mark this as a user click to prevent navigation effect from overriding
-    lastUserClickedTab = tab;
-    
-    // Push to navigation history for back button support
-    setFavoritesTab(tab);
-    
-    activeTab = tab;
-    showAlbumGroupMenu = false;
-    showTrackGroupMenu = false;
-    showArtistGroupMenu = false;
+  function loadTabIfNeeded(tab: TabType) {
     if (tab === 'tracks' && favoriteTracks.length === 0) {
       loadFavorites(tab);
     } else if (tab === 'albums' && favoriteAlbums.length === 0) {
@@ -481,6 +466,15 @@
     } else if (tab === 'playlists' && favoritePlaylists.length === 0) {
       loadFavoritePlaylists();
     }
+  }
+
+  function handleTabChange(tab: TabType) {
+    activeTab = tab;
+    showAlbumGroupMenu = false;
+    showTrackGroupMenu = false;
+    showArtistGroupMenu = false;
+    onTabNavigate?.(tab);
+    loadTabIfNeeded(tab);
   }
 
   function formatDuration(seconds: number): string {
@@ -715,7 +709,6 @@
         trackIds,
         index
       );
-      console.log(`[Favorites] Context created: ${trackIds.length} tracks, starting at ${index}`);
     }
 
     // Play track
@@ -757,7 +750,11 @@
       style={favoritesPreferences.icon_background ? `background: ${favoritesPreferences.icon_background};` : ''}
     >
       {#if favoritesPreferences.custom_icon_path}
-        <img src="asset://localhost/{favoritesPreferences.custom_icon_path}" alt="Custom Icon" class="custom-icon-img" />
+        <img
+          src={`asset://localhost/${encodeURIComponent(favoritesPreferences.custom_icon_path)}`}
+          alt="Custom Icon"
+          class="custom-icon-img"
+        />
       {:else if favoritesPreferences.custom_icon_preset}
         {#if favoritesPreferences.custom_icon_preset === 'heart'}
           <Heart size={32} fill="var(--accent-primary)" color="var(--accent-primary)" />
@@ -991,7 +988,7 @@
       <div class="error">
         <p>Failed to load favorites</p>
         <p class="error-detail">{error}</p>
-        <button class="retry-btn" onclick={() => loadFavorites(activeTab)}>Retry</button>
+        <button class="retry-btn" onclick={() => loadTabIfNeeded(activeTab)}>Retry</button>
       </div>
     {:else if activeTab === 'tracks'}
       {#if favoriteTracks.length === 0}

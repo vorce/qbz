@@ -71,16 +71,20 @@
 
   // Favorites state management
   import { loadFavorites } from '$lib/stores/favoritesStore';
+  import { getDefaultFavoritesTab } from '$lib/utils/favorites';
+  import type { FavoritesPreferences } from '$lib/types';
 
   // Navigation state management
   import {
     subscribe as subscribeNav,
     navigateTo as navTo,
+    navigateToFavorites,
     goBack as navGoBack,
     goForward as navGoForward,
     selectPlaylist,
     getNavigationState,
-    getSelectedFavoritesTab,
+    getFavoritesTabFromView,
+    isFavoritesView,
     type ViewType,
     type NavigationState,
     type FavoritesTab
@@ -337,9 +341,26 @@
   let lyricsActiveProgress = $state(0);
   let lyricsSidebarVisible = $state(false);
 
+  let favoritesDefaultTab = $state<FavoritesTab>('tracks');
+
+  async function loadFavoritesDefaultTab(): Promise<void> {
+    try {
+      const prefs = await invoke<FavoritesPreferences>('get_favorites_preferences');
+      favoritesDefaultTab = getDefaultFavoritesTab(prefs.tab_order);
+    } catch (err) {
+      console.error('Failed to load favorites preferences:', err);
+      favoritesDefaultTab = 'tracks';
+    }
+  }
+
   // Navigation wrapper (keeps debug logging)
-  function navigateTo(view: string) {
+  async function navigateTo(view: string) {
     console.log('navigateTo called with:', view, 'current activeView:', activeView);
+    if (view === 'favorites') {
+      await loadFavoritesDefaultTab();
+      navigateToFavorites(favoritesDefaultTab);
+      return;
+    }
     navTo(view as ViewType);
   }
 
@@ -2163,7 +2184,7 @@
           }}
           onPlaylistDeleted={() => { sidebarRef?.refreshPlaylists(); navGoBack(); }}
         />
-      {:else if activeView === 'favorites'}
+      {:else if isFavoritesView(activeView)}
         {#if offlineStatus.isOffline}
           <OfflinePlaceholder
             reason={offlineStatus.reason}
@@ -2196,7 +2217,8 @@
             onTrackRemoveDownload={handleTrackRemoveDownload}
             getTrackDownloadStatus={getTrackDownloadStatus}
             onPlaylistSelect={selectPlaylist}
-            currentTab={getSelectedFavoritesTab()}
+            selectedTab={getFavoritesTabFromView(activeView) ?? favoritesDefaultTab}
+            onTabNavigate={(tab) => navigateToFavorites(tab)}
           />
         {/if}
       {:else if activeView === 'playlist-manager'}
