@@ -67,7 +67,7 @@ impl AudioSettingsStore {
         // Migration: Add new columns if they don't exist (for existing databases)
         let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN backend_type TEXT", []);
         let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN alsa_plugin TEXT", []);
-        let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN alsa_hardware_volume INTEGER NOT NULL DEFAULT 0", []);
+        let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN alsa_hardware_volume INTEGER DEFAULT 0", []);
 
         Ok(Self { conn })
     }
@@ -95,7 +95,7 @@ impl AudioSettingsStore {
                         preferred_sample_rate: row.get(3)?,
                         backend_type,
                         alsa_plugin,
-                        alsa_hardware_volume: row.get::<_, i64>(6)? != 0,
+                        alsa_hardware_volume: row.get::<_, Option<i64>>(6)?.unwrap_or(0) != 0,
                     })
                 },
             )
