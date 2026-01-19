@@ -90,7 +90,7 @@ impl PlaybackEngine {
                     let chunk_samples = CHUNK_SIZE * channels as usize;
 
                     let mut buffer_i16 = Vec::with_capacity(chunk_samples);
-                    let mut buffer_f32 = Vec::with_capacity(chunk_samples);
+                    let mut buffer_i32 = Vec::with_capacity(chunk_samples);
 
                     let mut total_frames: u64 = 0;
                     let mut source_iter = source.into_iter();
@@ -117,20 +117,20 @@ impl PlaybackEngine {
                             break;
                         }
 
-                        // Convert i16 to f32 (normalize to -1.0..1.0)
-                        buffer_f32.clear();
+                        // Convert i16 to i32 (bit-perfect: shift left 16 bits to use full 32-bit range)
+                        buffer_i32.clear();
                         for &sample in &buffer_i16 {
-                            buffer_f32.push(sample as f32 / 32768.0);
+                            buffer_i32.push((sample as i32) << 16);
                         }
 
                         // Write to ALSA
-                        if let Err(e) = stream_clone.write(&buffer_f32) {
+                        if let Err(e) = stream_clone.write(&buffer_i32) {
                             log::error!("[ALSA Direct Engine] Write failed: {}", e);
                             break;
                         }
 
                         // Update position
-                        let frames_written = buffer_f32.len() / channels as usize;
+                        let frames_written = buffer_i32.len() / channels as usize;
                         total_frames += frames_written as u64;
                         position_clone.store(total_frames, Ordering::SeqCst);
                         duration_clone.store(total_frames, Ordering::SeqCst);

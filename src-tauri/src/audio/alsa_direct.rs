@@ -43,8 +43,8 @@ impl AlsaDirectStream {
             hwp.set_access(Access::RWInterleaved)
                 .map_err(|e| format!("Failed to set access: {}", e))?;
 
-            // Set format (Float 32-bit little endian - rodio's default)
-            hwp.set_format(Format::FloatLE)
+            // Set format (Signed 32-bit little endian - most DACs support this)
+            hwp.set_format(Format::S32LE)
                 .map_err(|e| format!("Failed to set format: {}", e))?;
 
             // Set channels
@@ -94,16 +94,16 @@ impl AlsaDirectStream {
         })
     }
 
-    /// Write audio samples to ALSA
+    /// Write audio samples to ALSA (S32_LE format)
     #[cfg(target_os = "linux")]
-    pub fn write(&self, samples: &[f32]) -> Result<(), String> {
+    pub fn write(&self, samples: &[i32]) -> Result<(), String> {
         let mut pcm = self.pcm.lock().unwrap();
 
         // Convert samples to frames (samples / channels)
         let frames = samples.len() / self.channels as usize;
 
         // Write to PCM
-        let io = pcm.io_f32()
+        let io = pcm.io_i32()
             .map_err(|e| format!("Failed to get PCM I/O: {}", e))?;
 
         match io.writei(samples) {
