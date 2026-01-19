@@ -2231,6 +2231,8 @@
             onPlaylistSelect={selectPlaylist}
             selectedTab={getFavoritesTabFromView(activeView) ?? favoritesDefaultTab}
             onTabNavigate={(tab) => navigateToFavorites(tab)}
+            activeTrackId={currentTrack?.id ?? null}
+            isPlaybackActive={isPlaying}
           />
         {/if}
       {:else if activeView === 'playlist-manager'}

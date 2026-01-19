@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
+  import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import { onMount, tick } from 'svelte';
   import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
@@ -79,6 +79,8 @@
     onPlaylistSelect?: (playlistId: number) => void;
     selectedTab?: TabType;
     onTabNavigate?: (tab: TabType) => void;
+    activeTrackId?: number | null;
+    isPlaybackActive?: boolean;
   }
 
   interface DisplayTrack {
@@ -125,7 +127,9 @@
     getTrackDownloadStatus,
     onPlaylistSelect,
     selectedTab,
-    onTabNavigate
+    onTabNavigate,
+    activeTrackId = null,
+    isPlaybackActive = false
   }: Props = $props();
 
   type TabType = 'tracks' | 'albums' | 'artists' | 'playlists';
@@ -201,6 +205,11 @@
 
   let showArtistGroupMenu = $state(false);
   let artistGroupingEnabled = $state(false);
+  let customIconSrc = $derived.by(() =>
+    favoritesPreferences.custom_icon_path
+      ? convertFileSrc(favoritesPreferences.custom_icon_path)
+      : null
+  );
 
   async function scrollToTrack(trackId: number) {
     await tick();
@@ -764,9 +773,9 @@
       class="header-icon"
       style={favoritesPreferences.icon_background ? `background: ${favoritesPreferences.icon_background};` : ''}
     >
-      {#if favoritesPreferences.custom_icon_path}
+      {#if customIconSrc}
         <img
-          src={`asset://localhost/${encodeURIComponent(favoritesPreferences.custom_icon_path)}`}
+          src={customIconSrc}
           alt="Custom Icon"
           class="custom-icon-img"
         />
@@ -1054,6 +1063,7 @@
                     {@const globalIndex = trackIndexMap.get(track.id) ?? index}
                     {@const displayTrack = buildDisplayTrack(track, globalIndex)}
                     {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
+                    {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
                     <TrackRow
                       trackId={track.id}
                       number={track.track_number || index + 1}
@@ -1061,6 +1071,7 @@
                       artist={track.performer?.name}
                       duration={formatDuration(track.duration)}
                       quality={getQualityLabel(track)}
+                      isPlaying={isActiveTrack}
                       isFavoriteOverride={true}
                       downloadStatus={downloadInfo.status}
                       downloadProgress={downloadInfo.progress}
@@ -1103,6 +1114,7 @@
           {#each filteredTracks as track, index (`${track.id}-${downloadStateVersion}`)}
             {@const displayTrack = buildDisplayTrack(track, index)}
             {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
+            {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
             <TrackRow
               trackId={track.id}
               number={index + 1}
@@ -1110,6 +1122,7 @@
               artist={track.performer?.name}
               duration={formatDuration(track.duration)}
               quality={getQualityLabel(track)}
+              isPlaying={isActiveTrack}
               isFavoriteOverride={true}
               downloadStatus={downloadInfo.status}
               downloadProgress={downloadInfo.progress}
