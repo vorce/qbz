@@ -418,8 +418,9 @@
   }
 
   @keyframes device-name-ticker {
-    from { transform: translateX(0); }
-    to { transform: translateX(var(--ticker-offset)); }
+    0%, 15% { transform: translateX(0); }
+    50%, 65% { transform: translateX(var(--ticker-offset)); }
+    100% { transform: translateX(0); }
   }
 
   .tooltip-raw {
