@@ -17,6 +17,7 @@ pub struct AlsaDirectStream {
     is_playing: Arc<AtomicBool>,
     sample_rate: u32,
     channels: u16,
+    format: Format,
 }
 
 impl AlsaDirectStream {
@@ -34,8 +35,8 @@ impl AlsaDirectStream {
         let pcm = PCM::new(device_id, Direction::Playback, false)
             .map_err(|e| format!("Failed to open ALSA device '{}': {}", device_id, e))?;
 
-        // Set hardware parameters
-        {
+        // Set hardware parameters and auto-detect best format
+        let selected_format = {
             let hwp = HwParams::any(&pcm)
                 .map_err(|e| format!("Failed to get hardware params: {}", e))?;
 
@@ -43,9 +44,25 @@ impl AlsaDirectStream {
             hwp.set_access(Access::RWInterleaved)
                 .map_err(|e| format!("Failed to set access: {}", e))?;
 
-            // Set format (Signed 32-bit little endian - most DACs support this)
-            hwp.set_format(Format::S32LE)
-                .map_err(|e| format!("Failed to set format: {}", e))?;
+            // Try formats in order of preference: FloatLE > S32LE > S24LE > S16LE
+            let format_priority = [
+                (Format::FloatLE, "Float32LE"),
+                (Format::S32LE, "S32LE"),
+                (Format::S24LE, "S24LE"),
+                (Format::S16LE, "S16LE"),
+            ];
+
+            let mut selected_format = None;
+            for (format, name) in &format_priority {
+                if hwp.set_format(*format).is_ok() {
+                    log::info!("[ALSA Direct] Selected format: {}", name);
+                    selected_format = Some(*format);
+                    break;
+                }
+            }
+
+            let format = selected_format
+                .ok_or_else(|| "No supported audio format found (tried FloatLE, S32LE, S24LE, S16LE)".to_string())?;
 
             // Set channels
             hwp.set_channels(channels as u32)
@@ -78,9 +95,11 @@ impl AlsaDirectStream {
             pcm.hw_params(&hwp)
                 .map_err(|e| format!("Failed to apply hardware params: {}", e))?;
 
-            log::info!("[ALSA Direct] ✓ Hardware configured: {}Hz, {}ch, buffer: {} frames",
-                sample_rate, channels, buffer_size);
-        }
+            log::info!("[ALSA Direct] ✓ Hardware configured: {}Hz, {}ch, buffer: {} frames, format: {:?}",
+                sample_rate, channels, buffer_size, format);
+
+            format
+        };
 
         // Prepare device for playback
         pcm.prepare()
@@ -91,36 +110,95 @@ impl AlsaDirectStream {
             is_playing: Arc::new(AtomicBool::new(false)),
             sample_rate,
             channels,
+            format: selected_format,
         })
     }
 
-    /// Write audio samples to ALSA (S32_LE format)
+    /// Write audio samples to ALSA (auto-converts from i16 based on detected format)
     #[cfg(target_os = "linux")]
-    pub fn write(&self, samples: &[i32]) -> Result<(), String> {
+    pub fn write(&self, samples_i16: &[i16]) -> Result<(), String> {
         let mut pcm = self.pcm.lock().unwrap();
+        let frames = samples_i16.len() / self.channels as usize;
 
-        // Convert samples to frames (samples / channels)
-        let frames = samples.len() / self.channels as usize;
+        match self.format {
+            Format::FloatLE => {
+                // Convert i16 to f32
+                let samples_f32: Vec<f32> = samples_i16
+                    .iter()
+                    .map(|&s| s as f32 / 32768.0)
+                    .collect();
 
-        // Write to PCM
-        let io = pcm.io_i32()
-            .map_err(|e| format!("Failed to get PCM I/O: {}", e))?;
+                let io = pcm.io_f32()
+                    .map_err(|e| format!("Failed to get PCM I/O: {}", e))?;
 
-        match io.writei(samples) {
-            Ok(written) => {
-                if written != frames {
-                    log::warn!("[ALSA Direct] Partial write: {} / {} frames", written, frames);
+                match io.writei(&samples_f32) {
+                    Ok(written) => {
+                        if written != frames {
+                            log::warn!("[ALSA Direct] Partial write: {} / {} frames", written, frames);
+                        }
+                        Ok(())
+                    }
+                    Err(e) => {
+                        if let Err(recover_err) = pcm.recover(e.errno() as i32, false) {
+                            Err(format!("Failed to recover from error: {}", recover_err))
+                        } else {
+                            log::warn!("[ALSA Direct] Recovered from PCM error");
+                            Ok(())
+                        }
+                    }
                 }
-                Ok(())
             }
-            Err(e) => {
-                // Try to recover from underrun
-                if let Err(recover_err) = pcm.recover(e.errno() as i32, false) {
-                    Err(format!("Failed to recover from error: {}", recover_err))
-                } else {
-                    log::warn!("[ALSA Direct] Recovered from PCM error");
-                    Ok(())
+            Format::S32LE => {
+                // Convert i16 to i32 (bit-perfect: shift left 16 bits)
+                let samples_i32: Vec<i32> = samples_i16
+                    .iter()
+                    .map(|&s| (s as i32) << 16)
+                    .collect();
+
+                let io = pcm.io_i32()
+                    .map_err(|e| format!("Failed to get PCM I/O: {}", e))?;
+
+                match io.writei(&samples_i32) {
+                    Ok(written) => {
+                        if written != frames {
+                            log::warn!("[ALSA Direct] Partial write: {} / {} frames", written, frames);
+                        }
+                        Ok(())
+                    }
+                    Err(e) => {
+                        if let Err(recover_err) = pcm.recover(e.errno() as i32, false) {
+                            Err(format!("Failed to recover from error: {}", recover_err))
+                        } else {
+                            log::warn!("[ALSA Direct] Recovered from PCM error");
+                            Ok(())
+                        }
+                    }
                 }
+            }
+            Format::S16LE => {
+                // Direct write (no conversion needed)
+                let io = pcm.io_i16()
+                    .map_err(|e| format!("Failed to get PCM I/O: {}", e))?;
+
+                match io.writei(samples_i16) {
+                    Ok(written) => {
+                        if written != frames {
+                            log::warn!("[ALSA Direct] Partial write: {} / {} frames", written, frames);
+                        }
+                        Ok(())
+                    }
+                    Err(e) => {
+                        if let Err(recover_err) = pcm.recover(e.errno() as i32, false) {
+                            Err(format!("Failed to recover from error: {}", recover_err))
+                        } else {
+                            log::warn!("[ALSA Direct] Recovered from PCM error");
+                            Ok(())
+                        }
+                    }
+                }
+            }
+            _ => {
+                Err(format!("Unsupported format: {:?}", self.format))
             }
         }
     }
