@@ -129,6 +129,9 @@ pub trait AudioBackend: Send + Sync {
 
     /// Get a description of this backend for UI display
     fn description(&self) -> &'static str;
+
+    /// Downcast to concrete type (for ALSA Direct stream creation)
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// Backend manager - factory for creating backends

@@ -50,4 +50,8 @@ impl AudioBackend for PulseBackend {
     fn description(&self) -> &'static str {
         "PulseAudio (Legacy) - Older audio server, compatible fallback"
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

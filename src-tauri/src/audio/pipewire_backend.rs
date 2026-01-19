@@ -277,4 +277,8 @@ impl AudioBackend for PipeWireBackend {
     fn description(&self) -> &'static str {
         "PipeWire (Recommended) - Modern audio server with device sharing"
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

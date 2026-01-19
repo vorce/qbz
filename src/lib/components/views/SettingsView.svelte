@@ -205,7 +205,8 @@
   let exclusiveMode = $state(false);
   let dacPassthrough = $state(false);
   let selectedBackend = $state<string>('Auto');
-  let selectedAlsaPlugin = $state<string>('Hw (Direct Hardware)');
+  let selectedAlsaPlugin = $state<string>('hw (Direct Hardware)');
+  let alsaHardwareVolume = $state(false);
 
   // Backend system state
   let availableBackends = $state<BackendInfo[]>([]);
@@ -214,8 +215,8 @@
   let isLoadingDevices = $state(false);
 
   // Backend selector options (derived)
-  // TEMPORARILY hide ALSA Direct until hw: device support is implemented with alsa-rs
-  let backendOptions = $derived(['Auto', ...availableBackends.filter(b => b.is_available && b.name !== 'ALSA Direct').map(b => b.name)]);
+  // TEST: Re-enable ALSA Direct to verify if CPAL can actually open hw: devices
+  let backendOptions = $derived(['Auto', ...availableBackends.filter(b => b.is_available).map(b => b.name)]);
 
   // Helper to check if a device name looks like raw ALSA (needs translation)
   function needsTranslation(name: string): boolean {
@@ -288,6 +289,11 @@
 
   // Show ALSA plugin selector only when ALSA backend is selected (derived)
   let showAlsaPluginSelector = $derived(selectedBackend === 'ALSA Direct');
+
+  // Show hardware volume control only for ALSA Direct + Hw plugin (bit-perfect)
+  let showAlsaHardwareVolume = $derived(
+    selectedBackend === 'ALSA Direct' && selectedAlsaPlugin === 'hw (Direct Hardware)'
+  );
 
   // Smart toggle states - auto-disable incompatible features
   let exclusiveModeDisabled = $derived(selectedBackend === 'PipeWire' || selectedBackend === 'Auto' || selectedBackend === 'PulseAudio');
@@ -715,6 +721,7 @@
     preferred_sample_rate: number | null;
     backend_type: 'PipeWire' | 'Alsa' | 'Pulse' | null;
     alsa_plugin: 'Hw' | 'PlugHw' | 'Pcm' | null;
+    alsa_hardware_volume: boolean;
   }
 
   interface BackendInfo {
@@ -816,31 +823,21 @@
         const backend = availableBackends.find(b => b.backend_type === settings.backend_type);
         const backendName = backend?.name ?? 'Auto';
 
-        // TEMPORARILY: If user had ALSA Direct selected, switch to Auto
-        // (ALSA Direct is temporarily disabled until hw: device support is implemented with alsa-rs)
-        if (backendName === 'ALSA Direct') {
-          selectedBackend = 'Auto';
-          // Switch backend to Auto in backend
-          await invoke('set_audio_backend_type', { backendType: null });
-          console.log('[Audio] Switched from ALSA Direct to Auto (ALSA Direct temporarily disabled)');
-          // Don't load devices for ALSA backend
-          backendDevices = [];
-        } else {
-          selectedBackend = backendName;
-          // Load devices for selected backend
-          await loadBackendDevices(settings.backend_type);
+        // TEST: Allow ALSA Direct to load for testing
+        selectedBackend = backendName;
+        // Load devices for selected backend
+        await loadBackendDevices(settings.backend_type);
 
-          // Set selected device from backend devices
-          if (settings.output_device) {
-            const device = backendDevices.find(d => d.id === settings.output_device);
-            if (device) {
-              // Use description from aplay -L if available (ALSA), otherwise translate
-              outputDevice = (device.description && settings.backend_type === 'Alsa')
-                ? device.description
-                : (needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name);
-            } else {
-              outputDevice = 'System Default';
-            }
+        // Set selected device from backend devices
+        if (settings.output_device) {
+          const device = backendDevices.find(d => d.id === settings.output_device);
+          if (device) {
+            // Use description from aplay -L if available (ALSA), otherwise translate
+            outputDevice = (device.description && settings.backend_type === 'Alsa')
+              ? device.description
+              : (needsTranslation(device.name) ? getDevicePrettyName(device.name) : device.name);
+          } else {
+            outputDevice = 'System Default';
           }
         }
       } else {
@@ -853,10 +850,12 @@
 
       if (settings.alsa_plugin) {
         const plugin = alsaPlugins.find(p => p.plugin === settings.alsa_plugin);
-        selectedAlsaPlugin = plugin?.name ?? 'Hw (Direct Hardware)';
+        selectedAlsaPlugin = plugin?.name ?? 'hw (Direct Hardware)';
       } else {
-        selectedAlsaPlugin = 'Hw (Direct Hardware)';
+        selectedAlsaPlugin = 'hw (Direct Hardware)';
       }
+
+      alsaHardwareVolume = settings.alsa_hardware_volume ?? false;
 
       // Validate mutual exclusion: DAC Passthrough disables Gapless + Crossfade
       if (dacPassthrough) {
@@ -1010,6 +1009,16 @@
       }
     } catch (err) {
       console.error('[Audio] Failed to change ALSA plugin:', err);
+    }
+  }
+
+  async function handleAlsaHardwareVolumeChange(enabled: boolean) {
+    alsaHardwareVolume = enabled;
+    try {
+      await invoke('set_audio_alsa_hardware_volume', { enabled });
+      console.log('[Audio] ALSA hardware volume changed:', enabled);
+    } catch (err) {
+      console.error('[Audio] Failed to change ALSA hardware volume:', err);
     }
   }
 
@@ -1386,6 +1395,15 @@
         expandLeft
         compact
       />
+    </div>
+    {/if}
+    {#if showAlsaHardwareVolume}
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">Enable Hardware Volume Control</span>
+        <span class="setting-desc">Experimental: Controls DAC volume via ALSA mixer. Some DACs don't support this - disable for maximum compatibility. If it fails, playback continues normally.</span>
+      </div>
+      <Toggle enabled={alsaHardwareVolume} onchange={handleAlsaHardwareVolumeChange} />
     </div>
     {/if}
     <div class="setting-row">

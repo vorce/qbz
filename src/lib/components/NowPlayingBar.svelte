@@ -730,6 +730,7 @@
     display: flex;
     flex: 1;
     min-height: 0;
+    min-width: 70px;
   }
 
   .empty-state {
