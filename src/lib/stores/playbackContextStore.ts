@@ -24,6 +24,7 @@ export interface PlaybackContext {
 // ============ State ============
 
 let currentContext: PlaybackContext | null = null;
+let pendingFocus: { contextType: ContextType; contextId: string; trackId: number } | null = null;
 const listeners = new Set<() => void>();
 
 function notifyListeners(): void {
@@ -103,6 +104,27 @@ export async function hasPlaybackContext(): Promise<boolean> {
  */
 export function getCurrentContext(): PlaybackContext | null {
   return currentContext;
+}
+
+export function requestContextTrackFocus(
+  contextType: ContextType,
+  contextId: string,
+  trackId: number
+): void {
+  pendingFocus = { contextType, contextId, trackId };
+}
+
+export function consumeContextTrackFocus(
+  contextType: ContextType,
+  contextId: string
+): number | null {
+  if (!pendingFocus) return null;
+  if (pendingFocus.contextType !== contextType || pendingFocus.contextId !== contextId) {
+    return null;
+  }
+  const { trackId } = pendingFocus;
+  pendingFocus = null;
+  return trackId;
 }
 
 /**

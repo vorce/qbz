@@ -4,8 +4,9 @@
   import type { ArtistDetail, QobuzArtist } from '$lib/types';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
-  import { setPlaybackContext } from '$lib/stores/playbackContextStore';
+  import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { togglePlay } from '$lib/stores/playerStore';
+  import { tick } from 'svelte';
 
   interface Track {
     id: number;
@@ -524,6 +525,20 @@
     activeJumpSection = id;
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  async function scrollToTrack(trackId: number) {
+    await tick();
+    const target = artistDetailEl?.querySelector<HTMLElement>(`[data-track-id="${trackId}"]`);
+    target?.scrollIntoView({ block: 'center' });
+  }
+
+  $effect(() => {
+    if (!artistDetailEl || topTracks.length === 0) return;
+    const targetId = consumeContextTrackFocus('artist_top', artist.id.toString());
+    if (targetId !== null) {
+      void scrollToTrack(targetId);
+    }
+  });
 
   $effect(() => {
     if (!artistDetailEl) return;

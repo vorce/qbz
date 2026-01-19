@@ -1,13 +1,13 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import FavoritesEditModal from '../FavoritesEditModal.svelte';
   import { type DownloadStatus } from '$lib/stores/downloadState';
-  import { setPlaybackContext } from '$lib/stores/playbackContextStore';
+  import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { normalizeFavoritesTabOrder } from '$lib/utils/favorites';
   import type { FavoritesPreferences } from '$lib/types';
 
@@ -147,6 +147,7 @@
   let loading = $state(false);
   let loadingPlaylists = $state(false);
   let editModalOpen = $state(false);
+  let scrollContainer: HTMLDivElement | null = $state(null);
   let favoritesPreferences = $state<FavoritesPreferences>({
     custom_icon_path: null,
     custom_icon_preset: 'heart',
@@ -200,6 +201,12 @@
 
   let showArtistGroupMenu = $state(false);
   let artistGroupingEnabled = $state(false);
+
+  async function scrollToTrack(trackId: number) {
+    await tick();
+    const target = scrollContainer?.querySelector<HTMLElement>(`[data-track-id="${trackId}"]`);
+    target?.scrollIntoView({ block: 'center' });
+  }
 
   // Filtered lists based on search
   let filteredTracks = $derived.by(() => {
@@ -360,6 +367,14 @@
     if (preferencesLoaded && selectedTab && selectedTab !== activeTab) {
       activeTab = selectedTab;
       loadTabIfNeeded(activeTab);
+    }
+  });
+
+  $effect(() => {
+    if (!preferencesLoaded || activeTab !== 'tracks' || favoriteTracks.length === 0) return;
+    const targetId = consumeContextTrackFocus('favorites', 'favorites');
+    if (targetId !== null) {
+      void scrollToTrack(targetId);
     }
   });
 
@@ -742,7 +757,7 @@
 
 </script>
 
-<div class="favorites-view">
+<div class="favorites-view" bind:this={scrollContainer}>
   <!-- Header -->
   <div class="header">
     <div

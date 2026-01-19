@@ -123,6 +123,7 @@
   class:playing={isPlaying}
   class:hovered={isHovered && !isPlaying}
   class:compact
+  data-track-id={trackId ?? undefined}
   onmouseenter={() => (isHovered = true)}
   onmouseleave={() => (isHovered = false)}
   onclick={onPlay}

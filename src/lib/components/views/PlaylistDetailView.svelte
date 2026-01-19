@@ -13,9 +13,9 @@
     getStatus as getOfflineStatus,
     type OfflineStatus
   } from '$lib/stores/offlineStore';
-  import { setPlaybackContext } from '$lib/stores/playbackContextStore';
+  import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { t } from '$lib/i18n';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   interface PlaylistTrack {
     id: number;
@@ -182,6 +182,7 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let playBtnHovered = $state(false);
+  let scrollContainer: HTMLDivElement | null = $state(null);
 
   // Offline mode state
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
@@ -198,6 +199,12 @@
   let editModalOpen = $state(false);
   let isFavorite = $state(false);
 
+  async function scrollToTrack(trackId: number) {
+    await tick();
+    const target = scrollContainer?.querySelector<HTMLElement>(`[data-track-id="${trackId}"]`);
+    target?.scrollIntoView({ block: 'center' });
+  }
+
   // Subscribe to offline status changes
   onMount(() => {
     const unsubscribe = subscribeOffline(() => {
@@ -208,6 +215,14 @@
       }
     });
     return unsubscribe;
+  });
+
+  $effect(() => {
+    if (!playlist || displayTracks.length === 0) return;
+    const targetId = consumeContextTrackFocus('playlist', playlist.id.toString());
+    if (targetId !== null) {
+      void scrollToTrack(targetId);
+    }
   });
 
   // Check if a track is available (has local copy when offline, always available when online)
@@ -768,7 +783,7 @@
   }
 </script>
 
-<div class="playlist-detail">
+<div class="playlist-detail" bind:this={scrollContainer}>
   <!-- Navigation Row -->
   <div class="nav-row">
     <button class="back-btn" onclick={onBack}>

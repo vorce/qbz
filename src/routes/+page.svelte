@@ -30,7 +30,8 @@
     initPlaybackContextStore,
     setPlaybackContext,
     clearPlaybackContext,
-    getCurrentContext
+    getCurrentContext,
+    requestContextTrackFocus
   } from '$lib/stores/playbackContextStore';
   import { 
     initPlaybackPreferences,
@@ -407,10 +408,18 @@
 
     console.log('[ContextNav] Navigating to:', context);
 
+    const focusTrackId = currentTrack?.id;
+    const requestFocus = (contextType: typeof context.type, contextId: string) => {
+      if (typeof focusTrackId === 'number') {
+        requestContextTrackFocus(contextType, contextId, focusTrackId);
+      }
+    };
+
     try {
       switch (context.type) {
         case 'album':
           // Navigate to album page
+          requestFocus('album', context.id);
           await handleAlbumClick(context.id);
           break;
 
@@ -418,6 +427,7 @@
           // Navigate to playlist page
           const playlistId = parseInt(context.id);
           if (!isNaN(playlistId)) {
+            requestFocus('playlist', context.id);
             selectedPlaylistId = playlistId;
             navigateTo('playlist');
           }
@@ -427,13 +437,15 @@
           // Navigate to artist page
           const artistId = parseInt(context.id);
           if (!isNaN(artistId)) {
+            requestFocus('artist_top', context.id);
             await handleArtistClick(artistId);
           }
           break;
 
         case 'favorites':
           // Navigate to favorites page
-          navigateTo('favorites');
+          requestFocus('favorites', 'favorites');
+          navigateToFavorites('tracks');
           break;
 
         case 'home_list':
