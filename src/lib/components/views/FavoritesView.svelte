@@ -720,31 +720,8 @@
     };
   }
 
-  function handleTrackClick(track: FavoriteTrack, index: number) {
-    // Create favorites context
-    if (filteredTracks.length > 0) {
-      const trackIds = filteredTracks.map(t => t.id);
-      
-      setPlaybackContext(
-        'favorites',
-        'favorites',
-        'Favorites',
-        'qobuz',
-        trackIds,
-        index
-      );
-    }
-
-    // Play track
-    if (onTrackPlay) {
-      onTrackPlay(buildDisplayTrack(track, index));
-    }
-  }
-
-  async function handlePlayAllTracks() {
-    if (filteredTracks.length === 0 || !onTrackPlay) return;
-
-    const queueTracks = filteredTracks.map(t => ({
+  function buildFavoritesQueueTracks(tracks: FavoriteTrack[]) {
+    return tracks.map(t => ({
       id: t.id,
       title: t.title,
       artist: t.performer?.name || 'Unknown Artist',
@@ -755,10 +732,48 @@
       bit_depth: t.maximum_bit_depth ?? null,
       sample_rate: t.maximum_sampling_rate ?? null,
     }));
+  }
+
+  function setFavoritesContext(trackIds: number[], index: number) {
+    if (trackIds.length === 0) return;
+    setPlaybackContext(
+      'favorites',
+      'favorites',
+      'Favorites',
+      'qobuz',
+      trackIds,
+      index
+    );
+  }
+
+  async function setFavoritesQueue(startIndex: number) {
+    if (filteredTracks.length === 0) return;
+    const queueTracks = buildFavoritesQueueTracks(filteredTracks);
+    await invoke('set_queue', { tracks: queueTracks, startIndex });
+  }
+
+  async function handleTrackClick(track: FavoriteTrack, index: number) {
+    const trackIds = filteredTracks.map(t => t.id);
+    setFavoritesContext(trackIds, index);
 
     try {
-      await invoke('set_queue', { tracks: queueTracks, startIndex: 0 });
-      handleTrackClick(filteredTracks[0], 0);
+      await setFavoritesQueue(index);
+    } catch (err) {
+      console.error('Failed to set queue:', err);
+    }
+
+    if (onTrackPlay) {
+      onTrackPlay(buildDisplayTrack(track, index));
+    }
+  }
+
+  async function handlePlayAllTracks() {
+    if (filteredTracks.length === 0 || !onTrackPlay) return;
+
+    try {
+      await setFavoritesQueue(0);
+      setFavoritesContext(filteredTracks.map(t => t.id), 0);
+      onTrackPlay(buildDisplayTrack(filteredTracks[0], 0));
     } catch (err) {
       console.error('Failed to set queue:', err);
     }

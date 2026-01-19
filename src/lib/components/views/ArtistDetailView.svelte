@@ -309,7 +309,21 @@
     void togglePlay();
   }
 
-  function handleTrackPlay(track: Track, trackIndex?: number) {
+  function buildTopTracksQueue(tracks: Track[]) {
+    return tracks.map(t => ({
+      id: t.id,
+      title: t.title,
+      artist: t.performer?.name || artist.name,
+      album: t.album?.title || '',
+      duration_secs: t.duration,
+      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || '',
+      hires: t.hires_streamable ?? false,
+      bit_depth: t.maximum_bit_depth ?? null,
+      sample_rate: t.maximum_sampling_rate ?? null,
+    }));
+  }
+
+  async function handleTrackPlay(track: Track, trackIndex?: number) {
     // Create artist top tracks context
     if (topTracks.length > 0) {
       const trackIds = topTracks.map(t => t.id);
@@ -325,6 +339,12 @@
           index
         );
         console.log(`[Artist] Context created: "${artist.name}" top tracks, ${trackIds.length} tracks, starting at ${index}`);
+        try {
+          const queueTracks = buildTopTracksQueue(topTracks);
+          await invoke('set_queue', { tracks: queueTracks, startIndex: index });
+        } catch (err) {
+          console.error('Failed to set queue:', err);
+        }
       }
     }
 
@@ -351,21 +371,8 @@
   async function handlePlayAllTracks() {
     if (topTracks.length === 0 || !onTrackPlay) return;
 
-    const queueTracks = topTracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.performer?.name || artist.name,
-      album: t.album?.title || '',
-      duration_secs: t.duration,
-      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || '',
-      hires: t.hires_streamable ?? false,
-      bit_depth: t.maximum_bit_depth ?? null,
-      sample_rate: t.maximum_sampling_rate ?? null,
-    }));
-
     try {
-      await invoke('set_queue', { tracks: queueTracks, startIndex: 0 });
-      handleTrackPlay(topTracks[0]);
+      await handleTrackPlay(topTracks[0], 0);
     } catch (err) {
       console.error('Failed to set queue:', err);
     }

@@ -35,7 +35,8 @@
   } from '$lib/stores/playbackContextStore';
   import { 
     initPlaybackPreferences,
-    getCachedPreferences 
+    getCachedPreferences,
+    isAutoplayEnabled
   } from '$lib/stores/playbackPreferencesStore';
 
   // UI state management
@@ -1853,6 +1854,10 @@
 
     // Set up track ended callback for auto-advance
     setOnTrackEnded(async () => {
+      if (!isAutoplayEnabled()) {
+        setQueueEnded(true);
+        return;
+      }
       const nextTrackResult = await nextTrack();
       if (nextTrackResult) {
         await playQueueTrack(nextTrackResult);

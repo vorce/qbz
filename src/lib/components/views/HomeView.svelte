@@ -335,7 +335,21 @@
     return formatQuality(track.hires, track.bitDepth, track.samplingRate);
   }
 
-  function handleContinueTrackPlay(track: DisplayTrack, trackIndex: number) {
+  function buildContinueQueueTracks(tracks: DisplayTrack[]) {
+    return tracks.map(t => ({
+      id: t.id,
+      title: t.title,
+      artist: t.artist || 'Unknown Artist',
+      album: t.album || '',
+      duration_secs: t.durationSeconds,
+      artwork_url: t.albumArt || '',
+      hires: t.hires ?? false,
+      bit_depth: t.bitDepth ?? null,
+      sample_rate: t.samplingRate ?? null,
+    }));
+  }
+
+  async function handleContinueTrackPlay(track: DisplayTrack, trackIndex: number) {
     // Create continue listening context
     if (continueTracks.length > 0) {
       const trackIds = continueTracks.map(t => t.id);
@@ -349,6 +363,15 @@
         trackIndex
       );
       console.log(`[Home] Context created: Continue Listening, ${trackIds.length} tracks, starting at ${trackIndex}`);
+    }
+
+    if (continueTracks.length > 0) {
+      try {
+        const queueTracks = buildContinueQueueTracks(continueTracks);
+        await invoke('set_queue', { tracks: queueTracks, startIndex: trackIndex });
+      } catch (err) {
+        console.error('Failed to set queue:', err);
+      }
     }
 
     // Play track

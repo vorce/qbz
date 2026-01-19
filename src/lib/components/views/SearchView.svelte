@@ -381,7 +381,21 @@
     return track.album?.image?.large || track.album?.image?.thumbnail || track.album?.image?.small || '';
   }
 
-  function handleSearchTrackPlay(track: Track, trackIndex: number) {
+  function buildSearchQueueTracks(tracks: Track[]) {
+    return tracks.map(t => ({
+      id: t.id,
+      title: t.title,
+      artist: t.performer?.name || 'Unknown Artist',
+      album: t.album?.title || '',
+      duration_secs: t.duration,
+      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || '',
+      hires: t.hires_streamable ?? false,
+      bit_depth: t.maximum_bit_depth ?? null,
+      sample_rate: t.maximum_sampling_rate ?? null,
+    }));
+  }
+
+  async function handleSearchTrackPlay(track: Track, trackIndex: number) {
     // Create search results context
     if (trackResults && trackResults.items.length > 0) {
       const trackIds = trackResults.items.map(t => t.id);
@@ -395,6 +409,15 @@
         trackIndex
       );
       console.log(`[Search] Context created: "${currentQuery}", ${trackIds.length} tracks, starting at ${trackIndex}`);
+    }
+
+    if (trackResults && trackResults.items.length > 0) {
+      try {
+        const queueTracks = buildSearchQueueTracks(trackResults.items);
+        await invoke('set_queue', { tracks: queueTracks, startIndex: trackIndex });
+      } catch (err) {
+        console.error('Failed to set queue:', err);
+      }
     }
 
     // Play track

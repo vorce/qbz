@@ -544,29 +544,66 @@
     return '';
   }
 
-  function handleTrackClick(track: DisplayTrack) {
+  function buildQueueTracks(tracks: DisplayTrack[]) {
+    const queueTracks = tracks.map(t => ({
+      id: t.isLocal ? Math.abs(t.id) : t.id,
+      title: t.title,
+      artist: t.artist || 'Unknown Artist',
+      album: t.album || playlist?.name || 'Playlist',
+      duration_secs: t.durationSeconds,
+      artwork_url: t.albumArt || getPlaylistImage(),
+      hires: t.hires ?? false,
+      bit_depth: t.bitDepth ?? null,
+      sample_rate: t.samplingRate != null ? (t.isLocal ? t.samplingRate * 1000 : t.samplingRate) : null,
+      is_local: t.isLocal ?? false,
+    }));
+
+    const localIds = tracks
+      .filter(t => t.isLocal)
+      .map(t => Math.abs(t.id));
+
+    return { queueTracks, localIds };
+  }
+
+  async function setPlaylistQueue(startIndex: number) {
+    const allTracks = displayTracks;
+    if (allTracks.length === 0) return;
+    const { queueTracks, localIds } = buildQueueTracks(allTracks);
+    await invoke('set_queue', { tracks: queueTracks, startIndex });
+    if (localIds.length > 0) {
+      onSetLocalQueue?.(localIds);
+    }
+  }
+
+  async function handleTrackClick(track: DisplayTrack, trackIndex: number) {
     // Create playlist context before playing
     if (playlist) {
       const trackIds = displayTracks
         .filter(t => !t.isLocal) // Only Qobuz tracks in context
         .map(t => t.id);
       
-      const trackIndex = trackIds.indexOf(track.id);
+      const contextIndex = trackIds.indexOf(track.id);
       
-      if (trackIndex >= 0 && trackIds.length > 0) {
+      if (contextIndex >= 0 && trackIds.length > 0) {
         setPlaybackContext(
           'playlist',
           playlist.id.toString(),
           playlist.name,
           'qobuz',
           trackIds,
-          trackIndex
+          contextIndex
         );
-        console.log(`[Playlist] Context created: "${playlist.name}", ${trackIds.length} tracks, starting at ${trackIndex}`);
+        console.log(`[Playlist] Context created: "${playlist.name}", ${trackIds.length} tracks, starting at ${contextIndex}`);
       }
     }
 
     // Handle playback
+    try {
+      await setPlaylistQueue(trackIndex);
+    } catch (err) {
+      console.error('Failed to set queue:', err);
+    }
+
     if (track.isLocal && track.localTrackId) {
       // Handle local track play
       const localTrack = localTracksMap.get(track.localTrackId);
@@ -628,32 +665,8 @@
     const allTracks = displayTracks;
     if (allTracks.length === 0) return;
 
-    // Build queue tracks, using absolute ID for local tracks
-    const queueTracks = allTracks.map(t => ({
-      id: t.isLocal ? Math.abs(t.id) : t.id,
-      title: t.title,
-      artist: t.artist || 'Unknown Artist',
-      album: t.album || playlist?.name || 'Playlist',
-      duration_secs: t.durationSeconds,
-      artwork_url: t.albumArt || getPlaylistImage(),
-      hires: t.hires ?? false,
-      bit_depth: t.bitDepth ?? null,
-      sample_rate: t.samplingRate != null ? (t.isLocal ? t.samplingRate * 1000 : t.samplingRate) : null,
-      is_local: t.isLocal ?? false,
-    }));
-
-    // Collect local track IDs (original positive IDs)
-    const localIds = allTracks
-      .filter(t => t.isLocal)
-      .map(t => Math.abs(t.id));
-
     try {
-      await invoke('set_queue', { tracks: queueTracks, startIndex: 0 });
-
-      // Tell parent about local tracks in queue
-      if (localIds.length > 0) {
-        onSetLocalQueue?.(localIds);
-      }
+      await setPlaylistQueue(0);
 
       // Play first track (handle local vs Qobuz)
       const firstTrack = allTracks[0];
@@ -991,11 +1004,11 @@
             hideDownload={track.isLocal}
             downloadStatus={downloadInfo.status}
             downloadProgress={downloadInfo.progress}
-            onPlay={available ? () => handleTrackClick(track) : undefined}
+            onPlay={available ? () => handleTrackClick(track, idx) : undefined}
             onDownload={available && !track.isLocal && onTrackDownload ? () => onTrackDownload(track) : undefined}
             onRemoveDownload={available && !track.isLocal && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
             menuActions={available ? {
-              onPlayNow: () => handleTrackClick(track),
+              onPlayNow: () => handleTrackClick(track, idx),
               onPlayNext: track.isLocal ? () => handleTrackPlayNext(track) : (onTrackPlayNext ? () => onTrackPlayNext(track) : undefined),
               onPlayLater: track.isLocal ? () => handleTrackPlayLater(track) : (onTrackPlayLater ? () => onTrackPlayLater(track) : undefined),
               onAddToPlaylist: !track.isLocal && onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined,
