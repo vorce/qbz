@@ -205,7 +205,7 @@
   let exclusiveMode = $state(false);
   let dacPassthrough = $state(false);
   let selectedBackend = $state<string>('Auto');
-  let selectedAlsaPlugin = $state<string>('Hw (Direct Hardware)');
+  let selectedAlsaPlugin = $state<string>('hw (Direct Hardware)');
   let alsaHardwareVolume = $state(false);
 
   // Backend system state
@@ -292,7 +292,7 @@
 
   // Show hardware volume control only for ALSA Direct + Hw plugin (bit-perfect)
   let showAlsaHardwareVolume = $derived(
-    selectedBackend === 'ALSA Direct' && selectedAlsaPlugin === 'Hw (Direct Hardware)'
+    selectedBackend === 'ALSA Direct' && selectedAlsaPlugin === 'hw (Direct Hardware)'
   );
 
   // Smart toggle states - auto-disable incompatible features
@@ -850,9 +850,9 @@
 
       if (settings.alsa_plugin) {
         const plugin = alsaPlugins.find(p => p.plugin === settings.alsa_plugin);
-        selectedAlsaPlugin = plugin?.name ?? 'Hw (Direct Hardware)';
+        selectedAlsaPlugin = plugin?.name ?? 'hw (Direct Hardware)';
       } else {
-        selectedAlsaPlugin = 'Hw (Direct Hardware)';
+        selectedAlsaPlugin = 'hw (Direct Hardware)';
       }
 
       alsaHardwareVolume = settings.alsa_hardware_volume ?? false;
