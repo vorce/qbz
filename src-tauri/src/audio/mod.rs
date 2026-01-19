@@ -7,6 +7,7 @@ pub mod backend;
 pub mod pipewire_backend;
 pub mod alsa_backend;
 pub mod pulse_backend;
+pub mod alsa_direct;
 
 // Re-export commonly used types
 pub use backend::{
@@ -18,3 +19,4 @@ pub use backend::{
     BackendManager,
     BackendResult,
 };
+pub use alsa_direct::AlsaDirectStream;

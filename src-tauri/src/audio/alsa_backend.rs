@@ -299,6 +299,35 @@ impl AlsaBackend {
             }
         }
     }
+
+    /// Try to create direct ALSA stream for hw: devices (bypasses CPAL)
+    /// Returns None if device is not a hw: device (should use CPAL instead)
+    pub fn try_create_direct_stream(
+        &self,
+        config: &BackendConfig,
+    ) -> Option<Result<super::AlsaDirectStream, String>> {
+        let device_id = config.device_id.as_ref()?;
+
+        // Only use direct ALSA for hw: and plughw: devices
+        if !super::AlsaDirectStream::is_hw_device(device_id) {
+            log::info!("[ALSA Backend] Device '{}' is not hw:/plughw:, using CPAL", device_id);
+            return None;
+        }
+
+        log::info!(
+            "[ALSA Backend] Creating DIRECT ALSA stream for hw: device: {} ({}Hz, {}ch)",
+            device_id,
+            config.sample_rate,
+            config.channels
+        );
+
+        // Create direct ALSA stream (bypasses rodio/CPAL)
+        Some(super::AlsaDirectStream::new(
+            device_id,
+            config.sample_rate,
+            config.channels,
+        ))
+    }
 }
 
 impl AudioBackend for AlsaBackend {
