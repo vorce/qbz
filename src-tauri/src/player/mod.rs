@@ -758,21 +758,33 @@ impl Player {
                             .unwrap_or(false);
 
                         // Check if we need to recreate the stream
-                        // Only recreate on format change if DAC passthrough is enabled
+                        // Recreate on format change if DAC passthrough OR ALSA Direct is enabled (both require bit-perfect)
                         let format_changed = *current_sample_rate != Some(sample_rate)
                             || *current_channels != Some(channels);
+
+                        // Check if using ALSA Direct backend
+                        let using_alsa_direct = thread_settings
+                            .lock()
+                            .ok()
+                            .and_then(|s| s.backend_type)
+                            .map(|b| b == AudioBackendType::Alsa)
+                            .unwrap_or(false);
+
                         let needs_new_stream = stream_opt.is_none()
-                            || (dac_passthrough && format_changed);
+                            || (dac_passthrough && format_changed)
+                            || (using_alsa_direct && format_changed);
 
                         if needs_new_stream {
                             if stream_opt.is_some() {
-                                if dac_passthrough && format_changed {
+                                if (dac_passthrough || using_alsa_direct) && format_changed {
+                                    let mode = if using_alsa_direct { "ALSA Direct" } else { "DAC passthrough" };
                                     log::info!(
-                                        "Sample rate/channels changed from {:?}Hz/{:?}ch to {}Hz/{}ch - recreating OutputStream (DAC passthrough)",
+                                        "Sample rate/channels changed from {:?}Hz/{:?}ch to {}Hz/{}ch - recreating OutputStream ({})",
                                         *current_sample_rate,
                                         *current_channels,
                                         sample_rate,
-                                        channels
+                                        channels,
+                                        mode
                                     );
                                 } else {
                                     log::info!("Creating initial OutputStream");
@@ -781,56 +793,61 @@ impl Player {
                                 drop(stream_opt.take());
                             }
 
-                            log::info!("DAC passthrough enabled: {}", dac_passthrough);
-
-                            // Get the audio device
-                            let device = if let Some(ref name) = *current_device_name {
-                                log::info!("Looking for audio device: {}", name);
-                                let found = host.output_devices()
-                                    .ok()
-                                    .and_then(|mut devices| {
-                                        devices.find(|d| d.name().ok().as_ref() == Some(name))
-                                    });
-
-                                match found {
-                                    Some(d) if is_device_valid(&d) => {
-                                        log::info!("Found and validated device: {}", name);
-                                        Some(d)
-                                    }
-                                    Some(_) => {
-                                        log::warn!("Device '{}' found but has no valid output configs, using default", name);
-                                        host.default_output_device()
-                                    }
-                                    None => {
-                                        log::warn!("Device '{}' not found, using default", name);
-                                        host.default_output_device()
-                                    }
-                                }
-                            } else {
-                                log::info!("Using default audio device");
-                                host.default_output_device()
-                            };
-
-                            let Some(device) = device else {
-                                log::error!("No audio output device available");
-                                thread_state.set_current_device(None);
-                                thread_state.set_stream_error(true);
-                                return;
-                            };
-
-                            // Set current device name
-                            if let Ok(name) = device.name() {
-                                log::info!("Using audio device: {}", name);
-                                thread_state.set_current_device(Some(name));
-                            }
+                            log::info!("DAC passthrough: {}, ALSA Direct: {}", dac_passthrough, using_alsa_direct);
 
                             // Try backend system first (if configured), then fall back to legacy CPAL
+                            // This avoids unnecessary CPAL device enumeration for PipeWire DAC and ALSA Direct
                             let stream_result = if let Some(settings) = thread_settings.lock().ok() {
                                 match try_init_stream_with_backend(&settings, sample_rate, channels) {
-                                    Some(result) => result,
+                                    Some(result) => {
+                                        // Backend system handled it - no need for CPAL device search
+                                        result
+                                    }
                                     None => {
                                         // Backend system not configured, use legacy CPAL path
                                         log::info!("Backend system not configured, using legacy CPAL path");
+
+                                        // Get the audio device via CPAL
+                                        let device = if let Some(ref name) = *current_device_name {
+                                            log::info!("Looking for audio device: {}", name);
+                                            let found = host.output_devices()
+                                                .ok()
+                                                .and_then(|mut devices| {
+                                                    devices.find(|d| d.name().ok().as_ref() == Some(name))
+                                                });
+
+                                            match found {
+                                                Some(d) if is_device_valid(&d) => {
+                                                    log::info!("Found and validated device: {}", name);
+                                                    Some(d)
+                                                }
+                                                Some(_) => {
+                                                    log::warn!("Device '{}' found but has no valid output configs, using default", name);
+                                                    host.default_output_device()
+                                                }
+                                                None => {
+                                                    log::warn!("Device '{}' not found, using default", name);
+                                                    host.default_output_device()
+                                                }
+                                            }
+                                        } else {
+                                            log::info!("Using default audio device");
+                                            host.default_output_device()
+                                        };
+
+                                        let Some(device) = device else {
+                                            log::error!("No audio output device available");
+                                            thread_state.set_current_device(None);
+                                            thread_state.set_stream_error(true);
+                                            return;
+                                        };
+
+                                        // Set current device name
+                                        if let Ok(name) = device.name() {
+                                            log::info!("Using audio device: {}", name);
+                                            thread_state.set_current_device(Some(name));
+                                        }
+
                                         create_output_stream_with_config(
                                             &device,
                                             sample_rate,
@@ -840,7 +857,33 @@ impl Player {
                                     }
                                 }
                             } else {
-                                // Failed to lock settings, use legacy path
+                                // Failed to lock settings, use legacy path with CPAL device search
+                                let device = if let Some(ref name) = *current_device_name {
+                                    log::info!("Looking for audio device: {}", name);
+                                    host.output_devices()
+                                        .ok()
+                                        .and_then(|mut devices| {
+                                            devices.find(|d| d.name().ok().as_ref() == Some(name))
+                                        })
+                                        .or_else(|| {
+                                            log::warn!("Device '{}' not found, using default", name);
+                                            host.default_output_device()
+                                        })
+                                } else {
+                                    host.default_output_device()
+                                };
+
+                                let Some(device) = device else {
+                                    log::error!("No audio output device available");
+                                    thread_state.set_current_device(None);
+                                    thread_state.set_stream_error(true);
+                                    return;
+                                };
+
+                                if let Ok(name) = device.name() {
+                                    thread_state.set_current_device(Some(name));
+                                }
+
                                 create_output_stream_with_config(
                                     &device,
                                     sample_rate,
@@ -857,27 +900,16 @@ impl Player {
                                     *current_channels = Some(channels);
                                     thread_state.set_stream_error(false);
                                     log::info!("✅ Audio stream ready at {}Hz", sample_rate);
+
+                                    // Small delay to ensure stream is fully initialized before decoder starts
+                                    // This prevents sync gaps when changing sample rates
+                                    std::thread::sleep(Duration::from_millis(50));
                                 }
                                 Err(e) => {
                                     log::error!("❌ Failed to create stream at {}Hz: {}", sample_rate, e);
-                                    log::warn!("Attempting fallback to default device config...");
-
-                                    // Try fallback to default config
-                                    match OutputStream::try_from_device(&device) {
-                                        Ok((stream, handle)) => {
-                                            log::warn!("Using default device config as fallback");
-                                            *stream_opt = Some(StreamType::Rodio(stream, handle));
-                                            *current_sample_rate = Some(sample_rate);
-                                            *current_channels = Some(channels);
-                                            thread_state.set_stream_error(false);
-                                        }
-                                        Err(e2) => {
-                                            log::error!("Fallback also failed: {}", e2);
-                                            thread_state.set_stream_error(true);
-                                            thread_state.set_current_device(None);
-                                            return;
-                                        }
-                                    }
+                                    thread_state.set_stream_error(true);
+                                    thread_state.set_current_device(None);
+                                    return;
                                 }
                             }
                         } else if format_changed {
