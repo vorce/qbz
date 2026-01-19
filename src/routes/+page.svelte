@@ -2267,6 +2267,7 @@
       />
     {/if}
     </div>
+    </div><!-- end app-body -->
 
     <!-- Now Playing Bar -->
     {#if currentTrack}
@@ -2326,7 +2327,6 @@
         {isCastConnected}
       />
     {/if}
-    </div><!-- end app-body -->
 
     <!-- Queue Panel -->
     <QueuePanel
