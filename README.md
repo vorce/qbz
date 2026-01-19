@@ -286,6 +286,33 @@ qbz/
 └── static/               # Static assets and logo
 ```
 
+## Known Issues
+
+### Audio Playback
+
+**Seekbar Performance with Hi-Res Audio**
+- When using ALSA Direct or PipeWire DAC Passthrough with high sample rates (>96kHz), seeking can take 10-20 seconds
+- This is due to the decoder needing to decode all samples from the start to the seek position
+- Workaround: Use prev/next track buttons for instant navigation
+- Future: Byte-level seeking will be implemented in a future release to fix this
+
+**First Sample Rate Change**
+- The first large sample rate change (e.g., 88.2kHz → 44.1kHz) may have a brief delay as the hardware stabilizes
+- Subsequent changes of the same type are smooth
+- This is normal hardware behavior and not a bug
+
+### Audio Backends
+
+**ALSA Direct Mode (hw: devices)**
+- Provides bit-perfect playback by bypassing all software mixing
+- Exclusive access: Other applications cannot play audio simultaneously
+- Hardware volume control is experimental and may not work with all DACs
+- If hardware mixer fails, use your DAC/amplifier's physical volume control
+
+**PipeWire DAC Passthrough**
+- Requires PipeWire configuration for automatic sample rate switching
+- See [AUDIO_BACKENDS.md](qbz-nix-docs/AUDIO_BACKENDS.md) for setup instructions
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues and pull requests.
