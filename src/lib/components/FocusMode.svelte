@@ -22,6 +22,8 @@
     currentTime: number;
     duration: number;
     onSeek: (time: number) => void;
+    volume: number;
+    onVolumeChange: (volume: number) => void;
     onContextClick?: () => void;
     // Lyrics props
     lyricsLines?: LyricsLine[];
@@ -45,6 +47,8 @@
     currentTime,
     duration,
     onSeek,
+    volume,
+    onVolumeChange,
     onContextClick,
     lyricsLines = [],
     lyricsActiveIndex = -1,
@@ -67,6 +71,8 @@
   let showControls = $state(true);
   let hideTimeout: ReturnType<typeof setTimeout> | null = null;
   let progressRef: HTMLDivElement | null = $state(null);
+  let volumeRef: HTMLDivElement | null = $state(null);
+  let isDraggingVolume = $state(false);
 
   const progress = $derived((currentTime / duration) * 100 || 0);
   const hasLyrics = $derived(lyricsLines.length > 0);
@@ -94,6 +100,31 @@
     } else if (e.key === 'ArrowLeft') {
       onSeek(Math.max(0, currentTime - step));
     }
+  }
+
+  function handleVolumeMouseDown(e: MouseEvent) {
+    e.stopPropagation();
+    isDraggingVolume = true;
+    updateVolume(e);
+    document.addEventListener('mousemove', handleVolumeMouseMove);
+    document.addEventListener('mouseup', handleVolumeMouseUp);
+  }
+
+  function handleVolumeMouseMove(e: MouseEvent) {
+    if (isDraggingVolume) updateVolume(e);
+  }
+
+  function handleVolumeMouseUp() {
+    isDraggingVolume = false;
+    document.removeEventListener('mousemove', handleVolumeMouseMove);
+    document.removeEventListener('mouseup', handleVolumeMouseUp);
+  }
+
+  function updateVolume(e: MouseEvent) {
+    if (!volumeRef) return;
+    const rect = volumeRef.getBoundingClientRect();
+    const percentage = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    onVolumeChange(Math.round(percentage));
   }
 
   function showControlsTemporarily() {
@@ -239,8 +270,26 @@
         </div>
       </div>
 
-      <!-- Right: Spacer for balance -->
-      <div class="right-spacer"></div>
+      <!-- Right: Volume Control -->
+      <div class="right-controls">
+        <div class="volume-control">
+          <div class="volume-value" class:visible={isDraggingVolume}>{volume}</div>
+          <div
+            class="volume-bar"
+            bind:this={volumeRef}
+            onmousedown={handleVolumeMouseDown}
+            role="slider"
+            tabindex="0"
+            aria-valuenow={volume}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            title={$t('player.volume')}
+          >
+            <div class="volume-fill" style="width: {volume}%"></div>
+            <div class="volume-thumb" style="left: {volume}%"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 {/if}
@@ -620,8 +669,66 @@
     opacity: 1;
   }
 
-  .right-spacer {
+  .right-controls {
     min-width: 200px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .volume-control {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .volume-bar {
+    width: 140px;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    position: relative;
+  }
+
+  .volume-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.7);
+  }
+
+  .volume-thumb {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .volume-bar:hover .volume-thumb {
+    opacity: 1;
+  }
+
+  .volume-value {
+    position: absolute;
+    right: 0;
+    top: -26px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 12px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 150ms ease, transform 150ms ease;
+  }
+
+  .volume-value.visible {
+    opacity: 1;
+    transform: translateY(0);
   }
 
   /* Responsive Breakpoints */
@@ -667,7 +774,7 @@
       display: none;
     }
 
-    .right-spacer {
+    .right-controls {
       display: none;
     }
 

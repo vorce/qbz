@@ -2391,6 +2391,8 @@
         {currentTime}
         {duration}
         onSeek={handleSeek}
+        {volume}
+        onVolumeChange={handleVolumeChange}
         lyricsLines={lyricsLines.map(l => ({ text: l.text }))}
         lyricsActiveIndex={lyricsActiveIndex}
         lyricsActiveProgress={lyricsActiveProgress}
