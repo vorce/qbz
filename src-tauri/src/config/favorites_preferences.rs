@@ -75,15 +75,15 @@ impl FavoritesPreferencesStore {
     }
 
     fn favorites_icon_dir() -> Result<PathBuf, String> {
-        let data_dir = dirs::data_dir()
-            .ok_or("Could not determine data directory")?
+        let cache_dir = dirs::cache_dir()
+            .ok_or("Could not determine cache directory")?
             .join("qbz")
             .join("favorites");
 
-        fs::create_dir_all(&data_dir)
+        fs::create_dir_all(&cache_dir)
             .map_err(|e| format!("Failed to create favorites icon directory: {}", e))?;
 
-        Ok(data_dir)
+        Ok(cache_dir)
     }
 
     fn normalize_custom_icon_path(&self, path: String) -> Result<String, String> {
@@ -155,7 +155,28 @@ impl FavoritesPreferencesStore {
         });
 
         match result {
-            Ok(prefs) => Ok(prefs),
+            Ok(mut prefs) => {
+                if let Some(path) = prefs.custom_icon_path.clone() {
+                    match self.normalize_custom_icon_path(path) {
+                        Ok(resolved) => {
+                            let normalized = if resolved.trim().is_empty() {
+                                None
+                            } else {
+                                Some(resolved)
+                            };
+                            if normalized != prefs.custom_icon_path {
+                                prefs.custom_icon_path = normalized;
+                                let _ = self.save_preferences(prefs.clone());
+                            }
+                        }
+                        Err(_) => {
+                            prefs.custom_icon_path = None;
+                            let _ = self.save_preferences(prefs.clone());
+                        }
+                    }
+                }
+                Ok(prefs)
+            }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(FavoritesPreferences::default()),
             Err(e) => Err(format!("Failed to query preferences: {}", e)),
         }
