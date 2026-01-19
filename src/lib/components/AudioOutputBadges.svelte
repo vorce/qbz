@@ -50,7 +50,7 @@
   let deviceNameTextRef: HTMLSpanElement | null = $state(null);
   let deviceNameOverflow = $state(0);
   const deviceNameOffset = $derived(deviceNameOverflow > 0 ? `-${deviceNameOverflow + 16}px` : '0px');
-  const tickerSpeed = 80; // pixels per second
+  const tickerSpeed = 40; // pixels per second
   const deviceNameDuration = $derived(deviceNameOverflow > 0 ? `${(deviceNameOverflow + 16) / tickerSpeed}s` : '0s');
 
   // Derived state
