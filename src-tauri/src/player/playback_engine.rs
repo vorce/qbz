@@ -39,9 +39,9 @@ impl PlaybackEngine {
     }
 
     /// Create ALSA Direct engine
-    pub fn new_alsa_direct(stream: AlsaDirectStream) -> Self {
+    pub fn new_alsa_direct(stream: Arc<AlsaDirectStream>) -> Self {
         Self::AlsaDirect {
-            stream: Arc::new(stream),
+            stream,
             is_playing: Arc::new(AtomicBool::new(false)),
             position_frames: Arc::new(AtomicU64::new(0)),
             duration_frames: Arc::new(AtomicU64::new(0)),

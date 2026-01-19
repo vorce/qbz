@@ -453,4 +453,8 @@ impl AudioBackend for AlsaBackend {
     fn description(&self) -> &'static str {
         "ALSA Direct - Bit-perfect with optional exclusive hardware access"
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

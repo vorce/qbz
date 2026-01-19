@@ -363,7 +363,7 @@ fn create_output_stream_with_config(
 enum StreamType {
     Rodio(OutputStream, rodio::OutputStreamHandle),
     #[cfg(target_os = "linux")]
-    AlsaDirect(crate::audio::AlsaDirectStream),
+    AlsaDirect(Arc<crate::audio::AlsaDirectStream>),
 }
 
 /// Try to create output stream using the backend system (if configured)
@@ -422,7 +422,7 @@ fn try_init_stream_with_backend(
                 // Downcast backend to AlsaBackend to access try_create_direct_stream
                 if let Some(alsa_backend) = backend.as_any().downcast_ref::<crate::audio::alsa_backend::AlsaBackend>() {
                     if let Some(result) = alsa_backend.try_create_direct_stream(&config) {
-                        return Some(result.map(StreamType::AlsaDirect));
+                        return Some(result.map(|stream| StreamType::AlsaDirect(Arc::new(stream))));
                     }
                 }
             }
@@ -623,16 +623,16 @@ impl Player {
             // Helper to find and initialize audio device
             // Try backend system first, fall back to legacy CPAL
             // Takes desired sample_rate and channels to maintain DAC passthrough
-            let init_device = |name: &Option<String>, state: &SharedState, sample_rate: u32, channels: u16| -> Option<(OutputStream, rodio::OutputStreamHandle)> {
+            let init_device = |name: &Option<String>, state: &SharedState, sample_rate: u32, channels: u16| -> Option<StreamType> {
                 // Try backend system if configured
                 if let Ok(settings) = thread_settings.lock() {
                     if settings.backend_type.is_some() {
                         // Use provided sample rate/channels to maintain DAC passthrough
                         log::info!("Initializing backend system with {}Hz/{}ch", sample_rate, channels);
                         match try_init_stream_with_backend(&settings, sample_rate, channels) {
-                            Some(Ok(stream)) => {
+                            Some(Ok(stream_type)) => {
                                 log::info!("Audio output initialized via backend system at {}Hz", sample_rate);
-                                return Some(stream);
+                                return Some(stream_type);
                             }
                             Some(Err(e)) => {
                                 log::warn!("Backend system init failed: {}, falling back to legacy", e);
@@ -688,16 +688,16 @@ impl Player {
                 };
 
                 match OutputStream::try_from_device(&device) {
-                    Ok(s) => {
+                    Ok((stream, handle)) => {
                         log::info!("Audio output initialized successfully");
-                        Some(s)
+                        Some(StreamType::Rodio(stream, handle))
                     }
                     Err(e) => {
                         log::error!("Failed to create audio output on device: {}. Trying default...", e);
                         match OutputStream::try_default() {
-                            Ok(s) => {
+                            Ok((stream, handle)) => {
                                 log::info!("Fallback to default audio output succeeded");
-                                Some(s)
+                                Some(StreamType::Rodio(stream, handle))
                             }
                             Err(e2) => {
                                 log::error!("Failed to create default audio output: {}", e2);
@@ -836,7 +836,7 @@ impl Player {
                                             sample_rate,
                                             channels,
                                             dac_passthrough,
-                                        )
+                                        ).map(|(stream, handle)| StreamType::Rodio(stream, handle))
                                     }
                                 }
                             } else {
@@ -846,7 +846,7 @@ impl Player {
                                     sample_rate,
                                     channels,
                                     dac_passthrough,
-                                )
+                                ).map(|(stream, handle)| StreamType::Rodio(stream, handle))
                             };
 
                             // Handle stream creation result
@@ -864,9 +864,9 @@ impl Player {
 
                                     // Try fallback to default config
                                     match OutputStream::try_from_device(&device) {
-                                        Ok(stream) => {
+                                        Ok((stream, handle)) => {
                                             log::warn!("Using default device config as fallback");
-                                            *stream_opt = Some(stream);
+                                            *stream_opt = Some(StreamType::Rodio(stream, handle));
                                             *current_sample_rate = Some(sample_rate);
                                             *current_channels = Some(channels);
                                             thread_state.set_stream_error(false);
@@ -896,56 +896,68 @@ impl Player {
                             return;
                         };
 
-                        if let Some(sink) = current_sink.take() {
-                            sink.stop();
+                        // Stop previous engine
+                        if let Some(engine) = current_engine.take() {
+                            engine.stop();
                         }
 
                         *current_audio_data = Some(data.clone());
 
-                        let sink = match Sink::try_new(&stream.1) {
-                            Ok(s) => {
-                                *consecutive_sink_failures = 0;
-                                thread_state.set_stream_error(false);
-                                s
-                            }
-                            Err(e) => {
-                                *consecutive_sink_failures += 1;
-                                log::error!(
-                                    "Failed to create sink (attempt {}): {}",
-                                    *consecutive_sink_failures,
-                                    e
-                                );
-
-                                if *consecutive_sink_failures >= MAX_SINK_FAILURES {
-                                    log::warn!(
-                                        "Audio stream appears broken after {} failures. Auto-reinitializing...",
-                                        *consecutive_sink_failures
-                                    );
-                                    thread_state.set_stream_error(true);
-
-                                    drop(stream_opt.take());
-                                    std::thread::sleep(Duration::from_millis(200));
-
-                                    // Use last known sample rate/channels to maintain DAC passthrough
-                                    let sr = current_sample_rate.unwrap_or(48000);
-                                    let ch = current_channels.unwrap_or(2);
-                                    *stream_opt = init_device(current_device_name, &thread_state, sr, ch);
-                                    if stream_opt.is_some() {
-                                        log::info!("Audio stream auto-reinitialized successfully at {}Hz", sr);
+                        // Create PlaybackEngine from StreamType
+                        let mut engine = match stream {
+                            StreamType::Rodio(_stream, handle) => {
+                                match PlaybackEngine::new_rodio(handle) {
+                                    Ok(e) => {
                                         *consecutive_sink_failures = 0;
                                         thread_state.set_stream_error(false);
-                                    } else {
-                                        log::error!("Auto-reinit failed. Audio device unavailable.");
-                                        thread_state.is_playing.store(false, Ordering::SeqCst);
-                                        thread_state.set_current_device(None);
+                                        e
+                                    }
+                                    Err(e) => {
+                                        *consecutive_sink_failures += 1;
+                                        log::error!(
+                                            "Failed to create engine (attempt {}): {}",
+                                            *consecutive_sink_failures,
+                                            e
+                                        );
+
+                                        if *consecutive_sink_failures >= MAX_SINK_FAILURES {
+                                            log::warn!(
+                                                "Audio stream appears broken after {} failures. Auto-reinitializing...",
+                                                *consecutive_sink_failures
+                                            );
+                                            thread_state.set_stream_error(true);
+
+                                            drop(stream_opt.take());
+                                            std::thread::sleep(Duration::from_millis(200));
+
+                                            // Use last known sample rate/channels to maintain DAC passthrough
+                                            let sr = current_sample_rate.unwrap_or(48000);
+                                            let ch = current_channels.unwrap_or(2);
+                                            *stream_opt = init_device(current_device_name, &thread_state, sr, ch);
+                                            if stream_opt.is_some() {
+                                                log::info!("Audio stream auto-reinitialized successfully at {}Hz", sr);
+                                                *consecutive_sink_failures = 0;
+                                                thread_state.set_stream_error(false);
+                                            } else {
+                                                log::error!("Auto-reinit failed. Audio device unavailable.");
+                                                thread_state.is_playing.store(false, Ordering::SeqCst);
+                                                thread_state.set_current_device(None);
+                                            }
+                                        }
+                                        return;
                                     }
                                 }
-                                return;
+                            }
+                            #[cfg(target_os = "linux")]
+                            StreamType::AlsaDirect(alsa_stream) => {
+                                *consecutive_sink_failures = 0;
+                                thread_state.set_stream_error(false);
+                                PlaybackEngine::new_alsa_direct(alsa_stream.clone())
                             }
                         };
 
                         let volume = thread_state.volume.load(Ordering::SeqCst) as f32 / 100.0;
-                        sink.set_volume(volume);
+                        engine.set_volume(volume);
 
                         let source = match decode_with_fallback(&data) {
                             Ok(s) => s,
@@ -961,22 +973,25 @@ impl Player {
                             .unwrap_or(duration_secs);
                         thread_state.duration.store(actual_duration, Ordering::SeqCst);
 
-                        sink.append(source);
+                        if let Err(e) = engine.append(source) {
+                            log::error!("Failed to append source to engine: {}", e);
+                            return;
+                        }
 
                         thread_state.is_playing.store(true, Ordering::SeqCst);
                         thread_state.position.store(0, Ordering::SeqCst);
                         thread_state.current_track_id.store(track_id, Ordering::SeqCst);
                         thread_state.start_playback_timer(0);
 
-                        *current_sink = Some(sink);
+                        *current_engine = Some(engine);
                         log::info!(
                             "Audio thread: playback started, duration: {}s",
                             actual_duration
                         );
                     }
                     AudioCommand::Pause => {
-                        if let Some(ref sink) = *current_sink {
-                            sink.pause();
+                        if let Some(ref engine) = *current_engine {
+                            engine.pause();
                             thread_state.pause_playback_timer();
                             thread_state.is_playing.store(false, Ordering::SeqCst);
                             *pause_suspend_deadline =
@@ -989,7 +1004,7 @@ impl Player {
                     }
                     AudioCommand::Resume => {
                         *pause_suspend_deadline = None;
-                        if current_sink.is_none() {
+                        if current_engine.is_none() {
                             let Some(ref audio_data) = *current_audio_data else {
                                 log::warn!("Audio thread: cannot resume - no audio data available");
                                 return;
@@ -1008,16 +1023,24 @@ impl Player {
                                 return;
                             };
 
-                            let sink = match Sink::try_new(&stream.1) {
-                                Ok(s) => s,
-                                Err(e) => {
-                                    log::error!("Failed to create sink for resume: {}", e);
-                                    return;
+                            let mut engine = match stream {
+                                StreamType::Rodio(_stream, handle) => {
+                                    match PlaybackEngine::new_rodio(handle) {
+                                        Ok(e) => e,
+                                        Err(e) => {
+                                            log::error!("Failed to create engine for resume: {}", e);
+                                            return;
+                                        }
+                                    }
+                                }
+                                #[cfg(target_os = "linux")]
+                                StreamType::AlsaDirect(alsa_stream) => {
+                                    PlaybackEngine::new_alsa_direct(alsa_stream.clone())
                                 }
                             };
 
                             let volume = thread_state.volume.load(Ordering::SeqCst) as f32 / 100.0;
-                            sink.set_volume(volume);
+                            engine.set_volume(volume);
 
                             let source = match decode_with_fallback(audio_data) {
                                 Ok(s) => s,
@@ -1034,17 +1057,20 @@ impl Player {
                                 source
                             };
 
-                            sink.append(skipped_source);
+                            if let Err(e) = engine.append(skipped_source) {
+                                log::error!("Failed to append source for resume: {}", e);
+                                return;
+                            }
                             thread_state.start_playback_timer(resume_pos);
                             thread_state.is_playing.store(true, Ordering::SeqCst);
-                            *current_sink = Some(sink);
+                            *current_engine = Some(engine);
 
                             log::info!("Audio thread: resumed from {}s", resume_pos);
                             return;
                         }
 
-                        if let Some(ref sink) = *current_sink {
-                            sink.play();
+                        if let Some(ref engine) = *current_engine {
+                            engine.play();
                             let current_pos = thread_state.position.load(Ordering::SeqCst);
                             thread_state.start_playback_timer(current_pos);
                             thread_state.is_playing.store(true, Ordering::SeqCst);
@@ -1052,8 +1078,8 @@ impl Player {
                         }
                     }
                     AudioCommand::Stop => {
-                        if let Some(sink) = current_sink.take() {
-                            sink.stop();
+                        if let Some(engine) = current_engine.take() {
+                            engine.stop();
                         }
                         *current_audio_data = None;
                         thread_state.is_playing.store(false, Ordering::SeqCst);
@@ -1069,8 +1095,8 @@ impl Player {
                         thread_state
                             .volume
                             .store((volume * 100.0) as u64, Ordering::SeqCst);
-                        if let Some(ref sink) = *current_sink {
-                            sink.set_volume(volume);
+                        if let Some(ref engine) = *current_engine {
+                            engine.set_volume(volume);
                         }
                         log::info!("Audio thread: volume set to {}", volume);
                     }
@@ -1088,20 +1114,28 @@ impl Player {
 
                         log::info!("Audio thread: seeking to {}s", position_secs);
 
-                        if let Some(sink) = current_sink.take() {
-                            sink.stop();
+                        if let Some(engine) = current_engine.take() {
+                            engine.stop();
                         }
 
-                        let sink = match Sink::try_new(&stream.1) {
-                            Ok(s) => s,
-                            Err(e) => {
-                                log::error!("Failed to create sink for seek: {}", e);
-                                return;
+                        let mut engine = match stream {
+                            StreamType::Rodio(_stream, handle) => {
+                                match PlaybackEngine::new_rodio(handle) {
+                                    Ok(e) => e,
+                                    Err(e) => {
+                                        log::error!("Failed to create rodio engine for seek: {}", e);
+                                        return;
+                                    }
+                                }
+                            }
+                            #[cfg(target_os = "linux")]
+                            StreamType::AlsaDirect(alsa_stream) => {
+                                PlaybackEngine::new_alsa_direct(alsa_stream.clone())
                             }
                         };
 
                         let volume = thread_state.volume.load(Ordering::SeqCst) as f32 / 100.0;
-                        sink.set_volume(volume);
+                        engine.set_volume(volume);
 
                         let source = match decode_with_fallback(audio_data) {
                             Ok(s) => s,
@@ -1114,11 +1148,14 @@ impl Player {
                         let skip_duration = Duration::from_secs(position_secs);
                         let skipped_source = source.skip_duration(skip_duration);
 
-                        sink.append(skipped_source);
+                        if let Err(e) = engine.append(skipped_source) {
+                            log::error!("Failed to append source for seek: {}", e);
+                            return;
+                        }
 
                         let was_playing = thread_state.is_playing.load(Ordering::SeqCst);
                         if !was_playing {
-                            sink.pause();
+                            engine.pause();
                         }
 
                         thread_state.position.store(position_secs, Ordering::SeqCst);
@@ -1126,7 +1163,7 @@ impl Player {
                             thread_state.start_playback_timer(position_secs);
                         }
 
-                        *current_sink = Some(sink);
+                        *current_engine = Some(engine);
                         log::info!(
                             "Audio thread: seeked to {}s (was_playing: {})",
                             position_secs,
@@ -1140,8 +1177,8 @@ impl Player {
                         );
                         *pause_suspend_deadline = None;
 
-                        if let Some(sink) = current_sink.take() {
-                            sink.stop();
+                        if let Some(engine) = current_engine.take() {
+                            engine.stop();
                         }
 
                         drop(stream_opt.take());
@@ -1176,7 +1213,7 @@ impl Player {
                     match rx.recv_timeout(Duration::from_millis(100)) {
                         Ok(command) => handle_command(
                             command,
-                            &mut current_sink,
+                            &mut current_engine,
                             &mut current_audio_data,
                             &mut stream_opt,
                             &mut current_device_name,
@@ -1189,11 +1226,11 @@ impl Player {
                             let now = Instant::now();
                             if now.duration_since(last_empty_check) >= Duration::from_millis(500) {
                                 last_empty_check = now;
-                                if let Some(ref sink) = current_sink {
-                                    if sink.empty()
+                                if let Some(ref engine) = current_engine {
+                                    if engine.empty()
                                         && thread_state.is_playing.load(Ordering::SeqCst)
                                     {
-                                        log::info!("Audio thread: track finished (sink empty)");
+                                        log::info!("Audio thread: track finished (engine empty)");
                                         thread_state.is_playing.store(false, Ordering::SeqCst);
                                         let duration = thread_state.duration.load(Ordering::SeqCst);
                                         thread_state.position.store(duration, Ordering::SeqCst);
@@ -1212,8 +1249,8 @@ impl Player {
                         if stream_opt.is_some() {
                             let now = Instant::now();
                             if now >= deadline {
-                                if let Some(sink) = current_sink.take() {
-                                    sink.stop();
+                                if let Some(engine) = current_engine.take() {
+                                    engine.stop();
                                 }
                                 drop(stream_opt.take());
                                 pause_suspend_deadline = None;
@@ -1226,7 +1263,7 @@ impl Player {
                             match rx.recv_timeout(wait) {
                                 Ok(command) => handle_command(
                                     command,
-                                    &mut current_sink,
+                                    &mut current_engine,
                                     &mut current_audio_data,
                                     &mut stream_opt,
                                     &mut current_device_name,
@@ -1249,7 +1286,7 @@ impl Player {
                     match rx.recv() {
                         Ok(command) => handle_command(
                             command,
-                            &mut current_sink,
+                            &mut current_engine,
                             &mut current_audio_data,
                             &mut stream_opt,
                             &mut current_device_name,
