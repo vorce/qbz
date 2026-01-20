@@ -89,6 +89,7 @@
   // Download cache state (offline storage)
   let downloadStats = $state<DownloadCacheStats | null>(null);
   let isClearingDownloads = $state(false);
+  let isRepairingDownloads = $state(false);
 
   // Lyrics cache state
   let isClearingLyrics = $state(false);
@@ -1291,6 +1292,32 @@
     }
   }
 
+  async function handleRepairDownloads() {
+    if (isRepairingDownloads) return;
+    isRepairingDownloads = true;
+    try {
+      const report = await invoke<{
+        total_downloads: number;
+        added_tracks: number;
+        repaired_tracks: number;
+        skipped_tracks: number;
+        failed_tracks: string[];
+      }>('library_backfill_downloads');
+
+      const message = `Repair complete!\n\nAdded: ${report.added_tracks}\nRepaired: ${report.repaired_tracks}\nSkipped: ${report.skipped_tracks}\nFailed: ${report.failed_tracks.length}`;
+
+      showToast(message, 'success');
+
+      // Trigger library reload
+      notifyDownloadSettingsChanged();
+    } catch (err) {
+      console.error('Failed to repair downloads:', err);
+      showToast('Failed to repair downloads: ' + String(err), 'error');
+    } finally {
+      isRepairingDownloads = false;
+    }
+  }
+
   async function handleClearDownloads() {
     if (isClearingDownloads) return;
     isClearingDownloads = true;
@@ -1725,6 +1752,19 @@
         <span class="setting-description">Display downloaded Qobuz tracks in your Local Library</span>
       </div>
       <Toggle enabled={showQobuzDownloadsInLibrary} onchange={handleShowDownloadsChange} />
+    </div>
+    <div class="setting-row">
+      <div class="setting-with-description">
+        <span class="setting-label">Repair Downloads</span>
+        <span class="setting-description">Fix download markers lost during library scans</span>
+      </div>
+      <button
+        class="clear-btn"
+        onclick={handleRepairDownloads}
+        disabled={isRepairingDownloads || !downloadStats || downloadStats.readyTracks === 0}
+      >
+        {isRepairingDownloads ? 'Repairing...' : 'Repair'}
+      </button>
     </div>
     <div class="setting-row">
       <span class="setting-label">Clear Downloads</span>
