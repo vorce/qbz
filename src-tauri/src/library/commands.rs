@@ -1408,6 +1408,7 @@ pub async fn library_get_hidden_albums(
 pub struct BackfillReport {
     pub total_downloads: usize,
     pub added_tracks: usize,
+    pub repaired_tracks: usize,
     pub skipped_tracks: usize,
     pub failed_tracks: Vec<String>,
 }
@@ -1422,6 +1423,7 @@ pub async fn library_backfill_downloads(
     let mut report = BackfillReport {
         total_downloads: 0,
         added_tracks: 0,
+        repaired_tracks: 0,
         skipped_tracks: 0,
         failed_tracks: Vec::new(),
     };
@@ -1429,7 +1431,7 @@ pub async fn library_backfill_downloads(
     // Get all ready downloads directly from download cache DB
     let downloads = {
         let cache_db = download_cache_state.db.lock().await;
-        
+
         let mut stmt = cache_db
             .conn()
             .prepare("SELECT track_id, title, artist, album, album_id, duration_secs, file_path, quality, bit_depth, sample_rate FROM cached_tracks WHERE status = 'ready'")
@@ -1453,7 +1455,7 @@ pub async fn library_backfill_downloads(
         rows.collect::<Result<Vec<_>, _>>()
             .map_err(|e| format!("Failed to collect downloads: {}", e))?
     }; // cache_db lock is dropped here
-    
+
     report.total_downloads = downloads.len();
 
     let library_db = state.db.lock().await;
@@ -1465,7 +1467,21 @@ pub async fn library_backfill_downloads(
             .unwrap_or(false);
 
         if exists {
-            report.skipped_tracks += 1;
+            // Track exists - try to repair its source marker if it's missing
+            match library_db.repair_qobuz_download_source(track_id) {
+                Ok(true) => {
+                    log::info!("Repaired source marker for track {}: {}", track_id, title);
+                    report.repaired_tracks += 1;
+                },
+                Ok(false) => {
+                    // Already has correct source, nothing to do
+                    report.skipped_tracks += 1;
+                },
+                Err(e) => {
+                    log::warn!("Failed to repair track {}: {}", track_id, e);
+                    report.failed_tracks.push(title);
+                }
+            }
             continue;
         }
 

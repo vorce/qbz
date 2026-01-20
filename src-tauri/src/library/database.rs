@@ -2005,6 +2005,18 @@ impl LibraryDatabase {
         Ok(count > 0)
     }
 
+    /// Repair the source field for a track that has qobuz_track_id but lost its source marker
+    /// Returns true if the track was found and updated
+    pub fn repair_qobuz_download_source(&self, qobuz_track_id: u64) -> Result<bool, LibraryError> {
+        let updated = self.conn.execute(
+            "UPDATE local_tracks SET source = 'qobuz_download'
+             WHERE qobuz_track_id = ?1 AND (source IS NULL OR source != 'qobuz_download')",
+            params![qobuz_track_id as i64],
+        )
+        .map_err(|e| LibraryError::Database(format!("Failed to repair download source: {}", e)))?;
+        Ok(updated > 0)
+    }
+
     /// Insert a Qobuz download into the library
     pub fn insert_qobuz_download_direct(
         &self,
