@@ -1623,20 +1623,21 @@
         </span>
       </div>
     </div>
-    <div class="setting-row">
+    <div class="setting-row" class:last={!offlineSettings.manualOfflineMode}>
       <div class="setting-info">
         <span class="setting-label">{$t('offline.enableManual')}</span>
         <span class="setting-desc">{$t('offline.enableManualDesc')}</span>
       </div>
       <Toggle enabled={offlineSettings.manualOfflineMode} onchange={handleManualOfflineChange} />
     </div>
-    <div class="setting-row" class:last={!offlineSettings.manualOfflineMode}>
+    <!-- Temporarily disabled: Show Partial Playlists -->
+    <!-- <div class="setting-row" class:last={!offlineSettings.manualOfflineMode}>
       <div class="setting-info">
         <span class="setting-label">{$t('offline.showPartialPlaylists')}</span>
         <span class="setting-desc">{$t('offline.showPartialPlaylistsDesc')}</span>
       </div>
       <Toggle enabled={offlineSettings.showPartialPlaylists} onchange={handleShowPartialPlaylistsChange} />
-    </div>
+    </div> -->
 
     <!-- Manual offline mode specific settings -->
     {#if offlineSettings.manualOfflineMode}

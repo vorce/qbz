@@ -569,7 +569,8 @@
       </NavigationItem>
     </nav>
 
-    <!-- Playlists Section -->
+    <!-- Playlists Section (hidden in offline mode) -->
+    {#if !isOffline}
     <div class="section playlists-section">
       <div class="playlists-header">
         <div class="section-header">{$t('nav.playlists')}</div>
@@ -689,6 +690,7 @@
         </div>
       {/if}
     </div>
+    {/if}
 
     <!-- Local Library Section -->
     <div class="section local-library-section">
