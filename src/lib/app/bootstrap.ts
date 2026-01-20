@@ -63,8 +63,9 @@ function handleZoomWheel(event: WheelEvent): void {
 }
 
 export function setupZoomControls(): () => void {
-  window.addEventListener('wheel', handleZoomWheel, { passive: false });
-  return () => window.removeEventListener('wheel', handleZoomWheel);
+  const options: AddEventListenerOptions = { passive: false, capture: true };
+  window.addEventListener('wheel', handleZoomWheel, options);
+  return () => window.removeEventListener('wheel', handleZoomWheel, options);
 }
 
 // ============ Last.fm Session ============
