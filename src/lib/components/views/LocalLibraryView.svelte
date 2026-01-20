@@ -268,12 +268,8 @@
 
   onMount(async () => {
     await loadLibraryData();
-    // Only load folders when online - offline causes DB lock via is_network_path()
-    if (!isOffline) {
-      loadFolders(); // Load in background - doesn't block UI
-    } else {
-      console.log('[LocalLibrary] Skipping loadFolders in offline mode');
-    }
+    // Load folders (now safe in offline mode - uses library_get_folders instead)
+    loadFolders(); // Load in background - doesn't block UI
     checkDiscogsCredentials();
 
     // Subscribe to offline state changes
@@ -421,31 +417,39 @@
 
   async function loadFolders() {
     try {
-      console.log('[LocalLibrary] loadFolders START');
-      // Add timeout to prevent infinite hang when offline
-      const timeoutPromise = new Promise<LibraryFolder[]>((_, reject) =>
-        setTimeout(() => reject(new Error('Folder loading timeout')), 5000)
-      );
-      const foldersPromise = invoke<LibraryFolder[]>('library_get_folders_with_metadata');
+      console.log('[LocalLibrary] loadFolders START, isOffline:', isOffline);
 
-      folders = await Promise.race([foldersPromise, timeoutPromise]);
-      console.log('[LocalLibrary] Received folders:', folders.length);
+      if (isOffline) {
+        // When offline, get folders without calling is_network_path (blocks offline)
+        // Use basic folder list command instead
+        folders = await invoke<LibraryFolder[]>('library_get_folders');
+        console.log('[LocalLibrary] Received folders (offline mode):', folders.length);
 
-      // Check accessibility for network folders (skip when offline to avoid hanging)
-      for (const folder of folders) {
-        if (folder.isNetwork) {
-          if (isOffline) {
-            // When offline, assume network folders are inaccessible
-            folderAccessibility.set(folder.id, false);
-          } else {
-            // When online, check accessibility
-            checkFolderAccessibility(folder);
-          }
-        } else {
-          folderAccessibility.set(folder.id, true);
+        // Mark all network folders as inaccessible, local folders as accessible
+        for (const folder of folders) {
+          folderAccessibility.set(folder.id, !folder.isNetwork);
         }
+        folderAccessibility = new Map(folderAccessibility);
+      } else {
+        // When online, use the full metadata call with network detection
+        const timeoutPromise = new Promise<LibraryFolder[]>((_, reject) =>
+          setTimeout(() => reject(new Error('Folder loading timeout')), 5000)
+        );
+        const foldersPromise = invoke<LibraryFolder[]>('library_get_folders_with_metadata');
+
+        folders = await Promise.race([foldersPromise, timeoutPromise]);
+        console.log('[LocalLibrary] Received folders (online mode):', folders.length);
+
+        // Check accessibility for network folders
+        for (const folder of folders) {
+          if (folder.isNetwork) {
+            checkFolderAccessibility(folder);
+          } else {
+            folderAccessibility.set(folder.id, true);
+          }
+        }
+        folderAccessibility = new Map(folderAccessibility);
       }
-      folderAccessibility = new Map(folderAccessibility);
     } catch (err) {
       console.error('[LocalLibrary] Failed to load folders (timeout or error):', err);
       // Continue anyway - folders are not critical for basic library functionality
