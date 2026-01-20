@@ -6,7 +6,6 @@
   import Toggle from '../Toggle.svelte';
   import Dropdown from '../Dropdown.svelte';
   import VolumeSlider from '../VolumeSlider.svelte';
-  import Tooltip from '../Tooltip.svelte';
   import {
     getDownloadCacheStats,
     clearDownloadCache,
@@ -1444,9 +1443,9 @@
       <Toggle enabled={preferHighest} onchange={handlePreferHighestChange} />
     </div>
     <div class="setting-row">
-      <div class="label-with-tooltip">
+      <div class="setting-info">
         <span class="setting-label">Audio Backend</span>
-        <Tooltip text="Choose audio system: Auto (recommended), PipeWire (modern), ALSA Direct (bit-perfect, exclusive), or PulseAudio (legacy)" />
+        <span class="setting-desc">Choose audio system: Auto (recommended), PipeWire (modern), ALSA Direct (bit-perfect, exclusive), or PulseAudio (legacy).</span>
       </div>
       <Dropdown
         value={selectedBackend}
@@ -1458,9 +1457,9 @@
       />
     </div>
     <div class="setting-row">
-      <div class="label-with-tooltip">
+      <div class="setting-info">
         <span class="setting-label">{$t('settings.audio.outputDevice')}</span>
-        <Tooltip text="Select your preferred audio output device. Devices shown are from the selected backend." />
+        <span class="setting-desc">Select your preferred audio output device. Devices shown are from the selected backend.</span>
       </div>
       {#if isLoadingDevices}
         <span class="loading-text">Loading devices...</span>
@@ -1477,9 +1476,9 @@
     </div>
     {#if showAlsaPluginSelector}
     <div class="setting-row">
-      <div class="label-with-tooltip">
+      <div class="setting-info">
         <span class="setting-label">ALSA Plugin</span>
-        <Tooltip text="hw: Bit-perfect, exclusive. plughw: Auto-convert. pcm: Most compatible." />
+        <span class="setting-desc">hw: Bit-perfect, exclusive. plughw: Auto-convert. pcm: Most compatible.</span>
       </div>
       <Dropdown
         value={selectedAlsaPlugin}
@@ -1501,16 +1500,16 @@
     </div>
     {/if}
     <div class="setting-row">
-      <div class="label-with-tooltip">
+      <div class="setting-info">
         <span class="setting-label">{$t('settings.audio.exclusiveMode')}</span>
-        <Tooltip text={exclusiveModeTooltipOverride || $t('settings.audio.exclusiveModeDesc')} />
+        <span class="setting-desc">{exclusiveModeTooltipOverride ?? $t('settings.audio.exclusiveModeDesc')}</span>
       </div>
       <Toggle enabled={exclusiveMode} onchange={handleExclusiveModeChange} disabled={exclusiveModeDisabled} />
     </div>
     <div class="setting-row">
-      <div class="label-with-tooltip">
+      <div class="setting-info">
         <span class="setting-label">{$t('settings.audio.dacPassthrough')}</span>
-        <Tooltip text={dacPassthroughTooltipOverride ?? $t('settings.audio.dacPassthroughDesc')} />
+        <span class="setting-desc">{dacPassthroughTooltipOverride ?? $t('settings.audio.dacPassthroughDesc')}</span>
       </div>
       <Toggle enabled={dacPassthrough} onchange={handleDacPassthroughChange} disabled={dacPassthroughDisabled} />
     </div>
@@ -1550,17 +1549,17 @@
       <Toggle enabled={autoplayMode === 'continue'} onchange={(enabled) => handleAutoplayModeChange(enabled ? 'continue' : 'track_only')} />
     </div>
     <div class="setting-row">
-      <div class="label-with-tooltip">
+      <div class="setting-info">
         <span class="setting-label">{$t('settings.playback.showContextIcon')}</span>
-        <Tooltip text={$t('settings.playback.showContextIconTooltip')} />
+        <span class="setting-desc">{$t('settings.playback.showContextIconTooltip')}</span>
       </div>
       <Toggle enabled={showContextIcon} onchange={handleShowContextIconChange} />
     </div>
     <div class="setting-row">
-      <div class="label-with-tooltip">
+      <div class="setting-info">
         <span class="setting-label">{$t('settings.playback.gapless')}</span>
         {#if gaplessTooltipOverride}
-          <Tooltip text={gaplessTooltipOverride} />
+          <span class="setting-desc">{gaplessTooltipOverride}</span>
         {/if}
       </div>
       <Toggle enabled={gaplessPlayback} onchange={handleGaplessPlaybackChange} disabled={gaplessDisabled} />
@@ -2218,6 +2217,13 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     padding: 12px 0;
   }
 
+  .setting-row:has(.setting-desc) {
+    height: auto;
+    min-height: 48px;
+    padding: 12px 0;
+    align-items: flex-start;
+  }
+
   .setting-row:has(.radio-group) {
     height: auto;
     min-height: 48px;
@@ -2239,12 +2245,6 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     font-size: 12px;
     opacity: 0.7;
     margin-left: 4px;
-  }
-
-  .label-with-tooltip {
-    display: flex;
-    align-items: center;
-    gap: 8px;
   }
 
   .slider-container {
