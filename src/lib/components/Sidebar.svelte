@@ -74,6 +74,7 @@
   // Offline state
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
   let offlineSettings = $state<OfflineSettings>(getOfflineSettings());
+  let isOffline = $derived(offlineStatus.isOffline);
 
   // Dropdown menu state
   let menuOpen = $state(false);
