@@ -909,7 +909,7 @@ impl LibraryDatabase {
                         &row.get::<_, Option<String>>(8)?.unwrap_or_default(),
                     ),
                     bit_depth: row.get(9)?,
-                    sample_rate: row.get::<_, Option<u32>>(10)?.unwrap_or(44100),
+                    sample_rate: row.get::<_, Option<f64>>(10)?.unwrap_or(44100.0),
                     directory_path: row
                         .get::<_, Option<String>>(11)?
                         .unwrap_or_else(|| group_key.clone()),
@@ -2008,7 +2008,7 @@ impl LibraryDatabase {
                 duration_secs as i64,
                 "flac", // Default format for downloads
                 bit_depth.map(|v| v as i64),
-                sample_rate.map(|v| v as i64).unwrap_or(44100),
+                sample_rate.unwrap_or(44100.0),
                 2, // Assume stereo
                 file_size_bytes,
                 now,
@@ -2079,7 +2079,7 @@ impl LibraryDatabase {
                 duration_secs as i64,
                 "flac",
                 bit_depth.map(|v| v as i64),
-                sample_rate.unwrap_or(44100.0) as i64,
+                sample_rate.unwrap_or(44100.0),
                 2, // Assume stereo
                 file_size_bytes,
                 now,

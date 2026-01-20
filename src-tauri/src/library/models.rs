@@ -128,7 +128,7 @@ pub struct LocalAlbum {
     pub total_duration_secs: u64,
     pub format: AudioFormat,
     pub bit_depth: Option<u32>,
-    pub sample_rate: u32,
+    pub sample_rate: f64,  // Changed from u32 to f64 for decimal precision
     pub directory_path: String,
 }
 
