@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Pause, Music, Heart, Search, X, ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music, Heart, Search, X, ChevronLeft, ChevronRight } from 'lucide-svelte';
   import type { ArtistDetail, QobuzArtist } from '$lib/types';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
@@ -834,7 +834,11 @@
                     <div class="bar"></div>
                     <div class="bar"></div>
                   </div>
-                  <Pause size={18} class="pause-icon" aria-hidden="true" />
+                  <span class="pause-icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                    </svg>
+                  </span>
                 </button>
               </div>
               <div class="track-info">
