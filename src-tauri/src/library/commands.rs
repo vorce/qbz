@@ -269,10 +269,25 @@ pub async fn library_check_folder_accessible(path: String) -> Result<bool, Strin
         return Ok(false);
     }
 
-    // Try to read the directory
-    match std::fs::read_dir(path_ref) {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
+    // Try to read the directory with a timeout to avoid hanging on network paths
+    let path_clone = path.clone();
+    let check_result = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        tokio::task::spawn_blocking(move || {
+            std::fs::read_dir(Path::new(&path_clone)).is_ok()
+        })
+    ).await;
+
+    match check_result {
+        Ok(Ok(accessible)) => Ok(accessible),
+        Ok(Err(_)) => {
+            log::warn!("Failed to spawn blocking task for folder check: {}", path);
+            Ok(false)
+        },
+        Err(_) => {
+            log::warn!("Timeout checking folder accessibility (likely unreachable network path): {}", path);
+            Ok(false)
+        }
     }
 }
 

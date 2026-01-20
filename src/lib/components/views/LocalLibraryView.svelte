@@ -329,10 +329,16 @@
   async function loadFolders() {
     try {
       folders = await invoke<LibraryFolder[]>('library_get_folders_with_metadata');
-      // Check accessibility for network folders
+      // Check accessibility for network folders (skip when offline to avoid hanging)
       for (const folder of folders) {
         if (folder.isNetwork) {
-          checkFolderAccessibility(folder);
+          if (isOffline) {
+            // When offline, assume network folders are inaccessible
+            folderAccessibility.set(folder.id, false);
+          } else {
+            // When online, check accessibility
+            checkFolderAccessibility(folder);
+          }
         } else {
           folderAccessibility.set(folder.id, true);
         }
