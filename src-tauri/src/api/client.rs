@@ -269,6 +269,34 @@ impl QobuzClient {
         Ok(serde_json::from_value(artists.clone())?)
     }
 
+    /// Get an artist's tracks (public endpoint via artist/get?extra=tracks)
+    pub async fn get_artist_tracks(&self, artist_id: u64, limit: u32, offset: u32) -> Result<TracksContainer> {
+        let url = endpoints::build_url(paths::ARTIST_GET);
+        let locale = self.locale().await;
+
+        let response: Value = self
+            .http
+            .get(&url)
+            .header("X-App-Id", self.app_id().await?)
+            .query(&[
+                ("artist_id", artist_id.to_string()),
+                ("extra", "tracks".to_string()),
+                ("lang", locale),
+                ("limit", limit.to_string()),
+                ("offset", offset.to_string()),
+            ])
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        let tracks = response
+            .get("tracks")
+            .ok_or_else(|| ApiError::ApiResponse("No tracks in artist response".to_string()))?;
+
+        Ok(serde_json::from_value(tracks.clone())?)
+    }
+
     // === Get endpoints ===
 
     /// Get album by ID
