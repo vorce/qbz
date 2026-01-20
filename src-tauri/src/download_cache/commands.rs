@@ -479,6 +479,35 @@ pub async fn open_album_folder(
     Ok(())
 }
 
+/// Open the folder containing a specific track in the system file manager
+#[tauri::command]
+pub async fn open_track_folder(
+    track_id: u64,
+    cache_state: State<'_, DownloadCacheState>,
+) -> Result<(), String> {
+    log::info!("Command: open_track_folder for track_id: {}", track_id);
+
+    let db = cache_state.db.lock().await;
+
+    // Get the track's file path
+    let file_path = db.get_file_path(track_id)?
+        .ok_or_else(|| "Track file path not found - track may not be downloaded".to_string())?;
+
+    let track_path = std::path::Path::new(&file_path);
+    let track_dir = track_path
+        .parent()
+        .ok_or_else(|| "Could not determine track folder".to_string())?;
+
+    if !track_dir.exists() {
+        return Err("Track folder does not exist".to_string());
+    }
+
+    // Open with system file manager
+    open::that(track_dir).map_err(|e| format!("Failed to open folder: {}", e))?;
+
+    Ok(())
+}
+
 /// Check if an album is fully downloaded (all tracks ready)
 #[tauri::command]
 pub async fn check_album_fully_downloaded(

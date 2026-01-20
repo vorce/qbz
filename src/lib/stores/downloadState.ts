@@ -210,3 +210,24 @@ export async function setDownloadCacheLimit(limitMb: number | null): Promise<voi
 export async function openAlbumFolder(albumId: string): Promise<void> {
   await invoke('open_album_folder', { albumId });
 }
+
+// Open containing folder for a specific track
+export async function openTrackFolder(trackId: number): Promise<void> {
+  await invoke('open_track_folder', { trackId });
+}
+
+// Re-download a track (downloads again, overwriting if exists)
+export async function reDownloadTrack(track: {
+  id: number;
+  title: string;
+  artist: string;
+  album?: string;
+  albumId?: string;
+  durationSecs: number;
+  quality: string;
+  bitDepth?: number;
+  sampleRate?: number;
+}): Promise<void> {
+  // Just call downloadTrack - backend handles overwriting
+  await downloadTrack(track);
+}

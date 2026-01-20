@@ -68,6 +68,10 @@
     onTrackShareSonglink?: (track: DisplayTrack) => void;
     onTrackGoToAlbum?: (albumId: string) => void;
     onTrackGoToArtist?: (artistId: number) => void;
+    onTrackDownload?: (track: DisplayTrack) => void;
+    onTrackOpenFolder?: (trackId: number) => void;
+    onTrackReDownload?: (track: DisplayTrack) => void;
+    checkTrackDownloaded?: (trackId: number) => boolean;
     activeTrackId?: number | null;
     isPlaybackActive?: boolean;
   }
@@ -94,6 +98,10 @@
     onTrackShareSonglink,
     onTrackGoToAlbum,
     onTrackGoToArtist,
+    onTrackDownload,
+    onTrackOpenFolder,
+    onTrackReDownload,
+    checkTrackDownloaded,
     activeTrackId = null,
     isPlaybackActive = false
   }: Props = $props();
@@ -794,6 +802,7 @@
           <div class="track-list compact">
             {#each continueTracks as track, index}
               {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
+              {@const isTrackDownloaded = checkTrackDownloaded?.(track.id) || false}
               <TrackRow
                 trackId={track.id}
                 number={index + 1}
@@ -803,7 +812,6 @@
                 duration={track.duration}
                 quality={getTrackQuality(track)}
                 isPlaying={isActiveTrack}
-                hideDownload={true}
                 compact={true}
                 onArtistClick={track.artistId && onArtistClick ? () => onArtistClick(track.artistId!) : undefined}
                 onAlbumClick={track.albumId && onAlbumClick ? () => onAlbumClick(track.albumId!) : undefined}
@@ -816,7 +824,11 @@
                   onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
                   onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined,
                   onGoToAlbum: track.albumId && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.albumId!) : undefined,
-                  onGoToArtist: track.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(track.artistId!) : undefined
+                  onGoToArtist: track.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(track.artistId!) : undefined,
+                  onDownload: onTrackDownload ? () => onTrackDownload(track) : undefined,
+                  isTrackDownloaded,
+                  onOpenFolder: isTrackDownloaded && onTrackOpenFolder ? () => onTrackOpenFolder(track.id) : undefined,
+                  onReDownload: isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(track) : undefined
                 }}
               />
             {/each}

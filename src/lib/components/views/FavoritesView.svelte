@@ -75,6 +75,8 @@
     onTrackGoToArtist?: (artistId: number) => void;
     onTrackDownload?: (track: DisplayTrack) => void;
     onTrackRemoveDownload?: (trackId: number) => void;
+    onTrackOpenFolder?: (trackId: number) => void;
+    onTrackReDownload?: (track: DisplayTrack) => void;
     getTrackDownloadStatus?: (trackId: number) => { status: DownloadStatus; progress: number };
     onPlaylistSelect?: (playlistId: number) => void;
     selectedTab?: TabType;
@@ -124,6 +126,8 @@
     onTrackGoToArtist,
     onTrackDownload,
     onTrackRemoveDownload,
+    onTrackOpenFolder,
+    onTrackReDownload,
     getTrackDownloadStatus,
     onPlaylistSelect,
     selectedTab,
@@ -1085,6 +1089,7 @@
                     {@const globalIndex = trackIndexMap.get(track.id) ?? index}
                     {@const displayTrack = buildDisplayTrack(track, globalIndex)}
                     {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
+                    {@const isTrackDownloaded = downloadInfo.status === 'ready'}
                     {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
                     <TrackRow
                       trackId={track.id}
@@ -1108,7 +1113,11 @@
                         onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
                         onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink(displayTrack) : undefined,
                         onGoToAlbum: track.album?.id && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.album!.id) : undefined,
-                        onGoToArtist: track.performer?.id && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer!.id!) : undefined
+                        onGoToArtist: track.performer?.id && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer!.id!) : undefined,
+                        onDownload: onTrackDownload ? () => onTrackDownload(displayTrack) : undefined,
+                        isTrackDownloaded,
+                        onOpenFolder: isTrackDownloaded && onTrackOpenFolder ? () => onTrackOpenFolder(track.id) : undefined,
+                        onReDownload: isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(displayTrack) : undefined
                       }}
                     />
                   {/each}
@@ -1136,6 +1145,7 @@
           {#each filteredTracks as track, index (`${track.id}-${downloadStateVersion}`)}
             {@const displayTrack = buildDisplayTrack(track, index)}
             {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
+            {@const isTrackDownloaded = downloadInfo.status === 'ready'}
             {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
             <TrackRow
               trackId={track.id}
@@ -1159,7 +1169,11 @@
                 onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
                 onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink(displayTrack) : undefined,
                 onGoToAlbum: track.album?.id && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.album!.id) : undefined,
-                onGoToArtist: track.performer?.id && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer!.id!) : undefined
+                onGoToArtist: track.performer?.id && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer!.id!) : undefined,
+                onDownload: onTrackDownload ? () => onTrackDownload(displayTrack) : undefined,
+                isTrackDownloaded,
+                onOpenFolder: isTrackDownloaded && onTrackOpenFolder ? () => onTrackOpenFolder(track.id) : undefined,
+                onReDownload: isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(displayTrack) : undefined
               }}
             />
           {/each}

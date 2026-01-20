@@ -87,6 +87,10 @@
     onTrackShareSonglink?: (track: Track) => void;
     onTrackGoToAlbum?: (albumId: string) => void;
     onTrackGoToArtist?: (artistId: number) => void;
+    onTrackDownload?: (track: Track) => void;
+    onTrackOpenFolder?: (trackId: number) => void;
+    onTrackReDownload?: (track: Track) => void;
+    checkTrackDownloaded?: (trackId: number) => boolean;
     onArtistClick?: (artistId: number) => void;
     activeTrackId?: number | null;
     isPlaybackActive?: boolean;
@@ -113,6 +117,10 @@
     onTrackShareSonglink,
     onTrackGoToAlbum,
     onTrackGoToArtist,
+    onTrackDownload,
+    onTrackOpenFolder,
+    onTrackReDownload,
+    checkTrackDownloaded,
     onArtistClick,
     activeTrackId = null,
     isPlaybackActive = false
@@ -868,6 +876,7 @@
                     <div class="track-quality">{getQualityLabel(track)}</div>
                     <div class="track-duration">{formatDuration(track.duration)}</div>
                     <div class="track-actions">
+                      {@const isTrackDownloaded = checkTrackDownloaded?.(track.id) || false}
                       <TrackMenu
                         onPlayNow={() => handleSearchTrackPlay(track, index)}
                         onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
@@ -878,6 +887,10 @@
                         onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
                         onGoToAlbum={track.album?.id && onTrackGoToAlbum ? (() => { const albumId = track.album!.id!; return () => onTrackGoToAlbum(albumId); })() : undefined}
                         onGoToArtist={track.performer?.id && onTrackGoToArtist ? (() => { const artistId = track.performer!.id!; return () => onTrackGoToArtist(artistId); })() : undefined}
+                        onDownload={onTrackDownload ? () => onTrackDownload(track) : undefined}
+                        isTrackDownloaded={isTrackDownloaded}
+                        onOpenFolder={isTrackDownloaded && onTrackOpenFolder ? () => onTrackOpenFolder(track.id) : undefined}
+                        onReDownload={isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(track) : undefined}
                       />
                     </div>
                   </div>
@@ -1018,6 +1031,7 @@
               <div class="track-quality">{getQualityLabel(track)}</div>
               <div class="track-duration">{formatDuration(track.duration)}</div>
               <div class="track-actions">
+                {@const isTrackDownloaded = checkTrackDownloaded?.(track.id) || false}
                 <TrackMenu
                   onPlayNow={() => handleSearchTrackPlay(track, index)}
                   onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
@@ -1028,6 +1042,10 @@
                   onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
                   onGoToAlbum={track.album?.id && onTrackGoToAlbum ? (() => { const albumId = track.album!.id!; return () => onTrackGoToAlbum(albumId); })() : undefined}
                   onGoToArtist={track.performer?.id && onTrackGoToArtist ? (() => { const artistId = track.performer!.id!; return () => onTrackGoToArtist(artistId); })() : undefined}
+                  onDownload={onTrackDownload ? () => onTrackDownload(track) : undefined}
+                  isTrackDownloaded={isTrackDownloaded}
+                  onOpenFolder={isTrackDownloaded && onTrackOpenFolder ? () => onTrackOpenFolder(track.id) : undefined}
+                  onReDownload={isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(track) : undefined}
                 />
               </div>
             </div>
