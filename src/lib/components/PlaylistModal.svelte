@@ -46,6 +46,9 @@
   let loading = $state(false);
   let error = $state<string | null>(null);
 
+  // Special value for "create new playlist" option (won't collide with negative pending playlist IDs)
+  const CREATE_NEW_PLAYLIST = -999999;
+
   // Local track counts for playlists
   let localTrackCounts = $state<Map<number, number>>(new Map());
   let showDeleteConfirm = $state(false);
@@ -314,7 +317,7 @@
     } else if (mode === 'edit') {
       handleUpdate();
     } else if (mode === 'addTrack') {
-      if (selectedPlaylistId === -1) {
+      if (selectedPlaylistId === CREATE_NEW_PLAYLIST) {
         // Create new playlist option selected
         handleCreateAndAdd();
       } else {
@@ -375,14 +378,14 @@
               disabled={loading}
             >
               <option value={null}>Select a playlist...</option>
-              <option value={-1}>+ Create new playlist</option>
+              <option value={CREATE_NEW_PLAYLIST}>+ Create new playlist</option>
               {#each userPlaylists as pl (pl.id)}
                 <option value={pl.id}>{pl.name} ({getTotalTrackCount(pl)} tracks)</option>
               {/each}
             </select>
           </div>
 
-          {#if selectedPlaylistId === -1}
+          {#if selectedPlaylistId === CREATE_NEW_PLAYLIST}
             <div class="form-group">
               <label for="name">Playlist name</label>
               <input
@@ -483,7 +486,7 @@
             Create
           {:else if mode === 'edit'}
             Save
-          {:else if selectedPlaylistId === -1}
+          {:else if selectedPlaylistId === CREATE_NEW_PLAYLIST}
             Create & Add
           {:else}
             Add
