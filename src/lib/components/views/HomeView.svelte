@@ -61,6 +61,13 @@
     downloadStateVersion?: number;
     onArtistClick?: (artistId: number) => void;
     onTrackPlay?: (track: DisplayTrack) => void;
+    onTrackPlayNext?: (track: DisplayTrack) => void;
+    onTrackPlayLater?: (track: DisplayTrack) => void;
+    onTrackAddToPlaylist?: (trackId: number) => void;
+    onTrackShareQobuz?: (trackId: number) => void;
+    onTrackShareSonglink?: (track: DisplayTrack) => void;
+    onTrackGoToAlbum?: (albumId: string) => void;
+    onTrackGoToArtist?: (artistId: number) => void;
     activeTrackId?: number | null;
     isPlaybackActive?: boolean;
   }
@@ -80,6 +87,13 @@
     downloadStateVersion,
     onArtistClick,
     onTrackPlay,
+    onTrackPlayNext,
+    onTrackPlayLater,
+    onTrackAddToPlaylist,
+    onTrackShareQobuz,
+    onTrackShareSonglink,
+    onTrackGoToAlbum,
+    onTrackGoToArtist,
     activeTrackId = null,
     isPlaybackActive = false
   }: Props = $props();
@@ -795,7 +809,14 @@
                 onAlbumClick={track.albumId && onAlbumClick ? () => onAlbumClick(track.albumId!) : undefined}
                 onPlay={() => handleContinueTrackPlay(track, index)}
                 menuActions={{
-                  onPlayNow: () => handleContinueTrackPlay(track, index)
+                  onPlayNow: () => handleContinueTrackPlay(track, index),
+                  onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
+                  onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
+                  onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined,
+                  onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
+                  onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined,
+                  onGoToAlbum: track.albumId && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.albumId!) : undefined,
+                  onGoToArtist: track.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(track.artistId!) : undefined
                 }}
               />
             {/each}

@@ -2075,6 +2075,13 @@
             {downloadStateVersion}
             onArtistClick={handleArtistClick}
             onTrackPlay={handleDisplayTrackPlay}
+            onTrackPlayNext={queueQobuzTrackNext}
+            onTrackPlayLater={queueQobuzTrackLater}
+            onTrackAddToPlaylist={(trackId) => openAddToPlaylist([trackId])}
+            onTrackShareQobuz={shareQobuzTrackLink}
+            onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
+            onTrackGoToAlbum={handleAlbumClick}
+            onTrackGoToArtist={handleArtistClick}
             activeTrackId={currentTrack?.id ?? null}
             isPlaybackActive={isPlaying}
           />
