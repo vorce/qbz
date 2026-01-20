@@ -85,7 +85,7 @@ fn load_from_fallback() -> Result<Option<QobuzCredentials>, String> {
     let credentials: QobuzCredentials = serde_json::from_str(&json)
         .map_err(|e| format!("Failed to parse credentials: {}", e))?;
 
-    log::info!("Credentials loaded from fallback file for: {}", credentials.email);
+    log::info!("Credentials loaded from fallback file");
     Ok(Some(credentials))
 }
 
@@ -108,7 +108,7 @@ fn has_fallback_credentials() -> bool {
 
 /// Save Qobuz credentials - saves to both file (primary) and keyring (secondary)
 pub fn save_qobuz_credentials(email: &str, password: &str) -> Result<(), String> {
-    log::info!("Attempting to save credentials for: {}", email);
+    log::info!("Attempting to save credentials");
 
     let credentials = QobuzCredentials {
         email: email.to_string(),
@@ -140,7 +140,7 @@ pub fn load_qobuz_credentials() -> Result<Option<QobuzCredentials>, String> {
         match entry.get_password() {
             Ok(json) => {
                 if let Ok(credentials) = serde_json::from_str::<QobuzCredentials>(&json) {
-                    log::info!("Successfully loaded credentials from keyring for: {}", credentials.email);
+                    log::info!("Successfully loaded credentials from keyring");
                     return Ok(Some(credentials));
                 }
             }
