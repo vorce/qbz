@@ -373,6 +373,9 @@ pub fn run() {
             commands::set_repeat,
             commands::get_repeat,
             commands::get_queue_state,
+            // Radio engine commands
+            commands::create_artist_radio,
+            commands::create_track_radio,
             // Playback context commands
             commands::get_playback_context,
             commands::set_playback_context,

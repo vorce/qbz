@@ -14,6 +14,7 @@ pub mod playback_context;
 pub mod playlist;
 pub mod playlist_import;
 pub mod queue;
+pub mod radio;
 pub mod search;
 pub mod share;
 
@@ -29,5 +30,6 @@ pub use playback_context::*;
 pub use playlist::*;
 pub use playlist_import::*;
 pub use queue::*;
+pub use radio::*;
 pub use search::*;
 pub use share::*;
