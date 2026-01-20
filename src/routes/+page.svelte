@@ -13,6 +13,7 @@
     removeDownload,
     getDownloadState,
     openAlbumFolder,
+    openTrackFolder,
     subscribe as subscribeDownloads,
     type DownloadStatus
   } from '$lib/stores/downloadState';
@@ -1159,6 +1160,40 @@
     }
   }
 
+  async function handleTrackOpenFolder(trackId: number) {
+    try {
+      await openTrackFolder(trackId);
+    } catch (err) {
+      console.error('Failed to open folder:', err);
+      showToast('Failed to open folder', 'error');
+    }
+  }
+
+  async function handleTrackReDownload(track: Track | DisplayTrack) {
+    try {
+      // Re-download uses the same download function - backend handles overwriting
+      await downloadTrack({
+        id: track.id,
+        title: track.title,
+        artist: track.artist || selectedAlbum?.artist || 'Unknown',
+        album: 'album' in track ? track.album : selectedAlbum?.title,
+        albumId: 'albumId' in track ? track.albumId : selectedAlbum?.id,
+        durationSecs: 'durationSeconds' in track ? track.durationSeconds : track.duration,
+        quality: 'quality' in track ? track.quality || '-' : '-',
+        bitDepth: 'bitDepth' in track ? track.bitDepth : undefined,
+        sampleRate: 'samplingRate' in track ? track.samplingRate : undefined,
+      });
+      showToast(`Re-downloading "${track.title}"`, 'info');
+    } catch (err) {
+      console.error('Failed to re-download:', err);
+      showToast('Failed to re-download', 'error');
+    }
+  }
+
+  function checkTrackDownloaded(trackId: number): boolean {
+    return getDownloadState(trackId).status === 'ready';
+  }
+
   async function handleDownloadAlbum() {
     if (!selectedAlbum) return;
 
@@ -2082,6 +2117,10 @@
             onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
             onTrackGoToAlbum={handleAlbumClick}
             onTrackGoToArtist={handleArtistClick}
+            onTrackDownload={handleDisplayTrackDownload}
+            onTrackOpenFolder={handleTrackOpenFolder}
+            onTrackReDownload={handleDisplayTrackDownload}
+            checkTrackDownloaded={checkTrackDownloaded}
             activeTrackId={currentTrack?.id ?? null}
             isPlaybackActive={isPlaying}
           />
@@ -2114,6 +2153,10 @@
             onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
             onTrackGoToAlbum={handleAlbumClick}
             onTrackGoToArtist={handleArtistClick}
+            onTrackDownload={handleDisplayTrackDownload}
+            onTrackOpenFolder={handleTrackOpenFolder}
+            onTrackReDownload={handleDisplayTrackDownload}
+            checkTrackDownloaded={checkTrackDownloaded}
             onArtistClick={handleArtistClick}
             activeTrackId={currentTrack?.id ?? null}
             isPlaybackActive={isPlaying}
@@ -2148,6 +2191,8 @@
           onAddTrackToPlaylist={(trackId) => openAddToPlaylist([trackId])}
           onTrackDownload={handleTrackDownload}
           onTrackRemoveDownload={handleTrackRemoveDownload}
+          onTrackOpenFolder={handleTrackOpenFolder}
+          onTrackReDownload={handleTrackReDownload}
           getTrackDownloadStatus={getTrackDownloadStatus}
           onDownloadAlbum={handleDownloadAlbum}
           onShareAlbumQobuz={shareAlbumQobuzLink}
@@ -2260,6 +2305,8 @@
             onTrackGoToArtist={handleArtistClick}
             onTrackDownload={handleDisplayTrackDownload}
             onTrackRemoveDownload={handleTrackRemoveDownload}
+            onTrackOpenFolder={handleTrackOpenFolder}
+            onTrackReDownload={handleDisplayTrackDownload}
             getTrackDownloadStatus={getTrackDownloadStatus}
             onPlaylistSelect={selectPlaylist}
             selectedTab={getFavoritesTabFromView(activeView) ?? favoritesDefaultTab}
