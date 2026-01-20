@@ -362,6 +362,9 @@ impl LibraryDatabase {
             // CRITICAL: Explicitly list all columns to handle different DB versions safely
             self.conn.execute_batch(
                 r#"
+                -- Clean up any leftover temp table from previous failed migration
+                DROP TABLE IF EXISTS local_tracks_new;
+
                 -- Create new table with REAL sample_rate (only core columns)
                 CREATE TABLE local_tracks_new (
                     id INTEGER PRIMARY KEY,
