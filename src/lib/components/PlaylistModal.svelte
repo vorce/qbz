@@ -2,6 +2,8 @@
   import { invoke } from '@tauri-apps/api/core';
   import { X, Trash2, EyeOff, Eye } from 'lucide-svelte';
   import { logPlaylistAdd } from '$lib/services/recoService';
+  import { isOffline, createPendingPlaylist } from '$lib/stores/offlineStore';
+  import { showToast } from '$lib/stores/toastStore';
 
   interface Playlist {
     id: number;
@@ -101,13 +103,33 @@
     error = null;
 
     try {
-      const newPlaylist = await invoke<Playlist>('create_playlist', {
-        name: name.trim(),
-        description: description.trim() || null,
-        isPublic
-      });
-      onSuccess?.(newPlaylist);
-      onClose();
+      if (isOffline()) {
+        // Create pending playlist for sync when back online
+        const pendingId = await createPendingPlaylist(
+          name.trim(),
+          description.trim() || null,
+          isPublic,
+          []
+        );
+        showToast('Playlist created offline - will sync when back online', 'info');
+        // Create a temporary playlist object for UI
+        const tempPlaylist: Playlist = {
+          id: -pendingId, // Negative ID to distinguish from real playlists
+          name: name.trim(),
+          tracks_count: 0
+        };
+        onSuccess?.(tempPlaylist);
+        onClose();
+      } else {
+        // Create playlist normally via API
+        const newPlaylist = await invoke<Playlist>('create_playlist', {
+          name: name.trim(),
+          description: description.trim() || null,
+          isPublic
+        });
+        onSuccess?.(newPlaylist);
+        onClose();
+      }
     } catch (err) {
       console.error('Failed to create playlist:', err);
       error = String(err);
@@ -222,7 +244,35 @@
     error = null;
 
     try {
-      // Create the playlist first
+      if (isOffline()) {
+        // In offline mode, can only create pending playlists with Qobuz tracks
+        if (isLocalTracks) {
+          error = 'Cannot create playlist with local tracks in offline mode';
+          loading = false;
+          return;
+        }
+
+        // Create pending playlist with Qobuz tracks for sync when back online
+        const pendingId = await createPendingPlaylist(
+          name.trim(),
+          description.trim() || null,
+          false,
+          trackIds
+        );
+        showToast(`Playlist "${name.trim()}" created offline - will sync when back online`, 'info');
+
+        // Create a temporary playlist object for UI
+        const tempPlaylist: Playlist = {
+          id: -pendingId, // Negative ID to distinguish from real playlists
+          name: name.trim(),
+          tracks_count: trackIds.length
+        };
+        onSuccess?.(tempPlaylist);
+        onClose();
+        return;
+      }
+
+      // Online mode - create the playlist first
       const newPlaylist = await invoke<Playlist>('create_playlist', {
         name: name.trim(),
         description: description.trim() || null,
