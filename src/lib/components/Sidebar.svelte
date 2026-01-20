@@ -67,6 +67,7 @@
   let userPlaylists = $state<Playlist[]>([]);
   let playlistSettings = $state<Map<number, PlaylistSettings>>(new Map());
   let localTrackCounts = $state<Map<number, number>>(new Map());
+  let pendingPlaylistsMap = $state<Map<number, import('$lib/stores/offlineStore').PendingPlaylist>>(new Map());
   let playlistsLoading = $state(false);
   let playlistsCollapsed = $state(false);
   let localLibraryCollapsed = $state(false);
@@ -448,25 +449,37 @@
         console.log('[Sidebar] Loading pending playlists in offline mode');
         const pendingPlaylists = await invoke<import('$lib/stores/offlineStore').PendingPlaylist[]>('get_pending_playlists');
 
-        // Convert pending playlists to Playlist format for UI compatibility
-        userPlaylists = pendingPlaylists.map(p => ({
-          id: -p.id, // Negative ID to distinguish from real playlists
-          name: p.name,
-          description: p.description || undefined,
-          is_public: p.isPublic,
-          tracks_count: p.trackIds.length + p.localTrackIds.length,
-          duration: 0,
-          users_count: 0,
-          is_collaborative: false,
-          timestamp_creation: p.createdAt,
-          timestamp_update: p.createdAt,
-          owner: {
-            id: 0,
-            name: 'You (Offline)',
-            display_name: undefined
-          }
-        }));
+        // Store pending playlists metadata and populate localTrackCounts
+        const newPendingMap = new Map<number, import('$lib/stores/offlineStore').PendingPlaylist>();
+        const newLocalTrackCounts = new Map<number, number>();
 
+        // Convert pending playlists to Playlist format for UI compatibility
+        userPlaylists = pendingPlaylists.map(p => {
+          const negativeId = -p.id;
+          newPendingMap.set(negativeId, p);
+          newLocalTrackCounts.set(negativeId, p.localTrackIds.length); // Populate local track count
+
+          return {
+            id: negativeId, // Negative ID to distinguish from real playlists
+            name: p.name,
+            description: p.description || undefined,
+            is_public: p.isPublic,
+            tracks_count: p.trackIds.length, // Only Qobuz tracks for correct filtering
+            duration: 0,
+            users_count: 0,
+            is_collaborative: false,
+            timestamp_creation: p.createdAt,
+            timestamp_update: p.createdAt,
+            owner: {
+              id: 0,
+              name: 'You (Offline)',
+              display_name: undefined
+            }
+          };
+        });
+
+        pendingPlaylistsMap = newPendingMap;
+        localTrackCounts = newLocalTrackCounts;
         console.log(`[Sidebar] Loaded ${userPlaylists.length} pending playlists`);
       } else {
         // Online mode - load from Qobuz
