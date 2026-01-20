@@ -9,6 +9,7 @@
   } from 'lucide-svelte';
   import FolderSettingsModal from '../FolderSettingsModal.svelte';
   import { t } from '$lib/i18n';
+  import { downloadSettingsVersion } from '$lib/stores/downloadSettingsStore';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import {
@@ -216,6 +217,18 @@
 
   let unsubscribeNav: (() => void) | null = null;
   let unsubscribeOffline: (() => void) | null = null;
+
+  // Reactive effect: reload library when download settings change
+  $effect(() => {
+    // Access the store value to create a reactive dependency
+    const version = $downloadSettingsVersion;
+
+    // Skip the initial mount (version 0)
+    if (version > 0) {
+      console.log('Download settings changed, reloading library data');
+      loadLibraryData();
+    }
+  });
 
   onMount(() => {
     loadLibraryData();

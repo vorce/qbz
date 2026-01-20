@@ -12,6 +12,7 @@
     openDownloadCacheFolder,
     type DownloadCacheStats
   } from '$lib/stores/downloadState';
+  import { notifyDownloadSettingsChanged } from '$lib/stores/downloadSettingsStore';
   import { clearCache as clearLyricsCache } from '$lib/stores/lyricsStore';
   import {
     getToastsEnabled,
@@ -631,6 +632,8 @@
     try {
       await invoke('set_show_downloads_in_library', { show: enabled });
       showQobuzDownloadsInLibrary = enabled;
+      // Notify LocalLibraryView to refresh
+      notifyDownloadSettingsChanged();
     } catch (e) {
       console.error('Failed to update show downloads setting:', e);
     }
