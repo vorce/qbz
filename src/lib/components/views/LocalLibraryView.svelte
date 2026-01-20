@@ -184,7 +184,7 @@
   // Reactive counters based on filtered data
   let filteredAlbumCount = $derived(albums.length);
   let filteredArtistCount = $derived(artists.length);
-  let filteredTrackCount = $derived(() => {
+  let filteredTrackCount = $derived.by(() => {
     // When in tracks view with search results, use actual filtered count
     if (currentView === 'tracks' && tracks.length > 0) {
       return tracks.length;
