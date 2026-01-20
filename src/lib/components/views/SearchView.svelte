@@ -399,9 +399,9 @@
     // Create search results context
     if (trackResults && trackResults.items.length > 0) {
       const trackIds = trackResults.items.map(t => t.id);
-      
-      setPlaybackContext(
-        'search',
+
+      await setPlaybackContext(
+        'home_list', // Using home_list for search results (search type doesn't exist yet)
         currentQuery,
         `Search: ${currentQuery}`,
         'qobuz',

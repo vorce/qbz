@@ -525,15 +525,18 @@ impl QueueManager {
             order.swap(i, j);
         }
 
-        // If there's a current track, move it to the front
-        if let Some(curr_idx) = state.current_index {
-            if let Some(pos) = order.iter().position(|&x| x == curr_idx) {
-                order.remove(pos);
-                order.insert(0, curr_idx);
-            }
-        }
-
         state.shuffle_order = order;
-        state.shuffle_position = 0;
+
+        // If there's a current track, find its position in the new shuffle order
+        // (don't move it to front, just update our position in the shuffled list)
+        if let Some(curr_idx) = state.current_index {
+            if let Some(pos) = state.shuffle_order.iter().position(|&x| x == curr_idx) {
+                state.shuffle_position = pos;
+            } else {
+                state.shuffle_position = 0;
+            }
+        } else {
+            state.shuffle_position = 0;
+        }
     }
 }

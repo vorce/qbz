@@ -357,8 +357,8 @@
     // Create continue listening context
     if (continueTracks.length > 0) {
       const trackIds = continueTracks.map(t => t.id);
-      
-      setPlaybackContext(
+
+      await setPlaybackContext(
         'home_list',
         'continue_listening',
         'Continue Listening',

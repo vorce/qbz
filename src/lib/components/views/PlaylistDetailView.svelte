@@ -585,7 +585,7 @@
       const contextIndex = trackIds.indexOf(track.id);
       
       if (contextIndex >= 0 && trackIds.length > 0) {
-        setPlaybackContext(
+        await setPlaybackContext(
           'playlist',
           playlist.id.toString(),
           playlist.name,

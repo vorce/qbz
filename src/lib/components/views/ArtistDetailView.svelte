@@ -330,7 +330,7 @@
       const index = trackIndex !== undefined ? trackIndex : trackIds.indexOf(track.id);
       
       if (index >= 0) {
-        setPlaybackContext(
+        await setPlaybackContext(
           'artist_top',
           artist.id.toString(),
           artist.name,

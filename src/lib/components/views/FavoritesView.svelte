@@ -741,9 +741,9 @@
     }));
   }
 
-  function setFavoritesContext(trackIds: number[], index: number) {
+  async function setFavoritesContext(trackIds: number[], index: number) {
     if (trackIds.length === 0) return;
-    setPlaybackContext(
+    await setPlaybackContext(
       'favorites',
       'favorites',
       'Favorites',
@@ -761,7 +761,7 @@
 
   async function handleTrackClick(track: FavoriteTrack, index: number) {
     const trackIds = filteredTracks.map(t => t.id);
-    setFavoritesContext(trackIds, index);
+    await setFavoritesContext(trackIds, index);
 
     try {
       await setFavoritesQueue(index);
@@ -779,7 +779,7 @@
 
     try {
       await setFavoritesQueue(0);
-      setFavoritesContext(filteredTracks.map(t => t.id), 0);
+      await setFavoritesContext(filteredTracks.map(t => t.id), 0);
       onTrackPlay(buildDisplayTrack(filteredTracks[0], 0));
     } catch (err) {
       console.error('Failed to set queue:', err);
