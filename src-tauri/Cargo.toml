@@ -45,6 +45,9 @@ anyhow = "1"
 log = "0.4"
 env_logger = "0.11"
 
+# Random number generation (for shuffle)
+rand = "0.8"
+
 # Audio playback
 rodio = { version = "0.19", features = ["symphonia-all"] }
 symphonia = { version = "0.5", features = ["all"] }

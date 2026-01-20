@@ -508,15 +508,20 @@ impl QueueManager {
     fn regenerate_shuffle_order_internal(state: &mut InternalState) {
         let mut order: Vec<usize> = (0..state.tracks.len()).collect();
 
-        // Fisher-Yates shuffle
+        // Fisher-Yates shuffle with proper PRNG
+        use rand::{Rng, SeedableRng};
         use std::time::{SystemTime, UNIX_EPOCH};
+
+        // Create seeded RNG from current timestamp
         let seed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
-            .as_nanos() as usize;
+            .as_nanos() as u64;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
 
+        // Proper Fisher-Yates shuffle - each iteration gets a NEW random number
         for i in (1..order.len()).rev() {
-            let j = (seed.wrapping_mul(i + 1)) % (i + 1);
+            let j = rng.gen_range(0..=i);
             order.swap(i, j);
         }
 
