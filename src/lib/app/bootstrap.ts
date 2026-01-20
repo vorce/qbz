@@ -40,9 +40,14 @@ export async function applySavedZoom(): Promise<void> {
       localStorage.setItem('qbz-zoom-level', String(clamped));
     }
     await getCurrentWebview().setZoom(clamped);
+    notifyZoomChange(clamped);
   } catch (err) {
     console.warn('Failed to apply saved zoom:', err);
   }
+}
+
+function notifyZoomChange(zoom: number): void {
+  window.dispatchEvent(new CustomEvent('qbz:zoom-change', { detail: { zoom } }));
 }
 
 function getStoredZoom(): number {
@@ -59,6 +64,7 @@ async function applyZoomLevel(zoom: number): Promise<void> {
   localStorage.setItem('qbz-zoom-level', String(clamped));
   try {
     await getCurrentWebview().setZoom(clamped);
+    notifyZoomChange(clamped);
   } catch (err) {
     console.warn('Failed to set zoom level:', err);
   }
