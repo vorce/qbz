@@ -206,7 +206,19 @@
     error = null;
 
     try {
-      if (isLocalTracks) {
+      // Check if this is a pending playlist (negative ID)
+      if (selectedPlaylistId < 0) {
+        const pendingId = -selectedPlaylistId; // Convert back to positive
+        const qobuzTrackIds = isLocalTracks ? [] : trackIds;
+        const localTrackIds = isLocalTracks ? trackIds : [];
+
+        await invoke('add_tracks_to_pending_playlist', {
+          pendingId,
+          qobuzTrackIds,
+          localTrackIds
+        });
+      } else if (isLocalTracks) {
+        // Regular playlist with local tracks
         // Get current total count (Qobuz + local) to append at correct position
         const playlist = userPlaylists.find(p => p.id === selectedPlaylistId);
         const qobuzCount = playlist?.tracks_count ?? 0;
@@ -222,6 +234,7 @@
           });
         }
       } else {
+        // Regular playlist with Qobuz tracks
         await invoke('add_tracks_to_playlist', {
           playlistId: selectedPlaylistId,
           trackIds

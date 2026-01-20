@@ -314,6 +314,51 @@ impl OfflineStore {
         Ok(())
     }
 
+    /// Add tracks to a pending playlist
+    pub fn add_tracks_to_pending_playlist(
+        &self,
+        pending_id: i64,
+        qobuz_track_ids: &[u64],
+        local_track_ids: &[i64],
+    ) -> Result<(), String> {
+        // Get current tracks
+        let mut stmt = self.conn
+            .prepare("SELECT track_ids, local_track_ids FROM pending_playlist_sync WHERE id = ?1")
+            .map_err(|e| format!("Failed to prepare query: {}", e))?;
+
+        let (current_qobuz_json, current_local_json): (String, Option<String>) = stmt
+            .query_row(params![pending_id], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .map_err(|e| format!("Failed to get pending playlist: {}", e))?;
+
+        let mut current_qobuz: Vec<u64> = serde_json::from_str(&current_qobuz_json)
+            .unwrap_or_default();
+        let mut current_local: Vec<i64> = current_local_json
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+
+        // Append new tracks
+        current_qobuz.extend_from_slice(qobuz_track_ids);
+        current_local.extend_from_slice(local_track_ids);
+
+        // Serialize back
+        let qobuz_json = serde_json::to_string(&current_qobuz)
+            .map_err(|e| format!("Failed to serialize Qobuz tracks: {}", e))?;
+        let local_json = serde_json::to_string(&current_local)
+            .map_err(|e| format!("Failed to serialize local tracks: {}", e))?;
+
+        // Update database
+        self.conn
+            .execute(
+                "UPDATE pending_playlist_sync SET track_ids = ?1, local_track_ids = ?2 WHERE id = ?3",
+                params![qobuz_json, local_json, pending_id],
+            )
+            .map_err(|e| format!("Failed to update pending playlist: {}", e))?;
+
+        Ok(())
+    }
+
     /// Get count of pending playlists
     pub fn get_pending_playlist_count(&self) -> Result<u32, String> {
         self.conn
@@ -636,6 +681,18 @@ pub mod commands {
     ) -> Result<Vec<PendingPlaylist>, String> {
         let store = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
         store.get_pending_playlists()
+    }
+
+    /// Add tracks to a pending playlist
+    #[tauri::command]
+    pub fn add_tracks_to_pending_playlist(
+        pending_id: i64,
+        qobuz_track_ids: Vec<u64>,
+        local_track_ids: Vec<i64>,
+        state: State<'_, OfflineState>,
+    ) -> Result<(), String> {
+        let store = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+        store.add_tracks_to_pending_playlist(pending_id, &qobuz_track_ids, &local_track_ids)
     }
 
     /// Get count of pending playlists

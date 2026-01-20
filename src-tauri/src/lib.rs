@@ -600,6 +600,7 @@ pub fn run() {
             // Offline playlist sync queue commands
             offline::commands::create_pending_playlist,
             offline::commands::get_pending_playlists,
+            offline::commands::add_tracks_to_pending_playlist,
             offline::commands::get_pending_playlist_count,
             offline::commands::mark_pending_playlist_synced,
             offline::commands::delete_pending_playlist,
