@@ -15,7 +15,8 @@
     Trash2,
     Download,
     FolderOpen,
-    RefreshCw
+    RefreshCw,
+    Radio
   } from 'lucide-svelte';
   import { shouldHidePlaylistFeatures } from '$lib/utils/offlineHelpers';
 
@@ -25,6 +26,7 @@
     onPlayFromHere?: () => void;
     onPlayNext?: () => void;
     onPlayLater?: () => void;
+    onCreateRadio?: () => void;
     onAddFavorite?: () => void;
     onAddToPlaylist?: () => void;
     onRemoveFromPlaylist?: () => void;
@@ -44,6 +46,7 @@
     onPlayFromHere,
     onPlayNext,
     onPlayLater,
+    onCreateRadio,
     onAddFavorite,
     onAddToPlaylist,
     onRemoveFromPlaylist,
@@ -83,7 +86,7 @@
     };
   }
 
-  const hasPlayback = $derived(!!(onPlayNow || onPlayTrackOnly || onPlayFromHere || onPlayNext || onPlayLater));
+  const hasPlayback = $derived(!!(onPlayNow || onPlayTrackOnly || onPlayFromHere || onPlayNext || onPlayLater || onCreateRadio));
   const hasLibrary = $derived(!!(onAddFavorite || onAddToPlaylist || onRemoveFromPlaylist));
   const hasShare = $derived(!!(onShareQobuz || onShareSonglink));
   const hasDownload = $derived(!!onDownload || isTrackDownloaded);
@@ -271,9 +274,15 @@
               <span>Play later</span>
             </button>
           {/if}
+          {#if onCreateRadio}
+            <button class="menu-item" onclick={() => handleAction(onCreateRadio)}>
+              <Radio size={14} />
+              <span>Create radio</span>
+            </button>
+          {/if}
         {/if}
 
-        {#if hasPlayback && (hasLibrary || hasShare || hasNav)}
+        {#if hasPlayback && (hasLibrary || hasShare || hasNav || hasDownload)}
           <div class="separator"></div>
         {/if}
 
