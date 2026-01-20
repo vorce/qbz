@@ -266,9 +266,9 @@
     previousOfflineState = isOffline;
   });
 
-  onMount(() => {
-    loadLibraryData();
-    loadFolders();
+  onMount(async () => {
+    await loadLibraryData();
+    loadFolders(); // Load in background - doesn't block UI
     checkDiscogsCredentials();
 
     // Subscribe to offline state changes
@@ -416,7 +416,16 @@
 
   async function loadFolders() {
     try {
-      folders = await invoke<LibraryFolder[]>('library_get_folders_with_metadata');
+      console.log('[LocalLibrary] loadFolders START');
+      // Add timeout to prevent infinite hang when offline
+      const timeoutPromise = new Promise<LibraryFolder[]>((_, reject) =>
+        setTimeout(() => reject(new Error('Folder loading timeout')), 5000)
+      );
+      const foldersPromise = invoke<LibraryFolder[]>('library_get_folders_with_metadata');
+
+      folders = await Promise.race([foldersPromise, timeoutPromise]);
+      console.log('[LocalLibrary] Received folders:', folders.length);
+
       // Check accessibility for network folders (skip when offline to avoid hanging)
       for (const folder of folders) {
         if (folder.isNetwork) {
@@ -433,7 +442,8 @@
       }
       folderAccessibility = new Map(folderAccessibility);
     } catch (err) {
-      console.error('Failed to load folders:', err);
+      console.error('[LocalLibrary] Failed to load folders (timeout or error):', err);
+      // Continue anyway - folders are not critical for basic library functionality
     }
   }
 
