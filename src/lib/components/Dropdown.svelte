@@ -115,6 +115,25 @@
     z-index: 10000;
     max-height: 300px;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+  }
+
+  .menu::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .menu::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .menu::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 9999px;
+  }
+
+  .menu::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
   }
 
   .menu.expand-left {

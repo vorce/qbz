@@ -3044,6 +3044,27 @@
     min-width: 180px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     z-index: 20;
+    max-height: 260px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+  }
+
+  .dropdown-menu::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .dropdown-menu::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .dropdown-menu::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 9999px;
+  }
+
+  .dropdown-menu::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
   }
 
   .dropdown-item {
