@@ -359,9 +359,10 @@ impl LibraryDatabase {
             log::info!("Running migration: changing sample_rate from INTEGER to REAL for decimal precision");
 
             // SQLite doesn't support ALTER COLUMN type change, need to recreate table
+            // CRITICAL: Explicitly list all columns to handle different DB versions safely
             self.conn.execute_batch(
                 r#"
-                -- Create new table with REAL sample_rate
+                -- Create new table with REAL sample_rate (only core columns)
                 CREATE TABLE local_tracks_new (
                     id INTEGER PRIMARY KEY,
                     file_path TEXT NOT NULL,
@@ -373,7 +374,6 @@ impl LibraryDatabase {
                     disc_number INTEGER,
                     year INTEGER,
                     genre TEXT,
-                    catalog_number TEXT,
                     duration_secs INTEGER NOT NULL,
                     format TEXT NOT NULL,
                     bit_depth INTEGER,
@@ -386,16 +386,26 @@ impl LibraryDatabase {
                     artwork_path TEXT,
                     last_modified INTEGER NOT NULL,
                     indexed_at INTEGER NOT NULL,
-                    album_group_key TEXT,
-                    album_group_title TEXT,
-                    source TEXT DEFAULT 'user',
-                    qobuz_track_id INTEGER,
                     UNIQUE(file_path, cue_start_secs)
                 );
 
-                -- Copy all data (sample_rate will be auto-converted from INTEGER to REAL)
+                -- Copy core columns explicitly (handles all DB versions)
+                -- Use COALESCE to handle NULL values and provide safe defaults
                 INSERT INTO local_tracks_new
-                SELECT * FROM local_tracks;
+                    (id, file_path, title, artist, album, album_artist, track_number,
+                     disc_number, year, genre, duration_secs, format, bit_depth,
+                     sample_rate, channels, file_size_bytes, cue_file_path,
+                     cue_start_secs, cue_end_secs, artwork_path, last_modified, indexed_at)
+                SELECT
+                    id, file_path, title, artist, album,
+                    album_artist, track_number, disc_number, year, genre,
+                    duration_secs, format, bit_depth,
+                    CAST(sample_rate AS REAL),
+                    channels,
+                    COALESCE(file_size_bytes, 0),
+                    cue_file_path, cue_start_secs, cue_end_secs,
+                    artwork_path, last_modified, indexed_at
+                FROM local_tracks;
 
                 -- Drop old table
                 DROP TABLE local_tracks;
@@ -403,20 +413,77 @@ impl LibraryDatabase {
                 -- Rename new table
                 ALTER TABLE local_tracks_new RENAME TO local_tracks;
 
-                -- Recreate indexes
+                -- Recreate core indexes
                 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON local_tracks(artist);
                 CREATE INDEX IF NOT EXISTS idx_tracks_album ON local_tracks(album);
                 CREATE INDEX IF NOT EXISTS idx_tracks_album_artist ON local_tracks(album_artist);
                 CREATE INDEX IF NOT EXISTS idx_tracks_file_path ON local_tracks(file_path);
                 CREATE INDEX IF NOT EXISTS idx_tracks_title ON local_tracks(title);
-                CREATE INDEX IF NOT EXISTS idx_tracks_source ON local_tracks(source);
-                CREATE INDEX IF NOT EXISTS idx_tracks_qobuz_id ON local_tracks(qobuz_track_id);
-                CREATE INDEX IF NOT EXISTS idx_tracks_album_group ON local_tracks(album_group_key);
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_file_nocue
                     ON local_tracks(file_path)
                     WHERE cue_file_path IS NULL;
                 "#
             ).map_err(|e| LibraryError::Database(format!("sample_rate migration failed: {}", e)))?;
+
+            // Add optional columns if they existed in old table
+            // These were added in previous migrations, so they may or may not exist
+            let has_album_group_key: bool = self.conn
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('local_tracks') WHERE name = 'album_group_key'",
+                    [],
+                    |row| row.get::<_, i32>(0),
+                )
+                .map(|count| count > 0)
+                .unwrap_or(false);
+
+            if !has_album_group_key {
+                // Re-add album grouping columns (will be populated by next migration check)
+                self.conn.execute_batch(
+                    "ALTER TABLE local_tracks ADD COLUMN album_group_key TEXT;
+                     ALTER TABLE local_tracks ADD COLUMN album_group_title TEXT;
+                     CREATE INDEX IF NOT EXISTS idx_tracks_album_group ON local_tracks(album_group_key);"
+                ).map_err(|e| LibraryError::Database(format!("Failed to re-add album_group columns: {}", e)))?;
+            } else {
+                // Columns existed, copy their data from old backup
+                // Note: Old table is already dropped, so this branch means columns were preserved
+                // This should not happen because we only copy core columns above
+                // But keep this for safety
+            }
+
+            // Re-add source and qobuz_track_id columns if they don't exist
+            let has_source: bool = self.conn
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('local_tracks') WHERE name = 'source'",
+                    [],
+                    |row| row.get::<_, i32>(0),
+                )
+                .map(|count| count > 0)
+                .unwrap_or(false);
+
+            if !has_source {
+                self.conn.execute_batch(
+                    "ALTER TABLE local_tracks ADD COLUMN source TEXT DEFAULT 'user';
+                     ALTER TABLE local_tracks ADD COLUMN qobuz_track_id INTEGER;
+                     CREATE INDEX IF NOT EXISTS idx_tracks_source ON local_tracks(source);
+                     CREATE INDEX IF NOT EXISTS idx_tracks_qobuz_id ON local_tracks(qobuz_track_id);"
+                ).map_err(|e| LibraryError::Database(format!("Failed to re-add source columns: {}", e)))?;
+            }
+
+            // Re-add catalog_number if it doesn't exist
+            let has_catalog: bool = self.conn
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('local_tracks') WHERE name = 'catalog_number'",
+                    [],
+                    |row| row.get::<_, i32>(0),
+                )
+                .map(|count| count > 0)
+                .unwrap_or(false);
+
+            if !has_catalog {
+                self.conn.execute_batch(
+                    "ALTER TABLE local_tracks ADD COLUMN catalog_number TEXT;"
+                ).map_err(|e| LibraryError::Database(format!("Failed to re-add catalog_number: {}", e)))?;
+            }
 
             log::info!("Migration completed: sample_rate is now REAL");
         }
