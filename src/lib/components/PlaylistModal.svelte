@@ -2,7 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { X, Trash2, EyeOff, Eye } from 'lucide-svelte';
   import { logPlaylistAdd } from '$lib/services/recoService';
-  import { isOffline, createPendingPlaylist } from '$lib/stores/offlineStore';
+  import { subscribe as subscribeOffline, getStatus, createPendingPlaylist } from '$lib/stores/offlineStore';
   import { showToast } from '$lib/stores/toastStore';
 
   interface Playlist {
@@ -46,6 +46,9 @@
   let loading = $state(false);
   let error = $state<string | null>(null);
 
+  // Offline state (reactive)
+  let offlineMode = $state(false);
+
   // Special value for "create new playlist" option (won't collide with negative pending playlist IDs)
   const CREATE_NEW_PLAYLIST = -999999;
 
@@ -72,6 +75,15 @@
     const localCount = localTrackCounts.get(pl.id) ?? 0;
     return pl.tracks_count + localCount;
   }
+
+  // Subscribe to offline state changes
+  $effect(() => {
+    const unsubscribe = subscribeOffline(() => {
+      const status = getStatus();
+      offlineMode = status.isOffline;
+    });
+    return unsubscribe;
+  });
 
   // Reset form when modal opens
   $effect(() => {
@@ -106,7 +118,7 @@
     error = null;
 
     try {
-      if (isOffline()) {
+      if (offlineMode) {
         // Create pending playlist for sync when back online
         const pendingId = await createPendingPlaylist(
           name.trim(),
@@ -270,7 +282,7 @@
     error = null;
 
     try {
-      if (isOffline()) {
+      if (offlineMode) {
         // In offline mode, create pending playlist with both Qobuz and local tracks
         const qobuzTrackIds = isLocalTracks ? [] : trackIds;
 
