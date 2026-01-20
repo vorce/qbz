@@ -186,15 +186,15 @@
   let filteredArtistCount = $derived(artists.length);
   let filteredTrackCount = $derived.by(() => {
     // When in tracks view with search results, use actual filtered count
-    if (currentView === 'tracks' && tracks.length > 0) {
+    if (activeTab === 'tracks' && tracks.length > 0) {
       return tracks.length;
     }
     // When in albums view, calculate from filtered albums
-    if (currentView === 'albums' && albums.length > 0) {
+    if (activeTab === 'albums' && albums.length > 0) {
       return albums.reduce((sum, album) => sum + album.track_count, 0);
     }
     // When in artists view, calculate from filtered artists
-    if (currentView === 'artists' && artists.length > 0) {
+    if (activeTab === 'artists' && artists.length > 0) {
       return artists.reduce((sum, artist) => sum + artist.track_count, 0);
     }
     // Fallback to stats if available
