@@ -5,7 +5,7 @@
 use tauri::State;
 
 use crate::api::Track;
-use crate::playback_context::{ContextData, PlaybackContext};
+use crate::playback_context::{ContentSource, ContextType, PlaybackContext};
 use crate::queue::QueueTrack;
 use crate::radio_engine::{BuildRadioOptions, RadioEngine, RadioPoolBuilder};
 use crate::AppState;
@@ -22,43 +22,52 @@ pub async fn create_artist_radio(
 ) -> Result<String, String> {
     log::info!("[Radio] Creating artist radio for: {} (ID: {})", artist_name, artist_id);
 
-    // Initialize radio engine if not exists
-    let radio_db = crate::radio_engine::db::RadioDb::open_default()?;
-    let radio_engine = RadioEngine::new(radio_db);
-
     // Get QobuzClient
     let client = state.client.lock().await;
 
-    // Create radio session
-    let builder = RadioPoolBuilder::new(
-        radio_engine.db(),
-        &client,
-        BuildRadioOptions::default(),
-    );
+    // Initialize radio engine and create session
+    let (session_id, track_ids) = {
+        let radio_db = crate::radio_engine::db::RadioDb::open_default()?;
+        let radio_engine = RadioEngine::new(radio_db);
 
-    let session = builder.create_artist_radio(artist_id).await?;
-    let session_id = session.id.clone();
+        // Create radio session
+        let builder = RadioPoolBuilder::new(
+            radio_engine.db(),
+            &client,
+            BuildRadioOptions::default(),
+        );
 
-    log::info!("[Radio] Artist radio session created: {}", session_id);
+        let session = builder.create_artist_radio(artist_id).await?;
+        let session_id = session.id.clone();
 
-    // Generate initial tracks
-    let mut tracks = Vec::new();
-    for _ in 0..15 {
-        match radio_engine.next_track(&session_id) {
-            Ok(radio_track) => {
-                // Fetch full track details from Qobuz
-                match client.get_track(radio_track.track_id).await {
-                    Ok(track) => {
-                        tracks.push(track);
-                    }
-                    Err(e) => {
-                        log::warn!("[Radio] Failed to fetch track {}: {}", radio_track.track_id, e);
-                    }
+        log::info!("[Radio] Artist radio session created: {}", session_id);
+
+        // Generate initial track IDs (before moving client)
+        let mut track_ids = Vec::new();
+        for _ in 0..15 {
+            match radio_engine.next_track(&session_id) {
+                Ok(radio_track) => {
+                    track_ids.push(radio_track.track_id);
+                }
+                Err(e) => {
+                    log::warn!("[Radio] Failed to get next radio track: {}", e);
+                    break;
                 }
             }
+        }
+
+        (session_id, track_ids)
+    }; // RadioDb/RadioEngine dropped here
+
+    // Fetch full track details from Qobuz
+    let mut tracks = Vec::new();
+    for track_id in track_ids {
+        match client.get_track(track_id).await {
+            Ok(track) => {
+                tracks.push(track);
+            }
             Err(e) => {
-                log::warn!("[Radio] Failed to get next radio track: {}", e);
-                break;
+                log::warn!("[Radio] Failed to fetch track {}: {}", track_id, e);
             }
         }
     }
@@ -76,15 +85,15 @@ pub async fn create_artist_radio(
     state.queue.set_queue(queue_tracks, Some(0));
 
     // Set playback context to radio
-    let context = PlaybackContext {
-        context_type: "radio".to_string(),
-        id: session_id.clone(),
-        label: artist_name,
-        data: ContextData {
-            tracks: tracks.clone(),
-            start_index: Some(0),
-        },
-    };
+    let track_ids: Vec<u64> = tracks.iter().map(|t| t.id).collect();
+    let context = PlaybackContext::new(
+        ContextType::Radio,
+        session_id.clone(),
+        artist_name,
+        ContentSource::Qobuz,
+        track_ids,
+        0,
+    );
     state.context.set_context(context);
 
     log::info!("[Radio] Artist radio ready: {}", session_id);
@@ -110,43 +119,52 @@ pub async fn create_track_radio(
         artist_id
     );
 
-    // Initialize radio engine
-    let radio_db = crate::radio_engine::db::RadioDb::open_default()?;
-    let radio_engine = RadioEngine::new(radio_db);
-
     // Get QobuzClient
     let client = state.client.lock().await;
 
-    // Create radio session
-    let builder = RadioPoolBuilder::new(
-        radio_engine.db(),
-        &client,
-        BuildRadioOptions::default(),
-    );
+    // Initialize radio engine and create session
+    let (session_id, track_ids) = {
+        let radio_db = crate::radio_engine::db::RadioDb::open_default()?;
+        let radio_engine = RadioEngine::new(radio_db);
 
-    let session = builder.create_track_radio(track_id, artist_id).await?;
-    let session_id = session.id.clone();
+        // Create radio session
+        let builder = RadioPoolBuilder::new(
+            radio_engine.db(),
+            &client,
+            BuildRadioOptions::default(),
+        );
 
-    log::info!("[Radio] Track radio session created: {}", session_id);
+        let session = builder.create_track_radio(track_id, artist_id).await?;
+        let session_id = session.id.clone();
 
-    // Generate initial tracks
-    let mut tracks = Vec::new();
-    for _ in 0..15 {
-        match radio_engine.next_track(&session_id) {
-            Ok(radio_track) => {
-                // Fetch full track details from Qobuz
-                match client.get_track(radio_track.track_id).await {
-                    Ok(track) => {
-                        tracks.push(track);
-                    }
-                    Err(e) => {
-                        log::warn!("[Radio] Failed to fetch track {}: {}", radio_track.track_id, e);
-                    }
+        log::info!("[Radio] Track radio session created: {}", session_id);
+
+        // Generate initial track IDs (before moving client)
+        let mut track_ids = Vec::new();
+        for _ in 0..15 {
+            match radio_engine.next_track(&session_id) {
+                Ok(radio_track) => {
+                    track_ids.push(radio_track.track_id);
+                }
+                Err(e) => {
+                    log::warn!("[Radio] Failed to get next radio track: {}", e);
+                    break;
                 }
             }
+        }
+
+        (session_id, track_ids)
+    }; // RadioDb/RadioEngine dropped here
+
+    // Fetch full track details from Qobuz
+    let mut tracks = Vec::new();
+    for track_id in track_ids {
+        match client.get_track(track_id).await {
+            Ok(track) => {
+                tracks.push(track);
+            }
             Err(e) => {
-                log::warn!("[Radio] Failed to get next radio track: {}", e);
-                break;
+                log::warn!("[Radio] Failed to fetch track {}: {}", track_id, e);
             }
         }
     }
@@ -164,15 +182,15 @@ pub async fn create_track_radio(
     state.queue.set_queue(queue_tracks, Some(0));
 
     // Set playback context to radio
-    let context = PlaybackContext {
-        context_type: "radio".to_string(),
-        id: session_id.clone(),
-        label: track_name,
-        data: ContextData {
-            tracks: tracks.clone(),
-            start_index: Some(0),
-        },
-    };
+    let track_ids: Vec<u64> = tracks.iter().map(|t| t.id).collect();
+    let context = PlaybackContext::new(
+        ContextType::Radio,
+        session_id.clone(),
+        track_name,
+        ContentSource::Qobuz,
+        track_ids,
+        0,
+    );
     state.context.set_context(context);
 
     log::info!("[Radio] Track radio ready: {}", session_id);
@@ -185,8 +203,7 @@ fn track_to_queue_track(track: &Track) -> QueueTrack {
     let artwork_url = track
         .album
         .as_ref()
-        .and_then(|a| a.image.as_ref())
-        .and_then(|img| img.large.clone());
+        .and_then(|a| a.image.large.clone());
 
     let artist = track
         .performer
@@ -205,7 +222,7 @@ fn track_to_queue_track(track: &Track) -> QueueTrack {
         title: track.title.clone(),
         artist,
         album,
-        duration_secs: track.duration,
+        duration_secs: track.duration as u64,
         artwork_url,
         hires: track.hires.unwrap_or(false),
         bit_depth: track.maximum_bit_depth,
