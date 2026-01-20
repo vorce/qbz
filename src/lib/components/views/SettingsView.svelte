@@ -1649,13 +1649,6 @@
       </div>
       <div class="setting-row">
         <div class="setting-info">
-          <span class="setting-label">Show Network Folders</span>
-          <span class="setting-desc">Display music from network folders when in manual offline mode (privacy/metered connection)</span>
-        </div>
-        <Toggle enabled={offlineSettings.showNetworkFoldersInManualOffline} onchange={handleShowNetworkFoldersChange} />
-      </div>
-      <div class="setting-row">
-        <div class="setting-info">
           <span class="setting-label">{$t('offline.allowImmediateScrobbling')}</span>
           <span class="setting-desc">{$t('offline.allowImmediateScrobblingDesc')}</span>
         </div>
