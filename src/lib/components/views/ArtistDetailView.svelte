@@ -911,6 +911,7 @@
                   onPlayNow={() => handleTrackPlay(track, index)}
                   onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
                   onPlayLater={onTrackPlayLater ? () => onTrackPlayLater(track) : undefined}
+                  onCreateRadio={() => createTrackRadio(track)}
                   onAddFavorite={onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined}
                   onAddToPlaylist={onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined}
                   onShareQobuz={onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined}
