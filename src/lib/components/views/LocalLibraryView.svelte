@@ -268,7 +268,12 @@
 
   onMount(async () => {
     await loadLibraryData();
-    loadFolders(); // Load in background - doesn't block UI
+    // Only load folders when online - offline causes DB lock via is_network_path()
+    if (!isOffline) {
+      loadFolders(); // Load in background - doesn't block UI
+    } else {
+      console.log('[LocalLibrary] Skipping loadFolders in offline mode');
+    }
     checkDiscogsCredentials();
 
     // Subscribe to offline state changes
@@ -460,11 +465,14 @@
   }
 
   async function loadArtists() {
+    console.log('[LocalLibrary] loadArtists START');
     loading = true;
     try {
+      console.log('[LocalLibrary] Calling library_get_artists');
       artists = await invoke<LocalArtist[]>('library_get_artists', {
         excludeNetworkFolders: shouldExcludeNetworkFolders()
       });
+      console.log('[LocalLibrary] Received artists:', artists.length);
       // Load cached artist images from database
       await loadCachedArtistImages();
       // Fetch missing images in background if enabled
@@ -473,25 +481,30 @@
         fetchMissingArtistImages();
       }
     } catch (err) {
-      console.error('Failed to load artists:', err);
+      console.error('[LocalLibrary] Failed to load artists:', err);
       error = String(err);
     } finally {
+      console.log('[LocalLibrary] loadArtists COMPLETE');
       loading = false;
     }
   }
 
   async function loadTracks(query = '') {
+    console.log('[LocalLibrary] loadTracks START, query:', query);
     loading = true;
     try {
+      console.log('[LocalLibrary] Calling library_search');
       tracks = await invoke<LocalTrack[]>('library_search', {
         query,
         limit: 1000,
         excludeNetworkFolders: shouldExcludeNetworkFolders()
       });
+      console.log('[LocalLibrary] Received tracks:', tracks.length);
     } catch (err) {
-      console.error('Failed to load tracks:', err);
+      console.error('[LocalLibrary] Failed to load tracks:', err);
       error = String(err);
     } finally {
+      console.log('[LocalLibrary] loadTracks COMPLETE');
       loading = false;
     }
   }
