@@ -56,6 +56,7 @@ pub struct PendingPlaylist {
     pub description: Option<String>,
     pub is_public: bool,
     pub track_ids: Vec<u64>,
+    pub local_track_ids: Vec<i64>,
     pub created_at: i64,
     pub synced: bool,
     pub qobuz_playlist_id: Option<u64>,
@@ -132,6 +133,7 @@ impl OfflineStore {
             "ALTER TABLE offline_settings ADD COLUMN allow_immediate_scrobbling INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE offline_settings ADD COLUMN allow_accumulated_scrobbling INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE offline_settings ADD COLUMN show_network_folders_in_manual_offline INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE pending_playlist_sync ADD COLUMN local_track_ids TEXT",
         ];
 
         for migration in migrations {
@@ -230,6 +232,7 @@ impl OfflineStore {
         description: Option<&str>,
         is_public: bool,
         track_ids: &[u64],
+        local_track_ids: &[i64],
     ) -> Result<i64, String> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -239,11 +242,14 @@ impl OfflineStore {
         let track_ids_json = serde_json::to_string(track_ids)
             .map_err(|e| format!("Failed to serialize track IDs: {}", e))?;
 
+        let local_track_ids_json = serde_json::to_string(local_track_ids)
+            .map_err(|e| format!("Failed to serialize local track IDs: {}", e))?;
+
         self.conn
             .execute(
-                "INSERT INTO pending_playlist_sync (name, description, is_public, track_ids, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![name, description, is_public as i64, track_ids_json, now],
+                "INSERT INTO pending_playlist_sync (name, description, is_public, track_ids, local_track_ids, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![name, description, is_public as i64, track_ids_json, local_track_ids_json, now],
             )
             .map_err(|e| format!("Failed to create pending playlist: {}", e))?;
 
@@ -254,7 +260,7 @@ impl OfflineStore {
     pub fn get_pending_playlists(&self) -> Result<Vec<PendingPlaylist>, String> {
         let mut stmt = self.conn
             .prepare(
-                "SELECT id, name, description, is_public, track_ids, created_at, synced, qobuz_playlist_id
+                "SELECT id, name, description, is_public, track_ids, COALESCE(local_track_ids, '[]'), created_at, synced, qobuz_playlist_id
                  FROM pending_playlist_sync WHERE synced = 0 ORDER BY created_at ASC"
             )
             .map_err(|e| format!("Failed to prepare statement: {}", e))?;
@@ -264,15 +270,19 @@ impl OfflineStore {
                 let track_ids_json: String = row.get(4)?;
                 let track_ids: Vec<u64> = serde_json::from_str(&track_ids_json).unwrap_or_default();
 
+                let local_track_ids_json: String = row.get(5)?;
+                let local_track_ids: Vec<i64> = serde_json::from_str(&local_track_ids_json).unwrap_or_default();
+
                 Ok(PendingPlaylist {
                     id: row.get(0)?,
                     name: row.get(1)?,
                     description: row.get(2)?,
                     is_public: row.get::<_, i64>(3)? != 0,
                     track_ids,
-                    created_at: row.get(5)?,
-                    synced: row.get::<_, i64>(6)? != 0,
-                    qobuz_playlist_id: row.get::<_, Option<i64>>(7)?.map(|id| id as u64),
+                    local_track_ids,
+                    created_at: row.get(6)?,
+                    synced: row.get::<_, i64>(7)? != 0,
+                    qobuz_playlist_id: row.get::<_, Option<i64>>(8)?.map(|id| id as u64),
                 })
             })
             .map_err(|e| format!("Failed to query pending playlists: {}", e))?;
@@ -612,10 +622,11 @@ pub mod commands {
         description: Option<String>,
         is_public: bool,
         track_ids: Vec<u64>,
+        local_track_ids: Vec<i64>,
         state: State<'_, OfflineState>,
     ) -> Result<i64, String> {
         let store = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
-        store.create_pending_playlist(&name, description.as_deref(), is_public, &track_ids)
+        store.create_pending_playlist(&name, description.as_deref(), is_public, &track_ids, &local_track_ids)
     }
 
     /// Get all playlists pending sync
