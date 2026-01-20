@@ -933,7 +933,7 @@
       duration: track.duration_secs,
       quality,
       bitDepth: track.bit_depth ?? undefined,
-      samplingRate: track.sample_rate ?? undefined,
+      samplingRate: track.sample_rate ? track.sample_rate / 1000 : undefined,  // Convert Hz to kHz (44100 → 44.1)
       isLocal
     }, { isLocal, showLoadingToast: false });
   }
@@ -1382,7 +1382,7 @@
       duration: track.duration_secs,
       quality,
       bitDepth: track.bit_depth,
-      samplingRate: track.sample_rate ? Math.round(track.sample_rate / 1000) : undefined,
+      samplingRate: track.sample_rate ? track.sample_rate / 1000 : undefined,  // Convert Hz to kHz (44100 → 44.1) - NO ROUNDING
       isLocal: true
     }, { isLocal: true });
   }

@@ -57,7 +57,7 @@ pub struct LocalTrack {
     pub duration_secs: u64,
     pub format: AudioFormat,
     pub bit_depth: Option<u32>,
-    pub sample_rate: u32,
+    pub sample_rate: f64,  // Changed from u32 to f64 to support fractional rates (44.1kHz = 44100Hz)
     pub channels: u8,
     pub file_size_bytes: u64,
 
@@ -93,7 +93,7 @@ impl Default for LocalTrack {
             duration_secs: 0,
             format: AudioFormat::Unknown,
             bit_depth: None,
-            sample_rate: 44100,
+            sample_rate: 44100.0,  // Now f64
             channels: 2,
             file_size_bytes: 0,
             cue_file_path: None,
@@ -184,7 +184,7 @@ pub struct ScanError {
 pub struct AudioProperties {
     pub duration_secs: u64,
     pub bit_depth: Option<u32>,
-    pub sample_rate: u32,
+    pub sample_rate: f64,  // Changed from u32 to f64 for decimal precision
     pub channels: u8,
 }
 

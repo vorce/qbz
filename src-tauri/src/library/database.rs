@@ -54,7 +54,7 @@ impl LibraryDatabase {
                 duration_secs INTEGER NOT NULL,
                 format TEXT NOT NULL,
                 bit_depth INTEGER,
-                sample_rate INTEGER NOT NULL,
+                sample_rate REAL NOT NULL,
                 channels INTEGER NOT NULL,
                 file_size_bytes INTEGER NOT NULL,
                 cue_file_path TEXT,
@@ -343,6 +343,82 @@ impl LibraryDatabase {
             self.conn
                 .execute_batch("ALTER TABLE local_tracks ADD COLUMN catalog_number TEXT;")
                 .map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
+        }
+
+        // Migration: Change sample_rate from INTEGER to REAL for decimal precision (44.1kHz, 88.2kHz, etc.)
+        // Check if sample_rate is currently INTEGER
+        let sample_rate_type: String = self.conn
+            .query_row(
+                "SELECT type FROM pragma_table_info('local_tracks') WHERE name = 'sample_rate'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or_else(|_| "REAL".to_string());
+
+        if sample_rate_type == "INTEGER" {
+            log::info!("Running migration: changing sample_rate from INTEGER to REAL for decimal precision");
+
+            // SQLite doesn't support ALTER COLUMN type change, need to recreate table
+            self.conn.execute_batch(
+                r#"
+                -- Create new table with REAL sample_rate
+                CREATE TABLE local_tracks_new (
+                    id INTEGER PRIMARY KEY,
+                    file_path TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    artist TEXT NOT NULL,
+                    album TEXT NOT NULL,
+                    album_artist TEXT,
+                    track_number INTEGER,
+                    disc_number INTEGER,
+                    year INTEGER,
+                    genre TEXT,
+                    catalog_number TEXT,
+                    duration_secs INTEGER NOT NULL,
+                    format TEXT NOT NULL,
+                    bit_depth INTEGER,
+                    sample_rate REAL NOT NULL,
+                    channels INTEGER NOT NULL,
+                    file_size_bytes INTEGER NOT NULL,
+                    cue_file_path TEXT,
+                    cue_start_secs REAL,
+                    cue_end_secs REAL,
+                    artwork_path TEXT,
+                    last_modified INTEGER NOT NULL,
+                    indexed_at INTEGER NOT NULL,
+                    album_group_key TEXT,
+                    album_group_title TEXT,
+                    source TEXT DEFAULT 'user',
+                    qobuz_track_id INTEGER,
+                    UNIQUE(file_path, cue_start_secs)
+                );
+
+                -- Copy all data (sample_rate will be auto-converted from INTEGER to REAL)
+                INSERT INTO local_tracks_new
+                SELECT * FROM local_tracks;
+
+                -- Drop old table
+                DROP TABLE local_tracks;
+
+                -- Rename new table
+                ALTER TABLE local_tracks_new RENAME TO local_tracks;
+
+                -- Recreate indexes
+                CREATE INDEX IF NOT EXISTS idx_tracks_artist ON local_tracks(artist);
+                CREATE INDEX IF NOT EXISTS idx_tracks_album ON local_tracks(album);
+                CREATE INDEX IF NOT EXISTS idx_tracks_album_artist ON local_tracks(album_artist);
+                CREATE INDEX IF NOT EXISTS idx_tracks_file_path ON local_tracks(file_path);
+                CREATE INDEX IF NOT EXISTS idx_tracks_title ON local_tracks(title);
+                CREATE INDEX IF NOT EXISTS idx_tracks_source ON local_tracks(source);
+                CREATE INDEX IF NOT EXISTS idx_tracks_qobuz_id ON local_tracks(qobuz_track_id);
+                CREATE INDEX IF NOT EXISTS idx_tracks_album_group ON local_tracks(album_group_key);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_file_nocue
+                    ON local_tracks(file_path)
+                    WHERE cue_file_path IS NULL;
+                "#
+            ).map_err(|e| LibraryError::Database(format!("sample_rate migration failed: {}", e)))?;
+
+            log::info!("Migration completed: sample_rate is now REAL");
         }
 
         Ok(())

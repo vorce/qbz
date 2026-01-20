@@ -268,7 +268,7 @@ impl MetadataExtractor {
         // Get audio properties
         let properties = tagged_file.properties();
         let duration_secs = properties.duration().as_secs();
-        let sample_rate = properties.sample_rate().unwrap_or(44100);
+        let sample_rate = properties.sample_rate().unwrap_or(44100) as f64;  // Convert to f64 for decimal precision
         let bit_depth = properties.bit_depth().map(|b| b as u32);
         let channels = properties.channels().unwrap_or(2) as u8;
 
@@ -398,7 +398,7 @@ impl MetadataExtractor {
         Ok(AudioProperties {
             duration_secs: properties.duration().as_secs(),
             bit_depth: properties.bit_depth().map(|b| b as u32),
-            sample_rate: properties.sample_rate().unwrap_or(44100),
+            sample_rate: properties.sample_rate().unwrap_or(44100) as f64,  // Convert to f64
             channels: properties.channels().unwrap_or(2) as u8,
         })
     }
