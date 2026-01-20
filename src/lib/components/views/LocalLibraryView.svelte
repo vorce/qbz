@@ -166,8 +166,8 @@
   let showGroupMenu = $state(false);
   let artistSearch = $state('');
   let trackSearch = $state('');
-  let trackSearchOpen = $state(false);
-  let trackSearchInputEl: HTMLInputElement | undefined;
+  let searchOpen = $state(false);
+  let searchInputEl: HTMLInputElement | undefined;
   type TrackGroupMode = 'album' | 'artist' | 'name';
   let trackGroupMode = $state<TrackGroupMode>('album');
   let trackGroupingEnabled = $state(false);
@@ -1269,17 +1269,45 @@
     }, 250);
   }
 
-  function toggleTrackSearch() {
-    trackSearchOpen = !trackSearchOpen;
-    if (trackSearchOpen) {
+  function toggleSearch() {
+    searchOpen = !searchOpen;
+    if (searchOpen) {
       // Focus input after it's rendered
-      setTimeout(() => trackSearchInputEl?.focus(), 50);
+      setTimeout(() => searchInputEl?.focus(), 50);
     } else {
       // Clear search when closing
-      trackSearch = '';
-      if (activeTab === 'tracks') {
+      if (activeTab === 'albums') {
+        albumSearch = '';
+      } else if (activeTab === 'artists') {
+        artistSearch = '';
+      } else if (activeTab === 'tracks') {
+        trackSearch = '';
         loadTracks('');
       }
+    }
+  }
+
+  function getCurrentSearchValue(): string {
+    if (activeTab === 'albums') return albumSearch;
+    if (activeTab === 'artists') return artistSearch;
+    return trackSearch;
+  }
+
+  function getCurrentSearchPlaceholder(): string {
+    if (activeTab === 'albums') return 'Search albums or artists...';
+    if (activeTab === 'artists') return 'Search artists...';
+    return 'Search tracks, albums, artists...';
+  }
+
+  function handleSearchInput(e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    if (activeTab === 'albums') {
+      albumSearch = value;
+    } else if (activeTab === 'artists') {
+      artistSearch = value;
+    } else if (activeTab === 'tracks') {
+      trackSearch = value;
+      scheduleTrackSearch();
     }
   }
 
@@ -1910,28 +1938,28 @@
           </button>
         </div>
       </div>
-      <div class="page-search" class:open={trackSearchOpen}>
-        {#if trackSearchOpen}
+      <div class="page-search" class:open={searchOpen}>
+        {#if searchOpen}
           <div class="search-input-container">
             <input
               type="text"
               class="search-input-sticky"
-              placeholder="Search tracks..."
-              bind:value={trackSearch}
-              bind:this={trackSearchInputEl}
-              oninput={scheduleTrackSearch}
+              placeholder={getCurrentSearchPlaceholder()}
+              value={getCurrentSearchValue()}
+              bind:this={searchInputEl}
+              oninput={handleSearchInput}
               onkeydown={(e) => {
-                if (e.key === 'Escape') toggleTrackSearch();
+                if (e.key === 'Escape') toggleSearch();
               }}
             />
             <div class="search-controls">
-              <button class="search-close-btn" onclick={toggleTrackSearch} title="Close search">
+              <button class="search-close-btn" onclick={toggleSearch} title="Close search">
                 <X size={16} />
               </button>
             </div>
           </div>
         {:else}
-          <button class="search-toggle" onclick={toggleTrackSearch} title="Search tracks">
+          <button class="search-toggle" onclick={toggleSearch} title="Search">
             <Search size={18} />
           </button>
         {/if}
@@ -2014,21 +2042,6 @@
             : albums}
 
           <div class="album-controls">
-            <div class="search-container">
-              <Search size={16} class="search-icon" />
-              <input
-                type="text"
-                placeholder="Search albums or artists..."
-                bind:value={albumSearch}
-                class="search-input"
-              />
-              {#if albumSearch}
-                <button class="clear-search" onclick={() => (albumSearch = '')}>
-                  <X size={14} />
-                </button>
-              {/if}
-            </div>
-
             <div class="dropdown-container">
               <button
                 class="control-btn"
@@ -2183,20 +2196,6 @@
         {:else}
           {@const filteredArtists = artists.filter(artist => matchesArtistSearch(artist, artistSearch))}
           <div class="artist-controls">
-            <div class="search-container">
-              <Search size={16} class="search-icon" />
-              <input
-                type="text"
-                placeholder="Search artists..."
-                bind:value={artistSearch}
-                class="search-input"
-              />
-              {#if artistSearch}
-                <button class="clear-search" onclick={() => (artistSearch = '')}>
-                  <X size={14} />
-                </button>
-              {/if}
-            </div>
             <span class="album-count">{filteredArtists.length} artists</span>
           </div>
 
@@ -2562,9 +2561,8 @@
 
 <style>
   .library-view {
-    padding: 24px;
+    padding: 0 24px 100px;
     padding-right: 8px;
-    padding-bottom: 100px;
     overflow-y: auto;
     height: 100%;
   }
@@ -3034,7 +3032,7 @@
     padding: 12px 24px;
     background-color: var(--bg-primary);
     border-bottom: 1px solid var(--bg-tertiary);
-    margin: -24px -24px 16px;
+    margin: 0 -24px 16px;
   }
 
   .jump-nav-left {
