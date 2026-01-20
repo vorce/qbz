@@ -695,6 +695,14 @@
     }
   }
 
+  async function handleShowNetworkFoldersChange(enabled: boolean) {
+    try {
+      await setShowNetworkFoldersInManualOffline(enabled);
+    } catch (error) {
+      console.error('Failed to set show network folders in manual offline:', error);
+    }
+  }
+
   async function handleAllowImmediateScrobblingChange(enabled: boolean) {
     try {
       await setAllowImmediateScrobbling(enabled);
@@ -1646,6 +1654,13 @@
           <span class="setting-desc">{$t('offline.allowCastDesc')}</span>
         </div>
         <Toggle enabled={offlineSettings.allowCastWhileOffline} onchange={handleAllowCastChange} />
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">Show Network Folders</span>
+          <span class="setting-desc">Display music from network folders when in manual offline mode (privacy/metered connection)</span>
+        </div>
+        <Toggle enabled={offlineSettings.showNetworkFoldersInManualOffline} onchange={handleShowNetworkFoldersChange} />
       </div>
       <div class="setting-row">
         <div class="setting-info">

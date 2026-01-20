@@ -23,7 +23,9 @@
   } from '$lib/stores/navigationStore';
   import {
     subscribe as subscribeOffline,
-    isOffline as checkIsOffline
+    isOffline as checkIsOffline,
+    getOfflineReason,
+    getSettings as getOfflineSettings
   } from '$lib/stores/offlineStore';
   import {
     setPlaybackContext
@@ -297,7 +299,7 @@
       if (!album) {
         const allAlbums = await invoke<LocalAlbum[]>('library_get_albums', {
           includeHidden: false,
-          excludeNetworkFolders: isOffline
+          excludeNetworkFolders: shouldExcludeNetworkFolders()
         });
         albums = allAlbums;
         album = allAlbums.find(a => a.id === albumId);
@@ -322,6 +324,32 @@
     }
   }
 
+  /**
+   * Determine if we should hide network folder content based on offline state
+   * - Not offline: Show everything
+   * - Offline real (no_network): Always hide network content
+   * - Offline manual: Hide network content ONLY if user disabled the setting
+   */
+  function shouldExcludeNetworkFolders(): boolean {
+    if (!isOffline) return false;
+
+    const reason = getOfflineReason();
+    const offlineSettings = getOfflineSettings();
+
+    if (reason === 'no_network') {
+      // No internet connection - always hide network folders
+      return true;
+    }
+
+    if (reason === 'manual_override') {
+      // Manual offline mode - respect user preference
+      return !offlineSettings.showNetworkFoldersInManualOffline;
+    }
+
+    // Default: hide network content when offline
+    return true;
+  }
+
   async function loadLibraryData() {
     loading = true;
     error = null;
@@ -329,7 +357,7 @@
       const [albumsResult, statsResult] = await Promise.all([
         invoke<LocalAlbum[]>('library_get_albums', {
           includeHidden: false,
-          excludeNetworkFolders: isOffline  // Hide network music when offline
+          excludeNetworkFolders: shouldExcludeNetworkFolders()
         }),
         invoke<LibraryStats>('library_get_stats')
       ]);
@@ -915,7 +943,7 @@
     try {
       hiddenAlbums = await invoke<LocalAlbum[]>('library_get_albums', {
         includeHidden: true,
-        excludeNetworkFolders: isOffline
+        excludeNetworkFolders: shouldExcludeNetworkFolders()
       });
       const visibleAlbumIds = new Set(albums.map(a => a.id));
       hiddenAlbums = hiddenAlbums.filter(a => !visibleAlbumIds.has(a.id));
