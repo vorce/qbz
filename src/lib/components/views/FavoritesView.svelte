@@ -2036,6 +2036,9 @@
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 6px;
     padding: 3px 8px;
+    min-width: 72px;
+    text-align: center;
+    box-sizing: border-box;
   }
 
   .album-row-quality .quality-badge.hires {

@@ -282,6 +282,9 @@
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 4px;
     padding: 4px 6px;
+    min-width: 72px;
+    text-align: center;
+    box-sizing: border-box;
   }
   
   :global([data-theme="light"]) .quality-badge {
