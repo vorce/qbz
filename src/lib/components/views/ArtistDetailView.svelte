@@ -6,7 +6,7 @@
   import TrackMenu from '../TrackMenu.svelte';
   import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { togglePlay } from '$lib/stores/playerStore';
-  import { getQueue, syncQueueState } from '$lib/stores/queueStore';
+  import { getQueue, syncQueueState, playQueueIndex } from '$lib/stores/queueStore';
   import { tick } from 'svelte';
 
   interface Track {
@@ -113,6 +113,8 @@
   let isFavorite = $state(false);
   let isFavoriteLoading = $state(false);
   let isRadioLoading = $state(false);
+  let radioLoadingMessage = $state('');
+  let radioJustCreated = $state(false);
   let similarArtists = $state<QobuzArtist[]>([]);
   let similarArtistsLoading = $state(false);
   let similarArtistImageErrors = $state<Set<number>>(new Set());
@@ -252,27 +254,31 @@
     if (isRadioLoading) return;
 
     isRadioLoading = true;
+    radioJustCreated = false;
 
     try {
+      // Show loading messages
+      radioLoadingMessage = 'Preparing the artist radio...';
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      radioLoadingMessage = 'Fetching similar artists';
       const sessionId = await invoke<string>('create_artist_radio', {
         artistId: artist.id,
         artistName: artist.name
       });
       console.log(`[Radio] Artist radio created: ${sessionId}`);
 
-      // Sync queue state from backend
-      await syncQueueState();
+      radioLoadingMessage = 'Radio function is still experimental...';
+      await new Promise(resolve => setTimeout(resolve, 400));
 
-      // Get the first track from queue and start playback
-      const queue = getQueue();
-      console.log(`[Radio] Queue length: ${queue.length}, onTrackPlay defined: ${!!onTrackPlay}`);
+      // Play first track from queue
+      const firstTrack = await playQueueIndex(0);
 
-      if (queue.length > 0 && onTrackPlay) {
-        const firstTrack = queue[0];
+      if (firstTrack && onTrackPlay) {
         console.log(`[Radio] First track:`, firstTrack);
         // Start playback using the onTrackPlay callback
         onTrackPlay({
-          id: Number(firstTrack.id),
+          id: firstTrack.id,
           title: firstTrack.title,
           artist: firstTrack.artist,
           album: firstTrack.album,
@@ -284,14 +290,19 @@
           samplingRate: firstTrack.sample_rate ?? undefined,
         });
         console.log(`[Radio] Started playback of track ${firstTrack.id}`);
+
+        // Mark as just created for visual feedback
+        radioJustCreated = true;
+        setTimeout(() => { radioJustCreated = false; }, 3000);
       } else {
-        console.log(`[Radio] Cannot start playback - queue: ${queue.length}, onTrackPlay: ${!!onTrackPlay}`);
+        console.log(`[Radio] Cannot start playback - firstTrack: ${!!firstTrack}, onTrackPlay: ${!!onTrackPlay}`);
       }
     } catch (err) {
       console.error('Failed to create artist radio:', err);
       // TODO: Show user-facing error toast if available
     } finally {
       isRadioLoading = false;
+      radioLoadingMessage = '';
     }
   }
 
@@ -307,14 +318,14 @@
       });
       console.log(`[Radio] Track radio created: ${sessionId}`);
 
-      // Get the first track from queue and start playback
-      const queue = getQueue();
+      // Play first track from queue
+      const firstTrack = await playQueueIndex(0);
 
-      if (queue.length > 0 && onTrackPlay) {
-        const firstTrack = queue[0];
+      if (firstTrack && onTrackPlay) {
+        console.log(`[Radio] First track:`, firstTrack);
         // Start playback using the onTrackPlay callback
         onTrackPlay({
-          id: Number(firstTrack.id),
+          id: firstTrack.id,
           title: firstTrack.title,
           artist: firstTrack.artist,
           album: firstTrack.album,
@@ -726,11 +737,17 @@
         </button>
         <button
           class="radio-btn"
+          class:loading={isRadioLoading}
+          class:glow={radioJustCreated}
           onclick={createArtistRadio}
           disabled={isRadioLoading}
           title="Start Artist Radio"
         >
-          <Radio size={24} />
+          {#if isRadioLoading}
+            <span class="loading-message">{radioLoadingMessage}</span>
+          {:else}
+            <Radio size={24} />
+          {/if}
         </button>
       </div>
       <div class="artist-stats">
@@ -1356,18 +1373,50 @@
     border-radius: 50%;
     cursor: pointer;
     color: var(--text-muted);
-    transition: all 150ms ease;
+    transition: all 300ms ease;
     flex-shrink: 0;
+    overflow: hidden;
+    white-space: nowrap;
   }
 
-  .radio-btn:hover:not(:disabled) {
+  .radio-btn.loading {
+    width: auto;
+    min-width: 200px;
+    padding: 0 20px;
+    border-radius: 22px;
+    cursor: default;
+  }
+
+  .radio-btn.glow {
+    color: var(--accent-primary);
+    box-shadow: 0 0 20px rgba(96, 165, 250, 0.4);
+  }
+
+  .radio-btn:hover:not(:disabled):not(.loading) {
     background: var(--bg-hover);
     color: var(--accent-primary);
   }
 
-  .radio-btn:disabled {
+  .radio-btn:disabled:not(.loading) {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .loading-message {
+    font-size: 13px;
+    color: var(--text-secondary);
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .artist-stats {
