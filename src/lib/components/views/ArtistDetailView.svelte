@@ -6,7 +6,7 @@
   import TrackMenu from '../TrackMenu.svelte';
   import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { togglePlay } from '$lib/stores/playerStore';
-  import { playQueueIndex } from '$lib/stores/queueStore';
+  import { getQueue } from '$lib/stores/queueStore';
   import { tick } from 'svelte';
 
   interface Track {
@@ -260,8 +260,26 @@
       });
       console.log(`[Radio] Artist radio created: ${sessionId}`);
 
-      // Start playing the first track from the radio queue
-      await playQueueIndex(0);
+      // Get the first track from queue and start playback
+      const queue = getQueue();
+
+      if (queue.length > 0 && onTrackPlay) {
+        const firstTrack = queue[0];
+        // Start playback using the onTrackPlay callback
+        onTrackPlay({
+          id: Number(firstTrack.id),
+          title: firstTrack.title,
+          artist: firstTrack.artist,
+          album: firstTrack.album,
+          albumArt: firstTrack.artwork_url || '',
+          duration: formatDuration(firstTrack.duration_secs),
+          durationSeconds: firstTrack.duration_secs,
+          hires: firstTrack.hires,
+          bitDepth: firstTrack.bit_depth ?? undefined,
+          samplingRate: firstTrack.sample_rate ?? undefined,
+        });
+        console.log(`[Radio] Started playback of track ${firstTrack.id}`);
+      }
     } catch (err) {
       console.error('Failed to create artist radio:', err);
       // TODO: Show user-facing error toast if available
@@ -282,8 +300,26 @@
       });
       console.log(`[Radio] Track radio created: ${sessionId}`);
 
-      // Start playing the first track from the radio queue
-      await playQueueIndex(0);
+      // Get the first track from queue and start playback
+      const queue = getQueue();
+
+      if (queue.length > 0 && onTrackPlay) {
+        const firstTrack = queue[0];
+        // Start playback using the onTrackPlay callback
+        onTrackPlay({
+          id: Number(firstTrack.id),
+          title: firstTrack.title,
+          artist: firstTrack.artist,
+          album: firstTrack.album,
+          albumArt: firstTrack.artwork_url || '',
+          duration: formatDuration(firstTrack.duration_secs),
+          durationSeconds: firstTrack.duration_secs,
+          hires: firstTrack.hires,
+          bitDepth: firstTrack.bit_depth ?? undefined,
+          samplingRate: firstTrack.sample_rate ?? undefined,
+        });
+        console.log(`[Radio] Started playback of track ${firstTrack.id}`);
+      }
     } catch (err) {
       console.error('Failed to create track radio:', err);
       // TODO: Show user-facing error toast if available

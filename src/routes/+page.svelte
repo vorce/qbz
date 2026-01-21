@@ -939,7 +939,8 @@
       duration: track.duration_secs,
       quality,
       bitDepth: track.bit_depth ?? undefined,
-      samplingRate: track.sample_rate ? track.sample_rate / 1000 : undefined,  // Convert Hz to kHz (44100 → 44.1)
+      // Only convert Hz to kHz for local tracks. Qobuz tracks are already in kHz.
+      samplingRate: isLocal && track.sample_rate ? track.sample_rate / 1000 : track.sample_rate ?? undefined,
       isLocal
     }, { isLocal, showLoadingToast: false });
   }
@@ -1496,7 +1497,9 @@
       console.debug('[Reco] Score training failed:', err);
     });
 
-    // Restore previous session if available
+    // DISABLED: Restore previous session if available
+    // (Temporarily disabled due to ID conflicts between local and Qobuz tracks)
+    /*
     try {
       const session = await loadSessionState();
       if (session && session.queue_tracks.length > 0) {
@@ -1584,6 +1587,7 @@
     } catch (err) {
       console.error('[Session] Failed to restore session:', err);
     }
+    */
   }
 
   async function handleLogout() {
