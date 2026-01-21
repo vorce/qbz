@@ -122,12 +122,13 @@ jobs:
           cat > "tarball-staging/${TARBALL_DIR}/qbz.desktop" << 'EOF'
           [Desktop Entry]
           Name=QBZ
-          Comment=Native Qobuz client for Linux
+          Comment=Native Qobuz client with hi-res audio support
           Exec=qbz
           Icon=qbz
           Terminal=false
           Type=Application
-          Categories=Audio;Music;Player;
+          Categories=AudioVideo;Audio;Music;Player;
+          Keywords=music;audio;qobuz;hifi;streaming;audiophile;
           EOF
 
           tar -czvf "dist/qbz_${VERSION}_amd64.tar.gz" -C tarball-staging "${TARBALL_DIR}"

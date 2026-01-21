@@ -2,17 +2,48 @@
 <component type="desktop-application">
   <id>com.blitzfc.qbz</id>
   <name>QBZ</name>
-  <summary>Native Qobuz client for Linux</summary>
+  <summary>Native Qobuz client with hi-res audio support</summary>
   <description>
-    <p>QBZ is a native Qobuz streaming client for Linux designed for audiophiles.</p>
-    <p>It focuses on bit-perfect playback without browser sample-rate limits.</p>
+    <p>
+      QBZ is a native Qobuz streaming client for Linux designed for audiophiles who demand the highest audio quality.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Bit-perfect playback up to 24-bit/192kHz without browser limitations</li>
+      <li>Native hi-res audio support with ALSA, PulseAudio, and PipeWire backends</li>
+      <li>Advanced audio routing and exclusive mode for DACs</li>
+      <li>Beautiful, responsive interface optimized for music discovery</li>
+      <li>Offline playlist support for on-the-go listening</li>
+      <li>Radio Engine for infinite music discovery based on your favorite artists</li>
+      <li>Smart recommendations powered by local machine learning</li>
+      <li>MPRIS integration for desktop media controls</li>
+      <li>Last.fm scrobbling support</li>
+    </ul>
+    <p>
+      Built with Tauri and Rust for optimal performance and reliability.
+    </p>
   </description>
-  <developer_name>QBZ</developer_name>
+  <developer_name>QBZ Contributors</developer_name>
+  <url type="homepage">https://github.com/vicrodh/qbz</url>
+  <url type="bugtracker">https://github.com/vicrodh/qbz/issues</url>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <categories>
+    <category>AudioVideo</category>
     <category>Audio</category>
     <category>Music</category>
+    <category>Player</category>
   </categories>
+  <keywords>
+    <keyword>music</keyword>
+    <keyword>audio</keyword>
+    <keyword>qobuz</keyword>
+    <keyword>hifi</keyword>
+    <keyword>streaming</keyword>
+    <keyword>audiophile</keyword>
+  </keywords>
   <launchable type="desktop-id">com.blitzfc.qbz.desktop</launchable>
+  <provides>
+    <binary>qbz</binary>
+  </provides>
 </component>
