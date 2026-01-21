@@ -2,6 +2,11 @@ name: Linux ARM64 (aarch64) Build
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Optional release tag to build (e.g. v1.1.6)"
+        required: false
+        type: string
   push:
     branches: [main]
     tags:
@@ -22,6 +27,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Determine version
+        id: release
+        run: |
+          VERSION=""
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          elif [[ -n "${{ inputs.tag }}" ]]; then
+            VERSION="${{ inputs.tag }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -56,7 +73,7 @@ jobs:
 
       - name: Collect artifacts
         env:
-          VERSION: ${{ github.event.release.tag_name || 'dev' }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           mkdir -p dist
           cp -v src-tauri/target/release/bundle/deb/*.deb dist/ || true
