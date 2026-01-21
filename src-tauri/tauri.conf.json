@@ -50,7 +50,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "category": "AudioVideo",
+    "category": "Music",
     "shortDescription": "Native Qobuz client for Linux",
     "longDescription": "QBZ is a native Qobuz streaming client for Linux, designed for audiophiles who need bit-perfect playback without browser sample rate limitations.",
     "linux": {
