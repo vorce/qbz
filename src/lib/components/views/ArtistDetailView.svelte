@@ -6,6 +6,7 @@
   import TrackMenu from '../TrackMenu.svelte';
   import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { togglePlay } from '$lib/stores/playerStore';
+  import { playQueueIndex } from '$lib/stores/queueStore';
   import { tick } from 'svelte';
 
   interface Track {
@@ -258,7 +259,9 @@
         artistName: artist.name
       });
       console.log(`[Radio] Artist radio created: ${sessionId}`);
-      // Queue and context are set by the backend command
+
+      // Start playing the first track from the radio queue
+      await playQueueIndex(0);
     } catch (err) {
       console.error('Failed to create artist radio:', err);
       // TODO: Show user-facing error toast if available
@@ -278,7 +281,9 @@
         artistId: trackArtistId
       });
       console.log(`[Radio] Track radio created: ${sessionId}`);
-      // Queue and context are set by the backend command
+
+      // Start playing the first track from the radio queue
+      await playQueueIndex(0);
     } catch (err) {
       console.error('Failed to create track radio:', err);
       // TODO: Show user-facing error toast if available
