@@ -301,175 +301,177 @@
         style={menuStyle}
         use:portal
       >
-        {#if hasPlayback}
-          {#if onPlayNow}
-            <button class="menu-item" onclick={() => handleAction(onPlayNow)}>
-              <Play size={14} />
-              <span>Play now</span>
-            </button>
-          {/if}
-          {#if onPlayTrackOnly}
-            <button class="menu-item" onclick={() => handleAction(onPlayTrackOnly)}>
-              <Play size={14} />
-              <span>Play track only</span>
-            </button>
-          {/if}
-          {#if onPlayFromHere}
-            <button class="menu-item" onclick={() => handleAction(onPlayFromHere)}>
-              <Play size={14} />
-              <span>Play from here</span>
-            </button>
-          {/if}
-          {#if onPlayNext}
-            <button class="menu-item" onclick={() => handleAction(onPlayNext)}>
-              <ListPlus size={14} />
-              <span>Play next</span>
-            </button>
-          {/if}
-          {#if onPlayLater}
-            <button class="menu-item" onclick={() => handleAction(onPlayLater)}>
-              <ListEnd size={14} />
-              <span>Play later</span>
-            </button>
-          {/if}
-          {#if onCreateRadio}
-            <button class="menu-item" onclick={() => handleAction(onCreateRadio)}>
-              <Radio size={14} />
-              <span>Create radio</span>
-            </button>
-          {/if}
-        {/if}
-
-        {#if hasPlayback && (hasLibrary || hasShare || hasNav || hasDownload)}
-          <div class="separator"></div>
-        {/if}
-
-        {#if hasLibrary}
-          {#if onAddFavorite}
-            <button class="menu-item" onclick={() => handleAction(onAddFavorite)}>
-              <Heart size={14} />
-              <span>Add to favorites</span>
-            </button>
-          {/if}
-          {#if onAddToPlaylist && !shouldHidePlaylistFeatures()}
-            <button class="menu-item" onclick={() => handleAction(onAddToPlaylist)}>
-              <ListMusic size={14} />
-              <span>Add to playlist</span>
-            </button>
-          {/if}
-          {#if onRemoveFromPlaylist}
-            <button class="menu-item danger" onclick={() => handleAction(onRemoveFromPlaylist)}>
-              <Trash2 size={14} />
-              <span>Remove from playlist</span>
-            </button>
-          {/if}
-        {/if}
-
-        {#if hasLibrary && (hasShare || hasNav)}
-          <div class="separator"></div>
-        {/if}
-
-        {#if hasShare}
-          <div
-            class="menu-item submenu-trigger"
-            bind:this={shareTriggerRef}
-            onmouseenter={() => {
-              shareOpen = true;
-              setSubmenuPosition();
-            }}
-            onclick={() => {
-              shareOpen = !shareOpen;
-              if (shareOpen) setSubmenuPosition();
-            }}
-          >
-            <Share2 size={14} />
-            <span>Share</span>
-            <ChevronRight size={14} class="chevron" />
-            {#if shareOpen}
-              <div class="submenu" bind:this={submenuEl} style={submenuStyle}>
-                {#if onShareQobuz}
-                  <button class="menu-item" onclick={() => handleAction(onShareQobuz)}>
-                    <Link size={14} />
-                    <span>Qobuz™ link</span>
-                  </button>
-                {/if}
-                {#if onShareSonglink}
-                  <button class="menu-item" onclick={() => handleAction(onShareSonglink)}>
-                    <Link size={14} />
-                    <span>Song.link</span>
-                  </button>
-                {/if}
-              </div>
+        <div class="menu-panel">
+          {#if hasPlayback}
+            {#if onPlayNow}
+              <button class="menu-item" onclick={() => handleAction(onPlayNow)}>
+                <Play size={14} />
+                <span>Play now</span>
+              </button>
             {/if}
-          </div>
-        {/if}
+            {#if onPlayTrackOnly}
+              <button class="menu-item" onclick={() => handleAction(onPlayTrackOnly)}>
+                <Play size={14} />
+                <span>Play track only</span>
+              </button>
+            {/if}
+            {#if onPlayFromHere}
+              <button class="menu-item" onclick={() => handleAction(onPlayFromHere)}>
+                <Play size={14} />
+                <span>Play from here</span>
+              </button>
+            {/if}
+            {#if onPlayNext}
+              <button class="menu-item" onclick={() => handleAction(onPlayNext)}>
+                <ListPlus size={14} />
+                <span>Play next</span>
+              </button>
+            {/if}
+            {#if onPlayLater}
+              <button class="menu-item" onclick={() => handleAction(onPlayLater)}>
+                <ListEnd size={14} />
+                <span>Play later</span>
+              </button>
+            {/if}
+            {#if onCreateRadio}
+              <button class="menu-item" onclick={() => handleAction(onCreateRadio)}>
+                <Radio size={14} />
+                <span>Create radio</span>
+              </button>
+            {/if}
+          {/if}
 
-        {#if (hasShare || hasLibrary) && hasDownload}
-          <div class="separator"></div>
-        {/if}
+          {#if hasPlayback && (hasLibrary || hasShare || hasNav || hasDownload)}
+            <div class="separator"></div>
+          {/if}
 
-        {#if hasDownload}
-          {#if isTrackDownloaded}
+          {#if hasLibrary}
+            {#if onAddFavorite}
+              <button class="menu-item" onclick={() => handleAction(onAddFavorite)}>
+                <Heart size={14} />
+                <span>Add to favorites</span>
+              </button>
+            {/if}
+            {#if onAddToPlaylist && !shouldHidePlaylistFeatures()}
+              <button class="menu-item" onclick={() => handleAction(onAddToPlaylist)}>
+                <ListMusic size={14} />
+                <span>Add to playlist</span>
+              </button>
+            {/if}
+            {#if onRemoveFromPlaylist}
+              <button class="menu-item danger" onclick={() => handleAction(onRemoveFromPlaylist)}>
+                <Trash2 size={14} />
+                <span>Remove from playlist</span>
+              </button>
+            {/if}
+          {/if}
+
+          {#if hasLibrary && (hasShare || hasNav)}
+            <div class="separator"></div>
+          {/if}
+
+          {#if hasShare}
             <div
               class="menu-item submenu-trigger"
-              bind:this={downloadTriggerRef}
+              bind:this={shareTriggerRef}
               onmouseenter={() => {
-                downloadOpen = true;
-                shareOpen = false;
-                setDownloadSubmenuPosition();
+                shareOpen = true;
+                setSubmenuPosition();
               }}
               onclick={() => {
-                downloadOpen = !downloadOpen;
-                shareOpen = false;
-                if (downloadOpen) setDownloadSubmenuPosition();
+                shareOpen = !shareOpen;
+                if (shareOpen) setSubmenuPosition();
               }}
             >
-              <CloudDownload size={14} />
-              <span>Save for offline</span>
+              <Share2 size={14} />
+              <span>Share</span>
               <ChevronRight size={14} class="chevron" />
-              {#if downloadOpen}
-                <div class="submenu" bind:this={downloadSubmenuEl} style={downloadSubmenuStyle}>
-                  {#if onReDownload}
-                    <button class="menu-item" onclick={() => handleAction(onReDownload)}>
-                      <RefreshCw size={14} />
-                      <span>Refresh offline copy</span>
+              {#if shareOpen}
+                <div class="submenu" bind:this={submenuEl} style={submenuStyle}>
+                  {#if onShareQobuz}
+                    <button class="menu-item" onclick={() => handleAction(onShareQobuz)}>
+                      <Link size={14} />
+                      <span>Qobuz™ link</span>
                     </button>
                   {/if}
-                  {#if onRemoveDownload}
-                    <button class="menu-item danger" onclick={() => handleAction(onRemoveDownload)}>
-                      <Trash2 size={14} />
-                      <span>Remove offline copy</span>
+                  {#if onShareSonglink}
+                    <button class="menu-item" onclick={() => handleAction(onShareSonglink)}>
+                      <Link size={14} />
+                      <span>Song.link</span>
                     </button>
                   {/if}
                 </div>
               {/if}
             </div>
-          {:else}
-            <button class="menu-item" onclick={() => handleAction(onDownload)}>
-              <CloudDownload size={14} />
-              <span>Save for offline</span>
-            </button>
           {/if}
-        {/if}
 
-        {#if hasDownload && hasNav}
-          <div class="separator"></div>
-        {/if}
+          {#if (hasShare || hasLibrary) && hasDownload}
+            <div class="separator"></div>
+          {/if}
 
-        {#if hasNav}
-          {#if onGoToAlbum}
-            <button class="menu-item" onclick={() => handleAction(onGoToAlbum)}>
-              <Disc3 size={14} />
-              <span>Go to album</span>
-            </button>
+          {#if hasDownload}
+            {#if isTrackDownloaded}
+              <div
+                class="menu-item submenu-trigger"
+                bind:this={downloadTriggerRef}
+                onmouseenter={() => {
+                  downloadOpen = true;
+                  shareOpen = false;
+                  setDownloadSubmenuPosition();
+                }}
+                onclick={() => {
+                  downloadOpen = !downloadOpen;
+                  shareOpen = false;
+                  if (downloadOpen) setDownloadSubmenuPosition();
+                }}
+              >
+                <CloudDownload size={14} />
+                <span>Save for offline</span>
+                <ChevronRight size={14} class="chevron" />
+                {#if downloadOpen}
+                  <div class="submenu" bind:this={downloadSubmenuEl} style={downloadSubmenuStyle}>
+                    {#if onReDownload}
+                      <button class="menu-item" onclick={() => handleAction(onReDownload)}>
+                        <RefreshCw size={14} />
+                        <span>Refresh offline copy</span>
+                      </button>
+                    {/if}
+                    {#if onRemoveDownload}
+                      <button class="menu-item danger" onclick={() => handleAction(onRemoveDownload)}>
+                        <Trash2 size={14} />
+                        <span>Remove offline copy</span>
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <button class="menu-item" onclick={() => handleAction(onDownload)}>
+                <CloudDownload size={14} />
+                <span>Save for offline</span>
+              </button>
+            {/if}
           {/if}
-          {#if onGoToArtist}
-            <button class="menu-item" onclick={() => handleAction(onGoToArtist)}>
-              <User size={14} />
-              <span>Go to artist</span>
-            </button>
+
+          {#if hasDownload && hasNav}
+            <div class="separator"></div>
           {/if}
-        {/if}
+
+          {#if hasNav}
+            {#if onGoToAlbum}
+              <button class="menu-item" onclick={() => handleAction(onGoToAlbum)}>
+                <Disc3 size={14} />
+                <span>Go to album</span>
+              </button>
+            {/if}
+            {#if onGoToArtist}
+              <button class="menu-item" onclick={() => handleAction(onGoToArtist)}>
+                <User size={14} />
+                <span>Go to artist</span>
+              </button>
+            {/if}
+          {/if}
+        </div>
       </div>
     {/if}
   </div>
@@ -504,12 +506,17 @@
   .menu {
     position: fixed;
     min-width: 160px;
+    z-index: 99999;
+    overflow: visible;
+  }
+
+  .menu-panel {
+    position: relative;
+    z-index: 2;
     background-color: var(--bg-tertiary);
     border-radius: 8px;
     padding: 2px 0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    z-index: 99999;
-    overflow: visible;
   }
 
   /* Caret outside the menu pointing at the trigger */
@@ -536,7 +543,7 @@
     border-right: 9px solid var(--bg-tertiary);
   }
 
-  /* Shadow for caret (only outward, never over the menu) */
+  /* Shadow for caret (only outward, never over the panel) */
   .menu.open-left::before,
   .menu.open-right::before {
     content: '';
@@ -550,6 +557,7 @@
     pointer-events: none;
     opacity: 0.9;
     filter: blur(2px);
+    z-index: 0;
   }
 
   .menu.open-left::before {
@@ -562,6 +570,11 @@
     left: -5px;
     transform: translate(-4px, -50%);
     border-right: 10px solid rgba(0, 0, 0, 0.9);
+  }
+
+  .menu.open-left::after,
+  .menu.open-right::after {
+    z-index: 1;
   }
 
   .menu-item {
