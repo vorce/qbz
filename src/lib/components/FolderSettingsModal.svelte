@@ -1,4 +1,3 @@
-<!-- FolderSettingsModal: Library folder configuration dialog -->
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
