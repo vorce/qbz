@@ -139,21 +139,38 @@
 
     // Prefer opening to the left of the trigger so the menu doesn't cover the action column
     // (other context menu triggers / buttons in the same vertical column).
-    const leftPreferred = triggerRect.left - menuRect.width - 10;
+    const gap = 10;
+    const leftPreferred = triggerRect.left - menuRect.width - gap;
+    const rightPreferred = triggerRect.right + gap;
+
+    let openSide: 'left' | 'right' = 'left';
     let left = leftPreferred;
-    let top = triggerRect.bottom + 6;
+    if (left < padding && rightPreferred + menuRect.width <= window.innerWidth - padding) {
+      openSide = 'right';
+      left = rightPreferred;
+    }
+
+    // Align menu with the trigger vertically (instead of always below).
+    let top = triggerRect.top - 6;
 
     if (left < padding) left = padding;
     if (left + menuRect.width > window.innerWidth - padding) {
       left = Math.max(padding, window.innerWidth - menuRect.width - padding);
     }
 
+    if (top < padding) top = padding;
     if (top + menuRect.height > window.innerHeight - padding) {
-      top = triggerRect.top - menuRect.height - 6;
-      if (top < padding) top = padding;
+      top = Math.max(padding, window.innerHeight - menuRect.height - padding);
     }
 
-    menuStyle = `left: ${left}px; top: ${top}px;`;
+    // Arrow position inside the menu (points to the trigger)
+    const arrowPadding = 12;
+    const arrowTopUnclamped = triggerRect.top + triggerRect.height / 2 - top;
+    const arrowTop = Math.max(arrowPadding, Math.min(menuRect.height - arrowPadding, arrowTopUnclamped));
+
+    menuStyle = `left: ${left}px; top: ${top}px; --arrow-top: ${arrowTop}px;`;
+    menuEl?.classList.toggle('open-left', openSide === 'left');
+    menuEl?.classList.toggle('open-right', openSide === 'right');
   }
 
   async function setSubmenuPosition() {
@@ -275,6 +292,7 @@
 
     {#if isOpen}
       <div class="menu" bind:this={menuEl} style={menuStyle} use:portal>
+        <div class="menu-arrow" aria-hidden="true"></div>
         {#if hasPlayback}
           {#if onPlayNow}
             <button class="menu-item" onclick={() => handleAction(onPlayNow)}>
@@ -483,6 +501,26 @@
     padding: 2px 0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     z-index: 99999;
+    overflow: visible;
+  }
+
+  .menu-arrow {
+    position: absolute;
+    top: var(--arrow-top, 16px);
+    width: 10px;
+    height: 10px;
+    background: var(--bg-tertiary);
+    transform: translateY(-50%) rotate(45deg);
+    pointer-events: none;
+    box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.18);
+  }
+
+  .menu.open-left .menu-arrow {
+    right: -5px;
+  }
+
+  .menu.open-right .menu-arrow {
+    left: -5px;
   }
 
   .menu-item {
