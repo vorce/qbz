@@ -68,6 +68,7 @@
   const menuId = allocateTrackMenuId();
 
   let isOpen = $state(false);
+  let openSide = $state<'left' | 'right'>('left');
   let shareOpen = $state(false);
   let downloadOpen = $state(false);
   let menuRef: HTMLDivElement | null = null;
@@ -143,7 +144,7 @@
     const leftPreferred = triggerRect.left - menuRect.width - gap;
     const rightPreferred = triggerRect.right + gap;
 
-    let openSide: 'left' | 'right' = 'left';
+    openSide = 'left';
     let left = leftPreferred;
     if (left < padding && rightPreferred + menuRect.width <= window.innerWidth - padding) {
       openSide = 'right';
@@ -169,8 +170,6 @@
     const arrowTop = Math.max(arrowPadding, Math.min(menuRect.height - arrowPadding, arrowTopUnclamped));
 
     menuStyle = `left: ${left}px; top: ${top}px; --arrow-top: ${arrowTop}px;`;
-    menuEl?.classList.toggle('open-left', openSide === 'left');
-    menuEl?.classList.toggle('open-right', openSide === 'right');
   }
 
   async function setSubmenuPosition() {
@@ -248,6 +247,9 @@
 
   $effect(() => {
     if (isOpen) {
+      // Ensure position + openSide classes are applied even if the initial openMenu()
+      // call returns early due to timing.
+      setMenuPosition();
       document.addEventListener('mousedown', handleClickOutside);
       const handleResize = () => setMenuPosition();
       const handleScroll = () => {
@@ -291,7 +293,14 @@
     </button>
 
     {#if isOpen}
-      <div class="menu" bind:this={menuEl} style={menuStyle} use:portal>
+      <div
+        class="menu"
+        class:open-left={openSide === 'left'}
+        class:open-right={openSide === 'right'}
+        bind:this={menuEl}
+        style={menuStyle}
+        use:portal
+      >
         {#if hasPlayback}
           {#if onPlayNow}
             <button class="menu-item" onclick={() => handleAction(onPlayNow)}>
