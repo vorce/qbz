@@ -521,20 +521,44 @@
     transform: translateY(-50%);
     width: 0;
     height: 0;
-    border-top: 7px solid transparent;
-    border-bottom: 7px solid transparent;
+    border-top: 9px solid transparent;
+    border-bottom: 9px solid transparent;
     pointer-events: none;
-    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+    filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.35));
   }
 
   .menu.open-left::after {
-    right: -7px;
-    border-left: 7px solid var(--bg-tertiary);
+    right: -9px;
+    border-left: 9px solid var(--bg-tertiary);
   }
 
   .menu.open-right::after {
-    left: -7px;
-    border-right: 7px solid var(--bg-tertiary);
+    left: -9px;
+    border-right: 9px solid var(--bg-tertiary);
+  }
+
+  /* Subtle outline so the caret remains visible over hovered rows */
+  .menu.open-left::before,
+  .menu.open-right::before {
+    content: '';
+    position: absolute;
+    top: var(--arrow-top, 16px);
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    pointer-events: none;
+  }
+
+  .menu.open-left::before {
+    right: -10px;
+    border-left: 10px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .menu.open-right::before {
+    left: -10px;
+    border-right: 10px solid rgba(255, 255, 255, 0.06);
   }
 
   .menu-item {
