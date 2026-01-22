@@ -1458,7 +1458,7 @@
 
   function handlePlaylistCreated() {
     if (playlistModalMode === 'addTrack') {
-      showToast('Track added to playlist', 'success');
+      showToast('Track(s) added to playlist', 'success');
     } else {
       showToast('Playlist created', 'success');
     }
