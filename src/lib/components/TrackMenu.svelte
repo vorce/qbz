@@ -81,6 +81,7 @@
   let menuStyle = $state('');
   let submenuStyle = $state('');
   let downloadSubmenuStyle = $state('');
+  let isHoveringAnyMenu = $state(false);
 
   // Portal action - moves element to body to escape stacking context
   function portal(node: HTMLElement) {
@@ -250,7 +251,40 @@
       // Ensure position + openSide classes are applied even if the initial openMenu()
       // call returns early due to timing.
       setMenuPosition();
-      document.addEventListener('mousedown', handleClickOutside);
+
+      // Use capture phase so stopPropagation in other UI doesn't prevent close.
+      const outsideListenerOptions: AddEventListenerOptions = { capture: true };
+      document.addEventListener('pointerdown', handleClickOutside as unknown as EventListener, outsideListenerOptions);
+
+      // Auto-close after inactivity when the cursor is not hovering any menu/submenu.
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const idleMs = 20_000;
+
+      const scheduleIdleClose = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          if (isOpen && !isHoveringAnyMenu) closeMenu();
+        }, idleMs);
+      };
+
+      const cancelIdleClose = () => {
+        if (idleTimer) {
+          clearTimeout(idleTimer);
+          idleTimer = null;
+        }
+      };
+
+      // Start the timer if the mouse isn't currently hovering the menu.
+      if (!isHoveringAnyMenu) scheduleIdleClose();
+
+      const onAnyActivity = () => {
+        if (!isHoveringAnyMenu) scheduleIdleClose();
+      };
+
+      window.addEventListener('pointermove', onAnyActivity, true);
+      window.addEventListener('wheel', onAnyActivity, true);
+      window.addEventListener('keydown', onAnyActivity, true);
+
       const handleResize = () => setMenuPosition();
       const handleScroll = () => {
         setMenuPosition();
@@ -261,9 +295,13 @@
       window.addEventListener('resize', handleResize);
       window.addEventListener('scroll', handleScroll, true);
       return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('pointerdown', handleClickOutside as unknown as EventListener, outsideListenerOptions);
+        window.removeEventListener('pointermove', onAnyActivity, true);
+        window.removeEventListener('wheel', onAnyActivity, true);
+        window.removeEventListener('keydown', onAnyActivity, true);
         window.removeEventListener('resize', handleResize);
         window.removeEventListener('scroll', handleScroll, true);
+        cancelIdleClose();
       };
     }
   });
@@ -300,6 +338,8 @@
         bind:this={menuEl}
         style={menuStyle}
         use:portal
+        onmouseenter={() => { isHoveringAnyMenu = true; }}
+        onmouseleave={() => { isHoveringAnyMenu = false; }}
       >
         <div class="menu-panel">
           {#if hasPlayback}
