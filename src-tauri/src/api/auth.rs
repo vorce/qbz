@@ -1,5 +1,6 @@
 //! Authentication and request signing
 
+use chrono::{TimeZone, Utc};
 use md5::{Digest, Md5};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -77,6 +78,41 @@ pub fn parse_login_response(response: &serde_json::Value) -> Result<UserSession>
         .unwrap_or("Unknown")
         .to_string();
 
+    fn parse_subscription_valid_until(parameters: &serde_json::Value) -> Option<String> {
+        // Try common string fields first.
+        let string_keys = [
+            "end_date",
+            "expiration_date",
+            "valid_until",
+            "expires_at",
+            "expiry_date",
+        ];
+        for key in string_keys {
+            if let Some(s) = parameters.get(key).and_then(|v| v.as_str()) {
+                let trimmed = s.trim();
+                if !trimmed.is_empty() {
+                    return Some(trimmed.to_string());
+                }
+            }
+        }
+
+        // Try common timestamp fields (seconds).
+        let ts_keys = ["end_date_ts", "expires_at_ts", "expiration_ts", "valid_until_ts"];
+        for key in ts_keys {
+            if let Some(ts) = parameters.get(key).and_then(|v| v.as_i64()) {
+                if ts > 0 {
+                    return Some(Utc.timestamp_opt(ts, 0).single()?.date_naive().to_string());
+                }
+            }
+        }
+
+        None
+    }
+
+    let subscription_valid_until = credential
+        .and_then(|c| c.get("parameters"))
+        .and_then(parse_subscription_valid_until);
+
     // Check if user has valid subscription
     let has_subscription = credential
         .and_then(|c| c.get("parameters"))
@@ -93,6 +129,7 @@ pub fn parse_login_response(response: &serde_json::Value) -> Result<UserSession>
         email,
         display_name,
         subscription_label,
+        subscription_valid_until,
     })
 }
 

@@ -12,11 +12,19 @@
 
 # QBZ
 
-QBZ is a free and open source (FOSS) Qobuz client for Linux with native, high-fidelity playback. It is a real desktop application, not a web wrapper, so it can use DAC passthrough, switch sample rates per track, and deliver bit-perfect audio.
+QBZ is a free and open source (FOSS) high-fidelity streaming client for Linux with native playback. It is a real desktop application, not a web wrapper, so it can use DAC passthrough, switch sample rates per track, and deliver bit-perfect audio.
+
+## Legal / Branding
+
+- This application uses the Qobuz API but is not certified by Qobuz.
+- Qobuz™ is a trademark of Qobuz. QBZ is not affiliated with, endorsed by, or certified by Qobuz.
+- Offline downloads are a local cache for offline playback only while you have a valid subscription. You do not receive a license to keep or redistribute the content. If your subscription becomes invalid, QBZ will delete all downloaded content after 3 days.
+- Credentials may be stored in your system keyring if you have a keyring configured.
+- Qobuz Terms of Service: https://www.qobuz.com/us-en/legal/terms
 
 ## Why QBZ
 
-Browsers cap audio output around 48 kHz, while Qobuz streams up to 192 kHz. QBZ uses a native playback pipeline with direct device control, exclusive mode, and no forced resampling so your system and DAC receive the original resolution, with caching and system integrations that wrappers cannot provide.
+Browsers cap audio output around 48 kHz, while Qobuz™ streams up to 192 kHz. QBZ uses a native playback pipeline with direct device control, exclusive mode, and no forced resampling so your system and DAC receive the original resolution, with caching and system integrations that wrappers cannot provide.
 
 ## Installation
 
@@ -102,9 +110,9 @@ Coming soon.
 ## Features
 
 ### Streaming and Playback
-- Qobuz authentication and full catalog search (albums, tracks, artists, playlists).
+- Qobuz™ authentication and full catalog search (albums, tracks, artists, playlists).
 - Native decoding for FLAC, MP3, AAC, and ALAC with real-time playback state updates.
-- Quality selection with automatic fallback across Qobuz tiers.
+- Quality selection with automatic fallback across Qobuz™ tiers.
 - Audio device enumeration and per-device output selection.
 - Exclusive mode and DAC passthrough for bit-perfect playback.
 - Preserve original sample rates end-to-end where supported.
@@ -113,14 +121,14 @@ Coming soon.
 ### Queue and Library
 - Queue management with shuffle, repeat, and history navigation.
 - In-memory audio cache with LRU eviction and next-track prefetching.
-- Favorites and playlists from your Qobuz account.
+- Favorites and playlists from your Qobuz™ account.
 - Local library backend: directory scanning, metadata extraction, CUE sheet parsing, and SQLite indexing.
 - Grid and list views with search, A-Z index, and grouping by artist or album.
 - Multi-disc album grouping with disc headers in album views.
 - Local artwork detection (folder and embedded) with Discogs fallback.
 
 ### Playlist Import
-- Import public playlists from Spotify, Apple Music, Tidal, and Deezer into your Qobuz library.
+- Import public playlists from Spotify, Apple Music, Tidal, and Deezer into your Qobuz™ library.
 - Automatic track matching with fuzzy search.
 - Batch import with progress tracking.
 
@@ -135,7 +143,7 @@ Coming soon.
 - Desktop notifications for track changes.
 - Last.fm scrobbling and now-playing updates.
 - Discogs artwork fetching for local library.
-- Shareable Qobuz URLs and universal SongLink links (Odesli).
+- Shareable Qobuz™ URLs and universal SongLink links (Odesli).
 
 ### Interface
 - Now playing, queue panel, and full-screen playback views.
@@ -299,7 +307,7 @@ qbz/
 ├── src/                  # Frontend (SvelteKit)
 ├── src-tauri/
 │   └── src/
-│       ├── api/          # Qobuz API client
+│       ├── api/          # Qobuz™ API client
 │       ├── player/       # Audio playback engine
 │       ├── queue/        # Queue management
 │       ├── cache/        # Audio cache and prefetch

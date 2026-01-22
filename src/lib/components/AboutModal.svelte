@@ -3,6 +3,7 @@
   import { openUrl } from '@tauri-apps/plugin-opener';
   import { getName, getVersion } from '@tauri-apps/api/app';
   import { onMount } from 'svelte';
+  import QobuzLegalNotice from '$lib/components/QobuzLegalNotice.svelte';
 
   interface Props {
     isOpen: boolean;
@@ -63,9 +64,11 @@
       <div class="modal-content">
         <!-- Description -->
         <p class="description">
-          A native Qobuz client for Linux, designed for audiophiles who need
+          A native music streaming client for Linux, designed for audiophiles who need
           bit-perfect Hi-Fi playback without browser sample rate limitations.
         </p>
+
+        <QobuzLegalNotice showCheckbox={false} />
 
         <!-- Links -->
         <div class="links">
@@ -106,7 +109,7 @@
           <h3>Acknowledgments</h3>
           <div class="attributions">
             <div class="attribution">
-              <strong>Qobuz</strong> — Music streaming service and API
+              <strong>Qobuz™</strong> — Music streaming service and API
             </div>
             <div class="attribution">
               <strong>Tauri</strong> — Application framework (MIT/Apache-2.0)

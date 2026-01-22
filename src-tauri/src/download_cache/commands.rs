@@ -364,7 +364,14 @@ pub async fn clear_download_cache(
     library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<(), String> {
     log::info!("Command: clear_download_cache");
+    purge_all_downloads(cache_state.inner(), library_state.inner()).await
+}
 
+/// Clear entire download cache (internal helper)
+pub async fn purge_all_downloads(
+    cache_state: &DownloadCacheState,
+    library_state: &crate::library::commands::LibraryState,
+) -> Result<(), String> {
     let db = cache_state.db.lock().await;
 
     // Get all file paths and clear DB
@@ -391,7 +398,8 @@ pub async fn clear_download_cache(
 
     // Remove all Qobuz downloads from library
     let library_db = library_state.db.lock().await;
-    let removed_count = library_db.remove_all_qobuz_downloads()
+    let removed_count = library_db
+        .remove_all_qobuz_downloads()
         .map_err(|e| format!("Failed to remove downloads from library: {}", e))?;
     log::info!("Removed {} Qobuz downloads from library", removed_count);
 

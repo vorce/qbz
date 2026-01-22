@@ -131,4 +131,12 @@ impl LyricsCacheDb {
             .map_err(|e| format!("Failed to clear lyrics cache: {}", e))?;
         Ok(())
     }
+
+    pub fn count_entries(&self) -> Result<u64, String> {
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM lyrics_cache", [], |row| row.get(0))
+            .map_err(|e| format!("Failed to count lyrics cache entries: {}", e))?;
+        Ok(count.max(0) as u64)
+    }
 }

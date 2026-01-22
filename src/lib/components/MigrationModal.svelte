@@ -83,7 +83,7 @@
             This process will:
           </p>
           <ul>
-            <li>Fetch complete metadata from Qobuz</li>
+            <li>Fetch complete metadata from Qobuz™</li>
             <li>Add proper tags to your FLAC files</li>
             <li>Organize files into Artist/Album folders</li>
             <li>Embed album artwork</li>

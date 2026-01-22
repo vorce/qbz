@@ -2,14 +2,13 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
-  import { ArrowLeft, FolderOpen, ChevronDown, ChevronRight, Loader2 } from 'lucide-svelte';
+  import { ArrowLeft, ChevronDown, ChevronRight, Loader2 } from 'lucide-svelte';
   import Toggle from '../Toggle.svelte';
   import Dropdown from '../Dropdown.svelte';
   import VolumeSlider from '../VolumeSlider.svelte';
   import {
     getDownloadCacheStats,
     clearDownloadCache,
-    openDownloadCacheFolder,
     type DownloadCacheStats
   } from '$lib/stores/downloadState';
   import { notifyDownloadSettingsChanged } from '$lib/stores/downloadSettingsStore';
@@ -58,6 +57,7 @@
     userName?: string;
     userEmail?: string;
     subscription?: string;
+    subscriptionValidUntil?: string | null;
   }
 
   interface CacheStats {
@@ -80,7 +80,14 @@
     is_active: boolean;
   }
 
-  let { onBack, onLogout, userName = 'User', userEmail = '', subscription = 'Qobuz' }: Props = $props();
+  let {
+    onBack,
+    onLogout,
+    userName = 'User',
+    userEmail = '',
+    subscription = 'Qobuz™',
+    subscriptionValidUntil = null
+  }: Props = $props();
 
   // Cache state (memory cache)
   let cacheStats = $state<CacheStats | null>(null);
@@ -93,6 +100,7 @@
 
   // Lyrics cache state
   let isClearingLyrics = $state(false);
+  let lyricsCacheStats = $state<{ entries: number; sizeBytes: number } | null>(null);
 
   // Migration state
   let showMigrationModal = $state(false);
@@ -117,7 +125,6 @@
   let librarySection: HTMLElement;
   let integrationsSection: HTMLElement;
   let storageSection: HTMLElement;
-  let lyricsSection: HTMLElement;
   let activeSection = $state('audio');
 
   // Navigation section definitions (static, refs resolved at click/scroll time)
@@ -130,7 +137,6 @@
     { id: 'library', label: 'Library' },
     { id: 'integrations', label: 'Integrations' },
     { id: 'storage', label: 'Storage' },
-    { id: 'lyrics', label: 'Lyrics' },
   ];
 
   // Get section element by id (resolved at call time, not definition time)
@@ -144,7 +150,6 @@
       case 'library': return librarySection;
       case 'integrations': return integrationsSection;
       case 'storage': return storageSection;
-      case 'lyrics': return lyricsSection;
       default: return undefined;
     }
   }
@@ -366,7 +371,6 @@
   // Library settings
   let fetchQobuzArtistImages = $state(true);
   let showQobuzDownloadsInLibrary = $state(false);
-  let downloadRoot = $state('');
 
   // Last.fm integration state
   let lastfmConnected = $state(false);
@@ -430,6 +434,9 @@
 
     // Load download cache stats
     loadDownloadStats();
+
+    // Load lyrics cache stats
+    loadLyricsCacheStats();
 
     // Load audio devices first (includes PipeWire sinks), then settings
     // Also load backends and ALSA plugins
@@ -1146,6 +1153,16 @@
     }
   }
 
+  async function loadLyricsCacheStats() {
+    try {
+      const stats = await invoke<{ entries: number; sizeBytes: number }>('lyrics_get_cache_stats');
+      lyricsCacheStats = stats;
+    } catch (err) {
+      console.error('Failed to load lyrics cache stats:', err);
+      lyricsCacheStats = null;
+    }
+  }
+
   async function loadDownloadStats() {
     try {
       downloadStats = await getDownloadCacheStats();
@@ -1158,7 +1175,6 @@
     try {
       const settings = await invoke<{download_root: string, show_in_library: boolean}>('get_download_settings');
       showQobuzDownloadsInLibrary = settings.show_in_library;
-      downloadRoot = settings.download_root;
     } catch (err) {
       console.error('Failed to load download settings:', err);
     }
@@ -1220,78 +1236,6 @@
     loadDownloadStats();
   }
 
-  async function handleChangeDownloadFolder() {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-
-      const result = await open({
-        title: 'Select Downloads Folder',
-        directory: true,
-        defaultPath: downloadRoot || undefined
-      });
-
-      if (result) {
-        // Validate the path
-        const valid = await invoke<boolean>('validate_download_path', { path: result });
-        if (!valid) {
-          alert('Invalid path or insufficient permissions. Please select a different folder.');
-          return;
-        }
-
-        // Check if this is a network folder and warn user
-        interface NetworkPathInfo {
-          isNetwork: boolean;
-          mountInfo: { fsType: string; kind: string } | null;
-          path: string;
-        }
-        const networkInfo = await invoke<NetworkPathInfo>('check_network_path', { path: result });
-        if (networkInfo.isNetwork) {
-          const proceed = confirm(
-            $t('settings.networkDownloadWarning') + '\n\n' +
-            $t('settings.networkDownloadWarningDetail')
-          );
-          if (!proceed) {
-            return;
-          }
-        }
-
-        // Ask if user wants to move existing downloads
-        const hasDownloads = downloadStats && downloadStats.readyTracks > 0;
-        let moveFiles = false;
-        
-        if (hasDownloads) {
-          moveFiles = confirm(
-            `You have ${downloadStats!.readyTracks} downloaded tracks.\n\n` +
-            'Would you like to move them to the new location?\n\n' +
-            'Click OK to move files, or Cancel to keep them in the old location.'
-          );
-        }
-
-        // Update download root
-        const moveResult = await invoke<{moved: number, failed: string[]}>('set_download_root', { 
-          path: result,
-          moveExisting: moveFiles 
-        });
-        
-        downloadRoot = result;
-        
-        if (moveFiles && moveResult.moved > 0) {
-          alert(`Successfully moved ${moveResult.moved} tracks to the new location.`);
-        }
-        
-        if (moveResult.failed.length > 0) {
-          console.error('Failed to move files:', moveResult.failed);
-        }
-
-        // Reload download stats
-        await loadDownloadStats();
-      }
-    } catch (err) {
-      console.error('Failed to change download folder:', err);
-      alert(`Failed to change download folder: ${err}`);
-    }
-  }
-
   async function handleRepairDownloads() {
     if (isRepairingDownloads) return;
     isRepairingDownloads = true;
@@ -1331,14 +1275,6 @@
     }
   }
 
-  async function handleOpenDownloadFolder() {
-    try {
-      await openDownloadCacheFolder();
-    } catch (err) {
-      console.error('Failed to open download folder:', err);
-    }
-  }
-
   async function handleClearCache() {
     if (isClearing) return;
     isClearing = true;
@@ -1358,6 +1294,7 @@
     try {
       await clearLyricsCache();
       console.log('Lyrics cache cleared');
+      await loadLyricsCacheStats();
     } catch (err) {
       console.error('Failed to clear lyrics cache:', err);
     } finally {
@@ -1433,6 +1370,11 @@
           <div class="email">{userEmail}</div>
         {/if}
         <div class="subscription">{subscription}</div>
+        {#if subscriptionValidUntil}
+          <div class="subscription-until">
+            {$t('settings.account.validUntil', { values: { date: subscriptionValidUntil } })}
+          </div>
+        {/if}
       </div>
       <button class="logout-btn" onclick={onLogout}>{$t('settings.account.logout')}</button>
     </div>
@@ -1726,19 +1668,10 @@
 
   <!-- Downloads Section -->
   <section class="section" bind:this={downloadsSection}>
-    <h3 class="section-title">Downloads</h3>
+    <h3 class="section-title">{$t('settings.downloads.title')}</h3>
+    <p class="section-note">{$t('settings.downloads.offlineCacheDisclaimer')}</p>
     <div class="setting-row">
-      <div class="setting-with-description">
-        <span class="setting-label">Download Folder</span>
-        <span class="setting-description">{downloadRoot || 'Default location'}</span>
-      </div>
-      <button class="secondary-btn" onclick={handleChangeDownloadFolder}>
-        <FolderOpen size={14} />
-        <span>Change</span>
-      </button>
-    </div>
-    <div class="setting-row">
-      <span class="setting-label">Downloaded Tracks</span>
+      <span class="setting-label">{$t('settings.downloads.downloadedTracks')}</span>
       <span class="setting-value">
         {#if downloadStats}
           {downloadStats.readyTracks} tracks ({formatBytes(downloadStats.totalSizeBytes)})
@@ -1750,7 +1683,7 @@
     <div class="setting-row">
       <div class="setting-with-description">
         <span class="setting-label">Show in Local Library</span>
-        <span class="setting-description">Display downloaded Qobuz tracks in your Local Library</span>
+        <span class="setting-description">Display downloaded Qobuz™ tracks in your Local Library</span>
       </div>
       <Toggle enabled={showQobuzDownloadsInLibrary} onchange={handleShowDownloadsChange} />
     </div>
@@ -1767,7 +1700,7 @@
         {isRepairingDownloads ? 'Repairing...' : 'Repair'}
       </button>
     </div>
-    <div class="setting-row">
+    <div class="setting-row last">
       <span class="setting-label">Clear Downloads</span>
       <button
         class="clear-btn"
@@ -1775,17 +1708,6 @@
         disabled={isClearingDownloads || !downloadStats || downloadStats.readyTracks === 0}
       >
         {isClearingDownloads ? 'Clearing...' : 'Clear All'}
-      </button>
-    </div>
-    <div class="setting-row last">
-      <span class="setting-label">Open Folder</span>
-      <button
-        class="folder-btn"
-        onclick={handleOpenDownloadFolder}
-        title="Open download folder"
-      >
-        <FolderOpen size={16} />
-        <span>Open</span>
       </button>
     </div>
   </section>
@@ -1900,28 +1822,24 @@
   <!-- Storage Section (Memory Cache) -->
   <section class="section" bind:this={storageSection}>
     <h3 class="section-title">{$t('settings.storage.title')}</h3>
+    <p class="section-note">{$t('settings.storage.queueCacheNote')}</p>
     <div class="setting-row">
-      <span class="setting-label">{$t('settings.storage.cacheSize')}</span>
-      <span class="setting-value">
-        {#if cacheStats}
-          {formatBytes(cacheStats.current_size_bytes)} / {formatBytes(cacheStats.max_size_bytes)}
-        {:else}
-          {$t('actions.loading')}
-        {/if}
-      </span>
-    </div>
-    <div class="setting-row">
-      <span class="setting-label">{$t('settings.storage.cachedTracks')}</span>
-      <span class="setting-value">
-        {#if cacheStats}
-          {cacheStats.cached_tracks} {$t('album.tracks')}
-        {:else}
-          -
-        {/if}
-      </span>
-    </div>
-    <div class="setting-row last">
-      <span class="setting-label">{$t('settings.storage.clearCache')}</span>
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.storage.clearCache')}</span>
+        <small class="setting-note">
+          {#if cacheStats}
+            {$t('settings.storage.queueCacheStats', {
+              values: {
+                tracks: cacheStats.cached_tracks,
+                used: formatBytes(cacheStats.current_size_bytes),
+                max: formatBytes(cacheStats.max_size_bytes)
+              }
+            })}
+          {:else}
+            {$t('actions.loading')}
+          {/if}
+        </small>
+      </div>
       <button
         class="clear-btn"
         onclick={handleClearCache}
@@ -1930,17 +1848,22 @@
         {isClearing ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
     </div>
-  </section>
-
-  <!-- Lyrics Section -->
-  <section class="section" bind:this={lyricsSection}>
-    <h3 class="section-title">{$t('settings.lyrics.title')}</h3>
-    <div class="setting-row">
-      <span class="setting-label">Provider</span>
-      <span class="setting-value">LRCLIB / lyrics.ovh</span>
-    </div>
     <div class="setting-row last">
-      <span class="setting-label">{$t('settings.lyrics.clearLyrics')}</span>
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.lyrics.clearLyrics')}</span>
+        <small class="setting-note">
+          {#if lyricsCacheStats}
+            {$t('settings.lyrics.cacheStats', {
+              values: {
+                entries: lyricsCacheStats.entries,
+                size: formatBytes(lyricsCacheStats.sizeBytes)
+              }
+            })}
+          {:else}
+            -
+          {/if}
+        </small>
+      </div>
       <button
         class="clear-btn"
         onclick={handleClearLyricsCache}
@@ -2146,6 +2069,13 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     margin-bottom: 16px;
   }
 
+  .section-note {
+    margin: -6px 0 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
   .account-card {
     display: flex;
     align-items: center;
@@ -2186,6 +2116,12 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     color: var(--accent-primary);
   }
 
+  .subscription-until {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
   .logout-btn {
     padding: 8px 24px;
     border-radius: 8px;
@@ -2208,6 +2144,7 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     justify-content: space-between;
     height: 48px;
     border-bottom: 1px solid var(--bg-tertiary);
+    gap: 16px;
   }
 
   .setting-row.last {
@@ -2223,6 +2160,8 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     display: flex;
     flex-direction: column;
     gap: 2px;
+    flex: 0 1 60%;
+    min-width: 0;
   }
 
   .setting-description {
@@ -2235,6 +2174,8 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     flex-direction: column;
     gap: 2px;
     flex: 1;
+    max-width: 60%;
+    min-width: 0;
   }
 
   .setting-desc {
@@ -2253,6 +2194,13 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     height: auto;
     min-height: 48px;
     padding: 12px 0;
+  }
+
+  .setting-row:has(.setting-description) {
+    height: auto;
+    min-height: 48px;
+    padding: 12px 0;
+    align-items: flex-start;
   }
 
   .setting-row:has(.setting-desc) {
@@ -2389,6 +2337,20 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     border-color: var(--text-primary);
     color: var(--text-primary);
     background-color: var(--bg-hover);
+  }
+
+  /* Harmonize button widths across settings rows */
+  .connect-btn,
+  .clear-btn,
+  .folder-btn,
+  .logout-btn {
+    min-width: 140px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .folder-btn {
+    justify-content: center;
   }
 
   /* Last.fm styles */

@@ -50,6 +50,8 @@ pub struct UserSession {
     pub email: String,
     pub display_name: String,
     pub subscription_label: String,
+    #[serde(default)]
+    pub subscription_valid_until: Option<String>,
 }
 
 /// Stream URL response

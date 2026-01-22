@@ -13,6 +13,7 @@ pub mod audio_settings;
 pub mod download_settings;
 pub mod playback_preferences;
 pub mod favorites_preferences;
+pub mod subscription_state;
 
 pub use audio_settings::{
     AudioSettings,
@@ -46,4 +47,11 @@ pub use favorites_preferences::{
     FavoritesPreferencesState,
     get_favorites_preferences,
     save_favorites_preferences,
+};
+
+pub use subscription_state::{
+    SubscriptionState,
+    SubscriptionStateState,
+    SubscriptionStateStore,
+    create_subscription_state,
 };

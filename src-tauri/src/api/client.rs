@@ -166,10 +166,14 @@ impl QobuzClient {
         *self.session.write().await = None;
     }
 
-    /// Get current user info (display name and subscription)
-    pub async fn get_user_info(&self) -> Option<(String, String)> {
+    /// Get current user info (display name, subscription, and expiry if available)
+    pub async fn get_user_info(&self) -> Option<(String, String, Option<String>)> {
         self.session.read().await.as_ref().map(|s| {
-            (s.display_name.clone(), s.subscription_label.clone())
+            (
+                s.display_name.clone(),
+                s.subscription_label.clone(),
+                s.subscription_valid_until.clone(),
+            )
         })
     }
 

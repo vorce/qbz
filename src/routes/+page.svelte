@@ -2090,7 +2090,7 @@
       onAboutClick={() => isAboutModalOpen = true}
       onLogout={handleLogout}
       userName={userInfo?.userName || 'User'}
-      subscription={userInfo?.subscription || 'Qobuz'}
+      subscription={userInfo?.subscription || 'Qobuz™'}
     />
 
     <!-- Content Area (main + lyrics sidebar) -->
@@ -2177,6 +2177,7 @@
           onLogout={handleLogout}
           userName={userInfo?.userName}
           subscription={userInfo?.subscription}
+          subscriptionValidUntil={userInfo?.subscriptionValidUntil}
         />
       {:else if activeView === 'album' && selectedAlbum}
         <AlbumDetailView

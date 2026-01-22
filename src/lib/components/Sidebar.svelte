@@ -61,7 +61,7 @@
     onAboutClick,
     onLogout,
     userName = 'User',
-    subscription = 'Qobuz'
+    subscription = 'Qobuz™'
   }: Props = $props();
 
   let userPlaylists = $state<Playlist[]>([]);

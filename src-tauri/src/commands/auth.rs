@@ -1,16 +1,69 @@
 //! Authentication commands
 
 use tauri::State;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::credentials;
 use crate::AppState;
+use crate::api::error::ApiError;
+use crate::config::SubscriptionStateState;
+use crate::download_cache::DownloadCacheState;
 
 #[derive(serde::Serialize)]
 pub struct LoginResponse {
     pub success: bool,
     pub user_name: Option<String>,
     pub subscription: Option<String>,
+    pub subscription_valid_until: Option<String>,
     pub error: Option<String>,
+    pub error_code: Option<String>,
+}
+
+fn now_unix_secs() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+async fn maybe_purge_downloads_for_invalid_subscription(
+    now: i64,
+    subscription_state: &SubscriptionStateState,
+    cache_state: &DownloadCacheState,
+    library_state: &crate::library::commands::LibraryState,
+) {
+    let should_purge = {
+        let store = match subscription_state.lock() {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("Subscription state lock error: {}", e);
+                return;
+            }
+        };
+        match store.should_purge_downloads(now) {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("Failed to evaluate purge condition: {}", e);
+                false
+            }
+        }
+    };
+
+    if !should_purge {
+        return;
+    }
+
+    log::warn!("Subscription invalid for >3 days. Purging offline downloads.");
+    if let Err(e) = crate::download_cache::commands::purge_all_downloads(cache_state, library_state).await {
+        log::error!("Failed to purge downloads: {}", e);
+        return;
+    }
+
+    if let Ok(store) = subscription_state.lock() {
+        if let Err(e) = store.mark_downloads_purged(now) {
+            log::warn!("Failed to persist purge timestamp: {}", e);
+        }
+    }
 }
 
 #[tauri::command]
@@ -18,21 +71,54 @@ pub async fn login(
     email: String,
     password: String,
     state: State<'_, AppState>,
+    subscription_state: State<'_, SubscriptionStateState>,
+    cache_state: State<'_, DownloadCacheState>,
+    library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<LoginResponse, String> {
     let client = state.client.lock().await;
+    let now = now_unix_secs();
 
     match client.login(&email, &password).await {
-        Ok(session) => Ok(LoginResponse {
-            success: true,
-            user_name: Some(session.display_name),
-            subscription: Some(session.subscription_label),
-            error: None,
-        }),
+        Ok(session) => {
+            if let Ok(store) = subscription_state.lock() {
+                let _ = store.mark_valid(now);
+            }
+            Ok(LoginResponse {
+                success: true,
+                user_name: Some(session.display_name),
+                subscription: Some(session.subscription_label),
+                subscription_valid_until: session.subscription_valid_until,
+                error: None,
+                error_code: None,
+            })
+        }
+        Err(ApiError::IneligibleUser) => {
+            if let Ok(store) = subscription_state.lock() {
+                let _ = store.mark_invalid(now);
+            }
+            maybe_purge_downloads_for_invalid_subscription(
+                now,
+                subscription_state.inner(),
+                cache_state.inner(),
+                library_state.inner(),
+            )
+            .await;
+            Ok(LoginResponse {
+                success: false,
+                user_name: None,
+                subscription: None,
+                subscription_valid_until: None,
+                error: Some("No active subscription".to_string()),
+                error_code: Some("ineligible_user".to_string()),
+            })
+        }
         Err(e) => Ok(LoginResponse {
             success: false,
             user_name: None,
             subscription: None,
+            subscription_valid_until: None,
             error: Some(e.to_string()),
+            error_code: None,
         }),
     }
 }
@@ -63,14 +149,16 @@ pub async fn logout(state: State<'_, AppState>) -> Result<(), String> {
 pub struct UserInfo {
     pub user_name: String,
     pub subscription: String,
+    pub subscription_valid_until: Option<String>,
 }
 
 #[tauri::command]
 pub async fn get_user_info(state: State<'_, AppState>) -> Result<Option<UserInfo>, String> {
     let client = state.client.lock().await;
-    Ok(client.get_user_info().await.map(|(name, sub)| UserInfo {
+    Ok(client.get_user_info().await.map(|(name, sub, until)| UserInfo {
         user_name: name,
         subscription: sub,
+        subscription_valid_until: until,
     }))
 }
 
@@ -97,7 +185,12 @@ pub fn clear_saved_credentials() -> Result<(), String> {
 /// Auto-login using saved credentials
 /// Returns LoginResponse with success status
 #[tauri::command]
-pub async fn auto_login(state: State<'_, AppState>) -> Result<LoginResponse, String> {
+pub async fn auto_login(
+    state: State<'_, AppState>,
+    subscription_state: State<'_, SubscriptionStateState>,
+    cache_state: State<'_, DownloadCacheState>,
+    library_state: State<'_, crate::library::commands::LibraryState>,
+) -> Result<LoginResponse, String> {
     // Check for saved credentials
     let creds = match credentials::load_qobuz_credentials() {
         Ok(Some(c)) => c,
@@ -106,7 +199,9 @@ pub async fn auto_login(state: State<'_, AppState>) -> Result<LoginResponse, Str
                 success: false,
                 user_name: None,
                 subscription: None,
+                subscription_valid_until: None,
                 error: Some("No saved credentials".to_string()),
+                error_code: None,
             });
         }
         Err(e) => {
@@ -114,20 +209,50 @@ pub async fn auto_login(state: State<'_, AppState>) -> Result<LoginResponse, Str
                 success: false,
                 user_name: None,
                 subscription: None,
+                subscription_valid_until: None,
                 error: Some(e),
+                error_code: None,
             });
         }
     };
 
     // Try to login with saved credentials
     let client = state.client.lock().await;
+    let now = now_unix_secs();
     match client.login(&creds.email, &creds.password).await {
-        Ok(session) => Ok(LoginResponse {
-            success: true,
-            user_name: Some(session.display_name),
-            subscription: Some(session.subscription_label),
-            error: None,
-        }),
+        Ok(session) => {
+            if let Ok(store) = subscription_state.lock() {
+                let _ = store.mark_valid(now);
+            }
+            Ok(LoginResponse {
+                success: true,
+                user_name: Some(session.display_name),
+                subscription: Some(session.subscription_label),
+                subscription_valid_until: session.subscription_valid_until,
+                error: None,
+                error_code: None,
+            })
+        }
+        Err(ApiError::IneligibleUser) => {
+            if let Ok(store) = subscription_state.lock() {
+                let _ = store.mark_invalid(now);
+            }
+            maybe_purge_downloads_for_invalid_subscription(
+                now,
+                subscription_state.inner(),
+                cache_state.inner(),
+                library_state.inner(),
+            )
+            .await;
+            Ok(LoginResponse {
+                success: false,
+                user_name: None,
+                subscription: None,
+                subscription_valid_until: None,
+                error: Some("No active subscription".to_string()),
+                error_code: Some("ineligible_user".to_string()),
+            })
+        }
         Err(e) => {
             // Credentials might be invalid, but don't clear them automatically
             // Let the user decide
@@ -136,7 +261,9 @@ pub async fn auto_login(state: State<'_, AppState>) -> Result<LoginResponse, Str
                 success: false,
                 user_name: None,
                 subscription: None,
+                subscription_valid_until: None,
                 error: Some(e.to_string()),
+                error_code: None,
             })
         }
     }

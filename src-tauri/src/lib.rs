@@ -1,7 +1,6 @@
-//! QBZ-NIX: Native Qobuz client for Linux
+//! QBZ-NIX: Native high-fidelity streaming client for Linux
 //!
-//! A high-fidelity music streaming client for Qobuz, designed for audiophiles
-//! who need bit-perfect playback without browser sample rate limitations.
+//! This application uses the Qobuz API but is not certified by Qobuz.
 
 pub mod api;
 pub mod api_cache;
@@ -187,6 +186,9 @@ pub fn run() {
     // Initialize favorites preferences state
     let favorites_prefs_state = config::favorites_preferences::FavoritesPreferencesState::new()
         .expect("Failed to initialize favorites preferences");
+    // Initialize subscription validity tracking (for offline download compliance)
+    let subscription_state = config::create_subscription_state()
+        .expect("Failed to initialize subscription state");
 
     // Read saved audio device and settings for player initialization
     let (saved_device, audio_settings) = audio_settings_state
@@ -228,6 +230,60 @@ pub fn run() {
             app.state::<AppState>()
                 .media_controls
                 .init(app.handle().clone());
+
+            // Purge offline downloads if the subscription has been invalid for > 3 days
+            // (compliance requirement for cached content).
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64;
+
+                let subscription_state = app_handle
+                    .state::<config::SubscriptionStateState>()
+                    .inner()
+                    .clone();
+                let should_purge = {
+                    let store = match subscription_state.lock() {
+                        Ok(s) => s,
+                        Err(e) => {
+                            log::warn!("Subscription state lock error: {}", e);
+                            return;
+                        }
+                    };
+                    match store.should_purge_downloads(now) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            log::warn!("Failed to evaluate purge condition: {}", e);
+                            false
+                        }
+                    }
+                };
+
+                if !should_purge {
+                    return;
+                }
+
+                log::warn!("Subscription invalid for >3 days. Purging offline downloads.");
+                let cache_state = app_handle.state::<download_cache::DownloadCacheState>();
+                let library_state = app_handle.state::<crate::library::commands::LibraryState>();
+                if let Err(e) = download_cache::commands::purge_all_downloads(cache_state.inner(), library_state.inner()).await {
+                    log::error!("Failed to purge downloads: {}", e);
+                    return;
+                }
+
+                let store = match subscription_state.lock() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        log::warn!("Subscription state lock error: {}", e);
+                        return;
+                    }
+                };
+                if let Err(e) = store.mark_downloads_purged(now) {
+                    log::warn!("Failed to persist purge timestamp: {}", e);
+                }
+            });
 
             // Start background task to emit playback events
             let app_handle = app.handle().clone();
@@ -310,6 +366,7 @@ pub fn run() {
         .manage(session_store_state)
         .manage(audio_settings_state)
         .manage(download_settings_state)
+        .manage(subscription_state)
         .manage(offline_state)
         .manage(playback_prefs_state)
         .manage(favorites_prefs_state)
@@ -556,6 +613,7 @@ pub fn run() {
             download_cache::commands::sync_downloads_to_library,
             // Lyrics commands
             lyrics::commands::lyrics_get,
+            lyrics::commands::lyrics_get_cache_stats,
             lyrics::commands::lyrics_clear_cache,
             // Recommendation store commands
             reco_store::commands::reco_log_event,

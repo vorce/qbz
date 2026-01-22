@@ -3,10 +3,13 @@
   import TitleBar from '../TitleBar.svelte';
   import { t } from '$lib/i18n';
   import { setManualOffline } from '$lib/stores/offlineStore';
+  import { qobuzTosAccepted } from '$lib/stores/qobuzLegalStore';
+  import { get } from 'svelte/store';
 
   interface UserInfo {
     userName: string;
     subscription: string;
+    subscriptionValidUntil?: string | null;
   }
 
   interface Props {
@@ -21,7 +24,7 @@
   let rememberMe = $state(true);
   let isLoading = $state(false);
   let isInitializing = $state(true);
-  let initStatus = $state('Connecting to Qobuz...');
+  let initStatus = $state('Connecting to Qobuz™...');
   let error = $state<string | null>(null);
   let initError = $state<string | null>(null);
   let isTimedOut = $state(false);
@@ -29,7 +32,7 @@
 
   const LOGIN_TIMEOUT_MS = 60000; // 60 seconds
 
-  // Initialize the Qobuz client on mount
+  // Initialize the Qobuz™ client on mount
   $effect(() => {
     initializeClient();
     return () => {
@@ -46,7 +49,7 @@
       isInitializing = true;
       initError = null;
       isTimedOut = false;
-      initStatus = 'Connecting to Qobuz...';
+      initStatus = 'Connecting to Qobuz™...';
 
       // Start timeout timer
       if (timeoutId) {
@@ -67,11 +70,15 @@
       const loggedIn = await invoke<boolean>('is_logged_in');
       if (loggedIn) {
         clearTimeoutTimer();
-        const userInfo = await invoke<{ user_name: string; subscription: string } | null>('get_user_info');
+        const userInfo = await invoke<{ user_name: string; subscription: string; subscription_valid_until?: string | null } | null>('get_user_info');
         if (userInfo) {
-          onLoginSuccess({ userName: userInfo.user_name, subscription: userInfo.subscription });
+          onLoginSuccess({
+            userName: userInfo.user_name,
+            subscription: userInfo.subscription,
+            subscriptionValidUntil: userInfo.subscription_valid_until ?? null,
+          });
         } else {
-          onLoginSuccess({ userName: 'Qobuz User', subscription: 'Active' });
+          onLoginSuccess({ userName: 'User', subscription: 'Active' });
         }
         return;
       }
@@ -80,25 +87,31 @@
       initStatus = 'Checking saved credentials...';
       const hasSavedCreds = await invoke<boolean>('has_saved_credentials');
 
-      if (hasSavedCreds) {
+      if (hasSavedCreds && get(qobuzTosAccepted)) {
         initStatus = 'Logging in...';
         const response = await invoke<{
           success: boolean;
           user_name?: string;
           subscription?: string;
+          subscription_valid_until?: string | null;
           error?: string;
+          error_code?: string;
         }>('auto_login');
 
         if (response.success) {
           clearTimeoutTimer();
           console.log('Auto-login successful');
           onLoginSuccess({
-            userName: response.user_name || 'Qobuz User',
-            subscription: response.subscription || 'Active'
+            userName: response.user_name || 'User',
+            subscription: response.subscription || 'Active',
+            subscriptionValidUntil: response.subscription_valid_until ?? null,
           });
           return;
         } else {
           console.log('Auto-login failed:', response.error);
+          if (response.error_code === 'ineligible_user') {
+            error = $t('auth.ineligibleSubscription');
+          }
           // Don't show error, just fall through to manual login
         }
       }
@@ -131,6 +144,11 @@
   async function handleLogin(e: Event) {
     e.preventDefault();
 
+    if (!get(qobuzTosAccepted)) {
+      error = $t('legal.tosRequiredToLogin');
+      return;
+    }
+
     if (!email || !password) {
       error = 'Please enter email and password';
       return;
@@ -144,7 +162,9 @@
         success: boolean;
         user_name?: string;
         subscription?: string;
+        subscription_valid_until?: string | null;
         error?: string;
+        error_code?: string;
       }>('login', { email, password });
 
       console.log('Login response:', response);
@@ -162,11 +182,16 @@
         }
 
         onLoginSuccess({
-          userName: response.user_name || 'Qobuz User',
-          subscription: response.subscription || 'Active'
-        });
+            userName: response.user_name || 'User',
+            subscription: response.subscription || 'Active',
+            subscriptionValidUntil: response.subscription_valid_until ?? null,
+          });
       } else {
-        error = response.error || 'Login failed';
+        if (response.error_code === 'ineligible_user') {
+          error = $t('auth.ineligibleSubscription');
+        } else {
+          error = response.error || 'Login failed';
+        }
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -194,15 +219,13 @@
     <!-- Logo -->
     <div class="logo">
       <img src="/logo.png" alt="QBZ Logo" class="logo-img" />
-      <h1>QBZ</h1>
-      <p class="subtitle">Native Qobuz Client for Linux</p>
     </div>
 
     {#if isTimedOut}
       <div class="timeout-box">
         <p class="timeout-title">Connection is taking too long</p>
         <p class="timeout-detail">
-          Unable to connect to Qobuz after 60 seconds. This could be a network issue or Qobuz may be temporarily unavailable.
+          Unable to connect to Qobuz™ after 60 seconds. This could be a network issue or Qobuz™ may be temporarily unavailable.
         </p>
         <div class="timeout-actions">
           <button class="retry-btn" onclick={handleRetryLogin}>Try Again</button>
@@ -216,69 +239,86 @@
       </div>
     {:else if initError}
       <div class="error-box">
-        <p>Failed to connect to Qobuz</p>
+        <p>Failed to connect to Qobuz™</p>
         <p class="error-detail">{initError}</p>
         <button class="retry-btn" onclick={initializeClient}>Retry</button>
       </div>
     {:else}
-      <form onsubmit={handleLogin}>
-        <div class="input-group">
-          <label for="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            bind:value={email}
-            placeholder="your@email.com"
-            disabled={isLoading}
-            autocomplete="email"
-          />
-        </div>
+      <div class="login-body">
+        <form onsubmit={handleLogin}>
+          <div class="input-group">
+            <label for="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              bind:value={email}
+              placeholder="your@email.com"
+              disabled={isLoading}
+              autocomplete="email"
+            />
+          </div>
 
-        <div class="input-group">
-          <label for="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            bind:value={password}
-            placeholder="Password"
-            disabled={isLoading}
-            autocomplete="current-password"
-          />
-        </div>
+          <div class="input-group">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              bind:value={password}
+              placeholder="Password"
+              disabled={isLoading}
+              autocomplete="current-password"
+            />
+          </div>
 
-        <div class="remember-me">
-          <label>
-            <input type="checkbox" bind:checked={rememberMe} />
-            <span>Remember me</span>
-          </label>
-        </div>
+          <div class="remember-me">
+            <label>
+              <input type="checkbox" bind:checked={rememberMe} />
+              <span>Remember me</span>
+            </label>
+          </div>
 
-        {#if error}
-          <div class="error-message">{error}</div>
-        {/if}
+          <div class="remember-me tos-remember">
+            <label>
+              <input type="checkbox" bind:checked={$qobuzTosAccepted} disabled={isLoading} />
+              <span>
+                {$t('legal.tosAgreementPrefix')}
+                <a href="https://www.qobuz.com/us-en/legal/terms" target="_blank" rel="noopener">
+                  {$t('legal.tosLinkText')}
+                </a>
+              </span>
+            </label>
+          </div>
 
-        <button type="submit" class="login-btn" disabled={isLoading}>
-          {#if isLoading}
-            <div class="spinner small"></div>
-            <span>Signing in...</span>
-          {:else}
-            <span>Sign in with Qobuz</span>
+          {#if error}
+            <div class="error-message">{error}</div>
           {/if}
-        </button>
-      </form>
 
-      <p class="disclaimer">
-        QBZ requires an active Qobuz subscription.
-        Your credentials are sent directly to Qobuz and stored securely in your system's keyring.
-      </p>
-
-      <p class="offline-link">
-        <small>
-          <button type="button" class="link-button" onclick={handleStartOffline}>
-            {$t('offline.startWithoutLogin')}
+          <button type="submit" class="login-btn" disabled={isLoading || !$qobuzTosAccepted}>
+            {#if isLoading}
+              <div class="spinner small"></div>
+              <span>Signing in...</span>
+            {:else}
+              <span>Sign in with Qobuz™</span>
+            {/if}
           </button>
-        </small>
-      </p>
+
+          <p class="offline-link">
+            <small>
+              <button type="button" class="link-button" onclick={handleStartOffline}>
+                {$t('offline.startWithoutLogin')}
+              </button>
+            </small>
+          </p>
+        </form>
+
+        <div class="login-footer">
+          <p class="footer-copy">
+            QBZ requires an active Qobuz™ subscription. Your credentials are sent directly to Qobuz™.<br />
+            This application uses the Qobuz API but is not certified by Qobuz. {$t('legal.trademarkNotice')}
+          </p>
+        </div>
+      </div>
+
     {/if}
     </div>
   </div>
@@ -300,14 +340,19 @@
     background-color: var(--bg-primary);
   }
 
-  .login-card {
-    width: 100%;
-    max-width: 400px;
-    padding: 48px;
-    background-color: var(--bg-secondary);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  }
+	  .login-card {
+	    width: 100%;
+	    max-width: 720px;
+	    padding: 52px;
+	    background-color: var(--bg-secondary);
+	    border-radius: 16px;
+	    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	    display: flex;
+	    flex-direction: column;
+	    min-height: min(700px, 85vh);
+	    max-height: 90vh;
+	    overflow-y: auto;
+	  }
 
   .logo {
     text-align: center;
@@ -321,17 +366,33 @@
     object-fit: contain;
   }
 
-  .logo h1 {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-top: 16px;
-    margin-bottom: 4px;
+  .login-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
 
-  .subtitle {
-    font-size: 14px;
-    color: var(--text-muted);
+  .login-footer {
+    margin-top: auto;
+    padding-top: 16px;
+    text-align: center;
+  }
+
+  .tos-remember label {
+    width: 100%;
+  }
+
+  .tos-remember span {
+    white-space: nowrap;
+  }
+
+  .tos-remember a {
+    color: var(--accent-primary);
+    text-decoration: none;
+  }
+
+  .tos-remember a:hover {
+    text-decoration: underline;
   }
 
   .initializing {
@@ -524,16 +585,16 @@
     cursor: not-allowed;
   }
 
-  .disclaimer {
-    margin-top: 24px;
+  .footer-copy {
     font-size: 12px;
     color: var(--text-muted);
     text-align: center;
     line-height: 1.5;
+    margin: 0;
   }
 
   .offline-link {
-    margin-top: 16px;
+    margin-top: 4px;
     text-align: center;
   }
 

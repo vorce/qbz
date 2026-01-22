@@ -3,6 +3,8 @@
   import { X, CloudOff } from 'lucide-svelte';
   import { showToast } from '$lib/stores/toastStore';
   import { t } from '$lib/i18n';
+  import QobuzLegalNotice from '$lib/components/QobuzLegalNotice.svelte';
+  import { qobuzTosAccepted } from '$lib/stores/qobuzLegalStore';
   import {
     subscribe as subscribeOffline,
     isOffline as checkIsOffline
@@ -68,7 +70,7 @@
 
   const detectedProvider = $derived(detectProvider(url));
   const activeProvider = $derived(lockedProvider ?? detectedProvider);
-  const isValid = $derived(!!detectedProvider && !isOffline);
+  const isValid = $derived(!!detectedProvider && !isOffline && $qobuzTosAccepted);
 
   $effect(() => {
     if (isOpen) {
@@ -135,7 +137,7 @@
       const preview = await invoke<ImportPlaylist>('playlist_import_preview', { url });
       pushLog(`Found ${preview.tracks.length} tracks from ${formatProvider(preview.provider)}.`);
 
-      pushLog('Matching tracks in Qobuz...');
+      pushLog('Matching tracks in Qobuz™...');
       const result = await invoke<ImportSummary>('playlist_import_execute', {
         url,
         nameOverride: null,
@@ -148,7 +150,7 @@
       pushLog(`Imported ${result.matched_tracks} of ${result.total_tracks} tracks into QBZ.`, 'success');
 
       if (result.qobuz_playlist_id) {
-        pushLog('Playlist created in Qobuz.', 'success');
+        pushLog('Playlist created in Qobuz™.', 'success');
       } else {
         pushLog('No matching tracks found.', 'error');
       }
@@ -202,7 +204,7 @@
     <div class="modal" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
         <div class="header-title">
-          <img src="/qobuz-logo.svg" alt="Qobuz" class="qobuz-logo" />
+          <img src="/qobuz-logo.svg" alt="Qobuz™" class="qobuz-logo" />
           <h2>Import Playlist</h2>
         </div>
         <button class="close-btn" onclick={onClose}>
@@ -211,6 +213,8 @@
       </div>
 
       <div class="modal-body">
+        <QobuzLegalNotice checkboxDisabled={loading} />
+
         {#if isOffline}
           <div class="offline-warning" role="alert" aria-live="polite">
             <CloudOff size={16} aria-hidden="true" />

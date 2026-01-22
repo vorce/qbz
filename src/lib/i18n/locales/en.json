@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "QBZ",
-    "tagline": "Hi-Fi Qobuz Client for Linux"
+    "tagline": "Hi-Fi streaming client for Linux"
   },
   "nav": {
     "home": "Home",
@@ -54,7 +54,7 @@
     "searching": "Searching...",
     "recentSearches": "Recent Searches",
     "clearHistory": "Clear History",
-    "startTyping": "Start typing to search Qobuz",
+    "startTyping": "Start typing to search Qobuz™",
     "noAlbumsFor": "No albums found for \"{query}\"",
     "noTracksFor": "No tracks found for \"{query}\"",
     "noArtistsFor": "No artists found for \"{query}\""
@@ -170,7 +170,7 @@
     "renamePlaylist": "Rename Playlist",
     "allPlaylists": "All Playlists",
     "myPlaylists": "My Playlists",
-    "qobuzPlaylists": "Qobuz Playlists",
+    "qobuzPlaylists": "Qobuz™ Playlists",
     "emptyPlaylist": "This playlist is empty",
     "addTracks": "Add Tracks",
     "removeTracks": "Remove",
@@ -307,6 +307,7 @@
       "title": "Account",
       "loggedInAs": "Logged in as",
       "subscription": "Subscription",
+      "validUntil": "Valid until {date}",
       "logout": "Logout",
       "login": "Login"
     },
@@ -349,13 +350,13 @@
       "accentColor": "Accent Color",
       "language": "Language",
       "uiScale": "UI Scale",
-      "inAppToasts": "In-app Toasts",
+      "inAppToasts": "In-app toasts notifications",
       "systemNotifications": "System Notifications"
     },
     "library": {
       "title": "Library",
-      "fetchArtistImages": "Fetch Qobuz Artist Images",
-      "fetchArtistImagesDesc": "Show artist photos from Qobuz in local library"
+      "fetchArtistImages": "Fetch Qobuz™ Artist Images",
+      "fetchArtistImagesDesc": "Show artist photos from Qobuz™ in local library"
     },
     "integrations": {
       "title": "Integrations",
@@ -373,13 +374,16 @@
     },
     "storage": {
       "title": "Storage",
-      "cachedTracks": "Cached Tracks",
-      "cacheSize": "Cache Size",
-      "clearCache": "Clear Cache",
+      "queueCacheNote": "Queue list storage. Clear if you have playback issues. (This is not the Downloads cache.)",
+      "queueCacheStats": "{tracks} tracks using {used} / {max}",
+      "cachedTracks": "Cached Queue Tracks",
+      "cacheSize": "Queue Cache Size",
+      "clearCache": "Clear queue cache",
       "clearing": "Clearing..."
     },
     "downloads": {
       "title": "Downloads",
+      "offlineCacheDisclaimer": "Offline downloads are a local cache for offline playback only while you have a valid subscription. You do not receive a license to keep or redistribute the content. If your subscription becomes invalid, QBZ will delete all downloaded content after 3 days.",
       "downloadedTracks": "Downloaded Tracks",
       "clearDownloads": "Clear All",
       "openFolder": "Open Folder"
@@ -389,7 +393,8 @@
     "lyrics": {
       "title": "Lyrics",
       "lyricsCache": "Lyrics Cache",
-      "clearLyrics": "Clear Lyrics"
+      "clearLyrics": "Clear Lyrics Cache",
+      "cacheStats": "{entries} entries using {size}"
     },
     "about": {
       "title": "About",
@@ -407,7 +412,15 @@
     "loggingIn": "Signing in...",
     "loginError": "Login failed. Please check your credentials.",
     "welcomeBack": "Welcome back",
-    "rememberMe": "Remember me"
+    "rememberMe": "Remember me",
+    "ineligibleSubscription": "No active subscription. QBZ will run in offline mode only."
+  },
+  "legal": {
+    "brandingLineSuffix": "",
+    "tosAgreementPrefix": "I have read the",
+    "tosLinkText": "Qobuz™ Terms of Service",
+    "tosRequiredToLogin": "Please confirm that you have read the Qobuz™ Terms of Service to continue.",
+    "trademarkNotice": "Qobuz™ is a trademark of Qobuz. QBZ is not affiliated with, endorsed by, or certified by Qobuz."
   },
   "notifications": {
     "trackAdded": "Track added to queue",
@@ -478,11 +491,11 @@
   },
   "offline": {
     "title": "Offline Mode",
-    "message": "Connect to the internet to access Qobuz content.",
+    "message": "Connect to the internet to access Qobuz™ content.",
     "noNetwork": "No Network Connection",
-    "noNetworkMessage": "Check your internet connection to access Qobuz streaming.",
+    "noNetworkMessage": "Check your internet connection to access Qobuz™ streaming.",
     "notLoggedIn": "Not Logged In",
-    "notLoggedInMessage": "Log in to your Qobuz account to access streaming content.",
+    "notLoggedInMessage": "Log in to your Qobuz™ account to access streaming content.",
     "manualMode": "Offline Mode Enabled",
     "manualModeMessage": "You have manually enabled offline mode. Your local library is still available.",
     "goToLibrary": "Go to Local Library",
@@ -499,7 +512,7 @@
     "notAvailable": "Not Available Offline",
     "trackNotAvailable": "This track is not available offline",
     "featureDisabled": "This feature requires internet connection",
-    "startWithoutLogin": "Start in offline mode without logging in",
+    "startWithoutLogin": "Start offline (no access to Qobuz™ services)",
     "noNetworkToast": "No internet connection available",
     "checkingNetwork": "Checking network connection...",
     "available": "Fully Available Offline",

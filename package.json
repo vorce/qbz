@@ -1,7 +1,7 @@
 {
   "name": "qbz-nix",
   "version": "1.1.6",
-  "description": "Native Qobuz client for Linux with Hi-Fi audio support",
+  "description": "Native high-fidelity client for Qobuz™ subscribers on Linux with Hi-Fi audio support (uses the Qobuz API; not certified by Qobuz)",
   "type": "module",
   "scripts": {
     "dev": "vite dev",

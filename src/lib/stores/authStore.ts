@@ -7,6 +7,7 @@
 export interface UserInfo {
   userName: string;
   subscription: string;
+  subscriptionValidUntil?: string | null;
 }
 
 // Auth state

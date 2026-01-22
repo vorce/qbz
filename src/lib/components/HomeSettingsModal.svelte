@@ -134,7 +134,7 @@
               <span class="section-label">
                 {section.label}
                 {#if section.source === 'qobuz'}
-                  <span class="source-badge qobuz">Qobuz</span>
+                  <span class="source-badge qobuz">Qobuz™</span>
                 {:else if section.source === 'ml'}
                   <span class="source-badge ml">ML</span>
                 {/if}
