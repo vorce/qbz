@@ -524,16 +524,17 @@
     border-top: 9px solid transparent;
     border-bottom: 9px solid transparent;
     pointer-events: none;
-    filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.35));
+    /* Strong, directional shadow so the caret stays visible over hovered rows */
+    filter: drop-shadow(2px 3px 6px rgba(0, 0, 0, 0.85));
   }
 
   .menu.open-left::after {
-    right: -9px;
+    right: -8px;
     border-left: 9px solid var(--bg-tertiary);
   }
 
   .menu.open-right::after {
-    left: -9px;
+    left: -8px;
     border-right: 9px solid var(--bg-tertiary);
   }
 
@@ -552,12 +553,12 @@
   }
 
   .menu.open-left::before {
-    right: -10px;
+    right: -9px;
     border-left: 10px solid rgba(255, 255, 255, 0.06);
   }
 
   .menu.open-right::before {
-    left: -10px;
+    left: -9px;
     border-right: 10px solid rgba(255, 255, 255, 0.06);
   }
 
