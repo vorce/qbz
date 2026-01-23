@@ -194,6 +194,8 @@
   let trackGroupingEnabled = $state(false);
   let showTrackGroupMenu = $state(false);
   let trackSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  // Reference to virtualized track list for programmatic scrolling
+  let virtualizedTrackListRef: { scrollToGroup: (groupId: string) => void } | undefined;
   let albumSearchTimer: ReturnType<typeof setTimeout> | null = null;
   let artistSearchTimer: ReturnType<typeof setTimeout> | null = null;
   let debouncedAlbumSearch = $state('');
@@ -2672,6 +2674,7 @@
           <div class="track-sections virtualized">
             <div class="virtualized-container">
               <VirtualizedTrackList
+                bind:this={virtualizedTrackListRef}
                 groups={groupedTracks}
                 groupingEnabled={trackGroupingEnabled}
                 groupMode={trackGroupMode}
@@ -2695,9 +2698,15 @@
                   <button
                     class="alpha-letter"
                     class:disabled={!trackAlphaGroups.has(letter)}
-                    onclick={() => trackGroupMode === 'artist'
-                      ? scrollToGroupId(trackIndexTargets.get(letter))
-                      : scrollToGroup(`track-${trackGroupMode}`, letter, trackAlphaGroups)}
+                    onclick={() => {
+                      if (!trackAlphaGroups.has(letter)) return;
+                      const groupId = trackGroupMode === 'artist'
+                        ? trackIndexTargets.get(letter)
+                        : groupIdForKey(`track-${trackGroupMode}`, letter);
+                      if (groupId) {
+                        virtualizedTrackListRef?.scrollToGroup(groupId);
+                      }
+                    }}
                   >
                     {letter}
                   </button>
@@ -3681,6 +3690,7 @@
     flex: 1;
     height: 100%;
     min-width: 0;
+    overflow: hidden;
   }
 
   .album-group-list {
@@ -3813,12 +3823,14 @@
     display: flex;
     gap: 12px;
     align-items: flex-start;
+    overflow-x: hidden;
   }
 
   .track-sections.virtualized {
     flex: 1;
     height: calc(100vh - 280px);
     min-height: 400px;
+    overflow: hidden;
   }
 
   .track-group-list {
