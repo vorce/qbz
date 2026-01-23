@@ -71,6 +71,14 @@
     toggleSidebar
   } from '$lib/stores/sidebarStore';
 
+  // Title bar state management
+  import {
+    subscribe as subscribeTitleBar,
+    initTitleBarStore,
+    getTitleBarState,
+    shouldShowTitleBar
+  } from '$lib/stores/titleBarStore';
+
   // Auth state management
   import {
     subscribe as subscribeAuth,
@@ -299,6 +307,9 @@
 
   // Sidebar State (from sidebarStore subscription)
   let sidebarExpanded = $state(getIsExpanded());
+
+  // Title Bar State (from titleBarStore subscription)
+  let showTitleBar = $state(shouldShowTitleBar());
 
   // View State (from navigationStore subscription)
   let activeView = $state<ViewType>('home');
@@ -1939,6 +1950,12 @@
       sidebarExpanded = getIsExpanded();
     });
 
+    // Initialize and subscribe to title bar state changes
+    initTitleBarStore();
+    const unsubscribeTitleBar = subscribeTitleBar(() => {
+      showTitleBar = shouldShowTitleBar();
+    });
+
     // Subscribe to offline state changes
     const unsubscribeOffline = subscribeOffline(() => {
       offlineStatus = getOfflineStatus();
@@ -2132,6 +2149,7 @@
       unsubscribeUI();
       unsubscribeAuth();
       unsubscribeSidebar();
+      unsubscribeTitleBar();
       unsubscribeOffline();
       unsubscribeNav();
       unsubscribePlayer();
@@ -2214,9 +2232,11 @@
 {#if !isLoggedIn}
   <LoginView onLoginSuccess={handleLoginSuccess} onStartOffline={handleStartOffline} />
 {:else}
-  <div class="app">
+  <div class="app" class:no-titlebar={!showTitleBar}>
     <!-- Custom Title Bar (CSD) -->
-    <TitleBar />
+    {#if showTitleBar}
+      <TitleBar />
+    {/if}
 
     <div class="app-body">
     <!-- Sidebar -->
@@ -2236,6 +2256,7 @@
       subscription={userInfo?.subscription || 'Qobuz™'}
       isExpanded={sidebarExpanded}
       onToggle={toggleSidebar}
+      showTitleBar={showTitleBar}
     />
 
     <!-- Content Area (main + lyrics sidebar) -->
@@ -2732,6 +2753,12 @@
     padding-left: 20px; /* Space for sidebar toggle button (14px overlap + 6px margin) */
     padding-right: 8px; /* Gap between scrollbar and window edge */
     background-color: var(--bg-primary, #0f0f0f);
+  }
+
+  /* Adjust heights when title bar is hidden */
+  .app.no-titlebar .content-area,
+  .app.no-titlebar .main-content {
+    height: calc(100vh - 104px); /* Only 104px NowPlayingBar, no title bar */
   }
 
 </style>

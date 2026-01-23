@@ -49,6 +49,7 @@
     subscription?: string;
     isExpanded?: boolean;
     onToggle?: () => void;
+    showTitleBar?: boolean;
   }
 
   let {
@@ -65,7 +66,8 @@
     userName = 'User',
     subscription = 'Qobuz™',
     isExpanded = true,
-    onToggle
+    onToggle,
+    showTitleBar = true
   }: Props = $props();
 
   let userPlaylists = $state<Playlist[]>([]);
@@ -543,7 +545,7 @@
   }
 </script>
 
-<aside class="sidebar" class:collapsed={!isExpanded}>
+<aside class="sidebar" class:collapsed={!isExpanded} class:no-titlebar={!showTitleBar}>
   <!-- Scrollable Content Area -->
   <div class="content">
     <!-- Search Bar -->
@@ -795,6 +797,10 @@
   .sidebar.collapsed {
     width: 64px;
     min-width: 64px;
+  }
+
+  .sidebar.no-titlebar {
+    height: calc(100vh - 104px); /* Only 104px NowPlayingBar, no title bar */
   }
 
   .content {

@@ -45,6 +45,13 @@
   } from '$lib/stores/offlineStore';
   import { showToast } from '$lib/stores/toastStore';
   import {
+    subscribe as subscribeTitleBar,
+    getUseCustomTitleBar,
+    getHideTitleBar,
+    setUseCustomTitleBar,
+    setHideTitleBar
+  } from '$lib/stores/titleBarStore';
+  import {
     getPlaybackPreferences,
     setAutoplayMode,
     setShowContextIcon,
@@ -368,6 +375,10 @@
   let systemNotificationsEnabled = $state(true);
   let language = $state('Auto');
 
+  // Title bar settings
+  let useCustomTitleBar = $state(getUseCustomTitleBar());
+  let hideTitleBar = $state(getHideTitleBar());
+
   // Library settings
   let fetchQobuzArtistImages = $state(true);
   let showQobuzDownloadsInLibrary = $state(false);
@@ -470,6 +481,12 @@
       offlineSettings = getOfflineSettings();
     });
 
+    // Subscribe to title bar state changes
+    const unsubscribeTitleBar = subscribeTitleBar(() => {
+      useCustomTitleBar = getUseCustomTitleBar();
+      hideTitleBar = getHideTitleBar();
+    });
+
     // Scroll tracking for navigation
     const handleScroll = () => {
       if (!settingsViewEl) return;
@@ -497,6 +514,7 @@
     return () => {
       unsubscribeOffline();
       unsubscribeZoom();
+      unsubscribeTitleBar();
       settingsViewEl?.removeEventListener('scroll', handleScroll);
     };
   });
@@ -1660,9 +1678,27 @@
       <span class="setting-label">{$t('settings.appearance.inAppToasts')}</span>
       <Toggle enabled={toastsEnabled} onchange={(v) => { toastsEnabled = v; setToastsEnabled(v); }} />
     </div>
-    <div class="setting-row last">
+    <div class="setting-row">
       <span class="setting-label">{$t('settings.appearance.systemNotifications')}</span>
       <Toggle enabled={systemNotificationsEnabled} onchange={(v) => { systemNotificationsEnabled = v; setSystemNotificationsEnabled(v); }} />
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.appearance.useCustomTitleBar')}</span>
+        <span class="setting-desc">{$t('settings.appearance.useCustomTitleBarDesc')}</span>
+      </div>
+      <Toggle
+        enabled={useCustomTitleBar}
+        disabled={hideTitleBar}
+        onchange={(v) => setUseCustomTitleBar(v)}
+      />
+    </div>
+    <div class="setting-row last">
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.appearance.hideTitleBar')}</span>
+        <span class="setting-desc">{$t('settings.appearance.hideTitleBarDesc')}</span>
+      </div>
+      <Toggle enabled={hideTitleBar} onchange={(v) => setHideTitleBar(v)} />
     </div>
   </section>
 
