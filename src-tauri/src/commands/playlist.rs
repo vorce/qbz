@@ -5,6 +5,7 @@ use tauri::State;
 
 use crate::api::models::{Playlist, SearchResultsPage};
 use crate::library::commands::LibraryState;
+use crate::library::compute_added_at_timestamp;
 use crate::AppState;
 
 /// Collect tracks that need metadata backfill
@@ -93,14 +94,9 @@ pub async fn get_playlist(
         drop(client); // Release the client lock before database operations
         
         // Add new metadata directly to avoid refetching
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0);
-        
         for (playlist_track_id, _track_id, position) in &tracks_to_backfill {
             metadata.insert(*playlist_track_id, (
-                now + (*position as i64 * 3600),  // 1 hour intervals for backfill
+                compute_added_at_timestamp(*position, true),
                 Some(*position)
             ));
         }

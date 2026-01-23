@@ -14,7 +14,7 @@ pub mod thumbnails;
 
 pub use commands::LibraryState;
 pub use cue_parser::{cue_to_tracks, CueParser, CueSheet, CueTrack};
-pub use database::{LibraryDatabase, LibraryFolder, LibraryStats, PlaylistSettings, PlaylistStats};
+pub use database::{compute_added_at_timestamp, LibraryDatabase, LibraryFolder, LibraryStats, PlaylistSettings, PlaylistStats};
 pub use errors::LibraryError;
 pub use metadata::MetadataExtractor;
 pub use models::*;

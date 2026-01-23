@@ -1695,8 +1695,7 @@ impl LibraryDatabase {
             
             for (playlist_track_id, track_id, position) in chunk {
                 let added_at = if is_backfill {
-                    // For backfill, create synthetic timestamps based on position (1 hour intervals)
-                    now + (*position as i64 * 3600)
+                    compute_added_at_timestamp(*position, false)
                 } else {
                     // For real additions, use current timestamp
                     now
@@ -2721,5 +2720,20 @@ impl LibraryDatabase {
 
         settings.collect::<Result<Vec<_>, _>>()
             .map_err(|e| LibraryError::Database(format!("Failed to collect playlists: {}", e)))
+    }
+}
+
+/// Compute the added_at timestamp for a track
+/// For backfill we create "fake" timestamps based on position
+pub fn compute_added_at_timestamp(position: i32, is_backfill: bool) -> i64 {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    if is_backfill {
+        now - (position as i64)
+    } else {
+        now
     }
 }
