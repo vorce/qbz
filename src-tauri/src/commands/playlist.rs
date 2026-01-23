@@ -39,7 +39,7 @@ fn merge_metadata_into_tracks(
     if let Some(ref mut tracks) = playlist.tracks {
         for track in tracks.items.iter_mut() {
             // Priority: API added_at (if present) > local database > position fallback
-            // So when/if we get added_at info from Quboz we will use it
+            // So when/if we get added_at info from Quboz we will use it automatically
             if track.added_at.is_none() {
                 if let Some(ptid) = track.playlist_track_id {
                     if let Some((added_at, _)) = metadata.get(&ptid) {
@@ -49,6 +49,43 @@ fn merge_metadata_into_tracks(
             }
         }
     }
+}
+
+/// Backfill the extra playlist metadata if needed. We need the metadata to support
+/// additional functionality like sorting by "added at".
+/// If there's any track in the playlist we don't have metadata for we will backfill it.
+async fn maybe_backfill_playlist_metadata(
+    playlist_id: u64,
+    playlist: &mut Playlist,
+    library_state: &State<'_, LibraryState>,
+) -> Result<(), String> {
+    let db = library_state.db.lock().await;
+    let mut metadata = db
+        .get_qobuz_track_metadata(playlist_id)
+        .map_err(|e| format!("Failed to get track metadata: {}", e))?;
+
+    let tracks_to_backfill = collect_tracks_for_backfill(playlist, &metadata);
+
+    if !tracks_to_backfill.is_empty() {
+        log::info!("Backfilling {} tracks for playlist {}", tracks_to_backfill.len(), playlist_id);
+
+        // Add new metadata directly to avoid refetching
+        for (playlist_track_id, _track_id, position) in &tracks_to_backfill {
+            metadata.insert(*playlist_track_id, (
+                compute_added_at_timestamp(*position, true),
+                Some(*position)
+            ));
+        }
+
+        db.track_qobuz_tracks_added(playlist_id, &tracks_to_backfill, true)
+            .map_err(|e| format!("Failed to backfill track metadata: {}", e))?;
+    }
+
+    if !metadata.is_empty() {
+        merge_metadata_into_tracks(playlist, &metadata);
+    }
+
+    Ok(())
 }
 
 /// Get user's playlists
@@ -80,35 +117,8 @@ pub async fn get_playlist(
         .await
         .map_err(|e| format!("Failed to get playlist: {}", e))?;
 
-    // Get track metadata from database
-    let db = library_state.db.lock().await;
-    let mut metadata = db
-        .get_qobuz_track_metadata(playlist_id)
-        .map_err(|e| format!("Failed to get track metadata: {}", e))?;
-
-    // Backfill metadata if needed
-    let tracks_to_backfill = collect_tracks_for_backfill(&playlist, &metadata);
-    
-    if !tracks_to_backfill.is_empty() {
-        log::info!("Backfilling {} tracks for playlist {}", tracks_to_backfill.len(), playlist_id);
-        drop(client); // Release the client lock before database operations
-        
-        // Add new metadata directly to avoid refetching
-        for (playlist_track_id, _track_id, position) in &tracks_to_backfill {
-            metadata.insert(*playlist_track_id, (
-                compute_added_at_timestamp(*position, true),
-                Some(*position)
-            ));
-        }
-        
-        db.track_qobuz_tracks_added(playlist_id, &tracks_to_backfill, true)
-            .map_err(|e| format!("Failed to backfill track metadata: {}", e))?;
-    }
-
-    // Merge metadata into tracks
-    if !metadata.is_empty() {
-        merge_metadata_into_tracks(&mut playlist, &metadata);
-    }
+    drop(client); // Release the client lock before database operations
+    maybe_backfill_playlist_metadata(playlist_id, &mut playlist, &library_state).await?;
 
     Ok(playlist)
 }
