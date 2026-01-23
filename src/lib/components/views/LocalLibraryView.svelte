@@ -277,6 +277,11 @@
     previousOfflineState = isOffline;
   });
 
+  // Reactive effect: update virtualization state when album count changes
+  $effect(() => {
+    useVirtualization = isVirtualizationEnabled() && shouldUsePerformanceMode(albums.length);
+  });
+
   onMount(async () => {
     await loadLibraryData();
     // Load folders (now safe in offline mode - uses library_get_folders instead)
