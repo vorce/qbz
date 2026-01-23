@@ -432,9 +432,15 @@
 
   /* Album Grid Row (Grid Mode) */
   .album-grid-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 24px;
     padding: 0;
+  }
+
+  .album-grid-row :global(.album-card) {
+    flex: 1 1 180px;
+    max-width: calc((100% - 24px * 5) / 6); /* Max 6 columns */
+    min-width: 180px;
   }
 </style>
