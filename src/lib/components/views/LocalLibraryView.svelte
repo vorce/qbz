@@ -297,6 +297,39 @@
     });
   }
 
+  // Memoized filtered and grouped tracks
+  let groupedTracksMemo = $derived.by(() => {
+    if (!trackGroupingEnabled) {
+      return {
+        grouped: [{ id: 'ungrouped', title: '', subtitle: '', tracks, key: '' }],
+        alphaGroups: new Set<string>(),
+        indexTargets: new Map<string, string>()
+      };
+    }
+
+    const grouped = groupTracks(tracks, trackGroupMode);
+
+    // Build alpha index targets for artist mode
+    let indexTargets = new Map<string, string>();
+    if (trackGroupMode === 'artist') {
+      for (const group of grouped) {
+        const letter = alphaGroupKey(group.title);
+        if (!indexTargets.has(letter)) {
+          indexTargets.set(letter, group.id);
+        }
+      }
+    }
+
+    // Build alpha groups set
+    const alphaGroups = trackGroupMode === 'name'
+      ? new Set(grouped.map(group => group.key))
+      : trackGroupMode === 'artist'
+        ? new Set(indexTargets.keys())
+        : new Set<string>();
+
+    return { grouped, alphaGroups, indexTargets };
+  });
+
   // Loading state
   let loading = $state(false);
   let scanning = $state(false);
@@ -2540,24 +2573,7 @@
             <span class="album-count">{tracks.length} tracks</span>
           </div>
 
-          {@const groupedTracks = trackGroupingEnabled ? groupTracks(tracks, trackGroupMode) : [{ id: 'ungrouped', title: '', subtitle: '', tracks, key: '' }]}
-          {@const trackIndexTargets = trackGroupingEnabled && trackGroupMode === 'artist'
-            ? (() => {
-                const map = new Map<string, string>();
-                for (const group of groupedTracks) {
-                  const letter = alphaGroupKey(group.title);
-                  if (!map.has(letter)) {
-                    map.set(letter, group.id);
-                  }
-                }
-                return map;
-              })()
-            : new Map<string, string>()}
-          {@const trackAlphaGroups = trackGroupingEnabled && trackGroupMode === 'name'
-            ? new Set(groupedTracks.map(group => group.key))
-            : trackGroupingEnabled && trackGroupMode === 'artist'
-              ? new Set(trackIndexTargets.keys())
-              : new Set<string>()}
+          {@const { grouped: groupedTracks, alphaGroups: trackAlphaGroups, indexTargets: trackIndexTargets } = groupedTracksMemo}
 
           <div class="track-sections">
             {#if useVirtualization}
