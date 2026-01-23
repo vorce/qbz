@@ -18,7 +18,7 @@ QBZ is a free and open source (FOSS) high-fidelity streaming client for Linux wi
 
 - This application uses the Qobuz API but is not certified by Qobuz.
 - Qobuz™ is a trademark of Qobuz. QBZ is not affiliated with, endorsed by, or certified by Qobuz.
-- Offline downloads are a local cache for offline playback only while you have a valid subscription. You do not receive a license to keep or redistribute the content. If your subscription becomes invalid, QBZ will delete all downloaded content after 3 days.
+- The offline library is a temporary playback cache for listening without an internet connection while you have a valid subscription. You do not receive a license to keep or redistribute the content. If your subscription becomes invalid, QBZ will remove all cached content after 3 days.
 - Credentials may be stored in your system keyring if you have a keyring configured.
 - Qobuz Terms of Service: https://www.qobuz.com/us-en/legal/terms
 
@@ -166,7 +166,7 @@ QBZ is MIT-licensed and fully open source. No telemetry, no lock-in, and no hidd
 
 ## Inspiration
 
-QBZ draws inspiration from projects like qobuz-dl, and from the broader Linux audio community that values open tools and high-fidelity playback.
+QBZ draws inspiration from the broader Linux audio community that values open tools and high-fidelity playback.
 
 ## Tech Stack
 
@@ -288,7 +288,7 @@ TIDAL_API_CLIENT_SECRET=your_client_secret
 If you've used QBZ before version 1.1.6, your data was stored under `qbz-nix` directories. The application now uses unified `qbz` paths. To migrate your existing data:
 
 ```bash
-# Migrate cache (downloads, artwork, etc.)
+# Migrate cache (offline library, artwork, etc.)
 mv ~/.cache/qbz-nix ~/.cache/qbz
 
 # Migrate config (credentials)
