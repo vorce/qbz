@@ -796,42 +796,15 @@ pub async fn library_get_albums(
         .unwrap_or(false);
 
     let db = state.db.lock().await;
-    let mut albums = db.get_albums_with_filter(include_hidden.unwrap_or(false), include_qobuz)
-        .map_err(|e| e.to_string())?;
 
-    // Filter out albums from network folders when in offline mode
-    if exclude_network_folders.unwrap_or(false) {
-        let network_folders = db.get_network_folder_paths()
-            .map_err(|e| e.to_string())?;
+    // Use optimized SQL-based filtering instead of N+1 query pattern
+    let albums = db.get_albums_with_full_filter(
+        include_hidden.unwrap_or(false),
+        include_qobuz,
+        exclude_network_folders.unwrap_or(false),
+    ).map_err(|e| e.to_string())?;
 
-        if !network_folders.is_empty() {
-            log::info!("Filtering out albums from {} network folders", network_folders.len());
-
-            // Filter albums whose tracks are from network folders
-            albums.retain(|album| {
-                // Get first track's file path to determine if album is on network
-                if let Ok(tracks) = db.get_album_tracks(&album.id) {
-                    if let Some(first_track) = tracks.first() {
-                        // Check if track's file_path starts with any network folder path
-                        let is_network = network_folders.iter().any(|folder_path| {
-                            first_track.file_path.starts_with(folder_path)
-                        });
-
-                        if is_network {
-                            log::debug!("Excluding network album: {} - {}", album.artist, album.title);
-                        }
-
-                        return !is_network;
-                    }
-                }
-                // If we can't determine, keep it
-                true
-            });
-
-            log::info!("Filtered to {} albums after excluding network folders", albums.len());
-        }
-    }
-
+    log::info!("Returning {} albums", albums.len());
     Ok(albums)
 }
 

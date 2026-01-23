@@ -832,10 +832,32 @@ impl LibraryDatabase {
         include_hidden: bool,
         include_qobuz_downloads: bool,
     ) -> Result<Vec<LocalAlbum>, LibraryError> {
+        self.get_albums_with_full_filter(include_hidden, include_qobuz_downloads, false)
+    }
+
+    /// Get all albums with full filter options including network folder exclusion
+    /// This method filters network folders directly in SQL to avoid N+1 query patterns
+    pub fn get_albums_with_full_filter(
+        &self,
+        include_hidden: bool,
+        include_qobuz_downloads: bool,
+        exclude_network_folders: bool,
+    ) -> Result<Vec<LocalAlbum>, LibraryError> {
         let source_filter = if include_qobuz_downloads {
             ""
         } else {
             "AND (source IS NULL OR source != 'qobuz_download')"
+        };
+
+        // Network folder filter: exclude tracks whose file_path starts with any network folder path
+        let network_filter = if exclude_network_folders {
+            "AND NOT EXISTS (
+                SELECT 1 FROM library_folders nf
+                WHERE nf.is_network = 1
+                AND local_tracks.file_path LIKE nf.path || '%'
+            )"
+        } else {
+            ""
         };
 
         let query = if include_hidden {
@@ -870,12 +892,12 @@ impl LibraryDatabase {
                     bit_depth,
                     sample_rate
                 FROM local_tracks
-                WHERE 1=1 {}
+                WHERE 1=1 {} {}
             )
             GROUP BY group_key
             ORDER BY artist, title
             "#,
-                source_filter
+                source_filter, network_filter
             )
         } else {
             format!(
@@ -909,7 +931,7 @@ impl LibraryDatabase {
                     bit_depth,
                     sample_rate
                 FROM local_tracks
-                WHERE 1=1 {}
+                WHERE 1=1 {} {}
             )
             WHERE group_key NOT IN (
                 SELECT album_group_key FROM album_settings WHERE hidden = 1
@@ -917,7 +939,7 @@ impl LibraryDatabase {
             GROUP BY group_key
             ORDER BY artist, title
             "#,
-                source_filter
+                source_filter, network_filter
             )
         };
 
@@ -933,7 +955,7 @@ impl LibraryDatabase {
                 let artist: String = row.get(2)?;
                 let artwork_path: Option<String> = row.get(5)?;
 
-                log::info!("Album {} by {}: artwork_path = {:?}", album, artist, artwork_path);
+                log::debug!("Album {} by {}: artwork_path = {:?}", album, artist, artwork_path);
 
                 Ok(LocalAlbum {
                     id: group_key.clone(),
