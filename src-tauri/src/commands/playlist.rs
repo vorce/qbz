@@ -8,8 +8,8 @@ use crate::library::commands::LibraryState;
 use crate::library::compute_added_at_timestamp;
 use crate::AppState;
 
-/// Collect tracks that need metadata backfill
-fn collect_tracks_for_backfill(
+/// Collect tracks that doesn't have metadata
+fn collect_tracks_missing_metadata(
     playlist: &Playlist,
     existing_metadata: &HashMap<u64, (i64, Option<i32>)>,
 ) -> Vec<(u64, u64, i32)> {
@@ -31,8 +31,8 @@ fn collect_tracks_for_backfill(
         .unwrap_or_default()
 }
 
-/// Merge metadata into playlist tracks
-fn merge_metadata_into_tracks(
+/// Set the added at for track in the playlist based on metadata
+fn update_playlist_tracks_added_at(
     playlist: &mut Playlist,
     metadata: &HashMap<u64, (i64, Option<i32>)>,
 ) {
@@ -64,7 +64,7 @@ async fn maybe_backfill_playlist_metadata(
         .get_qobuz_track_metadata(playlist_id)
         .map_err(|e| format!("Failed to get track metadata: {}", e))?;
 
-    let tracks_to_backfill = collect_tracks_for_backfill(playlist, &metadata);
+    let tracks_to_backfill = collect_tracks_missing_metadata(playlist, &metadata);
 
     if !tracks_to_backfill.is_empty() {
         log::info!("Backfilling {} tracks for playlist {}", tracks_to_backfill.len(), playlist_id);
@@ -82,7 +82,7 @@ async fn maybe_backfill_playlist_metadata(
     }
 
     if !metadata.is_empty() {
-        merge_metadata_into_tracks(playlist, &metadata);
+        update_playlist_tracks_added_at(playlist, &metadata);
     }
 
     Ok(())
