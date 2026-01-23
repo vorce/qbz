@@ -309,7 +309,9 @@
     "no": "No",
     "ok": "OK",
     "loading": "Cargando...",
-    "loadMore": "Cargar Más"
+    "loadMore": "Cargar Más",
+    "collapse": "Contraer barra lateral",
+    "expand": "Expandir barra lateral"
   },
   "settings": {
     "title": "Ajustes",

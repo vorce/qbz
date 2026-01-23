@@ -63,6 +63,14 @@
     type UIState
   } from '$lib/stores/uiStore';
 
+  // Sidebar state management
+  import {
+    subscribe as subscribeSidebar,
+    initSidebarStore,
+    getIsExpanded,
+    toggleSidebar
+  } from '$lib/stores/sidebarStore';
+
   // Auth state management
   import {
     subscribe as subscribeAuth,
@@ -288,6 +296,9 @@
 
   // Offline State (from offlineStore subscription)
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
+
+  // Sidebar State (from sidebarStore subscription)
+  let sidebarExpanded = $state(getIsExpanded());
 
   // View State (from navigationStore subscription)
   let activeView = $state<ViewType>('home');
@@ -1922,6 +1933,12 @@
       userInfo = authState.userInfo;
     });
 
+    // Initialize and subscribe to sidebar state changes
+    initSidebarStore();
+    const unsubscribeSidebar = subscribeSidebar(() => {
+      sidebarExpanded = getIsExpanded();
+    });
+
     // Subscribe to offline state changes
     const unsubscribeOffline = subscribeOffline(() => {
       offlineStatus = getOfflineStatus();
@@ -2114,6 +2131,7 @@
       unsubscribeToast();
       unsubscribeUI();
       unsubscribeAuth();
+      unsubscribeSidebar();
       unsubscribeOffline();
       unsubscribeNav();
       unsubscribePlayer();
@@ -2216,6 +2234,8 @@
       onLogout={handleLogout}
       userName={userInfo?.userName || 'User'}
       subscription={userInfo?.subscription || 'Qobuz™'}
+      isExpanded={sidebarExpanded}
+      onToggle={toggleSidebar}
     />
 
     <!-- Content Area (main + lyrics sidebar) -->

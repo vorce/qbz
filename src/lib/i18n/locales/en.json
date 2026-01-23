@@ -309,7 +309,9 @@
     "no": "No",
     "ok": "OK",
     "loading": "Loading...",
-    "loadMore": "Load More"
+    "loadMore": "Load More",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
   },
   "settings": {
     "title": "Settings",

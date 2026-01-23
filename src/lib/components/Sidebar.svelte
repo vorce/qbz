@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { Search, Home, HardDrive, Plus, RefreshCw, ChevronDown, ChevronUp, Heart, ListMusic, Import, Settings, MoreHorizontal, ArrowUpDown, ChevronRight } from 'lucide-svelte';
+  import { Search, Home, HardDrive, Plus, RefreshCw, ChevronDown, ChevronUp, Heart, ListMusic, Import, Settings, MoreHorizontal, ArrowUpDown, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
   import NavigationItem from './NavigationItem.svelte';
@@ -47,6 +47,8 @@
     onLogout?: () => void;
     userName?: string;
     subscription?: string;
+    isExpanded?: boolean;
+    onToggle?: () => void;
   }
 
   let {
@@ -61,7 +63,9 @@
     onAboutClick,
     onLogout,
     userName = 'User',
-    subscription = 'Qobuz™'
+    subscription = 'Qobuz™',
+    isExpanded = true,
+    onToggle
   }: Props = $props();
 
   let userPlaylists = $state<Playlist[]>([]);
@@ -531,20 +535,24 @@
   }
 </script>
 
-<aside class="sidebar">
+<aside class="sidebar" class:collapsed={!isExpanded}>
   <!-- Scrollable Content Area -->
   <div class="content">
     <!-- Search Bar -->
     <button
       type="button"
       class="search-container"
+      class:collapsed={!isExpanded}
       onclick={() => {
         console.log('Search button clicked!');
         handleViewChange('search');
       }}
+      title={isExpanded ? undefined : $t('nav.search')}
     >
       <Search class="search-icon" size={16} />
-      <span class="search-placeholder">{$t('nav.search')}</span>
+      {#if isExpanded}
+        <span class="search-placeholder">{$t('nav.search')}</span>
+      {/if}
     </button>
 
     <!-- Navigation Section -->
@@ -553,6 +561,7 @@
         label={$t('nav.home')}
         active={activeView === 'home'}
         onclick={() => handleViewChange('home')}
+        showLabel={isExpanded}
       >
         {#snippet icon()}<Home size={14} />{/snippet}
       </NavigationItem>
@@ -564,6 +573,7 @@
         label={$t('nav.favorites')}
         active={activeView.startsWith('favorites-')}
         onclick={() => handleViewChange('favorites')}
+        showLabel={isExpanded}
       >
         {#snippet icon()}<Heart size={14} />{/snippet}
       </NavigationItem>
@@ -572,29 +582,31 @@
     <!-- Playlists Section (hidden in offline mode) -->
     {#if !isOffline}
     <div class="section playlists-section">
-      <div class="playlists-header">
-        <div class="section-header">{$t('nav.playlists')}</div>
-        <div class="header-actions" bind:this={menuRef}>
-          <button class="icon-btn" onclick={onCreatePlaylist} title={$t('playlist.createNew')}>
-            <Plus size={14} />
-          </button>
-          <button
-            class="icon-btn"
-            bind:this={triggerRef}
-            onclick={(e) => { e.stopPropagation(); toggleMenu(); }}
-            title={$t('actions.more')}
-          >
-            <MoreHorizontal size={14} />
-          </button>
-          <button class="icon-btn" onclick={() => playlistsCollapsed = !playlistsCollapsed} title={playlistsCollapsed ? $t('actions.open') : $t('actions.close')}>
-            {#if playlistsCollapsed}
-              <ChevronDown size={14} />
-            {:else}
-              <ChevronUp size={14} />
-            {/if}
-          </button>
+      {#if isExpanded}
+        <div class="playlists-header">
+          <div class="section-header">{$t('nav.playlists')}</div>
+          <div class="header-actions" bind:this={menuRef}>
+            <button class="icon-btn" onclick={onCreatePlaylist} title={$t('playlist.createNew')}>
+              <Plus size={14} />
+            </button>
+            <button
+              class="icon-btn"
+              bind:this={triggerRef}
+              onclick={(e) => { e.stopPropagation(); toggleMenu(); }}
+              title={$t('actions.more')}
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            <button class="icon-btn" onclick={() => playlistsCollapsed = !playlistsCollapsed} title={playlistsCollapsed ? $t('actions.open') : $t('actions.close')}>
+              {#if playlistsCollapsed}
+                <ChevronDown size={14} />
+              {:else}
+                <ChevronUp size={14} />
+              {/if}
+            </button>
+          </div>
         </div>
-      </div>
+      {/if}
 
       <!-- Dropdown Menu -->
       {#if menuOpen}
@@ -664,10 +676,12 @@
         </div>
       {/if}
 
-      {#if !playlistsCollapsed}
+      {#if !playlistsCollapsed || !isExpanded}
         <div class="playlists-scroll">
           {#if playlistsLoading}
-            <div class="playlists-loading">{$t('actions.loading')}</div>
+            {#if isExpanded}
+              <div class="playlists-loading">{$t('actions.loading')}</div>
+            {/if}
           {:else if visiblePlaylists.length > 0}
             <nav class="playlists-nav">
               {#each visiblePlaylists as playlist (playlist.id)}
@@ -677,15 +691,20 @@
                   active={activeView === 'playlist' && selectedPlaylistId === playlist.id}
                   onclick={() => handlePlaylistClick(playlist)}
                   onHover={() => loadPlaylistTooltip(playlist)}
+                  showLabel={isExpanded}
                 >
                   {#snippet icon()}<ListMusic size={14} />{/snippet}
                 </NavigationItem>
               {/each}
             </nav>
           {:else if userPlaylists.length > 0}
-            <div class="no-playlists">{$t('playlist.allHidden')}</div>
+            {#if isExpanded}
+              <div class="no-playlists">{$t('playlist.allHidden')}</div>
+            {/if}
           {:else}
-            <div class="no-playlists">{$t('empty.noPlaylists')}</div>
+            {#if isExpanded}
+              <div class="no-playlists">{$t('empty.noPlaylists')}</div>
+            {/if}
           {/if}
         </div>
       {/if}
@@ -694,19 +713,22 @@
 
     <!-- Local Library Section -->
     <div class="section local-library-section">
-      <button class="section-header-btn" onclick={() => localLibraryCollapsed = !localLibraryCollapsed}>
-        <span class="section-header">{$t('library.title')}</span>
-        {#if localLibraryCollapsed}
-          <ChevronDown size={12} />
-        {:else}
-          <ChevronUp size={12} />
-        {/if}
-      </button>
-      {#if !localLibraryCollapsed}
+      {#if isExpanded}
+        <button class="section-header-btn" onclick={() => localLibraryCollapsed = !localLibraryCollapsed}>
+          <span class="section-header">{$t('library.title')}</span>
+          {#if localLibraryCollapsed}
+            <ChevronDown size={12} />
+          {:else}
+            <ChevronUp size={12} />
+          {/if}
+        </button>
+      {/if}
+      {#if !localLibraryCollapsed || !isExpanded}
         <NavigationItem
           label={$t('library.browse')}
           active={activeView === 'library'}
           onclick={() => handleViewChange('library')}
+          showLabel={isExpanded}
         >
           {#snippet icon()}<HardDrive size={14} />{/snippet}
         </NavigationItem>
@@ -714,14 +736,37 @@
     </div>
   </div>
 
+  <!-- Toggle Button -->
+  <button
+    class="toggle-btn"
+    onclick={onToggle}
+    title={isExpanded ? $t('actions.collapse') : $t('actions.expand')}
+  >
+    {#if isExpanded}
+      <ChevronsLeft size={16} />
+    {:else}
+      <ChevronsRight size={16} />
+    {/if}
+  </button>
+
   <!-- Fixed User Profile at Bottom -->
-  <div class="user-section">
-    <UserCard
-      username={userName}
-      {subscription}
-      onSettingsClick={onSettingsClick ?? (() => handleViewChange('settings'))}
-      {onAboutClick}
-    />
+  <div class="user-section" class:collapsed={!isExpanded}>
+    {#if isExpanded}
+      <UserCard
+        username={userName}
+        {subscription}
+        onSettingsClick={onSettingsClick ?? (() => handleViewChange('settings'))}
+        {onAboutClick}
+      />
+    {:else}
+      <button
+        class="collapsed-settings-btn"
+        onclick={onSettingsClick ?? (() => handleViewChange('settings'))}
+        title={$t('nav.settings')}
+      >
+        <Settings size={16} />
+      </button>
+    {/if}
   </div>
 </aside>
 
@@ -736,6 +781,12 @@
     display: flex;
     flex-direction: column;
     height: calc(100vh - 136px); /* 104px NowPlayingBar + 32px TitleBar */
+    transition: width 200ms ease, min-width 200ms ease;
+  }
+
+  .sidebar.collapsed {
+    width: 64px;
+    min-width: 64px;
   }
 
   .content {
@@ -767,6 +818,14 @@
 
   .search-container:hover {
     background-color: var(--bg-hover);
+  }
+
+  .search-container.collapsed {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 8px;
   }
 
   .search-container :global(.search-icon) {
@@ -892,9 +951,55 @@
     padding: 6px 8px;
   }
 
+  .toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 32px;
+    padding: 0 12px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 150ms ease, background-color 150ms ease;
+    border-radius: 0;
+    flex-shrink: 0;
+  }
+
+  .toggle-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-hover);
+  }
+
   .user-section {
     border-top: 1px solid var(--bg-tertiary);
     padding: 8px;
+  }
+
+  .user-section.collapsed {
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .collapsed-settings-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 150ms ease, background-color 150ms ease;
+  }
+
+  .collapsed-settings-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-hover);
   }
 
   /* Dropdown menu styles */
