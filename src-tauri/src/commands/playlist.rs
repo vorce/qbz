@@ -1,9 +1,70 @@
 //! Playlist-related Tauri commands
 
+use std::collections::HashMap;
 use tauri::State;
 
 use crate::api::models::{Playlist, SearchResultsPage};
+use crate::library::commands::LibraryState;
 use crate::AppState;
+
+/// Check if playlist needs metadata backfill for tracks missing timestamps
+fn needs_backfill_playlist_metadata(
+    playlist: &Playlist,
+    metadata: &HashMap<u64, (i64, Option<i32>)>,
+) -> bool {
+    playlist.tracks.as_ref()
+        .map(|tracks| {
+            tracks.items.iter().any(|track| {
+                track.playlist_track_id
+                    .map(|ptid| !metadata.contains_key(&ptid))
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false)
+}
+
+/// Collect tracks that need metadata backfill
+fn collect_tracks_for_backfill(
+    playlist: &Playlist,
+    existing_metadata: &HashMap<u64, (i64, Option<i32>)>,
+) -> Vec<(u64, u64, i32)> {
+    playlist.tracks.as_ref()
+        .map(|tracks| {
+            tracks.items.iter()
+                .enumerate()
+                .filter_map(|(pos, track)| {
+                    track.playlist_track_id.and_then(|ptid| {
+                        if !existing_metadata.contains_key(&ptid) {
+                            Some((ptid, track.id, pos as i32))
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Merge metadata into playlist tracks
+fn merge_metadata_into_tracks(
+    playlist: &mut Playlist,
+    metadata: &HashMap<u64, (i64, Option<i32>)>,
+) {
+    if let Some(ref mut tracks) = playlist.tracks {
+        for track in tracks.items.iter_mut() {
+            // Priority: API added_at (if present) > local database > position fallback
+            // So when/if we get added_at info from Quboz we will use it
+            if track.added_at.is_none() {
+                if let Some(ptid) = track.playlist_track_id {
+                    if let Some((added_at, _)) = metadata.get(&ptid) {
+                        track.added_at = Some(*added_at);
+                    }
+                }
+            }
+        }
+    }
+}
 
 /// Get user's playlists
 #[tauri::command]
@@ -24,14 +85,46 @@ pub async fn get_user_playlists(
 pub async fn get_playlist(
     playlist_id: u64,
     state: State<'_, AppState>,
+    library_state: State<'_, LibraryState>,
 ) -> Result<Playlist, String> {
     log::info!("Command: get_playlist {}", playlist_id);
 
     let client = state.client.lock().await;
-    client
+    let mut playlist = client
         .get_playlist(playlist_id)
         .await
-        .map_err(|e| format!("Failed to get playlist: {}", e))
+        .map_err(|e| format!("Failed to get playlist: {}", e))?;
+
+    // Get track metadata from database
+    let db = library_state.db.lock().await;
+    let mut metadata = db
+        .get_qobuz_track_metadata(playlist_id)
+        .map_err(|e| format!("Failed to get track metadata: {}", e))?;
+
+    // Backfill metadata if needed
+    if needs_backfill_playlist_metadata(&playlist, &metadata) {
+        let tracks_to_backfill = collect_tracks_for_backfill(&playlist, &metadata);
+        
+        if !tracks_to_backfill.is_empty() {
+            log::info!("Backfilling {} tracks for playlist {}", tracks_to_backfill.len(), playlist_id);
+            drop(client); // Release the client lock before database operations
+            
+            db.track_qobuz_tracks_added(playlist_id, &tracks_to_backfill, true)
+                .map_err(|e| format!("Failed to backfill track metadata: {}", e))?;
+
+            // Re-fetch metadata after backfill
+            metadata = db
+                .get_qobuz_track_metadata(playlist_id)
+                .map_err(|e| format!("Failed to get track metadata after backfill: {}", e))?;
+        }
+    }
+
+    // Merge metadata into tracks
+    if !metadata.is_empty() {
+        merge_metadata_into_tracks(&mut playlist, &metadata);
+    }
+
+    Ok(playlist)
 }
 
 /// Search playlists
@@ -72,6 +165,7 @@ pub async fn create_playlist(
 pub async fn delete_playlist(
     playlist_id: u64,
     state: State<'_, AppState>,
+    library_state: State<'_, LibraryState>,
 ) -> Result<(), String> {
     log::info!("Command: delete_playlist {}", playlist_id);
 
@@ -79,7 +173,15 @@ pub async fn delete_playlist(
     client
         .delete_playlist(playlist_id)
         .await
-        .map_err(|e| format!("Failed to delete playlist: {}", e))
+        .map_err(|e| format!("Failed to delete playlist: {}", e))?;
+
+    // Clean up metadata for deleted playlist
+    drop(client); // Release the client lock before acquiring database lock
+    let db = library_state.db.lock().await;
+    db.delete_all_qobuz_track_metadata(playlist_id)
+        .map_err(|e| format!("Failed to delete playlist metadata: {}", e))?;
+
+    Ok(())
 }
 
 /// Add tracks to a playlist
@@ -88,6 +190,7 @@ pub async fn add_tracks_to_playlist(
     playlist_id: u64,
     track_ids: Vec<u64>,
     state: State<'_, AppState>,
+    library_state: State<'_, LibraryState>,
 ) -> Result<(), String> {
     log::info!("Command: add_tracks_to_playlist {} ({} tracks)", playlist_id, track_ids.len());
 
@@ -95,7 +198,37 @@ pub async fn add_tracks_to_playlist(
     client
         .add_tracks_to_playlist(playlist_id, &track_ids)
         .await
-        .map_err(|e| format!("Failed to add tracks to playlist: {}", e))
+        .map_err(|e| format!("Failed to add tracks to playlist: {}", e))?;
+
+    // Fetch the updated playlist to get playlist_track_ids for newly added tracks
+    let playlist = client
+        .get_playlist(playlist_id)
+        .await
+        .map_err(|e| format!("Failed to fetch playlist after adding tracks: {}", e))?;
+
+    // Find the newly added tracks and record their metadata
+    if let Some(tracks) = playlist.tracks {
+        // Get the last N tracks (where N = number of tracks we just added)
+        let newly_added: Vec<(u64, u64, i32)> = tracks.items
+            .iter()
+            .rev()
+            .take(track_ids.len())
+            .filter_map(|track| {
+                track.playlist_track_id.map(|ptid| {
+                    (ptid, track.id, tracks.items.len() as i32 - 1) // Position will be overwritten, using placeholder
+                })
+            })
+            .collect();
+
+        if !newly_added.is_empty() {
+            drop(client); // Release the client lock before acquiring database lock
+            let db = library_state.db.lock().await;
+            db.track_qobuz_tracks_added(playlist_id, &newly_added, false)
+                .map_err(|e| format!("Failed to track newly added tracks: {}", e))?;
+        }
+    }
+
+    Ok(())
 }
 
 /// Remove tracks from a playlist
@@ -104,6 +237,7 @@ pub async fn remove_tracks_from_playlist(
     playlist_id: u64,
     playlist_track_ids: Vec<u64>,
     state: State<'_, AppState>,
+    library_state: State<'_, LibraryState>,
 ) -> Result<(), String> {
     log::info!("Command: remove_tracks_from_playlist {} ({} tracks)", playlist_id, playlist_track_ids.len());
 
@@ -111,7 +245,15 @@ pub async fn remove_tracks_from_playlist(
     client
         .remove_tracks_from_playlist(playlist_id, &playlist_track_ids)
         .await
-        .map_err(|e| format!("Failed to remove tracks from playlist: {}", e))
+        .map_err(|e| format!("Failed to remove tracks from playlist: {}", e))?;
+
+    // Delete metadata for removed tracks
+    drop(client); // Release the client lock before acquiring database lock
+    let db = library_state.db.lock().await;
+    db.delete_qobuz_track_metadata(playlist_id, &playlist_track_ids)
+        .map_err(|e| format!("Failed to delete track metadata: {}", e))?;
+
+    Ok(())
 }
 
 /// Update playlist metadata

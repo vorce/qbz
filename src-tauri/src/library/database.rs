@@ -503,6 +503,34 @@ impl LibraryDatabase {
             ).map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
         }
 
+        // Migration: Add playlist_qobuz_track_metadata table for tracking when tracks are added
+        let has_track_metadata_table: bool = self.conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='playlist_qobuz_track_metadata'",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|count| count > 0)
+            .unwrap_or(false);
+
+        if !has_track_metadata_table {
+            log::info!("Running migration: creating playlist_qobuz_track_metadata table");
+            self.conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS playlist_qobuz_track_metadata (
+                    qobuz_playlist_id INTEGER NOT NULL,
+                    playlist_track_id INTEGER NOT NULL,
+                    track_id INTEGER NOT NULL,
+                    added_at INTEGER NOT NULL,
+                    position INTEGER,
+                    PRIMARY KEY (qobuz_playlist_id, playlist_track_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_qobuz_track_metadata_playlist
+                    ON playlist_qobuz_track_metadata(qobuz_playlist_id);
+                CREATE INDEX IF NOT EXISTS idx_qobuz_track_metadata_track
+                    ON playlist_qobuz_track_metadata(track_id);"
+            ).map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
+        }
+
         Ok(())
     }
 
@@ -1623,6 +1651,150 @@ impl LibraryDatabase {
             "DELETE FROM playlist_settings WHERE qobuz_playlist_id = ?1",
             params![qobuz_playlist_id as i64],
         ).map_err(|e| LibraryError::Database(format!("Failed to delete playlist settings: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// Track when Qobuz tracks are added to a playlist
+    /// Records timestamp for new additions or backfills with position-based synthetic timestamps
+    pub fn track_qobuz_tracks_added(
+        &self,
+        qobuz_playlist_id: u64,
+        tracks: &[(u64, u64, i32)], // (playlist_track_id, track_id, position)
+        is_backfill: bool,
+    ) -> Result<(), LibraryError> {
+        if tracks.is_empty() {
+            return Ok(());
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        // SQLite has a limit on parameters (default 999, we use 5 params per row)
+        const BATCH_SIZE: usize = 200;
+
+        for chunk in tracks.chunks(BATCH_SIZE) {
+            // Build multi-row INSERT statement
+            let values_placeholders = chunk
+                .iter()
+                .map(|_| "(?1, ?, ?, ?, ?)")
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            let sql = format!(
+                "INSERT OR REPLACE INTO playlist_qobuz_track_metadata
+                 (qobuz_playlist_id, playlist_track_id, track_id, added_at, position)
+                 VALUES {}",
+                values_placeholders
+            );
+
+            // Build parameters: qobuz_playlist_id is shared (?1), then 4 params per row
+            let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(qobuz_playlist_id as i64)];
+            
+            for (playlist_track_id, track_id, position) in chunk {
+                let added_at = if is_backfill {
+                    // For backfill, create synthetic timestamps based on position (1 hour intervals)
+                    now + (*position as i64 * 3600)
+                } else {
+                    // For real additions, use current timestamp
+                    now
+                };
+
+                let position_value = if is_backfill {
+                    Some(*position)
+                } else {
+                    None
+                };
+
+                params_vec.push(Box::new(*playlist_track_id as i64));
+                params_vec.push(Box::new(*track_id as i64));
+                params_vec.push(Box::new(added_at));
+                params_vec.push(Box::new(position_value));
+            }
+
+            self.conn.execute(&sql, rusqlite::params_from_iter(params_vec))
+                .map_err(|e| LibraryError::Database(format!("Failed to track track metadata: {}", e)))?;
+        }
+
+        Ok(())
+    }
+
+    /// Get track metadata for tracks in a playlist
+    /// Returns a map of playlist_track_id -> (added_at, position)
+    pub fn get_qobuz_track_metadata(
+        &self,
+        qobuz_playlist_id: u64,
+    ) -> Result<std::collections::HashMap<u64, (i64, Option<i32>)>, LibraryError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT playlist_track_id, added_at, position
+             FROM playlist_qobuz_track_metadata
+             WHERE qobuz_playlist_id = ?1"
+        ).map_err(|e| LibraryError::Database(format!("Failed to prepare statement: {}", e)))?;
+
+        let metadata = stmt.query_map(params![qobuz_playlist_id as i64], |row| {
+            Ok((
+                row.get::<_, i64>(0)? as u64,
+                (row.get::<_, i64>(1)?, row.get::<_, Option<i32>>(2)?),
+            ))
+        }).map_err(|e| LibraryError::Database(format!("Failed to query track metadata: {}", e)))?;
+
+        let mut result = std::collections::HashMap::new();
+        for item in metadata {
+            let (playlist_track_id, (added_at, position)) = item
+                .map_err(|e| LibraryError::Database(format!("Failed to read track metadata: {}", e)))?;
+            result.insert(playlist_track_id, (added_at, position));
+        }
+
+        Ok(result)
+    }
+
+    /// Delete track metadata for removed tracks
+    pub fn delete_qobuz_track_metadata(
+        &self,
+        qobuz_playlist_id: u64,
+        playlist_track_ids: &[u64],
+    ) -> Result<(), LibraryError> {
+        if playlist_track_ids.is_empty() {
+            return Ok(());
+        }
+
+        // SQLite has a limit on parameters (default 999)
+        // Process in batches to stay under the limit (1 for playlist_id + N for track_ids)
+        const BATCH_SIZE: usize = 900;
+
+        for chunk in playlist_track_ids.chunks(BATCH_SIZE) {
+            let placeholders = chunk
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
+
+            let sql = format!(
+                "DELETE FROM playlist_qobuz_track_metadata
+                 WHERE qobuz_playlist_id = ?1 AND playlist_track_id IN ({})",
+                placeholders
+            );
+
+            let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(qobuz_playlist_id as i64)];
+            for id in chunk {
+                params_vec.push(Box::new(*id as i64));
+            }
+
+            self.conn.execute(&sql, rusqlite::params_from_iter(params_vec))
+                .map_err(|e| LibraryError::Database(format!("Failed to delete track metadata: {}", e)))?;
+        }
+
+        Ok(())
+    }
+
+    /// Delete all track metadata for a playlist
+    pub fn delete_all_qobuz_track_metadata(&self, qobuz_playlist_id: u64) -> Result<(), LibraryError> {
+        self.conn.execute(
+            "DELETE FROM playlist_qobuz_track_metadata WHERE qobuz_playlist_id = ?1",
+            params![qobuz_playlist_id as i64],
+        ).map_err(|e| LibraryError::Database(format!("Failed to delete track metadata: {}", e)))?;
 
         Ok(())
     }

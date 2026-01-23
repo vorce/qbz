@@ -138,6 +138,8 @@ pub struct Track {
     pub parental_warning: bool,
     /// Playlist-specific: ID within the playlist (for removal)
     pub playlist_track_id: Option<u64>,
+    /// Playlist-specific: Unix timestamp when track was added (from API or local tracking)
+    pub added_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

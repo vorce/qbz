@@ -29,6 +29,7 @@
     maximum_sampling_rate?: number;
     isrc?: string;
     playlist_track_id?: number; // Qobuz playlist-specific ID for removal
+    added_at?: number; // Unix timestamp when track was added
   }
 
   interface Playlist {
@@ -62,6 +63,7 @@
     localTrackId?: number;
     artworkPath?: string;
     playlistTrackId?: number; // Qobuz playlist-specific ID for removal
+    addedAt?: number; // Unix timestamp when track was added
   }
 
   // Local library track from backend
@@ -111,7 +113,7 @@
     last_played_at?: number;
   }
 
-  type SortField = 'default' | 'title' | 'artist' | 'album' | 'duration';
+  type SortField = 'default' | 'title' | 'artist' | 'album' | 'duration' | 'date_added';
   type SortOrder = 'asc' | 'desc';
 
   interface Props {
@@ -376,6 +378,7 @@
               bitDepth: t.maximum_bit_depth,
               samplingRate: t.maximum_sampling_rate,
               isrc: t.isrc,
+              addedAt: t.added_at,
             }));
 
             // Update duration
@@ -409,6 +412,7 @@
             samplingRate: t.maximum_sampling_rate,
             isrc: t.isrc,
             playlistTrackId: t.playlist_track_id,
+            addedAt: t.added_at,
           }));
         }
       }
@@ -598,6 +602,9 @@
           case 'duration':
             cmp = a.durationSeconds - b.durationSeconds;
             break;
+          case 'date_added':
+            cmp = (a.addedAt ?? a.number) - (b.addedAt ?? b.number);
+            break;
         }
         return sortOrder === 'desc' ? -cmp : cmp;
       });
@@ -612,6 +619,7 @@
     { field: 'artist', label: 'Artist' },
     { field: 'album', label: 'Album' },
     { field: 'duration', label: 'Duration' },
+    { field: 'date_added', label: 'Date Added' },
   ];
 
   function formatDuration(seconds: number): string {
