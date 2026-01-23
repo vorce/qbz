@@ -656,6 +656,8 @@
       bit_depth: t.bitDepth ?? null,
       sample_rate: t.samplingRate != null ? (t.isLocal ? t.samplingRate * 1000 : t.samplingRate) : null,
       is_local: t.isLocal ?? false,
+      album_id: t.isLocal ? null : (t.albumId || null),
+      artist_id: t.isLocal ? null : (t.artistId ?? null),
     }));
 
     const localIds = tracks
@@ -835,6 +837,8 @@
             bit_depth: t.bitDepth ?? null,
             sample_rate: t.samplingRate != null ? (t.isLocal ? t.samplingRate * 1000 : t.samplingRate) : null,
             is_local: t.isLocal ?? false,
+            album_id: t.isLocal ? null : (t.albumId || null),
+            artist_id: t.isLocal ? null : (t.artistId ?? null),
           }
         });
       } catch (err) {
@@ -863,6 +867,8 @@
       bit_depth: t.bitDepth ?? null,
       sample_rate: t.samplingRate != null ? (t.isLocal ? t.samplingRate * 1000 : t.samplingRate) : null,
       is_local: t.isLocal ?? false,
+      album_id: t.isLocal ? null : (t.albumId || null),
+      artist_id: t.isLocal ? null : (t.artistId ?? null),
     }));
 
     // Collect local track IDs
