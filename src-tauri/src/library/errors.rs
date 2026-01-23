@@ -18,4 +18,7 @@ pub enum LibraryError {
 
     #[error("Invalid path: {0}")]
     InvalidPath(String),
+
+    #[error("{0}")]
+    Other(String),
 }

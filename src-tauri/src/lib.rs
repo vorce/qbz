@@ -530,6 +530,11 @@ pub fn run() {
             library::commands::discogs_search_artist,
             library::commands::discogs_search_artwork,
             library::commands::discogs_download_artwork,
+            // Thumbnail commands
+            library::commands::library_get_thumbnail,
+            library::commands::library_clear_thumbnails,
+            library::commands::library_get_thumbnails_cache_size,
+            // Artwork commands
             library::commands::library_fetch_missing_artwork,
             library::commands::library_fetch_album_artwork,
             library::commands::library_set_album_artwork,

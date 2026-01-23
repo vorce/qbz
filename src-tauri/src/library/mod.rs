@@ -10,6 +10,7 @@ pub mod errors;
 pub mod metadata;
 pub mod models;
 pub mod scanner;
+pub mod thumbnails;
 
 pub use commands::LibraryState;
 pub use cue_parser::{cue_to_tracks, CueParser, CueSheet, CueTrack};

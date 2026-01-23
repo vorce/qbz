@@ -11,6 +11,7 @@ use crate::discogs::DiscogsClient;
 use crate::library::{
     cue_to_tracks, get_artwork_cache_dir, CueParser, LibraryDatabase, LibraryFolder, LibraryScanner, LibraryStats,
     LocalAlbum, LocalArtist, LocalTrack, MetadataExtractor, ScanError, ScanProgress, ScanStatus,
+    thumbnails,
 };
 use crate::network::{is_network_path, MountKind, NetworkFs};
 
@@ -1874,4 +1875,38 @@ pub async fn library_get_tracks_by_ids(
     }
 
     Ok(tracks)
+}
+
+/// Get or generate a thumbnail for an artwork file
+/// Returns the path to the thumbnail file
+#[tauri::command]
+pub async fn library_get_thumbnail(
+    artwork_path: String,
+) -> Result<String, String> {
+    log::debug!("Command: library_get_thumbnail for {}", artwork_path);
+
+    let source_path = PathBuf::from(&artwork_path);
+
+    if !source_path.exists() {
+        return Err(format!("Artwork file not found: {}", artwork_path));
+    }
+
+    let thumbnail_path = thumbnails::get_or_generate_thumbnail(&source_path)
+        .map_err(|e| e.to_string())?;
+
+    Ok(thumbnail_path.to_string_lossy().to_string())
+}
+
+/// Clear the thumbnails cache
+#[tauri::command]
+pub async fn library_clear_thumbnails() -> Result<(), String> {
+    log::info!("Command: library_clear_thumbnails");
+    thumbnails::clear_thumbnails().map_err(|e| e.to_string())
+}
+
+/// Get the thumbnails cache size in bytes
+#[tauri::command]
+pub async fn library_get_thumbnails_cache_size() -> Result<u64, String> {
+    log::debug!("Command: library_get_thumbnails_cache_size");
+    thumbnails::get_cache_size().map_err(|e| e.to_string())
 }
