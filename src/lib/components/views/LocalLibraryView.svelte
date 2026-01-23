@@ -183,6 +183,8 @@
   let trackGroupingEnabled = $state(false);
   let showTrackGroupMenu = $state(false);
   let trackSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  let albumSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  let debouncedAlbumSearch = $state('');
 
   // Data state
   let albums = $state<LocalAlbum[]>([]);
@@ -1240,9 +1242,18 @@
     }));
   }
 
+  // Memoization cache for artwork URLs to avoid repeated convertFileSrc calls
+  const artworkUrlCache = new Map<string, string>();
+
   function getArtworkUrl(path?: string): string {
     if (!path) return '';
-    return convertFileSrc(path);
+
+    const cached = artworkUrlCache.get(path);
+    if (cached) return cached;
+
+    const url = convertFileSrc(path);
+    artworkUrlCache.set(path, url);
+    return url;
   }
 
   function matchesAlbumSearch(album: LocalAlbum, query: string): boolean {
@@ -1349,6 +1360,8 @@
       // Clear search when closing
       if (activeTab === 'albums') {
         albumSearch = '';
+        debouncedAlbumSearch = '';
+        if (albumSearchTimer) clearTimeout(albumSearchTimer);
       } else if (activeTab === 'artists') {
         artistSearch = '';
       } else if (activeTab === 'tracks') {
@@ -1374,12 +1387,22 @@
     const value = (e.target as HTMLInputElement).value;
     if (activeTab === 'albums') {
       albumSearch = value;
+      scheduleAlbumSearch();
     } else if (activeTab === 'artists') {
       artistSearch = value;
     } else if (activeTab === 'tracks') {
       trackSearch = value;
       scheduleTrackSearch();
     }
+  }
+
+  function scheduleAlbumSearch() {
+    if (albumSearchTimer) {
+      clearTimeout(albumSearchTimer);
+    }
+    albumSearchTimer = setTimeout(() => {
+      debouncedAlbumSearch = albumSearch.trim();
+    }, 150);
   }
 
   function trackSortValue(track: LocalTrack) {
@@ -2116,8 +2139,8 @@
             <p class="empty-hint">Add folders and scan to build your library</p>
           </div>
         {:else}
-          {@const filteredAlbums = albumSearch.trim()
-            ? albums.filter(album => matchesAlbumSearch(album, albumSearch))
+          {@const filteredAlbums = debouncedAlbumSearch
+            ? albums.filter(album => matchesAlbumSearch(album, debouncedAlbumSearch))
             : albums}
 
           <div class="album-controls">
