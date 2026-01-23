@@ -1508,7 +1508,9 @@
     if (key === '#') {
       return `${prefix}-num`;
     }
-    return `${prefix}-${slugify(key)}`;
+    // Use encodeURIComponent instead of slugify to preserve case sensitivity
+    // This prevents collisions like "Aki" and "AKI" both becoming "aki"
+    return `${prefix}-${encodeURIComponent(key)}`;
   }
 
   function groupAlbums(items: LocalAlbum[], mode: AlbumGroupMode) {

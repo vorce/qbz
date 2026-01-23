@@ -4,6 +4,7 @@
   import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
+  import VirtualizedTrackList from '../VirtualizedTrackList.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import FavoritesEditModal from '../FavoritesEditModal.svelte';
   import { type DownloadStatus } from '$lib/stores/downloadState';
@@ -543,7 +544,9 @@
     if (key === '#') {
       return `${prefix}-num`;
     }
-    return `${prefix}-${slugify(key)}`;
+    // Use encodeURIComponent instead of slugify to preserve case sensitivity
+    // This prevents collisions like "Aki" and "AKI" both becoming "aki"
+    return `${prefix}-${encodeURIComponent(key)}`;
   }
 
   function scrollToGroup(prefix: string, letter: string, available: Set<string>) {
@@ -741,6 +744,33 @@
       bit_depth: t.maximum_bit_depth ?? null,
       sample_rate: t.maximum_sampling_rate ?? null,
     }));
+  }
+
+  // Accessor functions for VirtualizedTrackList (adapts FavoriteTrack to expected interface)
+  const getFavoriteTrackId = (t: FavoriteTrack) => t.id;
+  const getFavoriteTrackNumber = (t: FavoriteTrack, idx: number) => t.track_number || idx + 1;
+  const getFavoriteTrackTitle = (t: FavoriteTrack) => t.title;
+  const getFavoriteTrackArtist = (t: FavoriteTrack) => t.performer?.name;
+  const getFavoriteTrackDuration = (t: FavoriteTrack) => t.duration;
+  const getFavoriteTrackAlbumKey = (t: FavoriteTrack) => t.album?.id;
+  const getFavoriteArtistId = (t: FavoriteTrack) => t.performer?.id;
+  const getFavoriteAlbumId = (t: FavoriteTrack) => t.album?.id;
+
+  // VirtualizedTrackList requires this but we don't have disc info in favorites
+  function buildFavoritesAlbumSections(tracks: FavoriteTrack[]) {
+    return [{ disc: 1, label: 'Disc 1', tracks }];
+  }
+
+  // Handler for virtualized track play (needs index lookup)
+  function handleVirtualizedTrackPlay(track: FavoriteTrack) {
+    const index = trackIndexMap.get(track.id) ?? 0;
+    handleTrackClick(track, index);
+  }
+
+  // Build display track for virtualized list handlers
+  function buildDisplayTrackFromFavorite(track: FavoriteTrack): DisplayTrack {
+    const index = trackIndexMap.get(track.id) ?? 0;
+    return buildDisplayTrack(track, index);
   }
 
   async function setFavoritesContext(trackIds: number[], index: number) {
@@ -1050,9 +1080,11 @@
           <Search size={48} />
           <p>No tracks match "{trackSearch}"</p>
         </div>
-      {:else if trackGroupingEnabled}
-        {@const groupedTracks = groupTracks(filteredTracks, trackGroupMode)}
-        {@const trackIndexTargets = trackGroupMode === 'artist'
+      {:else}
+        {@const groupedTracks = trackGroupingEnabled
+          ? groupTracks(filteredTracks, trackGroupMode)
+          : [{ key: '', id: 'ungrouped', title: '', tracks: filteredTracks }]}
+        {@const trackIndexTargets = trackGroupMode === 'artist' && trackGroupingEnabled
           ? (() => {
               const map = new Map<string, string>();
               for (const group of groupedTracks) {
@@ -1064,67 +1096,52 @@
               return map;
             })()
           : new Map<string, string>()}
-        {@const trackAlphaGroups = trackGroupMode === 'name'
+        {@const trackAlphaGroups = trackGroupingEnabled && trackGroupMode === 'name'
           ? new Set(groupedTracks.map(group => group.key))
-          : trackGroupMode === 'artist'
+          : trackGroupingEnabled && trackGroupMode === 'artist'
             ? new Set(trackIndexTargets.keys())
             : new Set<string>()}
 
-        <div class="track-sections">
-          <div class="track-group-list">
-            {#each groupedTracks as group (group.id)}
-              <div class="track-group" id={group.id}>
-                <div class="track-group-header">
-                  <div class="track-group-title">{group.title}</div>
-                  {#if group.subtitle}
-                    <div class="track-group-subtitle">{group.subtitle}</div>
-                  {/if}
-                  <div class="track-group-count">{group.tracks.length} tracks</div>
-                </div>
-
-                <div class="track-list">
-                  {#each group.tracks as track, index (`${track.id}-${downloadStateVersion}`)}
-                    {@const globalIndex = trackIndexMap.get(track.id) ?? index}
-                    {@const displayTrack = buildDisplayTrack(track, globalIndex)}
-                    {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
-                    {@const isTrackDownloaded = downloadInfo.status === 'ready'}
-                    {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
-                    <TrackRow
-                      trackId={track.id}
-                      number={track.track_number || index + 1}
-                      title={track.title}
-                      artist={track.performer?.name}
-                      duration={formatDuration(track.duration)}
-                      quality={getQualityLabel(track)}
-                      isPlaying={isActiveTrack}
-                      isFavoriteOverride={true}
-                      downloadStatus={downloadInfo.status}
-                      downloadProgress={downloadInfo.progress}
-                      onPlay={() => handleTrackClick(track, globalIndex)}
-                      onDownload={onTrackDownload ? () => onTrackDownload(displayTrack) : undefined}
-                      onRemoveDownload={onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
-                      menuActions={{
-                        onPlayNow: () => handleTrackClick(track, globalIndex),
-                        onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(displayTrack) : undefined,
-                        onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(displayTrack) : undefined,
-                        onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined,
-                        onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
-                        onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink(displayTrack) : undefined,
-                        onGoToAlbum: track.album?.id && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.album!.id) : undefined,
-                        onGoToArtist: track.performer?.id && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer!.id!) : undefined,
-                        onDownload: onTrackDownload ? () => onTrackDownload(displayTrack) : undefined,
-                        isTrackDownloaded,
-                        onReDownload: isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(displayTrack) : undefined,
-                        onRemoveDownload: isTrackDownloaded && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined
-                      }}
-                    />
-                  {/each}
-                </div>
-              </div>
-            {/each}
+        <!-- Always use virtualization for tracks - handles any favorites size efficiently -->
+        <div class="track-sections virtualized">
+          <div class="virtualized-container">
+            <VirtualizedTrackList
+              groups={groupedTracks}
+              groupingEnabled={trackGroupingEnabled}
+              groupMode={trackGroupMode}
+              {activeTrackId}
+              {isPlaybackActive}
+              {formatDuration}
+              getQualityBadge={getQualityLabel}
+              buildAlbumSections={buildFavoritesAlbumSections}
+              onTrackPlay={handleVirtualizedTrackPlay}
+              onTrackPlayNext={onTrackPlayNext ? (t) => onTrackPlayNext(buildDisplayTrackFromFavorite(t)) : undefined}
+              onTrackPlayLater={onTrackPlayLater ? (t) => onTrackPlayLater(buildDisplayTrackFromFavorite(t)) : undefined}
+              onTrackAddToPlaylist={onTrackAddToPlaylist}
+              getTrackId={getFavoriteTrackId}
+              getTrackNumber={getFavoriteTrackNumber}
+              getTrackTitle={getFavoriteTrackTitle}
+              getTrackArtist={getFavoriteTrackArtist}
+              getTrackDuration={getFavoriteTrackDuration}
+              getTrackAlbumKey={getFavoriteTrackAlbumKey}
+              getArtistId={getFavoriteArtistId}
+              getAlbumId={getFavoriteAlbumId}
+              isLocal={false}
+              hideDownload={false}
+              hideFavorite={false}
+              isFavoriteOverride={true}
+              getDownloadStatus={getTrackDownloadStatus}
+              onDownload={onTrackDownload ? (t) => onTrackDownload(buildDisplayTrackFromFavorite(t)) : undefined}
+              onRemoveDownload={onTrackRemoveDownload}
+              onShareQobuz={onTrackShareQobuz}
+              onShareSonglink={onTrackShareSonglink ? (t) => onTrackShareSonglink(buildDisplayTrackFromFavorite(t)) : undefined}
+              onGoToAlbum={onTrackGoToAlbum}
+              onGoToArtist={onTrackGoToArtist}
+              onReDownload={onTrackReDownload ? (t) => onTrackReDownload(buildDisplayTrackFromFavorite(t)) : undefined}
+            />
           </div>
 
-          {#if trackGroupMode === 'name' || trackGroupMode === 'artist'}
+          {#if trackGroupingEnabled && (trackGroupMode === 'name' || trackGroupMode === 'artist')}
             <div class="alpha-index">
               {#each alphaIndexLetters as letter}
                 <button
@@ -1137,44 +1154,6 @@
               {/each}
             </div>
           {/if}
-        </div>
-      {:else}
-        <div class="track-list">
-          {#each filteredTracks as track, index (`${track.id}-${downloadStateVersion}`)}
-            {@const displayTrack = buildDisplayTrack(track, index)}
-            {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
-            {@const isTrackDownloaded = downloadInfo.status === 'ready'}
-            {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
-            <TrackRow
-              trackId={track.id}
-              number={index + 1}
-              title={track.title}
-              artist={track.performer?.name}
-              duration={formatDuration(track.duration)}
-              quality={getQualityLabel(track)}
-              isPlaying={isActiveTrack}
-              isFavoriteOverride={true}
-              downloadStatus={downloadInfo.status}
-              downloadProgress={downloadInfo.progress}
-              onPlay={() => handleTrackClick(track, index)}
-              onDownload={onTrackDownload ? () => onTrackDownload(displayTrack) : undefined}
-              onRemoveDownload={onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
-              menuActions={{
-                onPlayNow: () => handleTrackClick(track, index),
-                onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(displayTrack) : undefined,
-                onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(displayTrack) : undefined,
-                onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined,
-                onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
-                onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink(displayTrack) : undefined,
-                onGoToAlbum: track.album?.id && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.album!.id) : undefined,
-                onGoToArtist: track.performer?.id && onTrackGoToArtist ? () => onTrackGoToArtist(track.performer!.id!) : undefined,
-                onDownload: onTrackDownload ? () => onTrackDownload(displayTrack) : undefined,
-                isTrackDownloaded,
-                onReDownload: isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(displayTrack) : undefined,
-                onRemoveDownload: isTrackDownloaded && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined
-              }}
-            />
-          {/each}
         </div>
       {/if}
     {:else if activeTab === 'albums'}
@@ -1895,6 +1874,18 @@
     display: flex;
     gap: 12px;
     align-items: flex-start;
+  }
+
+  .track-sections.virtualized {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .virtualized-container {
+    flex: 1;
+    height: 100%;
+    min-height: 400px;
   }
 
   .track-group-list {
