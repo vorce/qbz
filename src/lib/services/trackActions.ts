@@ -37,11 +37,20 @@ export function buildQueueTrackFromQobuz(track: QobuzTrack): BackendQueueTrack {
     hires: track.hires_streamable ?? false,
     bit_depth: track.maximum_bit_depth ?? null,
     sample_rate: track.maximum_sampling_rate ?? null,
-    is_local: false
+    is_local: false,
+    album_id: track.album?.id || null,
+    artist_id: track.performer?.id ?? null
   };
 }
 
-export function buildQueueTrackFromAlbumTrack(track: Track, albumArtwork: string, albumArtist: string, albumTitle: string): BackendQueueTrack {
+export function buildQueueTrackFromAlbumTrack(
+  track: Track,
+  albumArtwork: string,
+  albumArtist: string,
+  albumTitle: string,
+  albumId?: string,
+  artistId?: number
+): BackendQueueTrack {
   return {
     id: track.id,
     title: track.title,
@@ -52,7 +61,9 @@ export function buildQueueTrackFromAlbumTrack(track: Track, albumArtwork: string
     hires: track.hires ?? false,
     bit_depth: track.bitDepth ?? null,
     sample_rate: track.samplingRate ?? null,
-    is_local: false
+    is_local: false,
+    album_id: track.albumId || albumId || null,
+    artist_id: track.artistId ?? artistId ?? null
   };
 }
 
@@ -67,7 +78,9 @@ export function buildQueueTrackFromPlaylistTrack(track: PlaylistTrack): BackendQ
     hires: track.hires ?? false,
     bit_depth: track.bitDepth ?? null,
     sample_rate: track.samplingRate ?? null,
-    is_local: false
+    is_local: false,
+    album_id: track.albumId || null,
+    artist_id: track.artistId ?? null
   };
 }
 
@@ -85,7 +98,9 @@ export function buildQueueTrackFromLocalTrack(track: LocalLibraryTrack): Backend
     hires: isHires,
     bit_depth: track.bit_depth ?? null,
     sample_rate: track.sample_rate ?? null,
-    is_local: true
+    is_local: true,
+    album_id: null,  // Local tracks don't have Qobuz album IDs
+    artist_id: null  // Local tracks don't have Qobuz artist IDs
   };
 }
 

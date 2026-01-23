@@ -518,7 +518,9 @@
       track,
       selectedAlbum?.artwork || '',
       selectedAlbum?.artist || 'Unknown Artist',
-      selectedAlbum?.title || ''
+      selectedAlbum?.title || '',
+      selectedAlbum?.id,
+      selectedAlbum?.artistId
     );
   }
 
@@ -548,7 +550,9 @@
       hires: t.hires ?? false,
       bit_depth: t.bitDepth ?? null,
       sample_rate: t.samplingRate ?? null,
-      is_local: false
+      is_local: false,
+      album_id: album.id,
+      artist_id: t.artistId ?? album.artistId
     }));
 
     await setQueue(queueTracks, 0, true);
@@ -591,7 +595,9 @@
         hires: t.hires ?? false,
         bit_depth: t.bitDepth ?? null,
         sample_rate: t.samplingRate ?? null,
-        is_local: false
+        is_local: false,
+        album_id: album.id,
+        artist_id: t.artistId ?? album.artistId
       });
     }
     showToast(`Playing ${album.tracks.length} tracks next`, 'success');
@@ -612,7 +618,9 @@
       hires: t.hires ?? false,
       bit_depth: t.bitDepth ?? null,
       sample_rate: t.samplingRate ?? null,
-      is_local: false
+      is_local: false,
+      album_id: album.id,
+      artist_id: t.artistId ?? album.artistId
     }));
 
     const success = await addTracksToQueue(queueTracks);
@@ -743,7 +751,9 @@
         hires: t.hires ?? false,
         bit_depth: t.bitDepth ?? null,
         sample_rate: t.samplingRate ?? null,
-        is_local: false
+        is_local: false,
+        album_id: selectedAlbum?.id,
+        artist_id: t.artistId ?? selectedAlbum?.artistId
       }));
 
       console.log('[Album Queue] Mapped to', queueTracks.length, 'queue tracks, startIndex:', trackIndex);
@@ -1080,7 +1090,9 @@
         hires: t.hires ?? false,
         bit_depth: t.bitDepth ?? null,
         sample_rate: t.samplingRate ?? null,
-        is_local: false
+        is_local: false,
+        album_id: selectedAlbum?.id,
+        artist_id: t.artistId ?? selectedAlbum?.artistId
       });
     }
     showToast(`Playing ${selectedAlbum.tracks.length} tracks next`, 'success');
@@ -1101,7 +1113,9 @@
       hires: t.hires ?? false,
       bit_depth: t.bitDepth ?? null,
       sample_rate: t.samplingRate ?? null,
-      is_local: false
+      is_local: false,
+      album_id: selectedAlbum?.id,
+      artist_id: t.artistId ?? selectedAlbum?.artistId
     }));
 
     const success = await addTracksToQueue(queueTracks);
@@ -1529,7 +1543,9 @@
           hires: t.hires ?? false,
           bit_depth: t.bit_depth ?? null,
           sample_rate: t.sample_rate ?? null,
-          is_local: t.is_local ?? false
+          is_local: t.is_local ?? false,
+          album_id: t.album_id ?? null,
+          artist_id: t.artist_id ?? null
         }));
 
         await setQueue(tracks, session.current_index ?? 0, true);

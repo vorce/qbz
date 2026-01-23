@@ -17,6 +17,9 @@ export interface PersistedQueueTrack {
   hires?: boolean;
   bit_depth?: number | null;
   sample_rate?: number | null;
+  is_local?: boolean;
+  album_id?: string | null;
+  artist_id?: number | null;
 }
 
 export interface PersistedSession {
