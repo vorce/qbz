@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import TrackRow from './TrackRow.svelte';
-  import type { DownloadStatus } from '$lib/stores/downloadState';
+  import type { OfflineCacheStatus } from '$lib/stores/offlineCacheState';
 
   // Use generic types to match whatever caller passes
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,7 +44,7 @@
     hideFavorite?: boolean;
     isFavoriteOverride?: boolean;
     // Download status support for Favorites/Search
-    getDownloadStatus?: (trackId: number) => { status: DownloadStatus; progress: number };
+    getOfflineCacheStatus?: (trackId: number) => { status: OfflineCacheStatus; progress: number };
     onDownload?: (track: Track) => void;
     onRemoveDownload?: (trackId: number) => void;
     // Additional menu actions for Favorites
@@ -85,7 +85,7 @@
     hideDownload = true,
     hideFavorite = true,
     isFavoriteOverride,
-    getDownloadStatus,
+    getOfflineCacheStatus,
     onDownload,
     onRemoveDownload,
     onShareQobuz,
@@ -305,7 +305,7 @@
           {@const albumKey = getTrackAlbumKey(item.track)}
           {@const artistId = getArtistId?.(item.track)}
           {@const albumId = getAlbumId?.(item.track)}
-          {@const downloadInfo = getDownloadStatus?.(trackId) ?? { status: 'none' as const, progress: 0 }}
+          {@const downloadInfo = getOfflineCacheStatus?.(trackId) ?? { status: 'none' as const, progress: 0 }}
           {@const isTrackDownloaded = downloadInfo.status === 'ready'}
           <TrackRow
             trackId={trackId}

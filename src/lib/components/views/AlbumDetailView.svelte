@@ -3,7 +3,7 @@
   import { ArrowLeft, Play, Shuffle, Heart } from 'lucide-svelte';
   import TrackRow from '../TrackRow.svelte';
   import AlbumMenu from '../AlbumMenu.svelte';
-  import { getDownloadState, type DownloadStatus, isAlbumFullyDownloaded } from '$lib/stores/downloadState';
+  import { getOfflineCacheState, type OfflineCacheStatus, isAlbumFullyCached } from '$lib/stores/offlineCacheState';
   import { consumeContextTrackFocus } from '$lib/stores/playbackContextStore';
   import {
     subscribe as subscribeAlbumFavorites,
@@ -60,7 +60,7 @@
     onTrackDownload?: (track: Track) => void;
     onTrackRemoveDownload?: (trackId: number) => void;
     onTrackReDownload?: (track: Track) => void;
-    getTrackDownloadStatus?: (trackId: number) => { status: DownloadStatus; progress: number };
+    getTrackOfflineCacheStatus?: (trackId: number) => { status: OfflineCacheStatus; progress: number };
     onDownloadAlbum?: () => void;
     onShareAlbumQobuz?: () => void;
     onShareAlbumSonglink?: () => void;
@@ -92,7 +92,7 @@
     onTrackDownload,
     onTrackRemoveDownload,
     onTrackReDownload,
-    getTrackDownloadStatus,
+    getTrackOfflineCacheStatus,
     onDownloadAlbum,
     onShareAlbumQobuz,
     onShareAlbumSonglink,
@@ -109,7 +109,7 @@
   let scrollContainer: HTMLDivElement | null = $state(null);
   
   const albumFullyDownloaded = $derived(
-    isAlbumFullyDownloaded(album.tracks.map(t => t.id))
+    isAlbumFullyCached(album.tracks.map(t => t.id))
   );
   
   const isVariousArtists = $derived(
@@ -227,7 +227,7 @@
           onShareQobuz={onShareAlbumQobuz}
           onShareSonglink={onShareAlbumSonglink}
           onDownload={onDownloadAlbum}
-          isAlbumFullyDownloaded={albumFullyDownloaded}
+          isAlbumFullyCached={albumFullyDownloaded}
           onOpenContainingFolder={onOpenAlbumFolder}
           onReDownloadAlbum={onReDownloadAlbum}
         />
@@ -251,7 +251,7 @@
     <!-- Track Rows -->
     <div class="tracks">
       {#each album.tracks as track, trackIndex (`${track.id}-${downloadStateVersion}`)}
-        {@const downloadInfo = getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
+        {@const downloadInfo = getTrackOfflineCacheStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
         {@const isTrackDownloaded = downloadInfo.status === 'ready'}
         <TrackRow
           trackId={track.id}

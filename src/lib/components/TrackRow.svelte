@@ -10,7 +10,8 @@
   } from '$lib/stores/favoritesStore';
   import { togglePlay } from '$lib/stores/playerStore';
 
-  type DownloadStatus = 'none' | 'queued' | 'downloading' | 'ready' | 'failed';
+  // Offline cache status for tracks
+  type OfflineCacheStatus = 'none' | 'queued' | 'downloading' | 'ready' | 'failed';
 
   interface Props {
     trackId?: number; // Optional - required for favorites functionality unless hideFavorite=true
@@ -23,7 +24,7 @@
     isPlaying?: boolean;
     isLocal?: boolean; // Whether this is a local library track
     isFavoriteOverride?: boolean; // Optional override for favorite state
-    downloadStatus?: DownloadStatus;
+    downloadStatus?: OfflineCacheStatus;
     downloadProgress?: number;
     hideDownload?: boolean;
     hideFavorite?: boolean;

@@ -7,7 +7,7 @@
   import VirtualizedTrackList from '../VirtualizedTrackList.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import FavoritesEditModal from '../FavoritesEditModal.svelte';
-  import { type DownloadStatus } from '$lib/stores/downloadState';
+  import { type OfflineCacheStatus } from '$lib/stores/offlineCacheState';
   import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { normalizeFavoritesTabOrder } from '$lib/utils/favorites';
   import type { FavoritesPreferences } from '$lib/types';
@@ -77,7 +77,7 @@
     onTrackDownload?: (track: DisplayTrack) => void;
     onTrackRemoveDownload?: (trackId: number) => void;
     onTrackReDownload?: (track: DisplayTrack) => void;
-    getTrackDownloadStatus?: (trackId: number) => { status: DownloadStatus; progress: number };
+    getTrackOfflineCacheStatus?: (trackId: number) => { status: OfflineCacheStatus; progress: number };
     onPlaylistSelect?: (playlistId: number) => void;
     selectedTab?: TabType;
     onTabNavigate?: (tab: TabType) => void;
@@ -127,7 +127,7 @@
     onTrackDownload,
     onTrackRemoveDownload,
     onTrackReDownload,
-    getTrackDownloadStatus,
+    getTrackOfflineCacheStatus,
     onPlaylistSelect,
     selectedTab,
     onTabNavigate,
@@ -163,27 +163,27 @@
   });
 
   // Download status tracking
-  let albumDownloadStatuses = $state<Map<string, boolean>>(new Map());
+  let albumOfflineCacheStatuses = $state<Map<string, boolean>>(new Map());
 
-  async function loadAlbumDownloadStatus(albumId: string) {
+  async function loadAlbumOfflineCacheStatus(albumId: string) {
     if (!checkAlbumFullyDownloaded) return false;
     try {
       const isDownloaded = await checkAlbumFullyDownloaded(albumId);
-      albumDownloadStatuses.set(albumId, isDownloaded);
+      albumOfflineCacheStatuses.set(albumId, isDownloaded);
       return isDownloaded;
     } catch {
       return false;
     }
   }
 
-  async function loadAllAlbumDownloadStatuses(albums: { id: string }[]) {
+  async function loadAllAlbumOfflineCacheStatuses(albums: { id: string }[]) {
     if (!checkAlbumFullyDownloaded || albums.length === 0) return;
-    await Promise.all(albums.map(album => loadAlbumDownloadStatus(album.id)));
+    await Promise.all(albums.map(album => loadAlbumOfflineCacheStatus(album.id)));
   }
 
   function isAlbumDownloaded(albumId: string): boolean {
     void downloadStateVersion;
-    return albumDownloadStatuses.get(albumId) || false;
+    return albumOfflineCacheStatuses.get(albumId) || false;
   }
 
   let error = $state<string | null>(null);
@@ -449,7 +449,7 @@
         favoriteTracks = items as FavoriteTrack[];
       } else if (type === 'albums') {
         favoriteAlbums = items as FavoriteAlbum[];
-        await loadAllAlbumDownloadStatuses(favoriteAlbums);
+        await loadAllAlbumOfflineCacheStatuses(favoriteAlbums);
       } else if (type === 'artists') {
         favoriteArtists = items as FavoriteArtist[];
       }
@@ -1133,7 +1133,7 @@
               hideDownload={false}
               hideFavorite={false}
               isFavoriteOverride={true}
-              getDownloadStatus={getTrackDownloadStatus}
+              getOfflineCacheStatus={getTrackOfflineCacheStatus}
               onDownload={onTrackDownload ? (t) => onTrackDownload(buildDisplayTrackFromFavorite(t)) : undefined}
               onRemoveDownload={onTrackRemoveDownload}
               onShareQobuz={onTrackShareQobuz}
@@ -1204,7 +1204,7 @@
                         onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
                         onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
                         {downloadStateVersion}
-                        onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
+                        onclick={() => { onAlbumClick?.(album.id); loadAlbumOfflineCacheStatus(album.id); }}
                       />
                     {/each}
                   </div>
@@ -1275,7 +1275,7 @@
                 onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
                 onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
                         {downloadStateVersion}
-                onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
+                onclick={() => { onAlbumClick?.(album.id); loadAlbumOfflineCacheStatus(album.id); }}
               />
             {/each}
           </div>

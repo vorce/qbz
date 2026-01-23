@@ -4,19 +4,19 @@
   import { listen, emitTo, type UnlistenFn } from '@tauri-apps/api/event';
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
-  // Download state management
+  // Offline cache state management
   import {
-    initDownloadStates,
-    startDownloadEventListeners,
-    stopDownloadEventListeners,
-    downloadTrack,
-    removeDownload,
-    getDownloadState,
+    initOfflineCacheStates,
+    startOfflineCacheEventListeners,
+    stopOfflineCacheEventListeners,
+    cacheTrackForOffline,
+    removeCachedTrack,
+    getOfflineCacheState,
     openAlbumFolder,
     openTrackFolder,
-    subscribe as subscribeDownloads,
-    type DownloadStatus
-  } from '$lib/stores/downloadState';
+    subscribe as subscribeOfflineCache,
+    type OfflineCacheStatus
+  } from '$lib/stores/offlineCacheState';
 
   // Toast state management
   import {
@@ -652,7 +652,7 @@
     if (!album) return;
 
     const tracksToDownload = album.tracks.filter(track => {
-      const status = getDownloadState(track.id).status;
+      const status = getOfflineCacheState(track.id).status;
       return status === 'none' || status === 'failed';
     });
 
@@ -665,7 +665,7 @@
 
     for (const track of tracksToDownload) {
       try {
-        await downloadTrack({
+        await cacheTrackForOffline({
           id: track.id,
           title: track.title,
           artist: track.artist || album.artist || 'Unknown',
@@ -1216,7 +1216,7 @@
   // Download handlers
   async function handleTrackDownload(track: Track) {
     try {
-      await downloadTrack({
+      await cacheTrackForOffline({
         id: track.id,
         title: track.title,
         artist: track.artist || selectedAlbum?.artist || 'Unknown',
@@ -1236,7 +1236,7 @@
 
   async function handleTrackRemoveDownload(trackId: number) {
     try {
-      await removeDownload(trackId);
+      await removeCachedTrack(trackId);
       showToast('Removed from offline library', 'info');
     } catch (err) {
       console.error('Failed to remove from offline:', err);
@@ -1256,7 +1256,7 @@
   async function handleTrackReDownload(track: Track | DisplayTrack) {
     try {
       // Re-download uses the same download function - backend handles overwriting
-      await downloadTrack({
+      await cacheTrackForOffline({
         id: track.id,
         title: track.title,
         artist: track.artist || selectedAlbum?.artist || 'Unknown',
@@ -1275,14 +1275,14 @@
   }
 
   function checkTrackDownloaded(trackId: number): boolean {
-    return getDownloadState(trackId).status === 'ready';
+    return getOfflineCacheState(trackId).status === 'ready';
   }
 
   async function handleDownloadAlbum() {
     if (!selectedAlbum) return;
 
     const tracksToDownload = selectedAlbum.tracks.filter(track => {
-      const status = getDownloadState(track.id).status;
+      const status = getOfflineCacheState(track.id).status;
       return status === 'none' || status === 'failed';
     });
 
@@ -1295,7 +1295,7 @@
 
     for (const track of tracksToDownload) {
       try {
-        await downloadTrack({
+        await cacheTrackForOffline({
           id: track.id,
           title: track.title,
           artist: track.artist || selectedAlbum.artist || 'Unknown',
@@ -1330,7 +1330,7 @@
 
     for (const track of selectedAlbum.tracks) {
       try {
-        await downloadTrack({
+        await cacheTrackForOffline({
           id: track.id,
           title: track.title,
           artist: track.artist || selectedAlbum.artist || 'Unknown',
@@ -1368,7 +1368,7 @@
 
       for (const track of album.tracks.data) {
         try {
-          await downloadTrack({
+          await cacheTrackForOffline({
             id: track.id,
             title: track.title,
             artist: track.performer?.name || album.artist?.name || 'Unknown',
@@ -1389,10 +1389,10 @@
     }
   }
 
-  function getTrackDownloadStatus(trackId: number) {
+  function getTrackOfflineCacheStatus(trackId: number) {
     // Access downloadStateVersion to trigger reactivity
     void downloadStateVersion;
-    return getDownloadState(trackId);
+    return getOfflineCacheState(trackId);
   }
 
   async function handleDisplayTrackDownload(track: PlaylistTrack) {
@@ -1402,7 +1402,7 @@
         : track.hires
           ? 'Hi-Res'
           : '-';
-      await downloadTrack({
+      await cacheTrackForOffline({
         id: track.id,
         title: track.title,
         artist: track.artist || 'Unknown',
@@ -1844,7 +1844,7 @@
     }
   }
 
-  function getAlbumDownloadStatus(albumId: string): boolean {
+  function getAlbumOfflineCacheStatus(albumId: string): boolean {
     void downloadStateVersion;
     return albumDownloadCache.get(albumId) || false;
   }
@@ -1871,8 +1871,8 @@
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Initialize download states
-    initDownloadStates();
-    startDownloadEventListeners();
+    initOfflineCacheStates();
+    startOfflineCacheEventListeners();
 
     // Initialize playback context and preferences stores
     initPlaybackContextStore();
@@ -1892,7 +1892,7 @@
     // This prevents API calls before authentication is complete
 
     // Subscribe to download state changes to trigger reactivity
-    const unsubscribeDownloads = subscribeDownloads(() => {
+    const unsubscribeOfflineCache = subscribeOfflineCache(() => {
       downloadStateVersion++;
     });
 
@@ -2109,8 +2109,8 @@
       document.removeEventListener('keydown', handleKeydown);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      stopDownloadEventListeners();
-      unsubscribeDownloads();
+      stopOfflineCacheEventListeners();
+      unsubscribeOfflineCache();
       unsubscribeToast();
       unsubscribeUI();
       unsubscribeAuth();
@@ -2330,7 +2330,7 @@
           onTrackDownload={handleTrackDownload}
           onTrackRemoveDownload={handleTrackRemoveDownload}
           onTrackReDownload={handleTrackReDownload}
-          getTrackDownloadStatus={getTrackDownloadStatus}
+          getTrackOfflineCacheStatus={getTrackOfflineCacheStatus}
           onDownloadAlbum={handleDownloadAlbum}
           onShareAlbumQobuz={shareAlbumQobuzLink}
           onShareAlbumSonglink={shareAlbumSonglink}
@@ -2398,7 +2398,7 @@
           onTrackDownload={handleDisplayTrackDownload}
           onTrackRemoveDownload={handleTrackRemoveDownload}
           onTrackReDownload={handleDisplayTrackDownload}
-          getTrackDownloadStatus={getTrackDownloadStatus}
+          getTrackOfflineCacheStatus={getTrackOfflineCacheStatus}
           {downloadStateVersion}
           onLocalTrackPlay={handleLocalTrackPlay}
           onLocalTrackPlayNext={queueLocalTrackNext}
@@ -2445,7 +2445,7 @@
             onTrackDownload={handleDisplayTrackDownload}
             onTrackRemoveDownload={handleTrackRemoveDownload}
             onTrackReDownload={handleDisplayTrackDownload}
-            getTrackDownloadStatus={getTrackDownloadStatus}
+            getTrackOfflineCacheStatus={getTrackOfflineCacheStatus}
             onPlaylistSelect={selectPlaylist}
             selectedTab={getFavoritesTabFromView(activeView) ?? favoritesDefaultTab}
             onTabNavigate={(tab) => navigateToFavorites(tab)}

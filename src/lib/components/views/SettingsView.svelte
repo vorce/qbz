@@ -7,10 +7,10 @@
   import Dropdown from '../Dropdown.svelte';
   import VolumeSlider from '../VolumeSlider.svelte';
   import {
-    getDownloadCacheStats,
-    clearDownloadCache,
-    type DownloadCacheStats
-  } from '$lib/stores/downloadState';
+    getOfflineCacheStats,
+    clearOfflineCache,
+    type OfflineCacheStats
+  } from '$lib/stores/offlineCacheState';
   import { notifyDownloadSettingsChanged } from '$lib/stores/downloadSettingsStore';
   import { clearCache as clearLyricsCache } from '$lib/stores/lyricsStore';
   import {
@@ -94,7 +94,7 @@
   let isClearing = $state(false);
 
   // Download cache state (offline storage)
-  let downloadStats = $state<DownloadCacheStats | null>(null);
+  let downloadStats = $state<OfflineCacheStats | null>(null);
   let isClearingDownloads = $state(false);
   let isRepairingDownloads = $state(false);
 
@@ -1165,7 +1165,7 @@
 
   async function loadDownloadStats() {
     try {
-      downloadStats = await getDownloadCacheStats();
+      downloadStats = await getOfflineCacheStats();
     } catch (err) {
       console.error('Failed to load download stats:', err);
     }
@@ -1266,7 +1266,7 @@
     if (isClearingDownloads) return;
     isClearingDownloads = true;
     try {
-      await clearDownloadCache();
+      await clearOfflineCache();
       await loadDownloadStats();
     } catch (err) {
       console.error('Failed to clear download cache:', err);

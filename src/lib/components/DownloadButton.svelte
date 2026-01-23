@@ -6,10 +6,11 @@
     isOffline as checkIsOffline
   } from '$lib/stores/offlineStore';
 
-  type DownloadStatus = 'none' | 'queued' | 'downloading' | 'ready' | 'failed';
+  // Offline cache status for tracks
+  type OfflineCacheStatus = 'none' | 'queued' | 'downloading' | 'ready' | 'failed';
 
   interface Props {
-    status?: DownloadStatus;
+    status?: OfflineCacheStatus;
     progress?: number;
     size?: number;
     onDownload?: () => void;

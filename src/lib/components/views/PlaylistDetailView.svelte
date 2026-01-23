@@ -7,7 +7,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import TrackRow from '../TrackRow.svelte';
-  import { type DownloadStatus } from '$lib/stores/downloadState';
+  import { type OfflineCacheStatus } from '$lib/stores/offlineCacheState';
   import {
     subscribe as subscribeOffline,
     getStatus as getOfflineStatus,
@@ -129,7 +129,7 @@
     onTrackDownload?: (track: DisplayTrack) => void;
     onTrackRemoveDownload?: (trackId: number) => void;
     onTrackReDownload?: (track: DisplayTrack) => void;
-    getTrackDownloadStatus?: (trackId: number) => { status: DownloadStatus; progress: number };
+    getTrackOfflineCacheStatus?: (trackId: number) => { status: OfflineCacheStatus; progress: number };
     downloadStateVersion?: number;
     onLocalTrackPlay?: (track: LocalLibraryTrack) => void;
     onLocalTrackPlayNext?: (track: LocalLibraryTrack) => void;
@@ -157,7 +157,7 @@
     onTrackDownload,
     onTrackRemoveDownload,
     onTrackReDownload,
-    getTrackDownloadStatus,
+    getTrackOfflineCacheStatus,
     downloadStateVersion,
     onLocalTrackPlay,
     onLocalTrackPlayNext,
@@ -1099,7 +1099,7 @@
       </div>
 
       {#each displayTracks as track, idx (`${idx}-${track.id}-${downloadStateVersion}`)}
-        {@const downloadInfo = track.isLocal ? { status: 'none' as const, progress: 0 } : (getTrackDownloadStatus?.(track.id) ?? { status: 'none' as const, progress: 0 })}
+        {@const downloadInfo = track.isLocal ? { status: 'none' as const, progress: 0 } : (getTrackOfflineCacheStatus?.(track.id) ?? { status: 'none' as const, progress: 0 })}
         {@const isActiveTrack = (
           track.isLocal
             ? (track.localTrackId !== undefined && activeTrackId === track.localTrackId)
