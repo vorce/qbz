@@ -221,6 +221,7 @@
     "queue": "Cola",
     "upNext": "Siguiente",
     "ofTotal": "de",
+    "remaining": "restantes",
     "history": "Historial",
     "recentlyPlayed": "Reproducido Recientemente",
     "noHistoryYet": "Sin pistas reproducidas aún",

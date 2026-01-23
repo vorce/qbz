@@ -2532,8 +2532,10 @@
       onClose={closeQueue}
       currentTrack={currentQueueTrack ?? undefined}
       upcomingTracks={queue}
-      queueTotalTracks={queueRemainingTracks}
+      {queueTotalTracks}
+      {queueRemainingTracks}
       {historyTracks}
+      isRadioMode={getCurrentContext()?.type === 'radio'}
       onPlayTrack={handleQueueTrackPlay}
       onPlayHistoryTrack={handlePlayHistoryTrack}
       onClearQueue={handleClearQueue}

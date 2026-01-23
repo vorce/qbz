@@ -18,8 +18,10 @@
     onClose: () => void;
     currentTrack?: QueueTrack;
     upcomingTracks: QueueTrack[];
-    queueTotalTracks?: number; // Real total from backend (excluding current track)
+    queueTotalTracks?: number; // Total tracks in the entire queue
+    queueRemainingTracks?: number; // Remaining tracks after current (total - played - 1)
     historyTracks?: QueueTrack[];
+    isRadioMode?: boolean; // Is radio/similar tracks mode active
     onPlayTrack?: (trackId: string) => void;
     onPlayHistoryTrack?: (trackId: string) => void;
     onClearQueue?: () => void;
@@ -36,7 +38,9 @@
     currentTrack,
     upcomingTracks,
     queueTotalTracks = 0,
+    queueRemainingTracks = 0,
     historyTracks = [],
+    isRadioMode = false,
     onPlayTrack,
     onPlayHistoryTrack,
     onClearQueue,
@@ -67,6 +71,7 @@
   // Display limit
   const DISPLAY_LIMIT = 20;
   let displayCount = $state(DISPLAY_LIMIT);
+  let historyDisplayCount = $state(DISPLAY_LIMIT);
 
   // Infinite play banner dismissal
   let infiniteBannerDismissed = $state(false);
@@ -97,6 +102,7 @@
       searchOpen = false;
       searchQuery = '';
       displayCount = DISPLAY_LIMIT;
+      historyDisplayCount = DISPLAY_LIMIT;
     }
   });
 
@@ -280,7 +286,11 @@
         {#if upcomingTracks.length > 0}
           <div class="section up-next-section">
             <div class="section-label">
-              {$t('player.upNext').toUpperCase()} ({displayedTracks} {$t('player.ofTotal')} {infinitePlayEnabled ? '∞' : queueTotalTracks})
+              {#if infinitePlayEnabled || isRadioMode}
+                {$t('player.upNext').toUpperCase()} ({displayedTracks} {$t('player.ofTotal')} ∞)
+              {:else}
+                {$t('player.upNext').toUpperCase()} ({displayedTracks} {$t('player.ofTotal')} {queueTotalTracks}, {queueRemainingTracks} {$t('player.remaining')})
+              {/if}
             </div>
             <div class="tracks-list">
               {#each filteredTracks as track, index}
@@ -309,11 +319,6 @@
                   <span class="track-duration">{track.duration}</span>
                 </div>
               {/each}
-              {#if hasMoreTracks}
-                <button class="load-more" onclick={loadMore}>
-                  {$t('actions.loadMore')} ({upcomingTracks.length - displayCount} more)
-                </button>
-              {/if}
               {#if searchQuery && filteredTracks.length === 0}
                 <div class="no-results">{$t('player.noTracksMatch', { values: { query: searchQuery } })}</div>
               {/if}
@@ -333,7 +338,7 @@
           <div class="section-label">{$t('player.recentlyPlayed').toUpperCase()}</div>
           {#if historyTracks.length > 0}
             <div class="history-list">
-              {#each historyTracks.slice(0, DISPLAY_LIMIT) as track}
+              {#each historyTracks.slice(0, historyDisplayCount) as track}
                 <div
                   class="history-track"
                   onclick={() => handleHistoryTrackClick(track)}
@@ -355,6 +360,11 @@
                   {/if}
                 </div>
               {/each}
+              {#if historyTracks.length > historyDisplayCount}
+                <button class="load-more" onclick={() => historyDisplayCount += DISPLAY_LIMIT}>
+                  {$t('actions.loadMore')} ({historyTracks.length - historyDisplayCount} more)
+                </button>
+              {/if}
             </div>
           {:else}
             <div class="empty-state">

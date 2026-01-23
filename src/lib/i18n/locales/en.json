@@ -221,6 +221,7 @@
     "queue": "Queue",
     "upNext": "Up Next",
     "ofTotal": "of",
+    "remaining": "left",
     "history": "History",
     "recentlyPlayed": "Recently Played",
     "noHistoryYet": "No tracks played yet",
