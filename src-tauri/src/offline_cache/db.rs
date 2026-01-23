@@ -1,20 +1,20 @@
-//! SQLite database for download cache index
+//! SQLite database for offline cache index
 
 use rusqlite::{Connection, params};
 use std::path::Path;
 
-use super::{CachedTrackInfo, DownloadCacheStats, DownloadStatus, ReadyTrackForSync, TrackDownloadInfo};
+use super::{CachedTrackInfo, OfflineCacheStats, OfflineCacheStatus, ReadyTrackForSync, TrackCacheInfo};
 
 /// Database wrapper for cached tracks index
-pub struct DownloadCacheDb {
+pub struct OfflineCacheDb {
     conn: Connection,
 }
 
-impl DownloadCacheDb {
+impl OfflineCacheDb {
     /// Open or create the database
     pub fn new(path: &Path) -> Result<Self, String> {
         let conn = Connection::open(path)
-            .map_err(|e| format!("Failed to open download cache database: {}", e))?;
+            .map_err(|e| format!("Failed to open offline cache database: {}", e))?;
 
         let db = Self { conn };
         db.init_schema()?;
@@ -61,8 +61,8 @@ impl DownloadCacheDb {
         Ok(())
     }
 
-    /// Insert a new track to download
-    pub fn insert_track(&self, info: &TrackDownloadInfo, file_path: &str) -> Result<(), String> {
+    /// Insert a new track to cache for offline
+    pub fn insert_track(&self, info: &TrackCacheInfo, file_path: &str) -> Result<(), String> {
         self.conn.execute(
             "INSERT OR REPLACE INTO cached_tracks
              (track_id, title, artist, album, album_id, duration_secs, file_path, quality, bit_depth, sample_rate, status, progress_percent, created_at, last_accessed_at)
@@ -85,7 +85,7 @@ impl DownloadCacheDb {
     }
 
     /// Update track status
-    pub fn update_status(&self, track_id: u64, status: DownloadStatus, error: Option<&str>) -> Result<(), String> {
+    pub fn update_status(&self, track_id: u64, status: OfflineCacheStatus, error: Option<&str>) -> Result<(), String> {
         self.conn.execute(
             "UPDATE cached_tracks SET status = ?1, error_message = ?2 WHERE track_id = ?3",
             params![status.as_str(), error, track_id as i64],
@@ -94,7 +94,7 @@ impl DownloadCacheDb {
         Ok(())
     }
 
-    /// Update download progress
+    /// Update caching progress
     pub fn update_progress(&self, track_id: u64, progress: u8, size_bytes: u64) -> Result<(), String> {
         self.conn.execute(
             "UPDATE cached_tracks SET progress_percent = ?1, file_size_bytes = ?2 WHERE track_id = ?3",
@@ -104,7 +104,7 @@ impl DownloadCacheDb {
         Ok(())
     }
 
-    /// Mark download as complete
+    /// Mark caching as complete
     pub fn mark_complete(&self, track_id: u64, file_size: u64) -> Result<(), String> {
         self.conn.execute(
             "UPDATE cached_tracks SET status = 'ready', progress_percent = 100, file_size_bytes = ?1, last_accessed_at = datetime('now') WHERE track_id = ?2",
@@ -150,7 +150,7 @@ impl DownloadCacheDb {
         }
     }
 
-    /// Get all ready (downloaded) tracks with their file paths for syncing to library
+    /// Get all ready (cached) tracks with their file paths for syncing to library
     pub fn get_ready_tracks_for_sync(&self) -> Result<Vec<ReadyTrackForSync>, String> {
         let mut stmt = self.conn.prepare(
             "SELECT track_id, title, artist, album, duration_secs, file_path, bit_depth, sample_rate
@@ -196,7 +196,7 @@ impl DownloadCacheDb {
                     quality: row.get::<_, Option<String>>(7)?.unwrap_or_default(),
                     bit_depth: row.get::<_, Option<i64>>(8)?.map(|v| v as u32),
                     sample_rate: row.get(9)?,
-                    status: DownloadStatus::from_str(&row.get::<_, String>(10)?),
+                    status: OfflineCacheStatus::from_str(&row.get::<_, String>(10)?),
                     progress_percent: row.get::<_, i64>(11)? as u8,
                     error_message: row.get(12)?,
                     created_at: row.get(13)?,
@@ -231,7 +231,7 @@ impl DownloadCacheDb {
                 quality: row.get::<_, Option<String>>(7)?.unwrap_or_default(),
                 bit_depth: row.get::<_, Option<i64>>(8)?.map(|v| v as u32),
                 sample_rate: row.get(9)?,
-                status: DownloadStatus::from_str(&row.get::<_, String>(10)?),
+                status: OfflineCacheStatus::from_str(&row.get::<_, String>(10)?),
                 progress_percent: row.get::<_, i64>(11)? as u8,
                 error_message: row.get(12)?,
                 created_at: row.get(13)?,
@@ -265,7 +265,7 @@ impl DownloadCacheDb {
     }
 
     /// Get statistics
-    pub fn get_stats(&self, cache_path: &str, limit_bytes: Option<u64>) -> Result<DownloadCacheStats, String> {
+    pub fn get_stats(&self, cache_path: &str, limit_bytes: Option<u64>) -> Result<OfflineCacheStats, String> {
         let total_tracks: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM cached_tracks",
             [],
@@ -296,7 +296,7 @@ impl DownloadCacheDb {
             |row| row.get(0),
         ).map_err(|e| format!("Failed to sum sizes: {}", e))?;
 
-        Ok(DownloadCacheStats {
+        Ok(OfflineCacheStats {
             total_tracks: total_tracks as usize,
             ready_tracks: ready_tracks as usize,
             downloading_tracks: downloading_tracks as usize,

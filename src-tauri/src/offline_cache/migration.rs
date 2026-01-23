@@ -1,4 +1,4 @@
-//! Legacy download migration service
+//! Legacy cached file migration service
 //!
 //! Handles migration of old numeric-named FLAC files to new organized structure
 
@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::api::QobuzClient;
 use crate::library::database::LibraryDatabase;
-use super::metadata::{fetch_complete_metadata, write_flac_tags, embed_artwork, organize_download, save_album_artwork};
+use super::metadata::{fetch_complete_metadata, write_flac_tags, embed_artwork, organize_cached_file, save_album_artwork};
 
 #[derive(Default, Serialize, Clone, Debug)]
 pub struct MigrationStatus {
@@ -29,26 +29,26 @@ pub struct MigrationError {
     pub error_message: String,
 }
 
-/// Detect legacy downloads (numeric FLAC files in tracks/ folder)
-pub fn detect_legacy_downloads(tracks_dir: &Path) -> Result<Vec<u64>, String> {
-    log::info!("Scanning for legacy downloads in: {}", tracks_dir.display());
-    
+/// Detect legacy cached files (numeric FLAC files in tracks/ folder)
+pub fn detect_legacy_cached_files(tracks_dir: &Path) -> Result<Vec<u64>, String> {
+    log::info!("Scanning for legacy cached files in: {}", tracks_dir.display());
+
     if !tracks_dir.exists() {
         return Ok(Vec::new());
     }
-    
+
     let mut track_ids = Vec::new();
-    
+
     match std::fs::read_dir(tracks_dir) {
         Ok(entries) => {
             for entry in entries.flatten() {
                 let path = entry.path();
-                
+
                 // Only process FLAC files
                 if path.extension().and_then(|s| s.to_str()) != Some("flac") {
                     continue;
                 }
-                
+
                 // Check if filename is purely numeric (track_id)
                 if let Some(filename) = path.file_stem().and_then(|s| s.to_str()) {
                     if let Ok(track_id) = filename.parse::<u64>() {
@@ -62,38 +62,38 @@ pub fn detect_legacy_downloads(tracks_dir: &Path) -> Result<Vec<u64>, String> {
             return Err(format!("Failed to read tracks directory: {}", e));
         }
     }
-    
-    log::info!("Found {} legacy downloads", track_ids.len());
+
+    log::info!("Found {} legacy cached files", track_ids.len());
     Ok(track_ids)
 }
 
-/// Migrate a single legacy track
+/// Migrate a single legacy cached track
 async fn migrate_single_track(
     track_id: u64,
     legacy_path: PathBuf,
-    download_root: &str,
+    offline_root: &str,
     qobuz_client: &QobuzClient,
     library_db: Arc<Mutex<LibraryDatabase>>,
 ) -> Result<String, String> {
     log::info!("Migrating track {}", track_id);
-    
+
     // 1. Fetch complete metadata from Qobuz
     let metadata = fetch_complete_metadata(track_id, qobuz_client).await?;
-    
+
     // 2. Write FLAC tags
     let legacy_path_str = legacy_path.to_string_lossy().to_string();
     write_flac_tags(&legacy_path_str, &metadata)
         .map_err(|e| format!("Failed to write tags: {}", e))?;
-    
+
     // 3. Embed artwork if available
     if let Some(artwork_url) = &metadata.artwork_url {
         if let Err(e) = embed_artwork(&legacy_path_str, artwork_url).await {
             log::warn!("Failed to embed artwork for track {}: {}", track_id, e);
         }
     }
-    
+
     // 4. Organize file into artist/album structure
-    let new_path = organize_download(track_id, &legacy_path_str, download_root, &metadata)?;
+    let new_path = organize_cached_file(track_id, &legacy_path_str, offline_root, &metadata)?;
     
     // 5. Save album artwork as cover.jpg
     let artwork_path = if let Some(artwork_url) = &metadata.artwork_url {
@@ -133,7 +133,7 @@ async fn migrate_single_track(
     let album_artist = metadata.album_artist.as_ref().unwrap_or(&metadata.artist);
     let album_group_key = format!("{}|{}", metadata.album, album_artist);
     
-    lib_guard.insert_qobuz_download_with_grouping(
+    lib_guard.insert_qobuz_cached_track_with_grouping(
         track_id,
         &metadata.title,
         &metadata.artist,
@@ -156,11 +156,11 @@ async fn migrate_single_track(
     Ok(new_path)
 }
 
-/// Migrate all legacy downloads
-pub async fn migrate_legacy_downloads(
+/// Migrate all legacy cached files
+pub async fn migrate_legacy_cached_files(
     track_ids: Vec<u64>,
     tracks_dir: PathBuf,
-    download_root: String,
+    offline_root: String,
     qobuz_client: Arc<Mutex<QobuzClient>>,
     library_db: Arc<Mutex<LibraryDatabase>>,
 ) -> MigrationStatus {
@@ -171,29 +171,29 @@ pub async fn migrate_legacy_downloads(
         in_progress: true,
         ..Default::default()
     };
-    
+
     for track_id in track_ids {
         let legacy_path = tracks_dir.join(format!("{}.flac", track_id));
-        
+
         if !legacy_path.exists() {
             log::warn!("Legacy file not found: {}", legacy_path.display());
             status.processed += 1;
             continue;
         }
-        
+
         // Lock client for this migration
         let client_guard = qobuz_client.lock().await;
-        
+
         match migrate_single_track(
             track_id,
             legacy_path.clone(),
-            &download_root,
+            &offline_root,
             &*client_guard,
             library_db.clone(),
         ).await {
             Ok(_) => {
                 status.successful += 1;
-                
+
                 // Delete legacy file after successful migration
                 if let Err(e) = std::fs::remove_file(&legacy_path) {
                     log::warn!("Failed to delete legacy file {}: {}", legacy_path.display(), e);
@@ -208,21 +208,21 @@ pub async fn migrate_legacy_downloads(
                 log::error!("Failed to migrate track {}: {}", track_id, status.errors.last().unwrap().error_message);
             }
         }
-        
+
         drop(client_guard);
-        
+
         status.processed += 1;
     }
-    
+
     status.in_progress = false;
     status.completed = true;
-    
+
     log::info!(
         "Migration complete: {}/{} successful, {} failed",
         status.successful,
         total,
         status.failed
     );
-    
+
     status
 }

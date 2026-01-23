@@ -1835,7 +1835,7 @@
     void downloadStateVersion;
     
     try {
-      const isDownloaded = await invoke<boolean>('check_album_fully_downloaded', { albumId });
+      const isDownloaded = await invoke<boolean>('check_album_fully_cached', { albumId });
       albumDownloadCache.set(albumId, isDownloaded);
       return isDownloaded;
     } catch {

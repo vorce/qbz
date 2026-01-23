@@ -461,8 +461,8 @@
     // Detect if running in Flatpak
     loadFlatpakStatus();
 
-    // Check for legacy downloads
-    checkLegacyDownloads();
+    // Check for legacy cached files
+    checkLegacyCachedFiles();
 
     // Subscribe to offline state changes
     const unsubscribeOffline = subscribeOffline(() => {
@@ -1218,15 +1218,15 @@
     }
   }
 
-  async function checkLegacyDownloads() {
+  async function checkLegacyCachedFiles() {
     try {
-      const result = await invoke<{has_legacy_files: boolean, total_tracks: number}>('detect_legacy_downloads');
+      const result = await invoke<{has_legacy_files: boolean, total_tracks: number}>('detect_legacy_cached_files');
       if (result.has_legacy_files && result.total_tracks > 0) {
         legacyTracksCount = result.total_tracks;
         showMigrationModal = true;
       }
     } catch (err) {
-      console.error('Failed to check for legacy downloads:', err);
+      console.error('Failed to check for legacy cached files:', err);
     }
   }
 

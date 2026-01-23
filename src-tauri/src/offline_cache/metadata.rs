@@ -1,4 +1,4 @@
-//! Metadata fetching and FLAC tagging for downloaded tracks
+//! Metadata fetching and FLAC tagging for cached tracks
 //!
 //! Handles complete metadata retrieval from Qobuz API and writing to FLAC tags.
 
@@ -301,14 +301,14 @@ pub async fn save_album_artwork(
     Ok(())
 }
 
-/// Organize downloaded file into proper folder structure
-pub fn organize_download(
+/// Organize cached file into proper folder structure
+pub fn organize_cached_file(
     track_id: u64,
     temp_path: &str,
     root_dir: &str,
     metadata: &CompleteTrackMetadata,
 ) -> Result<String, String> {
-    log::info!("Organizing download for track {}", track_id);
+    log::info!("Organizing cached file for track {}", track_id);
 
     let temp = Path::new(temp_path);
     let root = Path::new(root_dir);

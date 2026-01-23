@@ -1,4 +1,4 @@
-//! Tauri commands for download cache functionality
+//! Tauri commands for offline cache functionality
 
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
@@ -6,23 +6,23 @@ use tauri::{AppHandle, Emitter, State};
 use crate::api::models::Quality;
 use crate::AppState;
 
-use crate::download_cache::path_validator::{self, PathValidationResult};
-use crate::download_cache::{DownloadCacheDb, DownloadCacheState};
-use crate::download_cache::metadata::{fetch_complete_metadata, write_flac_tags, embed_artwork, organize_download, save_album_artwork};
+use crate::offline_cache::path_validator::{self, PathValidationResult};
+use crate::offline_cache::{OfflineCacheDb, OfflineCacheState};
+use crate::offline_cache::metadata::{fetch_complete_metadata, write_flac_tags, embed_artwork, organize_cached_file, save_album_artwork};
 use super::{
-    CachedTrackInfo, DownloadCacheStats, DownloadStatus,
-    TrackDownloadInfo,
+    CachedTrackInfo, OfflineCacheStats, OfflineCacheStatus,
+    TrackCacheInfo,
 };
 
-/// Post-process a downloaded track: fetch metadata, tag FLAC, embed artwork, organize files
-async fn post_process_track(
+/// Post-process a cached track: fetch metadata, tag FLAC, embed artwork, organize files
+async fn post_process_cached_track(
     track_id: u64,
     current_path: &str,
-    download_root: &str,
+    offline_root: &str,
     qobuz_client: &crate::api::QobuzClient,
     library_db: Arc<tokio::sync::Mutex<crate::library::database::LibraryDatabase>>,
 ) -> Result<String, String> {
-    log::info!("Post-processing track {}", track_id);
+    log::info!("Post-processing cached track {}", track_id);
 
     // 1. Fetch complete metadata from Qobuz
     let metadata = fetch_complete_metadata(track_id, qobuz_client).await?;
@@ -39,7 +39,7 @@ async fn post_process_track(
     }
     
     // 4. Organize file into artist/album structure
-    let new_path = organize_download(track_id, current_path, download_root, &metadata)?;
+    let new_path = organize_cached_file(track_id, current_path, offline_root, &metadata)?;
     
     // 5. Download and save album cover art as cover.jpg
     let artwork_path = if let Some(artwork_url) = &metadata.artwork_url {
@@ -86,7 +86,7 @@ async fn post_process_track(
     let album_artist = metadata.album_artist.as_ref().unwrap_or(&metadata.artist);
     let album_group_key = format!("{}|{}", metadata.album, album_artist);
     
-    match lib_guard.insert_qobuz_download_with_grouping(
+    match lib_guard.insert_qobuz_cached_track_with_grouping(
         track_id,
         &metadata.title,
         &metadata.artist,
@@ -111,9 +111,9 @@ async fn post_process_track(
     Ok(new_path)
 }
 
-/// Download a track for offline listening
+/// Cache a track for offline playback
 #[tauri::command]
-pub async fn download_track(
+pub async fn cache_track_for_offline(
     track_id: u64,
     title: String,
     artist: String,
@@ -124,13 +124,13 @@ pub async fn download_track(
     bit_depth: Option<u32>,
     sample_rate: Option<f64>,
     state: State<'_, AppState>,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
     library_state: State<'_, crate::library::commands::LibraryState>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
-    log::info!("Command: download_track {} - {} by {}", track_id, title, artist);
+    log::info!("Command: cache_track_for_offline {} - {} by {}", track_id, title, artist);
 
-    let track_info = TrackDownloadInfo {
+    let track_info = TrackCacheInfo {
         track_id,
         title,
         artist,
@@ -154,40 +154,40 @@ pub async fn download_track(
 
     // Clone what we need for the spawn
     let client = state.client.clone();
-    let downloader = cache_state.downloader.clone();
+    let fetcher = cache_state.fetcher.clone();
     let db = cache_state.db.clone();
-    let download_root = cache_state.get_cache_path();
+    let offline_root = cache_state.get_cache_path();
     let library_db = library_state.db.clone();
     let app = app_handle.clone();
-    let semaphore = cache_state.download_semaphore.clone();
+    let semaphore = cache_state.cache_semaphore.clone();
 
-    // Spawn download task
+    // Spawn caching task
     tokio::spawn(async move {
         let _permit = match semaphore.acquire_owned().await {
             Ok(permit) => permit,
             Err(err) => {
-                log::error!("Failed to acquire download slot for track {}: {}", track_id, err);
+                log::error!("Failed to acquire cache slot for track {}: {}", track_id, err);
                 let db_guard = db.lock().await;
                 let _ = db_guard.update_status(
                     track_id,
-                    DownloadStatus::Failed,
-                    Some("Failed to start download"),
+                    OfflineCacheStatus::Failed,
+                    Some("Failed to start caching"),
                 );
-                let _ = app.emit("download:failed", serde_json::json!({
+                let _ = app.emit("offline:caching_failed", serde_json::json!({
                     "trackId": track_id,
-                    "error": "Failed to acquire download slot"
+                    "error": "Failed to acquire cache slot"
                 }));
                 return;
             }
         };
 
-        // Update status to downloading
+        // Update status to caching
         {
             let db_guard = db.lock().await;
-            let _ = db_guard.update_status(track_id, DownloadStatus::Downloading, None);
+            let _ = db_guard.update_status(track_id, OfflineCacheStatus::Downloading, None);
         }
 
-        let _ = app.emit("download:started", serde_json::json!({
+        let _ = app.emit("offline:caching_started", serde_json::json!({
             "trackId": track_id
         }));
 
@@ -206,10 +206,10 @@ pub async fn download_track(
                 let db_guard = db.lock().await;
                 let _ = db_guard.update_status(
                     track_id,
-                    DownloadStatus::Failed,
+                    OfflineCacheStatus::Failed,
                     Some(&format!("Failed to get stream URL: {}", e)),
                 );
-                let _ = app.emit("download:failed", serde_json::json!({
+                let _ = app.emit("offline:caching_failed", serde_json::json!({
                     "trackId": track_id,
                     "error": e.to_string()
                 }));
@@ -217,32 +217,32 @@ pub async fn download_track(
             }
         };
 
-        // Download the file
-        match downloader
-            .download_to_file(&url, &file_path, track_id, Some(&app))
+        // Fetch and cache the file
+        match fetcher
+            .fetch_to_file(&url, &file_path, track_id, Some(&app))
             .await
         {
             Ok(size) => {
-                log::info!("Download complete for track {}: {} bytes", track_id, size);
+                log::info!("Caching complete for track {}: {} bytes", track_id, size);
                 {
                     let db_guard = db.lock().await;
                     let _ = db_guard.mark_complete(track_id, size);
                 }
-                
-                let _ = app.emit("download:completed", serde_json::json!({
+
+                let _ = app.emit("offline:caching_completed", serde_json::json!({
                     "trackId": track_id,
                     "size": size
                 }));
 
                 // Post-processing: metadata, tagging, artwork, organization
-                log::info!("Starting post-processing for track {}", track_id);
-                
+                log::info!("Starting post-processing for cached track {}", track_id);
+
                 let file_path_str = file_path.to_string_lossy().to_string();
                 let qobuz_client = client.lock().await;
-                match post_process_track(
+                match post_process_cached_track(
                     track_id,
                     &file_path_str,
-                    &download_root,
+                    &offline_root,
                     &*qobuz_client,
                     library_db.clone(),
                 ).await {
@@ -252,23 +252,23 @@ pub async fn download_track(
                         if let Err(e) = db_guard.update_file_path(track_id, &new_path) {
                             log::error!("Failed to update path for track {}: {}", track_id, e);
                         }
-                        
-                        let _ = app.emit("download:processed", serde_json::json!({
+
+                        let _ = app.emit("offline:caching_processed", serde_json::json!({
                             "trackId": track_id,
                             "path": new_path
                         }));
                     }
                     Err(e) => {
-                        log::error!("Post-processing failed for track {}: {}", track_id, e);
+                        log::error!("Post-processing failed for cached track {}: {}", track_id, e);
                         // File still exists and is playable, just not organized
                     }
                 }
             }
             Err(e) => {
-                log::error!("Download failed for track {}: {}", track_id, e);
+                log::error!("Caching failed for track {}: {}", track_id, e);
                 let db_guard = db.lock().await;
-                let _ = db_guard.update_status(track_id, DownloadStatus::Failed, Some(&e));
-                let _ = app.emit("download:failed", serde_json::json!({
+                let _ = db_guard.update_status(track_id, OfflineCacheStatus::Failed, Some(&e));
+                let _ = app.emit("offline:caching_failed", serde_json::json!({
                     "trackId": track_id,
                     "error": e
                 }));
@@ -281,9 +281,9 @@ pub async fn download_track(
 
 /// Check if a track is cached and ready for playback
 #[tauri::command]
-pub async fn is_track_downloaded(
+pub async fn is_track_cached(
     track_id: u64,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<bool, String> {
     let db = cache_state.db.lock().await;
     db.is_cached(track_id)
@@ -291,9 +291,9 @@ pub async fn is_track_downloaded(
 
 /// Get the local file path for a cached track
 #[tauri::command]
-pub async fn get_downloaded_track_path(
+pub async fn get_cached_track_path(
     track_id: u64,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<Option<String>, String> {
     let db = cache_state.db.lock().await;
     db.get_file_path(track_id)
@@ -301,9 +301,9 @@ pub async fn get_downloaded_track_path(
 
 /// Get info about a specific cached track
 #[tauri::command]
-pub async fn get_downloaded_track(
+pub async fn get_cached_track(
     track_id: u64,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<Option<CachedTrackInfo>, String> {
     let db = cache_state.db.lock().await;
     db.get_track(track_id)
@@ -311,31 +311,31 @@ pub async fn get_downloaded_track(
 
 /// Get all cached tracks
 #[tauri::command]
-pub async fn get_downloaded_tracks(
-    cache_state: State<'_, DownloadCacheState>,
+pub async fn get_cached_tracks(
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<Vec<CachedTrackInfo>, String> {
     let db = cache_state.db.lock().await;
     db.get_all_tracks()
 }
 
-/// Get download cache statistics
+/// Get offline cache statistics
 #[tauri::command]
-pub async fn get_download_cache_stats(
-    cache_state: State<'_, DownloadCacheState>,
-) -> Result<DownloadCacheStats, String> {
+pub async fn get_offline_cache_stats(
+    cache_state: State<'_, OfflineCacheState>,
+) -> Result<OfflineCacheStats, String> {
     let db = cache_state.db.lock().await;
     let limit = *cache_state.limit_bytes.lock().await;
     db.get_stats(&cache_state.get_cache_path(), limit)
 }
 
-/// Remove a track from the download cache
+/// Remove a track from the offline cache
 #[tauri::command]
-pub async fn remove_downloaded_track(
+pub async fn remove_cached_track(
     track_id: u64,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
     library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<(), String> {
-    log::info!("Command: remove_downloaded_track {}", track_id);
+    log::info!("Command: remove_cached_track {}", track_id);
 
     let db = cache_state.db.lock().await;
 
@@ -352,24 +352,24 @@ pub async fn remove_downloaded_track(
 
     // Also remove from library if it was added
     let library_db = library_state.db.lock().await;
-    let _ = library_db.remove_qobuz_download(track_id);
+    let _ = library_db.remove_qobuz_cached_track(track_id);
 
     Ok(())
 }
 
-/// Clear entire download cache
+/// Clear entire offline cache
 #[tauri::command]
-pub async fn clear_download_cache(
-    cache_state: State<'_, DownloadCacheState>,
+pub async fn clear_offline_cache(
+    cache_state: State<'_, OfflineCacheState>,
     library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<(), String> {
-    log::info!("Command: clear_download_cache");
-    purge_all_downloads(cache_state.inner(), library_state.inner()).await
+    log::info!("Command: clear_offline_cache");
+    purge_all_cached_files(cache_state.inner(), library_state.inner()).await
 }
 
-/// Clear entire download cache (internal helper)
-pub async fn purge_all_downloads(
-    cache_state: &DownloadCacheState,
+/// Clear entire offline cache (internal helper)
+pub async fn purge_all_cached_files(
+    cache_state: &OfflineCacheState,
     library_state: &crate::library::commands::LibraryState,
 ) -> Result<(), String> {
     let db = cache_state.db.lock().await;
@@ -396,23 +396,23 @@ pub async fn purge_all_downloads(
         }
     }
 
-    // Remove all Qobuz downloads from library
+    // Remove all Qobuz cached tracks from library
     let library_db = library_state.db.lock().await;
     let removed_count = library_db
-        .remove_all_qobuz_downloads()
-        .map_err(|e| format!("Failed to remove downloads from library: {}", e))?;
-    log::info!("Removed {} Qobuz downloads from library", removed_count);
+        .remove_all_qobuz_cached_tracks()
+        .map_err(|e| format!("Failed to remove cached tracks from library: {}", e))?;
+    log::info!("Removed {} Qobuz cached tracks from library", removed_count);
 
     Ok(())
 }
 
 /// Set cache size limit
 #[tauri::command]
-pub async fn set_download_cache_limit(
+pub async fn set_offline_cache_limit(
     limit_mb: Option<u64>,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<(), String> {
-    log::info!("Command: set_download_cache_limit {:?} MB", limit_mb);
+    log::info!("Command: set_offline_cache_limit {:?} MB", limit_mb);
 
     let limit_bytes = limit_mb.map(|mb| mb * 1024 * 1024);
     let mut limit = cache_state.limit_bytes.lock().await;
@@ -429,10 +429,10 @@ pub async fn set_download_cache_limit(
 
 /// Open the cache folder in the system file manager
 #[tauri::command]
-pub async fn open_download_cache_folder(
-    cache_state: State<'_, DownloadCacheState>,
+pub async fn open_offline_cache_folder(
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<(), String> {
-    log::info!("Command: open_download_cache_folder");
+    log::info!("Command: open_offline_cache_folder");
 
     let path = cache_state.cache_dir.clone();
 
@@ -450,12 +450,12 @@ pub async fn open_download_cache_folder(
 #[tauri::command]
 pub async fn open_album_folder(
     album_id: String,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<(), String> {
     log::info!("Command: open_album_folder for album_id: {}", album_id);
 
     let db = cache_state.db.lock().await;
-    
+
     // Get tracks for this album
     let tracks = db.get_all_tracks()?;
     let album_tracks: Vec<_> = tracks
@@ -464,7 +464,7 @@ pub async fn open_album_folder(
         .collect();
 
     if album_tracks.is_empty() {
-        return Err("No downloaded tracks found for this album".to_string());
+        return Err("No cached tracks found for this album".to_string());
     }
 
     // Get the first track's path and extract the album directory
@@ -491,7 +491,7 @@ pub async fn open_album_folder(
 #[tauri::command]
 pub async fn open_track_folder(
     track_id: u64,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<(), String> {
     log::info!("Command: open_track_folder for track_id: {}", track_id);
 
@@ -499,7 +499,7 @@ pub async fn open_track_folder(
 
     // Get the track's file path
     let file_path = db.get_file_path(track_id)?
-        .ok_or_else(|| "Track file path not found - track may not be downloaded".to_string())?;
+        .ok_or_else(|| "Track file path not found - track may not be cached".to_string())?;
 
     let track_path = std::path::Path::new(&file_path);
     let track_dir = track_path
@@ -516,14 +516,14 @@ pub async fn open_track_folder(
     Ok(())
 }
 
-/// Check if an album is fully downloaded (all tracks ready)
+/// Check if an album is fully cached (all tracks ready)
 #[tauri::command]
-pub async fn check_album_fully_downloaded(
+pub async fn check_album_fully_cached(
     album_id: String,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<bool, String> {
     let db = cache_state.db.lock().await;
-    
+
     // Get all tracks for this album
     let tracks = db.get_all_tracks()?;
     let album_tracks: Vec<_> = tracks
@@ -534,20 +534,20 @@ pub async fn check_album_fully_downloaded(
     if album_tracks.is_empty() {
         return Ok(false);
     }
-    
+
     // Check if all tracks are ready
     for track in album_tracks {
-        if track.status != crate::download_cache::DownloadStatus::Ready {
+        if track.status != crate::offline_cache::OfflineCacheStatus::Ready {
             return Ok(false);
         }
     }
-    
+
     Ok(true)
 }
 
 /// Evict tracks if cache exceeds limit (LRU policy)
 async fn evict_if_needed(
-    cache_state: &DownloadCacheState,
+    cache_state: &OfflineCacheState,
     limit_bytes: u64,
 ) -> Result<(), String> {
     let db = cache_state.db.lock().await;
@@ -586,42 +586,42 @@ async fn evict_if_needed(
 // Path management commands
 
 #[tauri::command]
-pub async fn check_download_root_mounted(
-    cache_state: State<'_, DownloadCacheState>,
+pub async fn check_offline_root_mounted(
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<bool, String> {
-    log::info!("Command: check_download_root_mounted");
-    
+    log::info!("Command: check_offline_root_mounted");
+
     let root_path = cache_state.cache_dir.to_string_lossy().to_string();
-    super::path_validator::is_download_root_available(&root_path)
+    super::path_validator::is_offline_root_available(&root_path)
 }
 
 #[tauri::command]
-pub async fn validate_download_path(path: String) -> Result<super::path_validator::PathValidationResult, String> {
-    log::info!("Command: validate_download_path: {}", path);
+pub async fn validate_offline_path(path: String) -> Result<super::path_validator::PathValidationResult, String> {
+    log::info!("Command: validate_offline_path: {}", path);
     super::path_validator::validate_path(&path)
 }
 
 #[tauri::command]
-pub async fn move_downloads_to_path(
+pub async fn move_offline_cache_to_path(
     new_path: String,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<super::path_validator::MoveReport, String> {
-    log::info!("Command: move_downloads_to_path: {}", new_path);
-    
+    log::info!("Command: move_offline_cache_to_path: {}", new_path);
+
     let old_path = cache_state.cache_dir.to_string_lossy().to_string();
-    super::path_validator::move_downloads_to_new_path(&old_path, &new_path)
+    super::path_validator::move_cached_files_to_new_path(&old_path, &new_path)
 }
 
-/// Detect legacy downloads (numeric FLAC files)
+/// Detect legacy cached files (numeric FLAC files)
 #[tauri::command]
-pub async fn detect_legacy_downloads(
-    cache_state: State<'_, DownloadCacheState>,
+pub async fn detect_legacy_cached_files(
+    cache_state: State<'_, OfflineCacheState>,
 ) -> Result<super::MigrationStatus, String> {
-    log::info!("Command: detect_legacy_downloads");
-    
+    log::info!("Command: detect_legacy_cached_files");
+
     let tracks_dir = cache_state.cache_dir.join("tracks");
-    
-    match super::detect_legacy_downloads(&tracks_dir) {
+
+    match super::detect_legacy_cached_files(&tracks_dir) {
         Ok(track_ids) => {
             Ok(super::MigrationStatus {
                 has_legacy_files: !track_ids.is_empty(),
@@ -633,34 +633,34 @@ pub async fn detect_legacy_downloads(
     }
 }
 
-/// Start migration of legacy downloads
+/// Start migration of legacy cached files
 #[tauri::command]
 pub async fn start_legacy_migration(
     state: State<'_, AppState>,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
     library_state: State<'_, crate::library::commands::LibraryState>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
     log::info!("Command: start_legacy_migration");
-    
+
     let tracks_dir = cache_state.cache_dir.join("tracks");
-    let track_ids = super::detect_legacy_downloads(&tracks_dir)?;
-    
+    let track_ids = super::detect_legacy_cached_files(&tracks_dir)?;
+
     if track_ids.is_empty() {
-        return Err("No legacy downloads found".to_string());
+        return Err("No legacy cached files found".to_string());
     }
-    
-    let download_root = cache_state.get_cache_path();
+
+    let offline_root = cache_state.get_cache_path();
     let qobuz_client = state.client.clone();
     let library_db = library_state.db.clone();
     let app_complete = app_handle.clone();
-    
+
     // Spawn migration task
     tokio::spawn(async move {
-        let status = super::migrate_legacy_downloads(
+        let status = super::migrate_legacy_cached_files(
             track_ids,
             tracks_dir,
-            download_root,
+            offline_root,
             qobuz_client,
             library_db,
         ).await;
@@ -671,19 +671,19 @@ pub async fn start_legacy_migration(
     Ok(())
 }
 
-/// Sync downloaded tracks to library database
-/// This ensures all ready downloads appear in the library with source='qobuz_download'
+/// Sync cached tracks to library database
+/// This ensures all ready cached tracks appear in the library with source='qobuz_cached'
 #[tauri::command]
-pub async fn sync_downloads_to_library(
-    cache_state: State<'_, DownloadCacheState>,
+pub async fn sync_offline_cache_to_library(
+    cache_state: State<'_, OfflineCacheState>,
     library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<SyncResult, String> {
-    log::info!("Command: sync_downloads_to_library");
+    log::info!("Command: sync_offline_cache_to_library");
 
     let cache_db = cache_state.db.lock().await;
     let library_db = library_state.db.lock().await;
 
-    // Get all ready tracks from download cache
+    // Get all ready tracks from offline cache
     let ready_tracks = cache_db.get_ready_tracks_for_sync()?;
 
     let mut synced = 0;
@@ -698,7 +698,7 @@ pub async fn sync_downloads_to_library(
             }
             Ok(false) => {
                 // Insert into library with basic metadata
-                match library_db.insert_qobuz_download_direct(
+                match library_db.insert_qobuz_cached_track_direct(
                     track.track_id,
                     &track.title,
                     &track.artist,

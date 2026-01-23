@@ -112,7 +112,7 @@ impl SubscriptionStateStore {
         Ok(())
     }
 
-    pub fn mark_downloads_purged(&self, now: i64) -> Result<(), String> {
+    pub fn mark_offline_cache_purged(&self, now: i64) -> Result<(), String> {
         self.conn
             .execute(
                 "UPDATE subscription_state SET downloads_purged_at = ?1 WHERE id = 1",
@@ -122,7 +122,7 @@ impl SubscriptionStateStore {
         Ok(())
     }
 
-    pub fn should_purge_downloads(&self, now: i64) -> Result<bool, String> {
+    pub fn should_purge_offline_cache(&self, now: i64) -> Result<bool, String> {
         let state = self.get_state()?;
         let Some(invalid_since) = state.invalid_since else { return Ok(false); };
         if now - invalid_since < GRACE_PERIOD_SECS {

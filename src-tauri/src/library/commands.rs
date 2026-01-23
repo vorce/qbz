@@ -1443,7 +1443,7 @@ pub struct BackfillReport {
 #[tauri::command]
 pub async fn library_backfill_downloads(
     state: State<'_, LibraryState>,
-    download_cache_state: State<'_, crate::download_cache::DownloadCacheState>,
+    offline_cache_state: State<'_, crate::offline_cache::OfflineCacheState>,
 ) -> Result<BackfillReport, String> {
     log::info!("Command: library_backfill_downloads");
 
@@ -1455,14 +1455,14 @@ pub async fn library_backfill_downloads(
         failed_tracks: Vec::new(),
     };
 
-    // Get all ready downloads directly from download cache DB
-    let downloads = {
-        let cache_db = download_cache_state.db.lock().await;
+    // Get all ready cached tracks directly from offline cache DB
+    let cached_tracks = {
+        let cache_db = offline_cache_state.db.lock().await;
 
         let mut stmt = cache_db
             .conn()
             .prepare("SELECT track_id, title, artist, album, album_id, duration_secs, file_path, quality, bit_depth, sample_rate FROM cached_tracks WHERE status = 'ready'")
-            .map_err(|e| format!("Failed to query downloads: {}", e))?;
+            .map_err(|e| format!("Failed to query cached tracks: {}", e))?;
 
         let rows = stmt
             .query_map([], |row| {
@@ -1480,14 +1480,14 @@ pub async fn library_backfill_downloads(
             .map_err(|e| format!("Failed to map rows: {}", e))?;
 
         rows.collect::<Result<Vec<_>, _>>()
-            .map_err(|e| format!("Failed to collect downloads: {}", e))?
+            .map_err(|e| format!("Failed to collect cached tracks: {}", e))?
     }; // cache_db lock is dropped here
 
-    report.total_downloads = downloads.len();
+    report.total_downloads = cached_tracks.len();
 
     let library_db = state.db.lock().await;
 
-    for (track_id, title, artist, album, duration_secs, file_path, bit_depth, sample_rate) in downloads {
+    for (track_id, title, artist, album, duration_secs, file_path, bit_depth, sample_rate) in cached_tracks {
         // Strategy: Try to match by qobuz_track_id first, then by file_path
         // This handles both intact downloads and downloads damaged by scanner
 
@@ -1502,15 +1502,15 @@ pub async fn library_backfill_downloads(
         if exists_by_id {
             // Track exists with correct qobuz_track_id (not damaged)
             // Check if it just needs source repair
-            match library_db.is_qobuz_download_by_path(&file_path) {
+            match library_db.is_qobuz_cached_track_by_path(&file_path) {
                 Ok(true) => {
-                    // Already marked as qobuz_download, nothing to do
+                    // Already marked as cached track, nothing to do
                     report.skipped_tracks += 1;
                 },
                 Ok(false) => {
                     // Has qobuz_track_id but lost source marker - unusual case
                     log::info!("Repairing source for track with intact ID {}: {}", track_id, title);
-                    match library_db.repair_qobuz_download_by_path(track_id, &file_path) {
+                    match library_db.repair_qobuz_cached_track_by_path(track_id, &file_path) {
                         Ok(true) => report.repaired_tracks += 1,
                         Ok(false) => report.skipped_tracks += 1,
                         Err(e) => {
@@ -1520,7 +1520,7 @@ pub async fn library_backfill_downloads(
                     }
                 },
                 Err(e) => {
-                    log::warn!("Failed to check download status for {}: {}", track_id, e);
+                    log::warn!("Failed to check cached track status for {}: {}", track_id, e);
                     report.failed_tracks.push(title);
                 }
             }
@@ -1529,8 +1529,8 @@ pub async fn library_backfill_downloads(
 
         if exists_by_path {
             // Track exists by path but lost qobuz_track_id (damaged by scanner)
-            log::info!("Repairing damaged download (lost ID) {}: {}", track_id, title);
-            match library_db.repair_qobuz_download_by_path(track_id, &file_path) {
+            log::info!("Repairing damaged cached track (lost ID) {}: {}", track_id, title);
+            match library_db.repair_qobuz_cached_track_by_path(track_id, &file_path) {
                 Ok(true) => report.repaired_tracks += 1,
                 Ok(false) => report.skipped_tracks += 1,
                 Err(e) => {
@@ -1542,7 +1542,7 @@ pub async fn library_backfill_downloads(
         }
 
         // Track doesn't exist - insert as new
-        match library_db.insert_qobuz_download_direct(
+        match library_db.insert_qobuz_cached_track_direct(
             track_id,
             &title,
             &artist,

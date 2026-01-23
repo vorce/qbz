@@ -11,7 +11,7 @@ pub mod commands;
 pub mod config;
 pub mod credentials;
 pub mod discogs;
-pub mod download_cache;
+pub mod offline_cache;
 pub mod flatpak;
 pub mod lastfm;
 pub mod library;
@@ -156,9 +156,9 @@ pub fn run() {
     // let airplay_state = cast::airplay::commands::AirPlayState::new()
     //     .expect("Failed to initialize AirPlay state");
 
-    // Initialize download cache state
-    let download_cache_state = download_cache::DownloadCacheState::new()
-        .expect("Failed to initialize download cache");
+    // Initialize offline cache state
+    let offline_cache_state = offline_cache::OfflineCacheState::new()
+        .expect("Failed to initialize offline cache");
     // Initialize lyrics cache state
     let lyrics_state = lyrics::LyricsState::new()
         .expect("Failed to initialize lyrics cache");
@@ -252,7 +252,7 @@ pub fn run() {
                             return;
                         }
                     };
-                    match store.should_purge_downloads(now) {
+                    match store.should_purge_offline_cache(now) {
                         Ok(v) => v,
                         Err(e) => {
                             log::warn!("Failed to evaluate purge condition: {}", e);
@@ -265,11 +265,11 @@ pub fn run() {
                     return;
                 }
 
-                log::warn!("Subscription invalid for >3 days. Purging offline downloads.");
-                let cache_state = app_handle.state::<download_cache::DownloadCacheState>();
+                log::warn!("Subscription invalid for >3 days. Purging offline cache.");
+                let cache_state = app_handle.state::<offline_cache::OfflineCacheState>();
                 let library_state = app_handle.state::<crate::library::commands::LibraryState>();
-                if let Err(e) = download_cache::commands::purge_all_downloads(cache_state.inner(), library_state.inner()).await {
-                    log::error!("Failed to purge downloads: {}", e);
+                if let Err(e) = offline_cache::commands::purge_all_cached_files(cache_state.inner(), library_state.inner()).await {
+                    log::error!("Failed to purge offline cache: {}", e);
                     return;
                 }
 
@@ -280,7 +280,7 @@ pub fn run() {
                         return;
                     }
                 };
-                if let Err(e) = store.mark_downloads_purged(now) {
+                if let Err(e) = store.mark_offline_cache_purged(now) {
                     log::warn!("Failed to persist purge timestamp: {}", e);
                 }
             });
@@ -359,7 +359,7 @@ pub fn run() {
         .manage(cast_state)
         .manage(dlna_state)
         // .manage(airplay_state)  // AirPlay DISABLED
-        .manage(download_cache_state)
+        .manage(offline_cache_state)
         .manage(lyrics_state)
         .manage(reco_state)
         .manage(api_cache_state)
@@ -600,26 +600,26 @@ pub fn run() {
             // cast::airplay::commands::airplay_pause,
             // cast::airplay::commands::airplay_stop,
             // cast::airplay::commands::airplay_set_volume,
-            // Download cache commands
-            download_cache::commands::download_track,
-            download_cache::commands::is_track_downloaded,
-            download_cache::commands::get_downloaded_track_path,
-            download_cache::commands::get_downloaded_track,
-            download_cache::commands::get_downloaded_tracks,
-            download_cache::commands::get_download_cache_stats,
-            download_cache::commands::remove_downloaded_track,
-            download_cache::commands::clear_download_cache,
-            download_cache::commands::set_download_cache_limit,
-            download_cache::commands::open_download_cache_folder,
-            download_cache::commands::open_album_folder,
-            download_cache::commands::open_track_folder,
-            download_cache::commands::check_album_fully_downloaded,
-            download_cache::commands::check_download_root_mounted,
-            download_cache::commands::validate_download_path,
-            download_cache::commands::move_downloads_to_path,
-            download_cache::commands::detect_legacy_downloads,
-            download_cache::commands::start_legacy_migration,
-            download_cache::commands::sync_downloads_to_library,
+            // Offline cache commands
+            offline_cache::commands::cache_track_for_offline,
+            offline_cache::commands::is_track_cached,
+            offline_cache::commands::get_cached_track_path,
+            offline_cache::commands::get_cached_track,
+            offline_cache::commands::get_cached_tracks,
+            offline_cache::commands::get_offline_cache_stats,
+            offline_cache::commands::remove_cached_track,
+            offline_cache::commands::clear_offline_cache,
+            offline_cache::commands::set_offline_cache_limit,
+            offline_cache::commands::open_offline_cache_folder,
+            offline_cache::commands::open_album_folder,
+            offline_cache::commands::open_track_folder,
+            offline_cache::commands::check_album_fully_cached,
+            offline_cache::commands::check_offline_root_mounted,
+            offline_cache::commands::validate_offline_path,
+            offline_cache::commands::move_offline_cache_to_path,
+            offline_cache::commands::detect_legacy_cached_files,
+            offline_cache::commands::start_legacy_migration,
+            offline_cache::commands::sync_offline_cache_to_library,
             // Lyrics commands
             lyrics::commands::lyrics_get,
             lyrics::commands::lyrics_get_cache_stats,

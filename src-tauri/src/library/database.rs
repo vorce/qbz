@@ -719,9 +719,9 @@ impl LibraryDatabase {
 
     // === Track Management ===
 
-    /// Check if a file path is already registered as a Qobuz download
-    /// Returns true if the file exists with source = 'qobuz_download'
-    pub fn is_qobuz_download_by_path(&self, file_path: &str) -> Result<bool, LibraryError> {
+    /// Check if a file path is already registered as a Qobuz cached track
+    /// Returns true if the file exists with source = 'qobuz_download' (legacy name kept for DB compatibility)
+    pub fn is_qobuz_cached_track_by_path(&self, file_path: &str) -> Result<bool, LibraryError> {
         let count: i64 = self.conn
             .query_row(
                 "SELECT COUNT(*) FROM local_tracks WHERE file_path = ?1 AND source = 'qobuz_download'",
@@ -732,11 +732,11 @@ impl LibraryDatabase {
         Ok(count > 0)
     }
 
-    /// Insert or update a track (skips if file is already a Qobuz download)
+    /// Insert or update a track (skips if file is already a Qobuz cached track)
     pub fn insert_track(&self, track: &LocalTrack) -> Result<i64, LibraryError> {
-        // Don't overwrite Qobuz downloads with scanned data
-        if self.is_qobuz_download_by_path(&track.file_path)? {
-            log::debug!("Skipping track insert - already exists as Qobuz download: {}", track.file_path);
+        // Don't overwrite Qobuz cached tracks with scanned data
+        if self.is_qobuz_cached_track_by_path(&track.file_path)? {
+            log::debug!("Skipping track insert - already exists as Qobuz cached track: {}", track.file_path);
             // Return the existing ID
             return self.conn
                 .query_row(
@@ -2120,7 +2120,8 @@ impl LibraryDatabase {
     /// Repair a track by file_path - restores both qobuz_track_id and source
     /// This handles tracks that were damaged by scanner's INSERT OR REPLACE
     /// Returns true if the track was found and updated
-    pub fn repair_qobuz_download_by_path(
+    /// Note: Database source field remains 'qobuz_download' for compatibility
+    pub fn repair_qobuz_cached_track_by_path(
         &self,
         qobuz_track_id: u64,
         file_path: &str,
@@ -2131,7 +2132,7 @@ impl LibraryDatabase {
              WHERE file_path = ?2 AND (source IS NULL OR source != 'qobuz_download')",
             params![qobuz_track_id as i64, file_path],
         )
-        .map_err(|e| LibraryError::Database(format!("Failed to repair download by path: {}", e)))?;
+        .map_err(|e| LibraryError::Database(format!("Failed to repair cached track by path: {}", e)))?;
         Ok(updated > 0)
     }
 
@@ -2147,8 +2148,9 @@ impl LibraryDatabase {
         Ok(count > 0)
     }
 
-    /// Insert a Qobuz download into the library
-    pub fn insert_qobuz_download_direct(
+    /// Insert a Qobuz cached track into the library
+    /// Note: Database source field remains 'qobuz_download' for compatibility
+    pub fn insert_qobuz_cached_track_direct(
         &self,
         track_id: u64,
         title: &str,
@@ -2202,12 +2204,13 @@ impl LibraryDatabase {
                 track_id as i64,
             ],
         )
-        .map_err(|e| LibraryError::Database(format!("Failed to insert Qobuz download: {}", e)))?;
+        .map_err(|e| LibraryError::Database(format!("Failed to insert Qobuz cached track: {}", e)))?;
         Ok(())
     }
 
-    /// Insert a Qobuz download with full metadata and album grouping
-    pub fn insert_qobuz_download_with_grouping(
+    /// Insert a Qobuz cached track with full metadata and album grouping
+    /// Note: Database source field remains 'qobuz_download' for compatibility
+    pub fn insert_qobuz_cached_track_with_grouping(
         &self,
         track_id: u64,
         title: &str,
@@ -2228,7 +2231,7 @@ impl LibraryDatabase {
         use std::time::SystemTime;
         
         // First, remove any existing entry for this qobuz_track_id to prevent duplicates
-        let _ = self.remove_qobuz_download(track_id);
+        let _ = self.remove_qobuz_cached_track(track_id);
         
         // Get file size if file exists
         let file_size_bytes = std::fs::metadata(file_path)
@@ -2276,27 +2279,29 @@ impl LibraryDatabase {
                 track_id as i64,
             ],
         )
-        .map_err(|e| LibraryError::Database(format!("Failed to insert Qobuz download: {}", e)))?;
+        .map_err(|e| LibraryError::Database(format!("Failed to insert Qobuz cached track: {}", e)))?;
         Ok(())
     }
 
-    /// Remove a Qobuz download from the library by track_id
-    pub fn remove_qobuz_download(&self, qobuz_track_id: u64) -> Result<(), LibraryError> {
+    /// Remove a Qobuz cached track from the library by track_id
+    /// Note: Database source field remains 'qobuz_download' for compatibility
+    pub fn remove_qobuz_cached_track(&self, qobuz_track_id: u64) -> Result<(), LibraryError> {
         self.conn.execute(
             "DELETE FROM local_tracks WHERE qobuz_track_id = ?1 AND source = 'qobuz_download'",
             params![qobuz_track_id as i64],
         )
-        .map_err(|e| LibraryError::Database(format!("Failed to remove Qobuz download: {}", e)))?;
+        .map_err(|e| LibraryError::Database(format!("Failed to remove Qobuz cached track: {}", e)))?;
         Ok(())
     }
 
-    /// Remove all Qobuz downloads from the library
-    pub fn remove_all_qobuz_downloads(&self) -> Result<usize, LibraryError> {
+    /// Remove all Qobuz cached tracks from the library
+    /// Note: Database source field remains 'qobuz_download' for compatibility
+    pub fn remove_all_qobuz_cached_tracks(&self) -> Result<usize, LibraryError> {
         let count = self.conn.execute(
             "DELETE FROM local_tracks WHERE source = 'qobuz_download'",
             [],
         )
-        .map_err(|e| LibraryError::Database(format!("Failed to remove all Qobuz downloads: {}", e)))?;
+        .map_err(|e| LibraryError::Database(format!("Failed to remove all Qobuz cached tracks: {}", e)))?;
         Ok(count)
     }
 

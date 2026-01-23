@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use crate::api::client::QobuzClient;
 use crate::api::models::Quality;
 use crate::cache::AudioCache;
-use crate::download_cache::DownloadCacheState;
+use crate::offline_cache::OfflineCacheState;
 use crate::player::PlaybackState;
 use crate::queue::QueueManager;
 use crate::AppState;
@@ -17,17 +17,17 @@ use crate::AppState;
 pub async fn play_track(
     track_id: u64,
     state: State<'_, AppState>,
-    download_cache: State<'_, DownloadCacheState>,
+    offline_cache: State<'_, OfflineCacheState>,
 ) -> Result<(), String> {
     log::info!("Command: play_track {}", track_id);
 
-    // First check download cache (persistent disk cache)
+    // First check offline cache (persistent disk cache)
     {
-        let db = download_cache.db.lock().await;
+        let db = offline_cache.db.lock().await;
         if let Ok(Some(file_path)) = db.get_file_path(track_id) {
             let path = std::path::Path::new(&file_path);
             if path.exists() {
-                log::info!("Playing track {} from download cache: {:?}", track_id, path);
+                log::info!("Playing track {} from offline cache: {:?}", track_id, path);
 
                 // Update last accessed time
                 let _ = db.touch(track_id);
@@ -132,7 +132,7 @@ pub async fn play_track(
 pub async fn prefetch_track(
     track_id: u64,
     state: State<'_, AppState>,
-    download_cache: State<'_, DownloadCacheState>,
+    offline_cache: State<'_, OfflineCacheState>,
 ) -> Result<(), String> {
     log::info!("Command: prefetch_track {}", track_id);
 
@@ -150,13 +150,13 @@ pub async fn prefetch_track(
 
     cache.mark_fetching(track_id);
     let result = async {
-        // Check persistent download cache first
+        // Check persistent offline cache first
         {
-            let db = download_cache.db.lock().await;
+            let db = offline_cache.db.lock().await;
             if let Ok(Some(file_path)) = db.get_file_path(track_id) {
                 let path = std::path::Path::new(&file_path);
                 if path.exists() {
-                    log::info!("Prefetching track {} from download cache", track_id);
+                    log::info!("Prefetching track {} from offline cache", track_id);
                     drop(db);
                     let audio_data = std::fs::read(path)
                         .map_err(|e| format!("Failed to read cached file: {}", e))?;

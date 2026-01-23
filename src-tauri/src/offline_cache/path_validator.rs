@@ -1,4 +1,4 @@
-//! Download path validation and management
+//! Offline cache path validation and management
 //!
 //! Handles path validation, permission checking, and mount status verification.
 
@@ -21,7 +21,7 @@ pub struct PathValidationResult {
     pub message: String,
 }
 
-/// Validate a download path
+/// Validate an offline cache path
 pub fn validate_path(path: &str) -> Result<PathValidationResult, String> {
     let path_obj = Path::new(path);
 
@@ -115,8 +115,8 @@ pub struct MoveReport {
     pub failed_files: Vec<String>,
 }
 
-/// Move downloaded files from old path to new path
-pub fn move_downloads_to_new_path(
+/// Move cached files from old path to new path
+pub fn move_cached_files_to_new_path(
     old_root: &str,
     new_root: &str,
 ) -> Result<MoveReport, String> {
@@ -212,7 +212,7 @@ static MOUNT_CACHE: Mutex<Option<MountStatusCache>> = Mutex::new(None);
 const CACHE_DURATION: Duration = Duration::from_secs(30);
 
 /// Check mount status with caching (30s cache)
-pub fn is_download_root_available(path: &str) -> Result<bool, String> {
+pub fn is_offline_root_available(path: &str) -> Result<bool, String> {
     let mut cache = MOUNT_CACHE.lock().map_err(|e| format!("Cache lock error: {}", e))?;
 
     if let Some(cached) = cache.as_ref() {

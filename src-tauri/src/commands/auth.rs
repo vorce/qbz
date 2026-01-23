@@ -7,7 +7,7 @@ use crate::credentials;
 use crate::AppState;
 use crate::api::error::ApiError;
 use crate::config::SubscriptionStateState;
-use crate::download_cache::DownloadCacheState;
+use crate::offline_cache::OfflineCacheState;
 
 #[derive(serde::Serialize)]
 pub struct LoginResponse {
@@ -26,10 +26,10 @@ fn now_unix_secs() -> i64 {
         .as_secs() as i64
 }
 
-async fn maybe_purge_downloads_for_invalid_subscription(
+async fn maybe_purge_offline_cache_for_invalid_subscription(
     now: i64,
     subscription_state: &SubscriptionStateState,
-    cache_state: &DownloadCacheState,
+    cache_state: &OfflineCacheState,
     library_state: &crate::library::commands::LibraryState,
 ) {
     let should_purge = {
@@ -40,7 +40,7 @@ async fn maybe_purge_downloads_for_invalid_subscription(
                 return;
             }
         };
-        match store.should_purge_downloads(now) {
+        match store.should_purge_offline_cache(now) {
             Ok(v) => v,
             Err(e) => {
                 log::warn!("Failed to evaluate purge condition: {}", e);
@@ -53,14 +53,14 @@ async fn maybe_purge_downloads_for_invalid_subscription(
         return;
     }
 
-    log::warn!("Subscription invalid for >3 days. Purging offline downloads.");
-    if let Err(e) = crate::download_cache::commands::purge_all_downloads(cache_state, library_state).await {
-        log::error!("Failed to purge downloads: {}", e);
+    log::warn!("Subscription invalid for >3 days. Purging offline cache.");
+    if let Err(e) = crate::offline_cache::commands::purge_all_cached_files(cache_state, library_state).await {
+        log::error!("Failed to purge offline cache: {}", e);
         return;
     }
 
     if let Ok(store) = subscription_state.lock() {
-        if let Err(e) = store.mark_downloads_purged(now) {
+        if let Err(e) = store.mark_offline_cache_purged(now) {
             log::warn!("Failed to persist purge timestamp: {}", e);
         }
     }
@@ -72,7 +72,7 @@ pub async fn login(
     password: String,
     state: State<'_, AppState>,
     subscription_state: State<'_, SubscriptionStateState>,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
     library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<LoginResponse, String> {
     let client = state.client.lock().await;
@@ -96,7 +96,7 @@ pub async fn login(
             if let Ok(store) = subscription_state.lock() {
                 let _ = store.mark_invalid(now);
             }
-            maybe_purge_downloads_for_invalid_subscription(
+            maybe_purge_offline_cache_for_invalid_subscription(
                 now,
                 subscription_state.inner(),
                 cache_state.inner(),
@@ -188,7 +188,7 @@ pub fn clear_saved_credentials() -> Result<(), String> {
 pub async fn auto_login(
     state: State<'_, AppState>,
     subscription_state: State<'_, SubscriptionStateState>,
-    cache_state: State<'_, DownloadCacheState>,
+    cache_state: State<'_, OfflineCacheState>,
     library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<LoginResponse, String> {
     // Check for saved credentials
@@ -237,7 +237,7 @@ pub async fn auto_login(
             if let Ok(store) = subscription_state.lock() {
                 let _ = store.mark_invalid(now);
             }
-            maybe_purge_downloads_for_invalid_subscription(
+            maybe_purge_offline_cache_for_invalid_subscription(
                 now,
                 subscription_state.inner(),
                 cache_state.inner(),

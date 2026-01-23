@@ -1,4 +1,4 @@
-//! Download cache module for offline listening
+//! Offline cache module for temporary playback data
 //!
 //! Provides persistent disk-based caching for audio tracks:
 //! - SQLite index for track metadata
@@ -18,23 +18,23 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, Semaphore};
 use serde::{Deserialize, Serialize};
 
-pub use db::DownloadCacheDb;
-pub use downloader::Downloader;
-pub use path_validator::{is_download_root_available, validate_path, PathStatus};
+pub use db::OfflineCacheDb;
+pub use downloader::StreamFetcher;
+pub use path_validator::{is_offline_root_available, validate_path, PathStatus};
 pub use metadata::{CompleteTrackMetadata, sanitize_filename};
-pub use migration::{MigrationStatus, MigrationError, detect_legacy_downloads, migrate_legacy_downloads};
+pub use migration::{MigrationStatus, MigrationError, detect_legacy_cached_files, migrate_legacy_cached_files};
 
-/// Download status for a cached track
+/// Cache status for a track in offline storage
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum DownloadStatus {
+pub enum OfflineCacheStatus {
     Queued,
     Downloading,
     Ready,
     Failed,
 }
 
-impl DownloadStatus {
+impl OfflineCacheStatus {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Queued => "queued",
@@ -69,7 +69,7 @@ pub struct CachedTrackInfo {
     pub quality: String,
     pub bit_depth: Option<u32>,
     pub sample_rate: Option<f64>,
-    pub status: DownloadStatus,
+    pub status: OfflineCacheStatus,
     pub progress_percent: u8,
     pub error_message: Option<String>,
     pub created_at: String,
@@ -89,10 +89,10 @@ pub struct ReadyTrackForSync {
     pub sample_rate: Option<f64>,
 }
 
-/// Statistics about the download cache
+/// Statistics about the offline cache
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DownloadCacheStats {
+pub struct OfflineCacheStats {
     pub total_tracks: usize,
     pub ready_tracks: usize,
     pub downloading_tracks: usize,
@@ -102,20 +102,20 @@ pub struct DownloadCacheStats {
     pub cache_path: String,
 }
 
-/// Progress update for a download
+/// Progress update for caching a track
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DownloadProgress {
+pub struct CacheProgress {
     pub track_id: u64,
     pub progress_percent: u8,
     pub bytes_downloaded: u64,
     pub total_bytes: Option<u64>,
-    pub status: DownloadStatus,
+    pub status: OfflineCacheStatus,
 }
 
-/// Track metadata for initiating a download
+/// Track metadata for initiating offline caching
 #[derive(Debug, Clone)]
-pub struct TrackDownloadInfo {
+pub struct TrackCacheInfo {
     pub track_id: u64,
     pub title: String,
     pub artist: String,
@@ -127,18 +127,18 @@ pub struct TrackDownloadInfo {
     pub sample_rate: Option<f64>,
 }
 
-/// Download cache state manager
-pub struct DownloadCacheState {
-    pub db: Arc<Mutex<DownloadCacheDb>>,
-    pub downloader: Arc<Downloader>,
+/// Offline cache state manager
+pub struct OfflineCacheState {
+    pub db: Arc<Mutex<OfflineCacheDb>>,
+    pub fetcher: Arc<StreamFetcher>,
     pub cache_dir: PathBuf,
     /// Cache limit in bytes (None = unlimited)
     pub limit_bytes: Arc<Mutex<Option<u64>>>,
-    pub download_semaphore: Arc<Semaphore>,
+    pub cache_semaphore: Arc<Semaphore>,
 }
 
-impl DownloadCacheState {
-    /// Initialize the download cache
+impl OfflineCacheState {
+    /// Initialize the offline cache
     pub fn new() -> Result<Self, String> {
         let cache_dir = dirs::cache_dir()
             .ok_or("Could not determine cache directory")?
@@ -154,20 +154,20 @@ impl DownloadCacheState {
             .map_err(|e| format!("Failed to create artwork directory: {}", e))?;
 
         let db_path = cache_dir.join("index.db");
-        let db = DownloadCacheDb::new(&db_path)?;
+        let db = OfflineCacheDb::new(&db_path)?;
 
         // Default limit: 2GB
         let default_limit = Some(2 * 1024 * 1024 * 1024u64);
 
         let state = Self {
             db: Arc::new(Mutex::new(db)),
-            downloader: Arc::new(Downloader::new()),
+            fetcher: Arc::new(StreamFetcher::new()),
             cache_dir: cache_dir.clone(),
             limit_bytes: Arc::new(Mutex::new(default_limit)),
-            download_semaphore: Arc::new(Semaphore::new(3)),
+            cache_semaphore: Arc::new(Semaphore::new(3)),
         };
 
-        log::info!("Download cache initialized at: {:?}", cache_dir);
+        log::info!("Offline cache initialized at: {:?}", cache_dir);
 
         Ok(state)
     }
