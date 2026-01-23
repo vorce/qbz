@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+  import { getThumbnailUrl, getCachedThumbnailUrl } from '$lib/services/thumbnailService';
   import { open, ask } from '@tauri-apps/plugin-dialog';
   import { onMount, onDestroy } from 'svelte';
   import {
@@ -1405,13 +1406,47 @@
 
   // Memoization cache for artwork URLs to avoid repeated convertFileSrc calls
   const artworkUrlCache = new Map<string, string>();
+  // Thumbnail URL cache (separate from full-res cache)
+  let thumbnailUrlCache = $state<Map<string, string>>(new Map());
+  // Track pending thumbnail requests to avoid duplicates
+  const pendingThumbnails = new Set<string>();
 
   function getArtworkUrl(path?: string): string {
     if (!path) return '';
 
+    // For grid/list views, prefer thumbnails
+    const cachedThumb = thumbnailUrlCache.get(path);
+    if (cachedThumb) return cachedThumb;
+
+    // Start thumbnail generation in background if not already pending
+    if (!pendingThumbnails.has(path)) {
+      pendingThumbnails.add(path);
+      getThumbnailUrl(path).then(thumbUrl => {
+        pendingThumbnails.delete(path);
+        // Update the reactive cache to trigger re-render
+        thumbnailUrlCache = new Map(thumbnailUrlCache).set(path, thumbUrl);
+      }).catch(() => {
+        pendingThumbnails.delete(path);
+        // On error, cache the original URL
+        const fallbackUrl = convertFileSrc(path);
+        thumbnailUrlCache = new Map(thumbnailUrlCache).set(path, fallbackUrl);
+      });
+    }
+
+    // Return full image while thumbnail loads
     const cached = artworkUrlCache.get(path);
     if (cached) return cached;
 
+    const url = convertFileSrc(path);
+    artworkUrlCache.set(path, url);
+    return url;
+  }
+
+  // For album detail view, always use full resolution
+  function getFullArtworkUrl(path?: string): string {
+    if (!path) return '';
+    const cached = artworkUrlCache.get(path);
+    if (cached) return cached;
     const url = convertFileSrc(path);
     artworkUrlCache.set(path, url);
     return url;
@@ -1938,7 +1973,7 @@
       <div class="album-header">
         <div class="album-artwork">
           {#if selectedAlbum.artwork_path}
-            <img src={getArtworkUrl(selectedAlbum.artwork_path)} alt={selectedAlbum.title} />
+            <img src={getFullArtworkUrl(selectedAlbum.artwork_path)} alt={selectedAlbum.title} />
           {:else}
             <div class="artwork-placeholder">
               <Disc3 size={64} />
