@@ -837,45 +837,14 @@ pub async fn library_get_artists(
         .unwrap_or(false);
 
     let db = state.db.lock().await;
-    let mut artists = db.get_artists().map_err(|e| e.to_string())?;
 
-    // Filter artists based on their tracks
-    if exclude_network_folders.unwrap_or(false) || !include_qobuz {
-        let network_folders = if exclude_network_folders.unwrap_or(false) {
-            db.get_network_folder_paths().map_err(|e| e.to_string())?
-        } else {
-            Vec::new()
-        };
+    // Use optimized SQL-based filtering instead of N+1 query pattern
+    let artists = db.get_artists_with_filter(
+        include_qobuz,
+        exclude_network_folders.unwrap_or(false),
+    ).map_err(|e| e.to_string())?;
 
-        artists.retain(|artist| {
-            // Get all tracks for this artist
-            if let Ok(tracks) = db.search(&artist.name, 10000) {
-                // Check if artist has at least one valid track
-                tracks.iter().any(|track| {
-                    // Check download filter
-                    let passes_download_filter = if include_qobuz {
-                        true
-                    } else {
-                        // Only include if NOT a qobuz download
-                        track.source.as_deref() != Some("qobuz_download")
-                    };
-
-                    // Check network folder filter
-                    let passes_network_filter = if exclude_network_folders.unwrap_or(false) && !network_folders.is_empty() {
-                        // Only include if NOT in network folder
-                        !network_folders.iter().any(|folder_path| track.file_path.starts_with(folder_path))
-                    } else {
-                        true
-                    };
-
-                    passes_download_filter && passes_network_filter
-                })
-            } else {
-                false
-            }
-        });
-    }
-
+    log::info!("Returning {} artists", artists.len());
     Ok(artists)
 }
 
@@ -898,38 +867,16 @@ pub async fn library_search(
         .unwrap_or(false);
 
     let db = state.db.lock().await;
-    let mut tracks = db.search(&query, limit.unwrap_or(50))
-        .map_err(|e| e.to_string())?;
 
-    // Filter tracks
-    if exclude_network_folders.unwrap_or(false) || !include_qobuz {
-        let network_folders = if exclude_network_folders.unwrap_or(false) {
-            db.get_network_folder_paths().map_err(|e| e.to_string())?
-        } else {
-            Vec::new()
-        };
+    // Use optimized SQL-based filtering
+    let tracks = db.search_with_filter(
+        &query,
+        limit.unwrap_or(50),
+        include_qobuz,
+        exclude_network_folders.unwrap_or(false),
+    ).map_err(|e| e.to_string())?;
 
-        tracks.retain(|track| {
-            // Check download filter
-            let passes_download_filter = if include_qobuz {
-                true
-            } else {
-                // Only include if NOT a qobuz download
-                track.source.as_deref() != Some("qobuz_download")
-            };
-
-            // Check network folder filter
-            let passes_network_filter = if exclude_network_folders.unwrap_or(false) && !network_folders.is_empty() {
-                // Only include if NOT in network folder
-                !network_folders.iter().any(|folder_path| track.file_path.starts_with(folder_path))
-            } else {
-                true
-            };
-
-            passes_download_filter && passes_network_filter
-        });
-    }
-
+    log::info!("Search returned {} tracks", tracks.len());
     Ok(tracks)
 }
 

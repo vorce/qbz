@@ -1011,19 +1011,49 @@ impl LibraryDatabase {
 
     /// Get all artists
     pub fn get_artists(&self) -> Result<Vec<LocalArtist>, LibraryError> {
-        let mut stmt = self
-            .conn
-            .prepare(
-                r#"
+        self.get_artists_with_filter(true, false)
+    }
+
+    /// Get all artists with filter options
+    /// This filters directly in SQL to avoid N+1 query patterns
+    pub fn get_artists_with_filter(
+        &self,
+        include_qobuz_downloads: bool,
+        exclude_network_folders: bool,
+    ) -> Result<Vec<LocalArtist>, LibraryError> {
+        let source_filter = if include_qobuz_downloads {
+            ""
+        } else {
+            "AND (source IS NULL OR source != 'qobuz_download')"
+        };
+
+        let network_filter = if exclude_network_folders {
+            "AND NOT EXISTS (
+                SELECT 1 FROM library_folders nf
+                WHERE nf.is_network = 1
+                AND local_tracks.file_path LIKE nf.path || '%'
+            )"
+        } else {
+            ""
+        };
+
+        let query = format!(
+            r#"
             SELECT
                 COALESCE(album_artist, artist) as name,
                 COUNT(DISTINCT COALESCE(album_group_key, album || '|' || COALESCE(album_artist, artist))) as album_count,
                 COUNT(*) as track_count
             FROM local_tracks
+            WHERE 1=1 {} {}
             GROUP BY name
             ORDER BY name
         "#,
-            )
+            source_filter, network_filter
+        );
+
+        let mut stmt = self
+            .conn
+            .prepare(&query)
             .map_err(|e| LibraryError::Database(e.to_string()))?;
 
         let rows = stmt
@@ -1151,20 +1181,53 @@ impl LibraryDatabase {
 
     /// Search tracks by title, artist, or album
     pub fn search(&self, query: &str, limit: u32) -> Result<Vec<LocalTrack>, LibraryError> {
+        self.search_with_filter(query, limit, true, false)
+    }
+
+    /// Search tracks with filter options
+    /// This filters directly in SQL to avoid post-query filtering overhead
+    pub fn search_with_filter(
+        &self,
+        query: &str,
+        limit: u32,
+        include_qobuz_downloads: bool,
+        exclude_network_folders: bool,
+    ) -> Result<Vec<LocalTrack>, LibraryError> {
         let pattern = format!("%{}%", query);
+
+        let source_filter = if include_qobuz_downloads {
+            ""
+        } else {
+            "AND (source IS NULL OR source != 'qobuz_download')"
+        };
+
+        let network_filter = if exclude_network_folders {
+            "AND NOT EXISTS (
+                SELECT 1 FROM library_folders nf
+                WHERE nf.is_network = 1
+                AND local_tracks.file_path LIKE nf.path || '%'
+            )"
+        } else {
+            ""
+        };
+
+        let sql = format!(
+            r#"
+            SELECT * FROM local_tracks
+            WHERE (title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1)
+            {} {}
+            LIMIT ?2
+        "#,
+            source_filter, network_filter
+        );
+
         let mut stmt = self
             .conn
-            .prepare(
-                r#"
-            SELECT * FROM local_tracks
-            WHERE title LIKE ? OR artist LIKE ? OR album LIKE ?
-            LIMIT ?
-        "#,
-            )
+            .prepare(&sql)
             .map_err(|e| LibraryError::Database(e.to_string()))?;
 
         let rows = stmt
-            .query_map(params![&pattern, &pattern, &pattern, limit], |row| {
+            .query_map(params![&pattern, limit], |row| {
                 Self::row_to_track(row)
             })
             .map_err(|e| LibraryError::Database(e.to_string()))?;
