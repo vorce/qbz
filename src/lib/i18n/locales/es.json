@@ -187,7 +187,13 @@
     "recent": "Reciente",
     "trackCount": "# de Pistas",
     "playCount": "Reproducciones",
-    "custom": "Personalizado"
+    "custom": "Personalizado",
+    "default": "Por defecto",
+    "newest": "Más Nuevos",
+    "oldest": "Más Antiguos",
+    "titleAZ": "Título (A-Z)",
+    "titleZA": "Título (Z-A)",
+    "artist": "Artista"
   },
   "favorites": {
     "title": "Favoritos",
