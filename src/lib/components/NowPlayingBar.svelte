@@ -9,7 +9,6 @@
     Repeat1,
     Heart,
     Plus,
-    ListMusic,
     Volume2,
     VolumeX,
     Volume1,
@@ -64,6 +63,7 @@
     onArtistClick?: () => void;
     onAlbumClick?: () => void;
     onContextClick?: () => void;
+    queueOpen?: boolean;
   }
 
   let {
@@ -100,7 +100,8 @@
     isCastConnected = false,
     onArtistClick,
     onAlbumClick,
-    onContextClick
+    onContextClick,
+    queueOpen = false
   }: Props = $props();
 
   let progressRef: HTMLDivElement;
@@ -364,10 +365,6 @@
         <Mic2 size={16} aria-hidden="true" />
       </button>
 
-      <button class="control-btn" onclick={onOpenQueue} title={$t('player.queue')}>
-        <ListMusic size={16} />
-      </button>
-
       <button class="control-btn" onclick={onOpenMiniPlayer} title={$t('player.miniPlayer')}>
         <PictureInPicture2 size={16} />
       </button>
@@ -409,6 +406,22 @@
           <div class="volume-thumb" style="left: {volume}%"></div>
         </div>
       </div>
+
+      <!-- Separator -->
+      <div class="section-separator"></div>
+
+      <!-- Queue Button (far right) -->
+      <button
+        class="control-btn queue-btn"
+        class:active={queueOpen}
+        onclick={onOpenQueue}
+        title={$t('player.queue')}
+      >
+        <svg width="18" height="18" viewBox="0 0 256 256" class="queue-icon" class:open={queueOpen}>
+          <path class="queue-play" d="M240,160l-64,40V120Z"/>
+          <path class="queue-lines" d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm104,56H40a8,8,0,0,0,0,16h96a8,8,0,0,0,0-16Zm0,64H40a8,8,0,0,0,0,16h96a8,8,0,0,0,0-16Zm112-24a8,8,0,0,1-3.76,6.78l-64,40A8,8,0,0,1,168,200V120a8,8,0,0,1,12.24-6.78l64,40A8,8,0,0,1,248,160Zm-23.09,0L184,134.43v51.13Z"/>
+        </svg>
+      </button>
     </div>
   </div>
 </div>
@@ -571,6 +584,44 @@
   @keyframes cast-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
+  }
+
+  /* Section Separator */
+  .section-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--border-subtle);
+    margin: 0 8px;
+    flex-shrink: 0;
+  }
+
+  /* Queue Button & Icon */
+  .queue-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .queue-icon {
+    display: block;
+  }
+
+  .queue-icon .queue-lines {
+    fill: currentColor;
+  }
+
+  .queue-icon .queue-play {
+    fill: currentColor;
+    opacity: 0.4;
+    transition: fill 150ms ease, opacity 150ms ease;
+  }
+
+  .queue-icon.open .queue-play {
+    fill: var(--accent-primary, #6366f1);
+    opacity: 1;
+  }
+
+  .queue-btn.active {
+    color: var(--text-primary);
   }
 
   /* Offline Indicator */

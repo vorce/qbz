@@ -2429,6 +2429,7 @@
           }
         }}
         onContextClick={handleContextNavigation}
+        queueOpen={isQueueOpen}
       />
     {:else}
       <NowPlayingBar
@@ -2437,6 +2438,7 @@
         onOpenMiniPlayer={enterMiniplayerMode}
         onCast={openCastPicker}
         {isCastConnected}
+        queueOpen={isQueueOpen}
       />
     {/if}
 
