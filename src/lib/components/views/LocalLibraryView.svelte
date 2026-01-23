@@ -13,6 +13,7 @@
   import AlbumCard from '../AlbumCard.svelte';
   import VirtualizedAlbumList from '../VirtualizedAlbumList.svelte';
   import VirtualizedArtistGrid from '../VirtualizedArtistGrid.svelte';
+  import VirtualizedArtistList from '../VirtualizedArtistList.svelte';
   import VirtualizedTrackList from '../VirtualizedTrackList.svelte';
   import {
     isVirtualizationEnabled,
@@ -2546,41 +2547,14 @@
                     />
                   </div>
                 {:else}
-                  <!-- Artist list view -->
+                  <!-- Artist list view (virtualized) -->
                   <div class="virtualized-container">
-                    <div class="artist-list-virtualized">
-                      {#each groupedArtists as group (group.id)}
-                        {#if artistGroupingEnabled && group.key}
-                          <div class="group-header">
-                            <span class="group-title">{group.key}</span>
-                          </div>
-                        {/if}
-                        {#each group.artists as artist (artist.name)}
-                          {@const artistImage = artistImages.get(artist.name)}
-                          <div
-                            class="artist-list-row"
-                            role="button"
-                            tabindex="0"
-                            onclick={() => handleLocalArtistClick(artist.name)}
-                            onkeydown={(e) => e.key === 'Enter' && handleLocalArtistClick(artist.name)}
-                          >
-                            <div class="artist-list-icon" class:has-image={!!artistImage}>
-                              {#if artistImage}
-                                <img src={artistImage} alt={artist.name} loading="lazy" />
-                              {:else}
-                                <Mic2 size={20} />
-                              {/if}
-                            </div>
-                            <div class="artist-list-info">
-                              <div class="artist-list-name">{artist.name}</div>
-                              <div class="artist-list-stats">
-                                {artist.album_count} albums &bull; {artist.track_count} tracks
-                              </div>
-                            </div>
-                          </div>
-                        {/each}
-                      {/each}
-                    </div>
+                    <VirtualizedArtistList
+                      groups={groupedArtists}
+                      {artistImages}
+                      showGroupHeaders={artistGroupingEnabled}
+                      onArtistClick={handleLocalArtistClick}
+                    />
                   </div>
                 {/if}
 
