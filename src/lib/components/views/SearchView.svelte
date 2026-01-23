@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown, Play, Pause } from 'lucide-svelte';
+  import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
   import { getSearchState, setSearchState, type SearchResults, type SearchAllResults, type SearchTab } from '$lib/stores/searchState';
@@ -412,13 +412,13 @@
 
       await setPlaybackContext(
         'home_list', // Using home_list for search results (search type doesn't exist yet)
-        currentQuery,
-        `Search: ${currentQuery}`,
+        query,
+        `Search: ${query}`,
         'qobuz',
         trackIds,
         trackIndex
       );
-      console.log(`[Search] Context created: "${currentQuery}", ${trackIds.length} tracks, starting at ${trackIndex}`);
+      console.log(`[Search] Context created: "${query}", ${trackIds.length} tracks, starting at ${trackIndex}`);
     }
 
     if (trackResults && trackResults.items.length > 0) {
@@ -992,7 +992,11 @@
                       <div class="bar"></div>
                       <div class="bar"></div>
                     </div>
-                    <Pause size={20} class="pause-icon" aria-hidden="true" />
+                    <span class="pause-icon" aria-hidden="true">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                      </svg>
+                    </span>
                   </button>
                 </div>
               {:else}
@@ -1021,7 +1025,11 @@
                       <div class="bar"></div>
                       <div class="bar"></div>
                     </div>
-                    <Pause size={20} class="pause-icon" aria-hidden="true" />
+                    <span class="pause-icon" aria-hidden="true">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                      </svg>
+                    </span>
                   </button>
                 </div>
               {/if}
