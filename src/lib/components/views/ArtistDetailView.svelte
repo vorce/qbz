@@ -712,28 +712,25 @@
 
   <!-- Artist Header -->
   <div class="artist-header section-anchor" bind:this={aboutSection}>
-    <!-- Artist Image -->
-    <div class="artist-image-container">
-      {#if imageError || !artist.image}
-        <div class="artist-image-placeholder">
-          <User size={60} />
-        </div>
-      {:else}
-        <img
-          src={artist.image}
-          alt={artist.name}
-          class="artist-image"
-          loading="lazy"
-          decoding="async"
-          onerror={handleImageError}
-        />
-      {/if}
-    </div>
-
-    <!-- Artist Info -->
-    <div class="artist-info">
-      <div class="artist-name-row">
-        <h1 class="artist-name">{artist.name}</h1>
+    <!-- Artist Image and Actions -->
+    <div class="artist-image-column">
+      <div class="artist-image-container">
+        {#if imageError || !artist.image}
+          <div class="artist-image-placeholder">
+            <User size={60} />
+          </div>
+        {:else}
+          <img
+            src={artist.image}
+            alt={artist.name}
+            class="artist-image"
+            loading="lazy"
+            decoding="async"
+            onerror={handleImageError}
+          />
+        {/if}
+      </div>
+      <div class="artist-actions">
         <button
           class="favorite-btn"
           class:is-favorite={isFavorite}
@@ -762,9 +759,11 @@
           {/if}
         </button>
       </div>
-      <div class="artist-stats">
-        {artist.totalAlbums || artist.albumsCount || 0} albums
-      </div>
+    </div>
+
+    <!-- Artist Info -->
+    <div class="artist-info">
+      <h1 class="artist-name">{artist.name}</h1>
 
       <!-- Biography -->
       {#if bioText}
@@ -1306,6 +1305,14 @@
     margin-bottom: 32px;
   }
 
+  .artist-image-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
   .artist-image-container {
     flex-shrink: 0;
   }
@@ -1330,6 +1337,12 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
 
+  .artist-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
   .artist-info {
     flex: 1;
     display: flex;
@@ -1338,18 +1351,12 @@
     padding-top: 8px;
   }
 
-  .artist-name-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 8px;
-  }
-
   .artist-name {
     font-size: 24px;
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0;
+    margin: 0 0 16px 0;
+    text-align: left;
   }
 
   .favorite-btn {
