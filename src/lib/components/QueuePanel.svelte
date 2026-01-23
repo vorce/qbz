@@ -66,6 +66,28 @@
   const DISPLAY_LIMIT = 20;
   let displayCount = $state(DISPLAY_LIMIT);
 
+  // Infinite play banner dismissal
+  let infiniteBannerDismissed = $state(false);
+
+  // Load banner dismissal state from localStorage
+  $effect(() => {
+    try {
+      const dismissed = localStorage.getItem('qbz-infinite-banner-dismissed');
+      infiniteBannerDismissed = dismissed === 'true';
+    } catch {
+      // Ignore
+    }
+  });
+
+  function dismissInfiniteBanner() {
+    infiniteBannerDismissed = true;
+    try {
+      localStorage.setItem('qbz-infinite-banner-dismissed', 'true');
+    } catch {
+      // Ignore
+    }
+  }
+
   // Reset state when panel closes
   $effect(() => {
     if (!isOpen) {
@@ -343,56 +365,72 @@
 
     <!-- Footer (Queue tab only) -->
     {#if activeTab === 'queue' && (upcomingTracks.length > 0 || currentTrack)}
-      <div class="footer">
-        <div class="footer-left">
-          <button
-            class="footer-icon-btn"
-            onclick={onClearQueue}
-            title={$t('player.clearQueue')}
-          >
-            <img src="/trash-list.svg" alt="" class="footer-icon" />
-          </button>
-          <button
-            class="footer-icon-btn"
-            onclick={onSaveAsPlaylist}
-            title={$t('player.saveQueue')}
-          >
-            <img src="/add-to-list.svg" alt="" class="footer-icon" />
-          </button>
-          <button
-            class="footer-icon-btn"
-            class:active={infinitePlayEnabled}
-            onclick={onToggleInfinitePlay}
-            title={$t('player.infinitePlay')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="infinite-icon">
-              <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.781 0-4.781 8 0 8 5.606 0 7.644-8 12.739-8z"/>
-            </svg>
-          </button>
-        </div>
-        <div class="footer-right">
-          {#if searchOpen}
-            <div class="search-bar">
-              <Search size={14} />
-              <input
-                type="text"
-                placeholder={$t('player.searchQueue')}
-                bind:value={searchQuery}
-                class="search-input"
-              />
-              <button class="search-close" onclick={() => { searchOpen = false; searchQuery = ''; }}>
-                <X size={14} />
-              </button>
+      <div class="footer" class:with-banner={infinitePlayEnabled && !infiniteBannerDismissed}>
+        <!-- Infinite Play Banner -->
+        {#if infinitePlayEnabled && !infiniteBannerDismissed}
+          <div class="infinite-banner">
+            <div class="banner-content">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.781 0-4.781 8 0 8 5.606 0 7.644-8 12.739-8z"/>
+              </svg>
+              <span>{$t('player.infiniteBannerText')}</span>
             </div>
-          {:else}
+            <button class="banner-close" onclick={dismissInfiniteBanner}>
+              <X size={14} />
+            </button>
+          </div>
+        {/if}
+        <div class="footer-controls">
+          <div class="footer-left">
             <button
               class="footer-icon-btn"
-              onclick={() => searchOpen = true}
-              title={$t('player.searchQueue')}
+              onclick={onClearQueue}
+              title={$t('player.clearQueue')}
             >
-              <Search size={18} />
+              <img src="/trash-list.svg" alt="" class="footer-icon" />
             </button>
-          {/if}
+            <button
+              class="footer-icon-btn"
+              onclick={onSaveAsPlaylist}
+              title={$t('player.saveQueue')}
+            >
+              <img src="/add-to-list.svg" alt="" class="footer-icon" />
+            </button>
+            <button
+              class="footer-icon-btn"
+              class:active={infinitePlayEnabled}
+              onclick={onToggleInfinitePlay}
+              title={$t('player.infinitePlayTooltip')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="infinite-icon">
+                <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.781 0-4.781 8 0 8 5.606 0 7.644-8 12.739-8z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="footer-right">
+            {#if searchOpen}
+              <div class="search-bar">
+                <Search size={14} />
+                <input
+                  type="text"
+                  placeholder={$t('player.searchQueue')}
+                  bind:value={searchQuery}
+                  class="search-input"
+                />
+                <button class="search-close" onclick={() => { searchOpen = false; searchQuery = ''; }}>
+                  <X size={14} />
+                </button>
+              </div>
+            {:else}
+              <button
+                class="footer-icon-btn"
+                onclick={() => searchOpen = true}
+                title={$t('player.searchQueue')}
+              >
+                <Search size={18} />
+              </button>
+            {/if}
+          </div>
         </div>
       </div>
     {/if}
@@ -550,20 +588,22 @@
 
   .spectrum-bars {
     position: absolute;
-    bottom: 4px;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: 2px;
     height: 16px;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 8px rgba(66, 133, 244, 0.3));
   }
 
   .spectrum-bars .bar {
     width: 3px;
-    background-color: #4285F4;
+    background-color: #fff;
     border-radius: 1px;
     animation: spectrum 1s ease-in-out infinite;
+    box-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
   }
 
   .spectrum-bars .bar:nth-child(1) {
@@ -819,12 +859,15 @@
 
   /* Footer */
   .footer {
-    padding: 12px 16px;
     border-top: 1px solid var(--bg-tertiary);
+    flex-shrink: 0;
+  }
+
+  .footer-controls {
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-shrink: 0;
   }
 
   .footer-left,
@@ -832,6 +875,46 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  /* Infinite Play Banner */
+  .infinite-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--accent-primary, #6366f1);
+    background: linear-gradient(135deg, var(--accent-primary, #6366f1) 0%, color-mix(in srgb, var(--accent-primary, #6366f1) 80%, #000) 100%);
+    color: white;
+    font-size: 12px;
+  }
+
+  .banner-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .banner-content svg {
+    flex-shrink: 0;
+  }
+
+  .banner-close {
+    background: none;
+    border: none;
+    color: white;
+    opacity: 0.7;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: opacity 150ms ease;
+  }
+
+  .banner-close:hover {
+    opacity: 1;
   }
 
   .footer-icon-btn {

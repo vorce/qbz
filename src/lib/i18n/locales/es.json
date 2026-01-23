@@ -226,6 +226,8 @@
     "infinitePlay": "Reproducción Infinita",
     "infinitePlayEnabled": "Reproducción infinita activada",
     "infinitePlayDisabled": "Reproducción infinita desactivada",
+    "infinitePlayTooltip": "Reproducción Infinita: Añade automáticamente pistas similares cuando tu cola está por terminar, creando una experiencia de escucha sin fin basada en tu música actual.",
+    "infiniteBannerText": "Reproducción Infinita activa. Se añadirán pistas similares automáticamente.",
     "lyrics": "Letras",
     "noLyrics": "No hay letras disponibles",
     "fetchingLyrics": "Buscando letras...",

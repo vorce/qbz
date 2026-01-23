@@ -767,6 +767,25 @@
     const allTracks = displayTracks;
     if (allTracks.length === 0) return;
 
+    // Set playback context for playlist
+    if (playlist) {
+      const trackIds = allTracks
+        .filter(t => !t.isLocal) // Only Qobuz tracks in context
+        .map(t => t.id);
+
+      if (trackIds.length > 0) {
+        await setPlaybackContext(
+          'playlist',
+          playlist.id.toString(),
+          playlist.name,
+          'qobuz',
+          trackIds,
+          0
+        );
+        console.log(`[Playlist] Context created via Play All: "${playlist.name}", ${trackIds.length} tracks`);
+      }
+    }
+
     try {
       await setPlaylistQueue(0);
 

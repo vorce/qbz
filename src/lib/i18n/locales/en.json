@@ -226,6 +226,8 @@
     "infinitePlay": "Infinite Play",
     "infinitePlayEnabled": "Infinite play enabled",
     "infinitePlayDisabled": "Infinite play disabled",
+    "infinitePlayTooltip": "Infinite Play: Automatically adds similar tracks when your queue is about to end, creating an endless listening experience based on your current music.",
+    "infiniteBannerText": "Infinite Play is active. Similar tracks will be added automatically.",
     "lyrics": "Lyrics",
     "noLyrics": "No lyrics available",
     "fetchingLyrics": "Fetching lyrics...",
