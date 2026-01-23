@@ -1175,8 +1175,10 @@
 
     <div class="discography section-anchor" bind:this={epsSinglesSection}>
       <div class="section-header">
-        <h2 class="section-title">EPs & Singles</h2>
-        <span class="section-count">{artist.epsSingles.length}</span>
+        <div class="section-header-left">
+          <h2 class="section-title">EPs & Singles</h2>
+          <span class="section-count">{artist.epsSingles.length}</span>
+        </div>
       </div>
       <div class="albums-grid">
         {#each filteredEpsSingles as album}
@@ -1210,8 +1212,10 @@
 
     <div class="discography section-anchor" bind:this={liveAlbumsSection}>
       <div class="section-header">
-        <h2 class="section-title">Live Albums</h2>
-        <span class="section-count">{artist.liveAlbums.length}</span>
+        <div class="section-header-left">
+          <h2 class="section-title">Live Albums</h2>
+          <span class="section-count">{artist.liveAlbums.length}</span>
+        </div>
       </div>
       <div class="albums-grid">
         {#each filteredLiveAlbums as album}
@@ -1245,8 +1249,10 @@
 
     <div class="discography section-anchor" bind:this={compilationsSection}>
       <div class="section-header">
-        <h2 class="section-title">Compilations</h2>
-        <span class="section-count">{artist.compilations.length}</span>
+        <div class="section-header-left">
+          <h2 class="section-title">Compilations</h2>
+          <span class="section-count">{artist.compilations.length}</span>
+        </div>
       </div>
       <div class="albums-grid">
         {#each filteredCompilations as album}
@@ -1280,8 +1286,10 @@
 
     <div class="discography section-anchor" bind:this={tributesSection}>
       <div class="section-header">
-        <h2 class="section-title">Tributes & Covers</h2>
-        <span class="section-count">{artist.tributes.length}</span>
+        <div class="section-header-left">
+          <h2 class="section-title">Tributes & Covers</h2>
+          <span class="section-count">{artist.tributes.length}</span>
+        </div>
       </div>
       <div class="albums-grid">
         {#each filteredTributes as album}
@@ -1315,8 +1323,10 @@
 
     <div class="discography section-anchor" bind:this={othersSection}>
       <div class="section-header">
-        <h2 class="section-title">Others</h2>
-        <span class="section-count">{artist.others.length}</span>
+        <div class="section-header-left">
+          <h2 class="section-title">Others</h2>
+          <span class="section-count">{artist.others.length}</span>
+        </div>
       </div>
       <div class="albums-grid">
         {#each filteredOthers as album}
@@ -1349,8 +1359,10 @@
 
     <div class="playlists-section section-anchor" bind:this={playlistsSection}>
       <div class="section-header">
-        <h2 class="section-title">Playlists</h2>
-        <span class="section-count">{artist.playlists.length}</span>
+        <div class="section-header-left">
+          <h2 class="section-title">Playlists</h2>
+          <span class="section-count">{artist.playlists.length}</span>
+        </div>
       </div>
       <div class="playlists-grid">
         {#each filteredPlaylists as playlist}
