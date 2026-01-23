@@ -184,6 +184,8 @@
   let artistViewMode = $state<'grid' | 'list'>('grid');
   let artistGroupingEnabled = $state(true); // Enable alpha grouping by default
   let showArtistGroupMenu = $state(false);
+  let artistImageFetchInProgress = false; // Guard against concurrent fetches
+  let artistImageFetchAborted = false; // Flag to abort fetching
   let trackSearch = $state('');
   let searchOpen = $state(false);
   let searchInputEl: HTMLInputElement | undefined;
@@ -492,6 +494,9 @@
   });
 
   onDestroy(() => {
+    // Abort any ongoing artist image fetch
+    artistImageFetchAborted = true;
+
     if (unsubscribeNav) {
       unsubscribeNav();
     }
@@ -1701,44 +1706,61 @@
   }
 
   /**
-   * Fetch missing artist images from Qobuz and Discogs (fallback).
+   * Fetch missing artist images from Qobuz only (Discogs disabled due to rate limiting).
+   * Fetches sequentially with delays to avoid API abuse.
    */
   async function fetchMissingArtistImages(): Promise<void> {
+    // Guard against concurrent executions
+    if (artistImageFetchInProgress) {
+      console.log('[LocalLibrary] Artist image fetch already in progress, skipping');
+      return;
+    }
+
     // Don't fetch external artwork when offline
     if (isOffline) {
       console.log('[LocalLibrary] Skipping artist image fetch - offline mode');
       return;
     }
 
-    // Filter out artists we already have images for and "Various Artists"
-    const toFetch = artists.filter(artist => {
-      const normalized = normalizeArtistName(artist.name);
-      return normalized !== 'various artists' && !artistImages.has(artist.name);
-    });
+    // Reset abort flag
+    artistImageFetchAborted = false;
+    artistImageFetchInProgress = true;
 
-    if (toFetch.length === 0) return;
+    try {
+      // Filter out artists we already have images for and "Various Artists"
+      const toFetch = artists.filter(artist => {
+        const normalized = normalizeArtistName(artist.name);
+        return normalized !== 'various artists' && !artistImages.has(artist.name);
+      });
 
-    // Fetch in smaller batches with delay to avoid rate limiting
-    const batchSize = 5;
-    const batchDelay = 2000; // 2 seconds between batches
+      if (toFetch.length === 0) return;
 
-    for (let i = 0; i < toFetch.length; i += batchSize) {
-      // Add delay between batches (not before the first batch)
-      if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, batchDelay));
-      }
+      // Limit to first 50 artists per session to avoid overwhelming APIs
+      const maxFetch = 50;
+      const limitedFetch = toFetch.slice(0, maxFetch);
 
-      // Check if we went offline during the fetch
-      if (isOffline) {
-        console.log('[LocalLibrary] Stopping artist image fetch - went offline');
-        break;
-      }
+      console.log(`[LocalLibrary] Fetching images for ${limitedFetch.length} artists (limited from ${toFetch.length})`);
 
-      const batch = toFetch.slice(i, i + batchSize);
-      const promises = batch.map(async (artist) => {
+      // Fetch SEQUENTIALLY with delays - no parallel requests
+      const requestDelay = 1000; // 1 second between each request
+
+      for (let i = 0; i < limitedFetch.length; i++) {
+        // Check abort conditions
+        if (artistImageFetchAborted || isOffline) {
+          console.log('[LocalLibrary] Artist image fetch aborted');
+          break;
+        }
+
+        // Add delay between requests (not before the first one)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, requestDelay));
+        }
+
+        const artist = limitedFetch[i];
         const name = artist.name;
+
         try {
-          // Try Qobuz first
+          // Only use Qobuz - Discogs causes too many issues with rate limiting
           const results = await invoke<SearchResults<ArtistSearchResult>>('search_artists', {
             query: name.trim(),
             limit: 3,
@@ -1752,7 +1774,7 @@
             );
             const match = exactMatch ?? results.items[0];
             const imageUrl = match.image?.large || match.image?.thumbnail || match.image?.small;
-            
+
             if (imageUrl) {
               // Cache in database
               await invoke('library_cache_artist_image', {
@@ -1761,41 +1783,21 @@
                 source: 'qobuz'
               });
               artistImages.set(name, imageUrl);
-              return;
-            }
-          }
-
-          // Fallback to Discogs if Qobuz failed and Discogs is available
-          if (hasDiscogsCredentials) {
-            try {
-              const discogsResults = await invoke<any>('discogs_search_artist', {
-                query: name.trim()
-              });
-              
-              if (discogsResults && discogsResults.results && discogsResults.results.length > 0) {
-                const imageUrl = discogsResults.results[0].thumb || discogsResults.results[0].cover_image;
-                if (imageUrl && !imageUrl.includes('spacer.gif')) {
-                  // Cache in database
-                  await invoke('library_cache_artist_image', {
-                    artistName: name,
-                    imageUrl,
-                    source: 'discogs'
-                  });
-                  artistImages.set(name, imageUrl);
-                }
+              // Update state periodically (every 5 artists)
+              if (i % 5 === 4) {
+                artistImages = new Map(artistImages);
               }
-            } catch (discogsErr) {
-              console.debug('Discogs fallback failed for artist:', name, discogsErr);
             }
           }
         } catch (err) {
           console.debug('Failed to fetch image for artist:', name, err);
         }
-      });
+      }
 
-      await Promise.all(promises);
-      // Update state to trigger re-render
+      // Final state update
       artistImages = new Map(artistImages);
+    } finally {
+      artistImageFetchInProgress = false;
     }
   }
 
