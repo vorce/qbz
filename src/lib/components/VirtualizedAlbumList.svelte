@@ -461,7 +461,7 @@
   .album-grid-row {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(162px, 1fr));
-    gap: 24px;
+    gap: 30px 22px; /* row-gap column-gap */
     padding: 0;
   }
 
