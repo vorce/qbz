@@ -7,22 +7,6 @@ use crate::api::models::{Playlist, SearchResultsPage};
 use crate::library::commands::LibraryState;
 use crate::AppState;
 
-/// Check if playlist needs metadata backfill for tracks missing timestamps
-fn needs_backfill_playlist_metadata(
-    playlist: &Playlist,
-    metadata: &HashMap<u64, (i64, Option<i32>)>,
-) -> bool {
-    playlist.tracks.as_ref()
-        .map(|tracks| {
-            tracks.items.iter().any(|track| {
-                track.playlist_track_id
-                    .map(|ptid| !metadata.contains_key(&ptid))
-                    .unwrap_or(false)
-            })
-        })
-        .unwrap_or(false)
-}
-
 /// Collect tracks that need metadata backfill
 fn collect_tracks_for_backfill(
     playlist: &Playlist,
@@ -102,21 +86,27 @@ pub async fn get_playlist(
         .map_err(|e| format!("Failed to get track metadata: {}", e))?;
 
     // Backfill metadata if needed
-    if needs_backfill_playlist_metadata(&playlist, &metadata) {
-        let tracks_to_backfill = collect_tracks_for_backfill(&playlist, &metadata);
+    let tracks_to_backfill = collect_tracks_for_backfill(&playlist, &metadata);
+    
+    if !tracks_to_backfill.is_empty() {
+        log::info!("Backfilling {} tracks for playlist {}", tracks_to_backfill.len(), playlist_id);
+        drop(client); // Release the client lock before database operations
         
-        if !tracks_to_backfill.is_empty() {
-            log::info!("Backfilling {} tracks for playlist {}", tracks_to_backfill.len(), playlist_id);
-            drop(client); // Release the client lock before database operations
-            
-            db.track_qobuz_tracks_added(playlist_id, &tracks_to_backfill, true)
-                .map_err(|e| format!("Failed to backfill track metadata: {}", e))?;
-
-            // Re-fetch metadata after backfill
-            metadata = db
-                .get_qobuz_track_metadata(playlist_id)
-                .map_err(|e| format!("Failed to get track metadata after backfill: {}", e))?;
+        // Add new metadata directly to avoid refetching
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        
+        for (playlist_track_id, _track_id, position) in &tracks_to_backfill {
+            metadata.insert(*playlist_track_id, (
+                now + (*position as i64 * 3600),  // 1 hour intervals for backfill
+                Some(*position)
+            ));
         }
+        
+        db.track_qobuz_tracks_added(playlist_id, &tracks_to_backfill, true)
+            .map_err(|e| format!("Failed to backfill track metadata: {}", e))?;
     }
 
     // Merge metadata into tracks
