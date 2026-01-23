@@ -472,7 +472,7 @@
                 }}
               >
                 <CloudDownload size={14} />
-                <span>Save for offline</span>
+                <span>Make available offline</span>
                 <ChevronRight size={14} class="chevron" />
                 {#if downloadOpen}
                   <div class="submenu" bind:this={downloadSubmenuEl} style={downloadSubmenuStyle}>
@@ -494,7 +494,7 @@
             {:else}
               <button class="menu-item" onclick={() => handleAction(onDownload)}>
                 <CloudDownload size={14} />
-                <span>Save for offline</span>
+                <span>Make available offline</span>
               </button>
             {/if}
           {/if}

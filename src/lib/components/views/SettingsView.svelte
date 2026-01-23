@@ -133,7 +133,7 @@
     { id: 'playback', label: 'Playback' },
     { id: 'offline', label: 'Offline' },
     { id: 'appearance', label: 'Appearance' },
-    { id: 'downloads', label: 'Downloads' },
+    { id: 'downloads', label: 'Offline Library' },
     { id: 'library', label: 'Library' },
     { id: 'integrations', label: 'Integrations' },
     { id: 'storage', label: 'Storage' },
@@ -1256,7 +1256,7 @@
       notifyDownloadSettingsChanged();
     } catch (err) {
       console.error('Failed to repair downloads:', err);
-      showToast('Failed to repair downloads: ' + String(err), 'error');
+      showToast('Failed to repair offline library: ' + String(err), 'error');
     } finally {
       isRepairingDownloads = false;
     }
@@ -1666,12 +1666,12 @@
     </div>
   </section>
 
-  <!-- Downloads Section -->
+  <!-- Offline Library Section -->
   <section class="section" bind:this={downloadsSection}>
-    <h3 class="section-title">{$t('settings.downloads.title')}</h3>
-    <p class="section-note">{$t('settings.downloads.offlineCacheDisclaimer')}</p>
+    <h3 class="section-title">{$t('settings.offlineLibrary.title')}</h3>
+    <p class="section-note">{$t('settings.offlineLibrary.disclaimer')}</p>
     <div class="setting-row">
-      <span class="setting-label">{$t('settings.downloads.downloadedTracks')}</span>
+      <span class="setting-label">{$t('settings.offlineLibrary.cachedTracks')}</span>
       <span class="setting-value">
         {#if downloadStats}
           {downloadStats.readyTracks} tracks ({formatBytes(downloadStats.totalSizeBytes)})
@@ -1683,14 +1683,14 @@
     <div class="setting-row">
       <div class="setting-with-description">
         <span class="setting-label">Show in Local Library</span>
-        <span class="setting-description">Display downloaded Qobuz™ tracks in your Local Library</span>
+        <span class="setting-description">Display offline Qobuz™ tracks in your Local Library</span>
       </div>
       <Toggle enabled={showQobuzDownloadsInLibrary} onchange={handleShowDownloadsChange} />
     </div>
     <div class="setting-row">
       <div class="setting-with-description">
-        <span class="setting-label">Repair Downloads</span>
-        <span class="setting-description">Fix download markers lost during library scans</span>
+        <span class="setting-label">Repair Offline Library</span>
+        <span class="setting-description">Fix offline markers lost during library scans</span>
       </div>
       <button
         class="clear-btn"
@@ -1701,7 +1701,7 @@
       </button>
     </div>
     <div class="setting-row last">
-      <span class="setting-label">Clear Downloads</span>
+      <span class="setting-label">Clear Offline Library</span>
       <button
         class="clear-btn"
         onclick={handleClearDownloads}

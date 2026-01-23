@@ -138,8 +138,8 @@
     "shuffle": "Shuffle",
     "addToQueue": "Add to Queue",
     "addToPlaylist": "Add to Playlist",
-    "download": "Download",
-    "downloadAll": "Download All",
+    "makeAvailableOffline": "Make available offline",
+    "makeAllAvailableOffline": "Make all available offline",
     "disc": "Disc"
   },
   "artist": {
@@ -284,7 +284,7 @@
     "addToPlaylist": "Add to Playlist",
     "addToFavorites": "Add to Favorites",
     "removeFromFavorites": "Remove from Favorites",
-    "download": "Download",
+    "makeAvailableOffline": "Make available offline",
     "share": "Share",
     "viewAlbum": "View Album",
     "viewArtist": "View Artist",
@@ -384,22 +384,22 @@
     },
     "storage": {
       "title": "Storage",
-      "queueCacheNote": "Queue list storage. Clear if you have playback issues. (This is not the Downloads cache.)",
+      "queueCacheNote": "Queue list storage. Clear if you have playback issues. (This is not the Offline Library cache.)",
       "queueCacheStats": "{tracks} tracks using {used} / {max}",
       "cachedTracks": "Cached Queue Tracks",
       "cacheSize": "Queue Cache Size",
       "clearCache": "Clear queue cache",
       "clearing": "Clearing..."
     },
-    "downloads": {
-      "title": "Downloads",
-      "offlineCacheDisclaimer": "Offline downloads are a local cache for offline playback only while you have a valid subscription. You do not receive a license to keep or redistribute the content. If your subscription becomes invalid, QBZ will delete all downloaded content after 3 days.",
-      "downloadedTracks": "Downloaded Tracks",
-      "clearDownloads": "Clear All",
+    "offlineLibrary": {
+      "title": "Offline Library",
+      "disclaimer": "The offline library is a temporary playback cache for offline listening while you have a valid Qobuz subscription. You do not receive a license to keep or redistribute the content. If your subscription becomes invalid, QBZ will remove all cached content after 3 days.",
+      "cachedTracks": "Offline Tracks",
+      "clearCache": "Clear All",
       "openFolder": "Open Folder"
     },
-    "networkDownloadWarning": "The selected folder is on a network drive.",
-    "networkDownloadWarningDetail": "Downloaded tracks may not be available when the network is disconnected or in offline mode. Are you sure you want to use this location?",
+    "networkCacheWarning": "The selected folder is on a network drive.",
+    "networkCacheWarningDetail": "Cached tracks may not be available when the network is disconnected or in offline mode. Are you sure you want to use this location?",
     "lyrics": {
       "title": "Lyrics",
       "lyricsCache": "Lyrics Cache",
@@ -440,9 +440,9 @@
     "removedFromPlaylist": "Removed from playlist",
     "playlistCreated": "Playlist created",
     "playlistDeleted": "Playlist deleted",
-    "downloadStarted": "Download started",
-    "downloadComplete": "Download complete",
-    "downloadFailed": "Download failed",
+    "cachingStarted": "Preparing for offline",
+    "cachedForOffline": "Now available offline",
+    "cachingFailed": "Failed to cache for offline",
     "scanComplete": "Library scan complete",
     "scanCancelled": "Library scan cancelled",
     "scanFailed": "Library scan failed",
@@ -458,7 +458,7 @@
     "qualityNotAvailable": "Requested quality is not available",
     "loadFailed": "Failed to load",
     "playbackFailed": "Playback failed",
-    "downloadFailed": "Download failed",
+    "cachingFailed": "Failed to prepare for offline",
     "saveFailed": "Failed to save"
   },
   "time": {

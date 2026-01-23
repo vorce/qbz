@@ -138,8 +138,8 @@
     "shuffle": "Aleatorio",
     "addToQueue": "Agregar a la Cola",
     "addToPlaylist": "Agregar a Lista",
-    "download": "Descargar",
-    "downloadAll": "Descargar Todo",
+    "makeAvailableOffline": "Disponible offline",
+    "makeAllAvailableOffline": "Todo disponible offline",
     "disc": "Disco"
   },
   "artist": {
@@ -284,7 +284,7 @@
     "addToPlaylist": "Agregar a Lista",
     "addToFavorites": "Agregar a Favoritos",
     "removeFromFavorites": "Quitar de Favoritos",
-    "download": "Descargar",
+    "makeAvailableOffline": "Disponible offline",
     "share": "Compartir",
     "viewAlbum": "Ver Álbum",
     "viewArtist": "Ver Artista",
@@ -384,22 +384,22 @@
     },
     "storage": {
       "title": "Almacenamiento",
-      "queueCacheNote": "Almacenamiento de la cola. Límpialo si tienes problemas de reproducción. (No es el caché de Descargas.)",
+      "queueCacheNote": "Almacenamiento de la cola. Límpialo si tienes problemas de reproducción. (No es la Biblioteca Offline.)",
       "queueCacheStats": "{tracks} pistas usando {used} / {max}",
       "cachedTracks": "Pistas de la cola en caché",
       "cacheSize": "Tamaño de caché de la cola",
       "clearCache": "Limpiar caché de la cola",
       "clearing": "Limpiando..."
     },
-    "downloads": {
-      "title": "Descargas",
-      "offlineCacheDisclaimer": "Las descargas offline son un caché local solo para reproducción sin conexión mientras tengas una suscripción válida. No recibes una licencia para conservar o redistribuir el contenido. Si tu suscripción deja de ser válida, QBZ eliminará todo el contenido descargado después de 3 días.",
-      "downloadedTracks": "Pistas Descargadas",
-      "clearDownloads": "Limpiar Todo",
+    "offlineLibrary": {
+      "title": "Biblioteca Offline",
+      "disclaimer": "La biblioteca offline es un caché temporal de reproducción para escucha sin conexión mientras tengas una suscripción válida de Qobuz. No recibes una licencia para conservar o redistribuir el contenido. Si tu suscripción deja de ser válida, QBZ eliminará todo el contenido en caché después de 3 días.",
+      "cachedTracks": "Pistas Offline",
+      "clearCache": "Limpiar Todo",
       "openFolder": "Abrir Carpeta"
     },
-    "networkDownloadWarning": "La carpeta seleccionada está en una unidad de red.",
-    "networkDownloadWarningDetail": "Las pistas descargadas pueden no estar disponibles cuando la red esté desconectada o en modo offline. ¿Estás seguro de que quieres usar esta ubicación?",
+    "networkCacheWarning": "La carpeta seleccionada está en una unidad de red.",
+    "networkCacheWarningDetail": "Las pistas en caché pueden no estar disponibles cuando la red esté desconectada o en modo offline. ¿Estás seguro de que quieres usar esta ubicación?",
     "lyrics": {
       "title": "Letras",
       "lyricsCache": "Caché de Letras",
@@ -440,9 +440,9 @@
     "removedFromPlaylist": "Eliminado de la lista",
     "playlistCreated": "Lista creada",
     "playlistDeleted": "Lista eliminada",
-    "downloadStarted": "Descarga iniciada",
-    "downloadComplete": "Descarga completa",
-    "downloadFailed": "Descarga fallida",
+    "cachingStarted": "Preparando para offline",
+    "cachedForOffline": "Ahora disponible offline",
+    "cachingFailed": "Error al preparar para offline",
     "scanComplete": "Escaneo de biblioteca completo",
     "scanCancelled": "Escaneo de biblioteca cancelado",
     "scanFailed": "Escaneo de biblioteca fallido",
@@ -458,7 +458,7 @@
     "qualityNotAvailable": "La calidad solicitada no está disponible",
     "loadFailed": "Error al cargar",
     "playbackFailed": "Error de reproducción",
-    "downloadFailed": "Error de descarga",
+    "cachingFailed": "Error al preparar para offline",
     "saveFailed": "Error al guardar"
   },
   "time": {

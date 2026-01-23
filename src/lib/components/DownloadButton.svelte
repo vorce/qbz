@@ -55,11 +55,11 @@
       return $t('offline.featureDisabled');
     }
     switch (status) {
-      case 'none': return 'Save for offline';
+      case 'none': return 'Make available offline';
       case 'queued': return 'Queued for offline';
-      case 'downloading': return `Downloading ${progress}%`;
+      case 'downloading': return `Preparing for offline ${progress}%`;
       case 'ready': return 'Available offline (click to remove)';
-      case 'failed': return 'Failed to save for offline (click to retry)';
+      case 'failed': return 'Failed to cache for offline (click to retry)';
       default: return '';
     }
   });

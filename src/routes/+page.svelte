@@ -657,11 +657,11 @@
     });
 
     if (tracksToDownload.length === 0) {
-      showToast('All tracks already downloaded', 'info');
+      showToast('All tracks already available offline', 'info');
       return;
     }
 
-    showToast(`Downloading ${tracksToDownload.length} tracks from "${album.title}"`, 'info');
+    showToast(`Preparing ${tracksToDownload.length} tracks from "${album.title}" for offline`, 'info');
 
     for (const track of tracksToDownload) {
       try {
@@ -1227,20 +1227,20 @@
         bitDepth: track.bitDepth,
         sampleRate: track.samplingRate,
       });
-      showToast(`Downloading "${track.title}"`, 'info');
+      showToast(`Preparing "${track.title}" for offline`, 'info');
     } catch (err) {
-      console.error('Failed to start download:', err);
-      showToast('Failed to start download', 'error');
+      console.error('Failed to cache for offline:', err);
+      showToast('Failed to prepare for offline', 'error');
     }
   }
 
   async function handleTrackRemoveDownload(trackId: number) {
     try {
       await removeDownload(trackId);
-      showToast('Removed from downloads', 'info');
+      showToast('Removed from offline library', 'info');
     } catch (err) {
-      console.error('Failed to remove download:', err);
-      showToast('Failed to remove download', 'error');
+      console.error('Failed to remove from offline:', err);
+      showToast('Failed to remove from offline library', 'error');
     }
   }
 
@@ -1267,10 +1267,10 @@
         bitDepth: 'bitDepth' in track ? track.bitDepth : undefined,
         sampleRate: 'samplingRate' in track ? track.samplingRate : undefined,
       });
-      showToast(`Re-downloading "${track.title}"`, 'info');
+      showToast(`Refreshing "${track.title}" for offline`, 'info');
     } catch (err) {
-      console.error('Failed to re-download:', err);
-      showToast('Failed to re-download', 'error');
+      console.error('Failed to refresh offline copy:', err);
+      showToast('Failed to refresh offline copy', 'error');
     }
   }
 
@@ -1287,11 +1287,11 @@
     });
 
     if (tracksToDownload.length === 0) {
-      showToast('All tracks already downloaded', 'info');
+      showToast('All tracks already available offline', 'info');
       return;
     }
 
-    showToast(`Downloading ${tracksToDownload.length} tracks from "${selectedAlbum.title}"`, 'info');
+    showToast(`Preparing ${tracksToDownload.length} tracks from "${selectedAlbum.title}" for offline`, 'info');
 
     for (const track of tracksToDownload) {
       try {
@@ -1307,7 +1307,7 @@
           sampleRate: track.samplingRate,
         });
       } catch (err) {
-        console.error(`Failed to queue download for "${track.title}":`, err);
+        console.error(`Failed to queue "${track.title}" for offline:`, err);
       }
     }
   }
@@ -1325,8 +1325,8 @@
 
   async function handleReDownloadAlbum() {
     if (!selectedAlbum) return;
-    
-    showToast(`Re-downloading all tracks from "${selectedAlbum.title}"`, 'info');
+
+    showToast(`Refreshing all tracks from "${selectedAlbum.title}" for offline`, 'info');
 
     for (const track of selectedAlbum.tracks) {
       try {
@@ -1342,7 +1342,7 @@
           sampleRate: track.samplingRate,
         });
       } catch (err) {
-        console.error(`Failed to queue re-download for "${track.title}":`, err);
+        console.error(`Failed to refresh "${track.title}" for offline:`, err);
       }
     }
   }
@@ -1360,11 +1360,11 @@
     try {
       const album = await invoke<QobuzAlbum>('get_album', { albumId });
       if (!album || !album.tracks || album.tracks.data.length === 0) {
-        showToast('Failed to load album for re-download', 'error');
+        showToast('Failed to load album for offline refresh', 'error');
         return;
       }
 
-      showToast(`Re-downloading all tracks from "${album.title}"`, 'info');
+      showToast(`Refreshing all tracks from "${album.title}" for offline`, 'info');
 
       for (const track of album.tracks.data) {
         try {
@@ -1380,12 +1380,12 @@
             sampleRate: track.maximum_sampling_rate,
           });
         } catch (err) {
-          console.error(`Failed to queue re-download for "${track.title}":`, err);
+          console.error(`Failed to refresh "${track.title}" for offline:`, err);
         }
       }
     } catch (err) {
       console.error('Failed to load album:', err);
-      showToast('Failed to load album for re-download', 'error');
+      showToast('Failed to load album for offline refresh', 'error');
     }
   }
 
@@ -1413,10 +1413,10 @@
         bitDepth: track.bitDepth,
         sampleRate: track.samplingRate,
       });
-      showToast(`Downloading "${track.title}"`, 'info');
+      showToast(`Preparing "${track.title}" for offline`, 'info');
     } catch (err) {
-      console.error('Failed to start download:', err);
-      showToast('Failed to start download', 'error');
+      console.error('Failed to prepare for offline:', err);
+      showToast('Failed to prepare for offline', 'error');
     }
   }
 
