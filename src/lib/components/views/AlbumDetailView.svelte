@@ -442,7 +442,7 @@
   .actions :global(.album-menu .menu-trigger) {
     width: 36px;
     height: 36px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--border-strong);
     color: var(--text-muted);
   }
 
