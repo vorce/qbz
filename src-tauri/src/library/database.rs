@@ -1667,11 +1667,6 @@ impl LibraryDatabase {
             return Ok(());
         }
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0);
-
         // SQLite has a limit on parameters (default 999, we use 5 params per row)
         const BATCH_SIZE: usize = 200;
 
@@ -1694,12 +1689,7 @@ impl LibraryDatabase {
             let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(qobuz_playlist_id as i64)];
             
             for (playlist_track_id, track_id, position) in chunk {
-                let added_at = if is_backfill {
-                    compute_added_at_timestamp(*position, false)
-                } else {
-                    // For real additions, use current timestamp
-                    now
-                };
+                let added_at = compute_added_at_timestamp(*position, is_backfill);
 
                 let position_value = if is_backfill {
                     Some(*position)
@@ -1722,28 +1712,60 @@ impl LibraryDatabase {
 
     /// Get track metadata for tracks in a playlist
     /// Returns a map of playlist_track_id -> (added_at, position)
+    /// Batches queries to support arbitrary sized playlists.
     pub fn get_qobuz_track_metadata(
         &self,
         qobuz_playlist_id: u64,
+        playlist_track_ids: &[u64]
     ) -> Result<std::collections::HashMap<u64, (i64, Option<i32>)>, LibraryError> {
-        let mut stmt = self.conn.prepare(
-            "SELECT playlist_track_id, added_at, position
-             FROM playlist_qobuz_track_metadata
-             WHERE qobuz_playlist_id = ?1"
-        ).map_err(|e| LibraryError::Database(format!("Failed to prepare statement: {}", e)))?;
+        if playlist_track_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
 
-        let metadata = stmt.query_map(params![qobuz_playlist_id as i64], |row| {
-            Ok((
-                row.get::<_, i64>(0)? as u64,
-                (row.get::<_, i64>(1)?, row.get::<_, Option<i32>>(2)?),
-            ))
-        }).map_err(|e| LibraryError::Database(format!("Failed to query track metadata: {}", e)))?;
+        const CHUNK_SIZE: usize = 900;
 
-        let mut result = std::collections::HashMap::new();
-        for item in metadata {
-            let (playlist_track_id, (added_at, position)) = item
-                .map_err(|e| LibraryError::Database(format!("Failed to read track metadata: {}", e)))?;
-            result.insert(playlist_track_id, (added_at, position));
+        let mut result = std::collections::HashMap::with_capacity(playlist_track_ids.len());
+
+        for chunk in playlist_track_ids.chunks(CHUNK_SIZE) {
+            let placeholders = chunk.iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
+
+            let query = format!(
+                "SELECT playlist_track_id, added_at, position
+                 FROM playlist_qobuz_track_metadata
+                 WHERE qobuz_playlist_id = ?1 AND playlist_track_id IN ({})",
+                placeholders
+            );
+
+            let mut stmt = self.conn.prepare(&query)
+                .map_err(|e| LibraryError::Database(format!("Failed to prepare statement: {}", e)))?;
+
+            // Build params: first is playlist_id, rest are track_ids from chunk
+            let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::with_capacity(chunk.len() + 1);
+            params_vec.push(Box::new(qobuz_playlist_id as i64));
+            for id in chunk {
+                params_vec.push(Box::new(*id as i64));
+            }
+            let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter()
+                .map(|b| &**b as &dyn rusqlite::ToSql)
+                .collect();
+
+            let mut rows = stmt.query(&*params_refs)
+                .map_err(|e| LibraryError::Database(format!("Failed to query track metadata: {}", e)))?;
+
+            while let Some(row) = rows.next()
+                .map_err(|e| LibraryError::Database(format!("Failed to iterate rows: {}", e)))? {
+                let playlist_track_id = row.get::<_, i64>(0)
+                    .map_err(|e| LibraryError::Database(format!("Failed to read playlist_track_id: {}", e)))? as u64;
+                let added_at = row.get::<_, i64>(1)
+                    .map_err(|e| LibraryError::Database(format!("Failed to read added_at: {}", e)))?;
+                let position = row.get::<_, Option<i32>>(2)
+                    .map_err(|e| LibraryError::Database(format!("Failed to read position: {}", e)))?;
+
+                result.insert(playlist_track_id, (added_at, position));
+            }
         }
 
         Ok(result)
@@ -2732,7 +2754,10 @@ pub fn compute_added_at_timestamp(position: i32, is_backfill: bool) -> i64 {
         .unwrap_or(0);
 
     if is_backfill {
-        now - (position as i64)
+        // higher positions = newer, but we don't want to go into the future
+        // as it would look weird if we display the added_at timestamp.
+        let one_year_ago = now - (365 * 24 * 60 * 60);
+        one_year_ago + (position as i64)
     } else {
         now
     }

@@ -3,53 +3,11 @@
 use std::collections::HashMap;
 use tauri::State;
 
+use crate::api::QobuzClient;
 use crate::api::models::{Playlist, SearchResultsPage};
 use crate::library::commands::LibraryState;
 use crate::library::compute_added_at_timestamp;
 use crate::AppState;
-
-/// Collect tracks that doesn't have metadata
-fn collect_tracks_missing_metadata(
-    playlist: &Playlist,
-    existing_metadata: &HashMap<u64, (i64, Option<i32>)>,
-) -> Vec<(u64, u64, i32)> {
-    playlist.tracks.as_ref()
-        .map(|tracks| {
-            tracks.items.iter()
-                .enumerate()
-                .filter_map(|(pos, track)| {
-                    track.playlist_track_id.and_then(|ptid| {
-                        if !existing_metadata.contains_key(&ptid) {
-                            Some((ptid, track.id, pos as i32))
-                        } else {
-                            None
-                        }
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// Set the added at for track in the playlist based on metadata
-fn update_playlist_tracks_added_at(
-    playlist: &mut Playlist,
-    metadata: &HashMap<u64, (i64, Option<i32>)>,
-) {
-    if let Some(ref mut tracks) = playlist.tracks {
-        for track in tracks.items.iter_mut() {
-            // Priority: API added_at (if present) > local database > position fallback
-            // So when/if we get added_at info from Quboz we will use it automatically
-            if track.added_at.is_none() {
-                if let Some(ptid) = track.playlist_track_id {
-                    if let Some((added_at, _)) = metadata.get(&ptid) {
-                        track.added_at = Some(*added_at);
-                    }
-                }
-            }
-        }
-    }
-}
 
 /// Backfill the extra playlist metadata if needed. We need the metadata to support
 /// additional functionality like sorting by "added at".
@@ -60,29 +18,39 @@ async fn maybe_backfill_playlist_metadata(
     library_state: &State<'_, LibraryState>,
 ) -> Result<(), String> {
     let db = library_state.db.lock().await;
-    let mut metadata = db
-        .get_qobuz_track_metadata(playlist_id)
+    let playlist_track_ids: Vec<u64> = playlist.tracks
+        .as_ref()
+        .map(|tracks| tracks.items.iter())
+        .unwrap_or_else(|| [].iter())
+        .filter_map(|track| track.playlist_track_id)
+        .collect();
+
+    let metadata = db
+        .get_qobuz_track_metadata(playlist_id, &playlist_track_ids)
         .map_err(|e| format!("Failed to get track metadata: {}", e))?;
 
-    let tracks_to_backfill = collect_tracks_missing_metadata(playlist, &metadata);
+    let mut tracks_to_backfill = Vec::new();
+    if let Some(ref mut tracks) = playlist.tracks {
+        for (pos, track) in tracks.items.iter_mut().enumerate() {
+            // Priority: API added_at (if present) > local database > position fallback
+            // So when/if we get added_at info from Quboz we will use it automatically
+            if track.added_at.is_none() {
+                if let Some(ptid) = track.playlist_track_id {
+                    if let Some((added_at, _)) = metadata.get(&ptid) {
+                        track.added_at = Some(*added_at);
+                    } else {
+                        tracks_to_backfill.push((ptid, track.id, pos as i32));
+                        track.added_at = Some(compute_added_at_timestamp(pos as i32, true));
+                    }
+                }
+            };
+        }
+    }
 
     if !tracks_to_backfill.is_empty() {
         log::info!("Backfilling {} tracks for playlist {}", tracks_to_backfill.len(), playlist_id);
-
-        // Add new metadata directly to avoid refetching
-        for (playlist_track_id, _track_id, position) in &tracks_to_backfill {
-            metadata.insert(*playlist_track_id, (
-                compute_added_at_timestamp(*position, true),
-                Some(*position)
-            ));
-        }
-
         db.track_qobuz_tracks_added(playlist_id, &tracks_to_backfill, true)
-            .map_err(|e| format!("Failed to backfill track metadata: {}", e))?;
-    }
-
-    if !metadata.is_empty() {
-        update_playlist_tracks_added_at(playlist, &metadata);
+                 .map_err(|e| format!("Failed to backfill track metadata: {}", e))?;
     }
 
     Ok(())
@@ -180,6 +148,43 @@ pub async fn delete_playlist(
     Ok(())
 }
 
+async fn record_newly_added_tracks_metadata(
+    playlist_id: u64,
+    track_ids: &[u64],
+    client: tokio::sync::MutexGuard<'_, QobuzClient>,
+    library_state: State<'_, LibraryState>,
+) -> Result<(), String> {
+    let playlist = client
+        .get_playlist(playlist_id)
+        .await
+        .map_err(|e| format!("Failed to fetch playlist after adding tracks: {}", e))?;
+
+    // Find the newly added tracks and record their metadata
+    if let Some(tracks) = playlist.tracks {
+        let newly_added: Vec<(u64, u64, i32)> = tracks.items
+            .iter()
+            .filter_map(|track| {
+                if track_ids.contains(&track.id) {
+                    track.playlist_track_id.map(|ptid| {
+                        (ptid, track.id, 1) // Position will be overwritten by track_qobuz_tracks_added 
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !newly_added.is_empty() {
+            drop(client); // Release the client lock before acquiring database lock
+            let db = library_state.db.lock().await;
+            db.track_qobuz_tracks_added(playlist_id, &newly_added, false)
+                .map_err(|e| format!("Failed to track newly added tracks: {}", e))?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Add tracks to a playlist
 #[tauri::command]
 pub async fn add_tracks_to_playlist(
@@ -196,33 +201,7 @@ pub async fn add_tracks_to_playlist(
         .await
         .map_err(|e| format!("Failed to add tracks to playlist: {}", e))?;
 
-    // Fetch the updated playlist to get playlist_track_ids for newly added tracks
-    let playlist = client
-        .get_playlist(playlist_id)
-        .await
-        .map_err(|e| format!("Failed to fetch playlist after adding tracks: {}", e))?;
-
-    // Find the newly added tracks and record their metadata
-    if let Some(tracks) = playlist.tracks {
-        // Get the last N tracks (where N = number of tracks we just added)
-        let newly_added: Vec<(u64, u64, i32)> = tracks.items
-            .iter()
-            .rev()
-            .take(track_ids.len())
-            .filter_map(|track| {
-                track.playlist_track_id.map(|ptid| {
-                    (ptid, track.id, tracks.items.len() as i32 - 1) // Position will be overwritten, using placeholder
-                })
-            })
-            .collect();
-
-        if !newly_added.is_empty() {
-            drop(client); // Release the client lock before acquiring database lock
-            let db = library_state.db.lock().await;
-            db.track_qobuz_tracks_added(playlist_id, &newly_added, false)
-                .map_err(|e| format!("Failed to track newly added tracks: {}", e))?;
-        }
-    }
+    record_newly_added_tracks_metadata(playlist_id, &track_ids, client, library_state).await?;
 
     Ok(())
 }
