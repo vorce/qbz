@@ -496,7 +496,7 @@
     align-items: center;
     justify-content: center;
     width: 28px;
-    opacity: 0;
+    opacity: 0.3;
     transition: opacity 150ms ease;
   }
 
@@ -505,6 +505,11 @@
   }
 
   .track-row:hover .download-indicator {
+    opacity: 0.6;
+  }
+
+  .track-row:hover .download-indicator.has-download,
+  .track-row:hover .download-indicator:hover {
     opacity: 1;
   }
 
