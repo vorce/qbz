@@ -958,13 +958,9 @@
     flex: 1;
   }
 
-  /* Thin scrollbar - hidden by default, visible on hover */
+  /* Thin scrollbar - hidden by default, visible on section hover */
   .playlists-scroll {
     scrollbar-color: transparent transparent;
-  }
-
-  .playlists-scroll:hover {
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
   }
 
   .playlists-scroll::-webkit-scrollbar {
@@ -980,11 +976,16 @@
     border-radius: 4px;
   }
 
-  .playlists-scroll:hover::-webkit-scrollbar-thumb {
+  /* Show scrollbar when hovering the entire playlists section */
+  .playlists-section:hover .playlists-scroll {
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  }
+
+  .playlists-section:hover .playlists-scroll::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
   }
 
-  .playlists-scroll:hover::-webkit-scrollbar-thumb:hover {
+  .playlists-section:hover .playlists-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.25);
   }
 
@@ -1003,14 +1004,14 @@
 
   .toggle-btn {
     position: absolute;
-    right: -12px;
+    right: -11px;
     top: 50%;
     transform: translateY(-50%);
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     padding: 0;
     background: var(--bg-tertiary);
     border: 1px solid rgba(255, 255, 255, 0.1);
