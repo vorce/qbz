@@ -578,13 +578,27 @@
               <div class="drag-handle-placeholder"></div>
             {/if}
             {#if !isUnavailable}
-              <button
-                class="edit-btn"
-                onclick={(e) => { e.stopPropagation(); openEditModal(playlist); }}
-                title="Edit playlist"
-              >
-                <Pencil size={14} />
-              </button>
+              <div class="header-actions">
+                <button
+                  class="visibility-btn"
+                  class:is-hidden={isHidden}
+                  onclick={(e) => { e.stopPropagation(); toggleHidden(playlist); }}
+                  title={isHidden ? 'Show in sidebar' : 'Hide from sidebar'}
+                >
+                  {#if isHidden}
+                    <EyeOff size={14} />
+                  {:else}
+                    <Eye size={14} />
+                  {/if}
+                </button>
+                <button
+                  class="edit-btn"
+                  onclick={(e) => { e.stopPropagation(); openEditModal(playlist); }}
+                  title="Edit playlist"
+                >
+                  <Pencil size={14} />
+                </button>
+              </div>
             {:else}
               <span class="view-only-badge" title={$t('offline.viewOnly')}>
                 <CloudOff size={12} />
@@ -693,17 +707,24 @@
               {stats.play_count}
             </span>
           {/if}
-          {#if isHidden}
-            <span class="hidden-indicator" title="Hidden from sidebar">
-              <EyeOff size={14} />
-            </span>
-          {/if}
           {#if isFavorite}
             <span class="favorite-indicator" title="Favorite">
               <Heart size={14} fill="var(--accent-primary)" color="var(--accent-primary)" />
             </span>
           {/if}
           {#if !isUnavailable}
+            <button
+              class="visibility-btn"
+              class:is-hidden={isHidden}
+              onclick={(e) => { e.stopPropagation(); toggleHidden(playlist); }}
+              title={isHidden ? 'Show in sidebar' : 'Hide from sidebar'}
+            >
+              {#if isHidden}
+                <EyeOff size={14} />
+              {:else}
+                <Eye size={14} />
+              {/if}
+            </button>
             <button
               class="edit-btn"
               onclick={(e) => { e.stopPropagation(); openEditModal(playlist); }}
@@ -1053,6 +1074,40 @@
     color: var(--text-primary);
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .visibility-btn {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 150ms ease;
+  }
+
+  .visibility-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .visibility-btn.is-hidden {
+    color: var(--text-muted);
+    opacity: 0.4;
+  }
+
+  .visibility-btn.is-hidden:hover {
+    opacity: 1;
+    color: var(--text-primary);
+  }
+
   /* Clickable content area */
   .grid-item-content {
     cursor: pointer;
@@ -1235,17 +1290,13 @@
     flex-shrink: 0;
   }
 
-  .hidden-indicator {
-    color: var(--text-muted);
-    flex-shrink: 0;
-  }
-
   .favorite-indicator {
     flex-shrink: 0;
     display: flex;
     align-items: center;
   }
 
+  .list-item .visibility-btn,
   .list-item .edit-btn {
     flex-shrink: 0;
   }
