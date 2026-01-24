@@ -855,20 +855,23 @@
             <Heart size={24} />
           {/if}
         </button>
-        <button
-          class="radio-btn"
-          class:loading={isRadioLoading}
-          class:glow={radioJustCreated}
-          onclick={createArtistRadio}
-          disabled={isRadioLoading}
-          title="Start Artist Radio"
-        >
-          {#if isRadioLoading}
-            <span class="loading-message">{radioLoadingMessage}</span>
-          {:else}
+        <div class="radio-btn-wrapper">
+          <button
+            class="radio-btn"
+            class:loading={isRadioLoading}
+            class:glow={radioJustCreated}
+            onclick={createArtistRadio}
+            disabled={isRadioLoading}
+            title="Start Artist Radio"
+          >
             <Radio size={24} />
+          </button>
+          {#if isRadioLoading && radioLoadingMessage}
+            {#key radioLoadingMessage}
+              <span class="floating-message">{radioLoadingMessage}</span>
+            {/key}
           {/if}
-        </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1607,18 +1610,42 @@
     cursor: not-allowed;
   }
 
-  .loading-message {
-    display: none;
+  .radio-btn-wrapper {
+    position: relative;
   }
 
-  @keyframes fadeIn {
-    from {
+  .floating-message {
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    pointer-events: none;
+    animation: floatUp 2s ease-out forwards;
+  }
+
+  @keyframes floatUp {
+    0% {
       opacity: 0;
-      transform: translateY(-2px);
+      transform: translateX(-50%) translateY(8px);
     }
-    to {
+    15% {
       opacity: 1;
-      transform: translateY(0);
+      transform: translateX(-50%) translateY(0);
+    }
+    70% {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-10px);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-20px);
     }
   }
 
