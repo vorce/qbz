@@ -663,9 +663,9 @@
 
   function shareAlbumSonglinkById(albumId: string) {
     const qobuzUrl = `https://play.qobuz.com/album/${albumId}`;
-    const songlinkUrl = `https://song.link/${encodeURIComponent(qobuzUrl)}`;
-    writeText(songlinkUrl);
-    showToast('Song.link copied to clipboard', 'success');
+    const albumLinkUrl = `https://album.link/${encodeURIComponent(qobuzUrl)}`;
+    writeText(albumLinkUrl);
+    showToast('Album.link copied to clipboard', 'success');
   }
 
   async function downloadAlbumById(albumId: string) {
@@ -1217,13 +1217,13 @@
     showToast('Album link copied to clipboard', 'success');
   }
 
-  // Share album via song.link
+  // Share album via album.link
   async function shareAlbumSonglink() {
     if (!selectedAlbum?.id) return;
     const qobuzUrl = `https://play.qobuz.com/album/${selectedAlbum.id}`;
-    const songlinkUrl = `https://song.link/${encodeURIComponent(qobuzUrl)}`;
-    writeText(songlinkUrl);
-    showToast('Song.link copied to clipboard', 'success');
+    const albumLinkUrl = `https://album.link/${encodeURIComponent(qobuzUrl)}`;
+    writeText(albumLinkUrl);
+    showToast('Album.link copied to clipboard', 'success');
   }
 
   function handleAlbumTrackPlayNext(track: Track) {

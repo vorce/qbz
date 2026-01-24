@@ -308,7 +308,7 @@
                   {#if onShareSonglink}
                     <button class="menu-item" onclick={() => handleAction(onShareSonglink)}>
                       <Link size={14} />
-                      <span>Song.link</span>
+                      <span>Album.link</span>
                     </button>
                   {/if}
                 </div>
