@@ -343,7 +343,8 @@ export function convertQobuzAlbum(album: QobuzAlbum): AlbumDetail {
       albumId: album.id,
       artistId: track.performer?.id ?? album.artist?.id,
       isrc: track.isrc
-    })) || []
+    })) || [],
+    upc: album.upc
   };
 }
 

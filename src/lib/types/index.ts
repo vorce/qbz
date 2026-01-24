@@ -43,6 +43,7 @@ export interface QobuzAlbum {
   maximum_bit_depth?: number;
   maximum_sampling_rate?: number;
   tracks?: { items: QobuzTrack[] };
+  upc?: string;
 }
 
 export interface QobuzPlaylist {
@@ -113,6 +114,7 @@ export interface AlbumDetail {
   trackCount: number;
   duration: string;
   tracks: Track[];
+  upc?: string; // Universal Product Code for album.link sharing
 }
 
 export interface ArtistDetail {

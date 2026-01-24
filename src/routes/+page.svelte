@@ -661,11 +661,26 @@
     showToast('Album link copied to clipboard', 'success');
   }
 
-  function shareAlbumSonglinkById(albumId: string) {
-    const qobuzUrl = `https://play.qobuz.com/album/${albumId}`;
-    const albumLinkUrl = `https://album.link/${encodeURIComponent(qobuzUrl)}`;
-    writeText(albumLinkUrl);
-    showToast('Album.link copied to clipboard', 'success');
+  async function shareAlbumSonglinkById(albumId: string) {
+    try {
+      showToast('Fetching Album.link...', 'info');
+      const album = await fetchAlbumDetail(albumId);
+      if (!album) {
+        showToast('Could not fetch album details', 'error');
+        return;
+      }
+      const response = await invoke<{ pageUrl: string }>('share_album_songlink', {
+        upc: album.upc || null,
+        albumId: album.id,
+        title: album.title,
+        artist: album.artist
+      });
+      writeText(response.pageUrl);
+      showToast('Album.link copied to clipboard', 'success');
+    } catch (err) {
+      console.error('Failed to get Album.link:', err);
+      showToast(`Album.link error: ${err}`, 'error');
+    }
   }
 
   async function downloadAlbumById(albumId: string) {
@@ -1220,10 +1235,20 @@
   // Share album via album.link
   async function shareAlbumSonglink() {
     if (!selectedAlbum?.id) return;
-    const qobuzUrl = `https://play.qobuz.com/album/${selectedAlbum.id}`;
-    const albumLinkUrl = `https://album.link/${encodeURIComponent(qobuzUrl)}`;
-    writeText(albumLinkUrl);
-    showToast('Album.link copied to clipboard', 'success');
+    try {
+      showToast('Fetching Album.link...', 'info');
+      const response = await invoke<{ pageUrl: string }>('share_album_songlink', {
+        upc: selectedAlbum.upc || null,
+        albumId: selectedAlbum.id,
+        title: selectedAlbum.title,
+        artist: selectedAlbum.artist
+      });
+      writeText(response.pageUrl);
+      showToast('Album.link copied to clipboard', 'success');
+    } catch (err) {
+      console.error('Failed to get Album.link:', err);
+      showToast(`Album.link error: ${err}`, 'error');
+    }
   }
 
   function handleAlbumTrackPlayNext(track: Track) {
