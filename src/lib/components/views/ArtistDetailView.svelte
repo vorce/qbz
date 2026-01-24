@@ -212,6 +212,7 @@
     if (!artistId || !artistName) return;
 
     bioExpanded = false;
+    isBioTruncated = false;
     imageError = false;
     topTracks = [];
     similarArtists = [];
@@ -574,14 +575,43 @@
     artist.biography?.content || artist.biography?.summary || null
   );
 
-  // Truncate bio for collapsed view (reduced to ~530 chars, 2/3 of original 800)
-  const BIO_TRUNCATE_LENGTH = 530;
-  let truncatedBio = $derived(
-    bioText && bioText.length > BIO_TRUNCATE_LENGTH
-      ? bioText.slice(0, BIO_TRUNCATE_LENGTH) + '...'
-      : bioText
-  );
-  let bioNeedsTruncation = $derived(bioText ? bioText.length > BIO_TRUNCATE_LENGTH : false);
+  // Smart 3-line truncation with resize detection
+  let bioTextEl = $state<HTMLDivElement | null>(null);
+  let isBioTruncated = $state(false);
+
+  function checkBioTruncation() {
+    if (!bioTextEl || bioExpanded) return;
+    // scrollHeight > clientHeight means content is overflowing (truncated by line-clamp)
+    isBioTruncated = bioTextEl.scrollHeight > bioTextEl.clientHeight + 1;
+  }
+
+  $effect(() => {
+    if (!bioTextEl || !bioText) return;
+
+    // Initial check
+    checkBioTruncation();
+
+    // Observe resize to recalculate when container width changes
+    const observer = new ResizeObserver(() => {
+      if (!bioExpanded) {
+        checkBioTruncation();
+      }
+    });
+
+    observer.observe(bioTextEl);
+
+    return () => observer.disconnect();
+  });
+
+  // Recheck truncation after collapsing (wait for DOM update)
+  $effect(() => {
+    if (bioExpanded === false && bioTextEl) {
+      // Use requestAnimationFrame to wait for CSS to apply
+      requestAnimationFrame(() => {
+        checkBioTruncation();
+      });
+    }
+  });
 
   let hasMoreAlbums = $derived(!!onLoadMore && artist.albumsFetched < artist.totalAlbums);
   let hasTopTracks = $derived(topTracks.length > 0 || tracksLoading);
@@ -848,10 +878,10 @@
       <!-- Biography -->
       {#if bioText}
         <div class="biography">
-          <div class="bio-text">
-            {@html bioExpanded ? bioText : truncatedBio}
+          <div class="bio-text" class:expanded={bioExpanded} bind:this={bioTextEl}>
+            {@html bioText}
           </div>
-          {#if bioNeedsTruncation}
+          {#if isBioTruncated || bioExpanded}
             <button class="bio-toggle" onclick={() => bioExpanded = !bioExpanded}>
               {#if bioExpanded}
                 <ChevronUp size={16} />
@@ -1740,6 +1770,17 @@
     line-height: 1.7;
     color: var(--text-secondary);
     font-weight: 300;
+    /* Smart 3-line clamp */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .bio-text.expanded {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
   }
 
   .bio-text :global(p) {
