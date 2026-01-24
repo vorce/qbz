@@ -488,12 +488,12 @@
 
   .col-duration {
     width: 80px;
-    text-align: right;
+    text-align: center;
   }
 
   .col-quality {
     width: 80px;
-    text-align: right;
+    text-align: center;
   }
 
   .col-spacer {
