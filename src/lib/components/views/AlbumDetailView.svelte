@@ -467,14 +467,12 @@
     width: 44px;
     height: 44px;
     background: var(--accent-primary);
-    border: none;
+    border: 2px solid white;
     color: white;
-    box-shadow: 0 0 2px 1px rgba(var(--accent-primary-rgb, 139, 92, 246), 0.3);
   }
 
   .action-btn.primary:hover {
     background: var(--accent-hover);
-    box-shadow: 0 0 16px 6px rgba(var(--accent-primary-rgb, 139, 92, 246), 0.5);
   }
 
   .action-btn.is-favorite {
