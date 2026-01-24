@@ -911,13 +911,6 @@
     const url = `https://play.qobuz.com/playlist/${playlist.id}`;
     writeText(url);
   }
-
-  function sharePlaylistSonglink() {
-    if (!playlist?.id) return;
-    const qobuzUrl = `https://play.qobuz.com/playlist/${playlist.id}`;
-    const songlinkUrl = `https://song.link/${encodeURIComponent(qobuzUrl)}`;
-    writeText(songlinkUrl);
-  }
 </script>
 
 <div class="playlist-detail" bind:this={scrollContainer}>
@@ -1028,7 +1021,6 @@
             onPlayNext={handlePlayAllNext}
             onPlayLater={handlePlayAllLater}
             onShareQobuz={sharePlaylistQobuz}
-            onShareSonglink={sharePlaylistSonglink}
           />
         </div>
       </div>
