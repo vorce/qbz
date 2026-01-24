@@ -952,17 +952,13 @@
   }
 
   .playlists-scroll {
-    overflow-y: auto;
-    margin-right: 3px;
+    overflow-y: overlay;
+    margin-right: 1px;
     min-height: 0;
     flex: 1;
   }
 
-  /* Thin scrollbar - hidden by default, visible on section hover */
-  .playlists-scroll {
-    scrollbar-color: transparent transparent;
-  }
-
+  /* Thin subtle scrollbar - always visible */
   .playlists-scroll::-webkit-scrollbar {
     width: 4px;
   }
@@ -972,27 +968,18 @@
   }
 
   .playlists-scroll::-webkit-scrollbar-thumb {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 4px;
   }
 
-  /* Show scrollbar when hovering anywhere on the sidebar */
-  .sidebar:hover .playlists-scroll {
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  .playlists-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
   }
 
-  .sidebar:hover .playlists-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-  }
 
-  .sidebar:hover .playlists-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
-  }
-
-  /* When sidebar is collapsed, keep scrollbar away from toggle button */
-  .sidebar.collapsed .playlists-scroll {
-    overflow-y: auto;
-    margin-right: 6px;
+  /* Compensate margin-right in collapsed mode by shifting icons slightly right */
+  .sidebar.collapsed .playlists-scroll .nav-item {
+    padding-left: 1px;
   }
 
   .playlists-loading,
@@ -1004,14 +991,14 @@
 
   .toggle-btn {
     position: absolute;
-    right: -11px;
+    right: -10px;
     top: 50%;
     transform: translateY(-50%);
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     padding: 0;
     background: var(--bg-tertiary);
     border: 1px solid rgba(255, 255, 255, 0.1);
