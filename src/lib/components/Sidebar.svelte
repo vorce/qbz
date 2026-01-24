@@ -993,30 +993,30 @@
 
   .toggle-btn {
     position: absolute;
-    right: -14px;
+    right: -12px;
     top: 50%;
     transform: translateY(-50%);
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     padding: 0;
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: var(--bg-tertiary);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     color: var(--text-muted);
     cursor: pointer;
-    transition: transform 150ms ease, background-color 150ms ease, color 150ms ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: transform 150ms ease, background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
     z-index: 10;
   }
 
   .toggle-btn:hover {
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--bg-hover);
     transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
   }
 
   .user-section {
