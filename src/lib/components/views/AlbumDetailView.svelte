@@ -478,6 +478,7 @@
 
   .col-number {
     width: 48px;
+    text-align: center;
   }
 
   .col-title {
