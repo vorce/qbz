@@ -39,7 +39,7 @@
   }
 
   type PlaylistFilter = 'all' | 'visible' | 'hidden' | 'offline_all' | 'offline_partial' | 'offline_unavailable';
-  type PlaylistSort = 'name' | 'recent' | 'playcount' | 'custom';
+  type PlaylistSort = 'name' | 'recent' | 'playcount' | 'tracks' | 'custom';
   type ViewMode = 'list' | 'grid';
 
   interface Props {
@@ -173,6 +173,12 @@
       result.sort((a, b) => {
         const countA = playlistStats.get(a.id)?.play_count ?? 0;
         const countB = playlistStats.get(b.id)?.play_count ?? 0;
+        return countB - countA;
+      });
+    } else if (sort === 'tracks') {
+      result.sort((a, b) => {
+        const countA = getTotalTrackCount(a);
+        const countB = getTotalTrackCount(b);
         return countB - countA;
       });
     } else if (sort === 'custom') {
@@ -491,7 +497,7 @@
       <button class="control-btn" onclick={() => { showSortMenu = !showSortMenu; showFilterMenu = false; }}>
         <ArrowUpDown size={16} />
         <span>
-          {sort === 'name' ? 'Name' : sort === 'recent' ? 'Recent' : sort === 'playcount' ? 'Play Count' : 'Custom'}
+          {sort === 'name' ? 'Name' : sort === 'recent' ? 'Recent' : sort === 'playcount' ? 'Play Count' : sort === 'tracks' ? 'Track Count' : 'Custom'}
         </span>
       </button>
       {#if showSortMenu}
@@ -504,6 +510,9 @@
           </button>
           <button class="dropdown-item" class:selected={sort === 'playcount'} onclick={() => { sort = 'playcount'; showSortMenu = false; }}>
             Play Count
+          </button>
+          <button class="dropdown-item" class:selected={sort === 'tracks'} onclick={() => { sort = 'tracks'; showSortMenu = false; }}>
+            Track Count
           </button>
           <button class="dropdown-item" class:selected={sort === 'custom'} onclick={() => { sort = 'custom'; showSortMenu = false; }}>
             Custom Order
