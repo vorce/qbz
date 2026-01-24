@@ -1366,8 +1366,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: var(--alpha-10);
+    border: 1px solid var(--alpha-30);
     border-radius: 50%;
     color: white;
     cursor: pointer;
@@ -1375,8 +1375,8 @@
   }
 
   .artwork-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.5);
+    background: var(--alpha-20);
+    border-color: var(--alpha-50);
   }
 
   .artwork-btn.artwork-clear {

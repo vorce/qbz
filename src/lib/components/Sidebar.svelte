@@ -969,12 +969,12 @@
   }
 
   .playlists-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--alpha-10);
     border-radius: 4px;
   }
 
   .playlists-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--alpha-20);
   }
 
 
@@ -1002,7 +1002,7 @@
     height: 20px;
     padding: 0;
     background: var(--bg-tertiary);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--alpha-10);
     border-radius: 50%;
     color: var(--text-muted);
     cursor: pointer;

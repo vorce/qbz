@@ -282,9 +282,9 @@
     font-family: 'LINE Seed JP', var(--font-sans);
     font-size: 10px;
     font-weight: 100;
-    color: rgba(255, 255, 255, 0.85);
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--alpha-85);
+    background: var(--alpha-10);
+    border: 1px solid var(--alpha-15);
     border-radius: 4px;
     padding: 4px 6px;
     min-width: 72px;
@@ -344,7 +344,7 @@
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.85);
+    border: 1px solid var(--alpha-85);
     background: transparent;
     color: white;
     display: flex;
@@ -359,7 +359,7 @@
   }
 
   .overlay-btn.is-active {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: var(--alpha-20);
   }
 
   .overlay-btn.disabled,
@@ -389,7 +389,7 @@
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.85);
+    border: 1px solid var(--alpha-85);
     background: transparent;
     color: white;
     display: flex;

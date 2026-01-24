@@ -154,7 +154,7 @@
 
   .control-btn.minimize:hover,
   .control-btn.maximize:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--alpha-10);
   }
 
   .control-btn.close:hover {

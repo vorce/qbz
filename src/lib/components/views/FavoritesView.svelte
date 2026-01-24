@@ -1630,7 +1630,7 @@
     margin: 0 -8px 16px -24px;
     width: calc(100% + 32px);
     background: var(--bg-primary);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--alpha-6);
     box-shadow: 0 4px 8px -4px rgba(0, 0, 0, 0.5);
   }
 
@@ -2145,9 +2145,9 @@
   .album-row-quality .quality-badge {
     font-size: 11px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.85);
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--alpha-85);
+    background: var(--alpha-10);
+    border: 1px solid var(--alpha-15);
     border-radius: 6px;
     padding: 3px 8px;
     min-width: 72px;

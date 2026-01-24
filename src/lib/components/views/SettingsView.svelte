@@ -2027,20 +2027,20 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
   }
 
   .settings-view::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--alpha-15);
     border-radius: 4px;
   }
 
   .settings-view:hover::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.25);
+    background: var(--alpha-25);
   }
 
   .settings-view::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.4);
+    background: var(--alpha-40);
   }
 
   .loading-text {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--alpha-60);
     font-size: 14px;
     font-style: italic;
   }
@@ -2131,7 +2131,7 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     margin: 0 -24px 24px -32px;
     width: calc(100% + 56px);
     background: var(--bg-primary);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--alpha-6);
     box-shadow: 0 4px 8px -4px rgba(0, 0, 0, 0.5);
   }
 
@@ -2368,7 +2368,7 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
   }
 
   .radio-option:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--alpha-5);
   }
 
   .radio-option input[type="radio"] {
@@ -2632,7 +2632,7 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
   .network-check-spinner {
     width: 48px;
     height: 48px;
-    border: 4px solid rgba(255, 255, 255, 0.2);
+    border: 4px solid var(--alpha-20);
     border-top-color: var(--accent-primary);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
