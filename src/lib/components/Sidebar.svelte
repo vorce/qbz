@@ -976,24 +976,23 @@
     border-radius: 4px;
   }
 
-  /* Show scrollbar when hovering the sidebar content area */
-  .content:hover .playlists-scroll {
+  /* Show scrollbar when hovering anywhere on the sidebar */
+  .sidebar:hover .playlists-scroll {
     scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
   }
 
-  .content:hover .playlists-scroll::-webkit-scrollbar-thumb {
+  .sidebar:hover .playlists-scroll::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
   }
 
-  .content:hover .playlists-scroll::-webkit-scrollbar-thumb:hover {
+  .sidebar:hover .playlists-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.25);
   }
 
-  /* When sidebar is collapsed, align icons with rest of sidebar */
+  /* When sidebar is collapsed, keep scrollbar away from toggle button */
   .sidebar.collapsed .playlists-scroll {
     overflow-y: auto;
-    margin-right: 0;
-    padding-left: 1px;
+    margin-right: 6px;
   }
 
   .playlists-loading,
