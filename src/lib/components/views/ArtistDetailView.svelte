@@ -1710,10 +1710,9 @@
     align-items: center;
     gap: 10px;
     padding: 10px 24px;
-    background: rgba(var(--bg-primary-rgb, 18, 18, 18), 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: var(--bg-primary);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 4px 8px -4px rgba(0, 0, 0, 0.5);
     margin: 0 -16px 24px -24px;
     width: calc(100% + 40px);
   }
