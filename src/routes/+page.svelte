@@ -2749,7 +2749,6 @@
     min-width: 0;
     height: calc(100vh - 136px); /* 104px NowPlayingBar + 32px TitleBar */
     overflow: hidden; /* Views handle their own scrolling */
-    padding-left: 20px; /* Space for sidebar toggle button (14px overlap + 6px margin) */
     padding-right: 8px; /* Gap between scrollbar and window edge */
     background-color: var(--bg-primary, #0f0f0f);
   }

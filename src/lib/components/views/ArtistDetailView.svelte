@@ -1709,13 +1709,13 @@
     justify-content: space-between;
     align-items: center;
     gap: 10px;
-    padding: 10px 24px 10px 44px;
+    padding: 10px 24px;
     background: rgba(var(--bg-primary-rgb, 18, 18, 18), 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    margin: 0 -16px 24px -44px;
-    width: calc(100% + 60px);
+    margin: 0 -16px 24px -24px;
+    width: calc(100% + 40px);
   }
 
   .jump-nav-left {
