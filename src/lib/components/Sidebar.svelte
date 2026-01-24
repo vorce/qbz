@@ -953,12 +953,12 @@
 
   .playlists-scroll {
     overflow-y: auto;
-    margin-right: 4px;
+    margin-right: 3px;
     min-height: 0;
     flex: 1;
   }
 
-  /* Thin scrollbar for both expanded and collapsed modes */
+  /* Thin scrollbar - hidden by default, visible on hover */
   .playlists-scroll::-webkit-scrollbar {
     width: 4px;
   }
@@ -968,18 +968,23 @@
   }
 
   .playlists-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: transparent;
     border-radius: 4px;
+    transition: background 150ms ease;
   }
 
-  .playlists-scroll::-webkit-scrollbar-thumb:hover {
+  .playlists-scroll:hover::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .playlists-scroll:hover::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.25);
   }
 
-  /* When sidebar is collapsed, use overlay scrollbar to keep icons aligned */
+  /* When sidebar is collapsed, align icons with rest of sidebar */
   .sidebar.collapsed .playlists-scroll {
-    overflow-y: overlay;
-    padding-right: 0;
+    overflow-y: auto;
+    margin-right: 0;
   }
 
   .playlists-loading,
