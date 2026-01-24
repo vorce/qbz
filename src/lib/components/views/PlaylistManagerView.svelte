@@ -356,6 +356,19 @@
     }
   }
 
+  async function toggleFavorite(playlist: Playlist) {
+    const current = playlistSettings.get(playlist.id);
+    const newFavorite = !current?.is_favorite;
+    try {
+      await invoke('playlist_set_favorite', { playlistId: playlist.id, favorite: newFavorite });
+      const updated = new Map(playlistSettings);
+      updated.set(playlist.id, { ...current, qobuz_playlist_id: playlist.id, is_favorite: newFavorite, hidden: current?.hidden ?? false, position: current?.position ?? 0 });
+      playlistSettings = updated;
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+    }
+  }
+
   // Drag and drop handlers
   function handleDragStart(e: DragEvent, playlistId: number) {
     if (sort !== 'custom') return;
@@ -568,17 +581,53 @@
           ondrop={(e) => !isUnavailable && handleDrop(e, playlist.id)}
           ondragend={handleDragEnd}
         >
-          <!-- Top row: drag handle (left) and edit button (right) -->
+          <!-- Top row: drag handle only -->
           <div class="grid-item-header">
             {#if sort === 'custom' && !isUnavailable}
               <div class="drag-handle">
                 <GripVertical size={14} />
               </div>
-            {:else}
-              <div class="drag-handle-placeholder"></div>
             {/if}
+          </div>
+
+          <!-- Clickable area: artwork + info -->
+          <div
+            class="grid-item-content"
+            role="button"
+            tabindex="0"
+            onclick={() => onPlaylistSelect?.(playlist.id)}
+            title={isUnavailable ? $t('offline.viewOnly') : undefined}
+          >
+            <div class="artwork">
+              <PlaylistCollage artworks={playlist.images ?? []} size={140} />
+              {#if localStatus === 'all_local'}
+                <div class="local-badge all" title={$t('offline.allLocal')}>
+                  <Wifi size={12} />
+                </div>
+              {:else if localStatus === 'some_local'}
+                <div class="local-badge partial" title={$t('offline.someLocal')}>
+                  <Cloud size={12} />
+                </div>
+              {/if}
+            </div>
+            <div class="info">
+              <span class="name">{playlist.name}</span>
+              <span class="meta">{getTotalTrackCount(playlist)} tracks{#if getLocalTrackCount(playlist.id) > 0} <span class="local-count">({getLocalTrackCount(playlist.id)} local)</span>{/if}</span>
+            </div>
+          </div>
+
+          <!-- Footer: action buttons -->
+          <div class="grid-item-footer">
             {#if !isUnavailable}
-              <div class="header-actions">
+              <div class="footer-actions">
+                <button
+                  class="favorite-btn"
+                  class:is-active={isFavorite}
+                  onclick={(e) => { e.stopPropagation(); toggleFavorite(playlist); }}
+                  title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  <Heart size={14} fill={isFavorite ? 'var(--accent-primary)' : 'none'} color={isFavorite ? 'var(--accent-primary)' : 'currentColor'} />
+                </button>
                 <button
                   class="visibility-btn"
                   class:is-hidden={isHidden}
@@ -604,42 +653,6 @@
                 <CloudOff size={12} />
               </span>
             {/if}
-          </div>
-
-          <!-- Clickable area: artwork + info -->
-          <div
-            class="grid-item-content"
-            role="button"
-            tabindex="0"
-            onclick={() => onPlaylistSelect?.(playlist.id)}
-            title={isUnavailable ? $t('offline.viewOnly') : undefined}
-          >
-            <div class="artwork">
-              <PlaylistCollage artworks={playlist.images ?? []} size={140} />
-              {#if isHidden}
-                <div class="hidden-badge">
-                  <EyeOff size={12} />
-                </div>
-              {/if}
-              {#if isFavorite}
-                <div class="favorite-badge" title="Favorite">
-                  <Heart size={12} fill="var(--accent-primary)" color="var(--accent-primary)" />
-                </div>
-              {/if}
-              {#if localStatus === 'all_local'}
-                <div class="local-badge all" title={$t('offline.allLocal')}>
-                  <Wifi size={12} />
-                </div>
-              {:else if localStatus === 'some_local'}
-                <div class="local-badge partial" title={$t('offline.someLocal')}>
-                  <Cloud size={12} />
-                </div>
-              {/if}
-            </div>
-            <div class="info">
-              <span class="name">{playlist.name}</span>
-              <span class="meta">{getTotalTrackCount(playlist)} tracks{#if getLocalTrackCount(playlist.id) > 0} <span class="local-count">({getLocalTrackCount(playlist.id)} local)</span>{/if}</span>
-            </div>
           </div>
         </div>
       {/each}
@@ -707,12 +720,15 @@
               {stats.play_count}
             </span>
           {/if}
-          {#if isFavorite}
-            <span class="favorite-indicator" title="Favorite">
-              <Heart size={14} fill="var(--accent-primary)" color="var(--accent-primary)" />
-            </span>
-          {/if}
           {#if !isUnavailable}
+            <button
+              class="favorite-btn"
+              class:is-active={isFavorite}
+              onclick={(e) => { e.stopPropagation(); toggleFavorite(playlist); }}
+              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              <Heart size={14} fill={isFavorite ? 'var(--accent-primary)' : 'none'} color={isFavorite ? 'var(--accent-primary)' : 'currentColor'} />
+            </button>
             <button
               class="visibility-btn"
               class:is-hidden={isHidden}
@@ -1074,12 +1090,6 @@
     color: var(--text-primary);
   }
 
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-
   .visibility-btn {
     padding: 4px;
     background: transparent;
@@ -1108,6 +1118,42 @@
     color: var(--text-primary);
   }
 
+  .favorite-btn {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 150ms ease;
+  }
+
+  .favorite-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .favorite-btn.is-active {
+    color: var(--accent-primary);
+  }
+
+  /* Grid item footer */
+  .grid-item-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
   /* Clickable content area */
   .grid-item-content {
     cursor: pointer;
@@ -1125,28 +1171,6 @@
     justify-content: center;
     overflow: hidden;
     border-radius: 4px;
-  }
-
-  .hidden-badge {
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 4px;
-    padding: 3px;
-    color: var(--text-muted);
-  }
-
-  .favorite-badge {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 4px;
-    padding: 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .local-badge {
@@ -1290,12 +1314,7 @@
     flex-shrink: 0;
   }
 
-  .favorite-indicator {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  }
-
+  .list-item .favorite-btn,
   .list-item .visibility-btn,
   .list-item .edit-btn {
     flex-shrink: 0;
