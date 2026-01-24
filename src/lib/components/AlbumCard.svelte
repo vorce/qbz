@@ -351,12 +351,13 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform 150ms ease, background-color 150ms ease;
+    transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
   }
 
   .overlay-btn:hover {
     border-color: var(--accent-primary);
     background-color: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
   }
 
   .overlay-btn.is-active {
@@ -397,11 +398,13 @@
     align-items: center;
     justify-content: center;
     padding: 0;
+    transition: background-color 150ms ease, box-shadow 150ms ease;
   }
 
   :global(.album-card .album-menu .menu-trigger:hover) {
     border-color: var(--accent-primary);
     background-color: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
   }
 
   .info {
