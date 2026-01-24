@@ -612,12 +612,12 @@
             </div>
             <div class="info">
               <span class="name">{playlist.name}</span>
-              <span class="meta">{getTotalTrackCount(playlist)} tracks{#if getLocalTrackCount(playlist.id) > 0} <span class="local-count">({getLocalTrackCount(playlist.id)} local)</span>{/if}</span>
             </div>
           </div>
 
-          <!-- Footer: action buttons -->
+          <!-- Footer: meta + action buttons inline -->
           <div class="grid-item-footer">
+            <span class="meta">{getTotalTrackCount(playlist)} tracks{#if getLocalTrackCount(playlist.id) > 0} <span class="local-count">({getLocalTrackCount(playlist.id)} local)</span>{/if}</span>
             {#if !isUnavailable}
               <div class="footer-actions">
                 <button
@@ -626,7 +626,7 @@
                   onclick={(e) => { e.stopPropagation(); toggleFavorite(playlist); }}
                   title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                 >
-                  <Heart size={14} fill={isFavorite ? 'var(--accent-primary)' : 'none'} color={isFavorite ? 'var(--accent-primary)' : 'currentColor'} />
+                  <Heart size={12} fill={isFavorite ? 'var(--accent-primary)' : 'none'} color={isFavorite ? 'var(--accent-primary)' : 'currentColor'} />
                 </button>
                 <button
                   class="visibility-btn"
@@ -635,9 +635,9 @@
                   title={isHidden ? 'Show in sidebar' : 'Hide from sidebar'}
                 >
                   {#if isHidden}
-                    <EyeOff size={14} />
+                    <EyeOff size={12} />
                   {:else}
-                    <Eye size={14} />
+                    <Eye size={12} />
                   {/if}
                 </button>
                 <button
@@ -645,7 +645,7 @@
                   onclick={(e) => { e.stopPropagation(); openEditModal(playlist); }}
                   title="Edit playlist"
                 >
-                  <Pencil size={14} />
+                  <Pencil size={12} />
                 </button>
               </div>
             {:else}
@@ -1147,10 +1147,10 @@
     color: var(--accent-primary);
   }
 
-  /* Grid item footer */
+  /* Grid item footer: meta + actions inline */
   .grid-item-footer {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
     margin-top: 8px;
     width: 140px;
@@ -1158,10 +1158,27 @@
     margin-right: auto;
   }
 
+  .grid-item-footer .meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .grid-item-footer .local-count {
+    color: var(--text-muted);
+    opacity: 0.8;
+  }
+
   .footer-actions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 0;
+  }
+
+  .grid-item-footer .favorite-btn,
+  .grid-item-footer .visibility-btn,
+  .grid-item-footer .edit-btn {
+    padding: 2px;
   }
 
   /* Clickable content area */
@@ -1217,7 +1234,6 @@
   .grid-item .info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
     margin-top: 8px;
     width: 140px;
     margin-left: auto;
