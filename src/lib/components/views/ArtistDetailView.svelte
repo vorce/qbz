@@ -2247,17 +2247,18 @@
     justify-content: center;
     width: 40px;
     height: 40px;
-    border: none;
+    border: 1px solid var(--text-muted);
     border-radius: 50%;
-    background: var(--bg-tertiary);
+    background: transparent;
     color: var(--text-muted);
     cursor: pointer;
-    transition: background 150ms ease, color 150ms ease;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
   }
 
   .action-btn-circle:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+    border-color: var(--text-primary);
   }
 
   .action-btn-circle.primary {
@@ -2265,6 +2266,8 @@
     height: 44px;
     background: var(--accent-primary);
     color: white;
+    border: none;
+    box-shadow: 0 0 2px 1px rgba(var(--accent-primary-rgb, 139, 92, 246), 0.3);
   }
 
   .action-btn-circle.primary:hover {
