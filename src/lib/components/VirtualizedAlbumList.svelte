@@ -67,6 +67,7 @@
   const GRID_MIN_CARD_WIDTH = 180; // px - matches AlbumCard size="large"
   const GRID_GAP = 14; // px (horizontal gap between cards)
   const BUFFER_ITEMS = 5; // Extra items to render above/below viewport
+  const BOTTOM_PADDING = 100; // px - extra space at bottom for player bar
 
   // State
   let containerEl: HTMLDivElement | null = $state(null);
@@ -129,10 +130,10 @@
     return items;
   });
 
-  // Computed: total height of all items
+  // Computed: total height of all items (plus bottom padding for player bar)
   let totalHeight = $derived(
     virtualItems.length > 0
-      ? virtualItems[virtualItems.length - 1].top + virtualItems[virtualItems.length - 1].height
+      ? virtualItems[virtualItems.length - 1].top + virtualItems[virtualItems.length - 1].height + BOTTOM_PADDING
       : 0
   );
 

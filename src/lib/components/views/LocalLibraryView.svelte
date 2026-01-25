@@ -185,6 +185,8 @@
 
   // Format filters (OR within this group)
   let filterFlac = $state(false);
+  let filterAlac = $state(false);
+  let filterApe = $state(false);
   let filterWav = $state(false);
   let filterMp3 = $state(false);
   let filterAac = $state(false);
@@ -196,12 +198,12 @@
   // Derived: check if any filter is active
   let hasActiveFilters = $derived(
     filterHiRes || filterCdQuality || filterLossy ||
-    filterFlac || filterWav || filterMp3 || filterAac || filterOther
+    filterFlac || filterAlac || filterApe || filterWav || filterMp3 || filterAac || filterOther
   );
 
   // Count active filters for badge
   let activeFilterCount = $derived(
-    [filterHiRes, filterCdQuality, filterLossy, filterFlac, filterWav, filterMp3, filterAac, filterOther]
+    [filterHiRes, filterCdQuality, filterLossy, filterFlac, filterAlac, filterApe, filterWav, filterMp3, filterAac, filterOther]
       .filter(Boolean).length
   );
 
@@ -227,15 +229,17 @@
     }
 
     // Check format (OR logic - pass if any selected matches, or none selected)
-    const formatFiltersActive = filterFlac || filterWav || filterMp3 || filterAac || filterOther;
+    const formatFiltersActive = filterFlac || filterAlac || filterApe || filterWav || filterMp3 || filterAac || filterOther;
     let passesFormat = !formatFiltersActive; // Pass if no format filters
 
     if (formatFiltersActive) {
       if (filterFlac && format === 'flac') passesFormat = true;
+      if (filterAlac && (format === 'alac' || format === 'm4a')) passesFormat = true;
+      if (filterApe && format === 'ape') passesFormat = true;
       if (filterWav && (format === 'wav' || format === 'wave')) passesFormat = true;
       if (filterMp3 && format === 'mp3') passesFormat = true;
       if (filterAac && (format === 'aac' || format === 'm4a')) passesFormat = true;
-      if (filterOther && !['flac', 'wav', 'wave', 'mp3', 'aac', 'm4a'].includes(format)) passesFormat = true;
+      if (filterOther && !['flac', 'alac', 'ape', 'wav', 'wave', 'mp3', 'aac', 'm4a'].includes(format)) passesFormat = true;
     }
 
     // AND between sections
@@ -247,6 +251,8 @@
     filterCdQuality = false;
     filterLossy = false;
     filterFlac = false;
+    filterAlac = false;
+    filterApe = false;
     filterWav = false;
     filterMp3 = false;
     filterAac = false;
@@ -2611,6 +2617,16 @@
                         <input type="checkbox" bind:checked={filterFlac} />
                         <span class="checkmark"></span>
                         <span class="label-text">FLAC</span>
+                      </label>
+                      <label class="filter-checkbox">
+                        <input type="checkbox" bind:checked={filterAlac} />
+                        <span class="checkmark"></span>
+                        <span class="label-text">ALAC</span>
+                      </label>
+                      <label class="filter-checkbox">
+                        <input type="checkbox" bind:checked={filterApe} />
+                        <span class="checkmark"></span>
+                        <span class="label-text">APE</span>
                       </label>
                       <label class="filter-checkbox">
                         <input type="checkbox" bind:checked={filterWav} />
