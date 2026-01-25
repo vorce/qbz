@@ -183,28 +183,23 @@
   const LOSSLESS_FORMATS = ['flac', 'wav', 'aiff', 'alac', 'ape', 'dsd', 'dsf', 'dff'];
   const LOSSY_FORMATS = ['mp3', 'aac', 'm4a', 'ogg', 'opus', 'wma'];
 
-  function isHiRes(album: LocalAlbum): boolean {
-    const isLossless = LOSSLESS_FORMATS.includes(album.format.toLowerCase());
-    return isLossless && ((album.bit_depth !== undefined && album.bit_depth >= 24) || album.sample_rate > 48000);
-  }
-
-  function isCdQuality(album: LocalAlbum): boolean {
-    const isLossless = LOSSLESS_FORMATS.includes(album.format.toLowerCase());
-    const bitDepth = album.bit_depth ?? 16;
-    return isLossless && bitDepth <= 16 && album.sample_rate <= 48000;
-  }
-
-  function isLossy(album: LocalAlbum): boolean {
-    return LOSSY_FORMATS.includes(album.format.toLowerCase());
-  }
-
   function matchesQualityFilter(album: LocalAlbum, filter: QualityFilter): boolean {
     if (filter === 'all') return true;
-    if (filter === 'hires') return isHiRes(album);
-    if (filter === 'cd') return isCdQuality(album);
-    if (filter === 'lossy') return isLossy(album);
-    // Format-specific filters
+
     const format = album.format.toLowerCase();
+    const isLossless = LOSSLESS_FORMATS.includes(format);
+    const bitDepth = album.bit_depth ?? 16;
+
+    if (filter === 'hires') {
+      return isLossless && (bitDepth >= 24 || album.sample_rate > 48000);
+    }
+    if (filter === 'cd') {
+      return isLossless && bitDepth <= 16 && album.sample_rate <= 48000;
+    }
+    if (filter === 'lossy') {
+      return LOSSY_FORMATS.includes(format);
+    }
+    // Format-specific filters
     if (filter === 'flac') return format === 'flac';
     if (filter === 'wav') return format === 'wav' || format === 'wave';
     if (filter === 'mp3') return format === 'mp3';
