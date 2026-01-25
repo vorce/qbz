@@ -1638,6 +1638,7 @@
       quality,
       bitDepth: track.bit_depth,
       samplingRate: track.sample_rate ? track.sample_rate / 1000 : undefined,  // Convert Hz to kHz (44100 → 44.1) - NO ROUNDING
+      format: track.format,
       isLocal: true
     }, { isLocal: true });
   }
@@ -2695,6 +2696,7 @@
         quality={currentTrack.quality}
         bitDepth={currentTrack.bitDepth}
         samplingRate={currentTrack.samplingRate}
+        format={currentTrack.format}
         {isPlaying}
         onTogglePlay={togglePlay}
         onSkipBack={handleSkipBack}
@@ -2779,6 +2781,7 @@
         qualityLevel={currentTrack.quality.includes('24') ? 5 : 3}
         bitDepth={currentTrack.bitDepth}
         samplingRate={currentTrack.samplingRate}
+        format={currentTrack.format}
         {isPlaying}
         onTogglePlay={togglePlay}
         onSkipBack={handleSkipBack}

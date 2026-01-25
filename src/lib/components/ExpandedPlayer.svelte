@@ -31,6 +31,7 @@
     qualityLevel: number;
     bitDepth?: number;
     samplingRate?: number;
+    format?: string;
     isPlaying: boolean;
     onTogglePlay: () => void;
     onSkipBack?: () => void;
@@ -71,6 +72,7 @@
     qualityLevel,
     bitDepth,
     samplingRate,
+    format,
     isPlaying,
     onTogglePlay,
     onSkipBack,
@@ -255,7 +257,7 @@
             <h3 class="album">{album}</h3>
           </div>
           <div class="quality-info">
-            <QualityBadge {quality} {bitDepth} samplingRate={displaySamplingRate} />
+            <QualityBadge {quality} {bitDepth} samplingRate={displaySamplingRate} {format} />
           </div>
         </div>
 

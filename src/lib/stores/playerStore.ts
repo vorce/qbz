@@ -28,6 +28,7 @@ export interface PlayingTrack {
   quality: string;
   bitDepth?: number;
   samplingRate?: number;
+  format?: string;
   isLocal?: boolean;
   // Optional IDs for recommendation tracking
   albumId?: string;
