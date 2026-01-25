@@ -88,6 +88,7 @@
     onTrackShareSonglink?: (track: Track) => void;
     onTrackGoToAlbum?: (albumId: string) => void;
     onTrackGoToArtist?: (artistId: number) => void;
+    onTrackShowInfo?: (trackId: number) => void;
     onTrackDownload?: (track: Track) => void;
     onTrackRemoveDownload?: (trackId: number) => void;
     onTrackReDownload?: (track: Track) => void;
@@ -119,6 +120,7 @@
     onTrackShareSonglink,
     onTrackGoToAlbum,
     onTrackGoToArtist,
+    onTrackShowInfo,
     onTrackDownload,
     onTrackRemoveDownload,
     onTrackReDownload,
@@ -880,6 +882,7 @@
                         onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
                         onGoToAlbum={track.album?.id && onTrackGoToAlbum ? (() => { const albumId = track.album!.id!; return () => onTrackGoToAlbum(albumId); })() : undefined}
                         onGoToArtist={track.performer?.id && onTrackGoToArtist ? (() => { const artistId = track.performer!.id!; return () => onTrackGoToArtist(artistId); })() : undefined}
+                        onShowInfo={onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined}
                         onDownload={onTrackDownload ? () => onTrackDownload(track) : undefined}
                         isTrackDownloaded={isTrackDownloaded}
                         onReDownload={isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(track) : undefined}
@@ -1014,6 +1017,7 @@
                   onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
                   onGoToAlbum={track.album?.id && onTrackGoToAlbum ? (() => { const albumId = track.album!.id!; return () => onTrackGoToAlbum(albumId); })() : undefined}
                   onGoToArtist={track.performer?.id && onTrackGoToArtist ? (() => { const artistId = track.performer!.id!; return () => onTrackGoToArtist(artistId); })() : undefined}
+                  onShowInfo={onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined}
                   onDownload={onTrackDownload ? () => onTrackDownload(track) : undefined}
                   isTrackDownloaded={isTrackDownloaded}
                   onReDownload={isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(track) : undefined}

@@ -60,6 +60,7 @@
     onTrackShareSonglink?: (track: Track) => void;
     onTrackGoToAlbum?: (albumId: string) => void;
     onTrackGoToArtist?: (artistId: number) => void;
+    onTrackShowInfo?: (trackId: number) => void;
     onPlayAll?: () => void;
     onShuffleAll?: () => void;
     onPlayAllNext?: () => void;
@@ -103,6 +104,7 @@
     onTrackShareSonglink,
     onTrackGoToAlbum,
     onTrackGoToArtist,
+    onTrackShowInfo,
     onPlayAll,
     onShuffleAll,
     onPlayAllNext,
@@ -408,6 +410,7 @@
             onShareQobuz: onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
             onShareSonglink: onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined,
             onGoToArtist: album.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(album.artistId!) : undefined,
+            onShowInfo: onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined,
             onDownload: onTrackDownload ? () => onTrackDownload(track) : undefined,
             isTrackDownloaded,
             onReDownload: isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(track) : undefined,

@@ -127,6 +127,7 @@
     onTrackShareSonglink?: (track: DisplayTrack) => void;
     onTrackGoToAlbum?: (albumId: string) => void;
     onTrackGoToArtist?: (artistId: number) => void;
+    onTrackShowInfo?: (trackId: number) => void;
     onTrackDownload?: (track: DisplayTrack) => void;
     onTrackRemoveDownload?: (trackId: number) => void;
     onTrackReDownload?: (track: DisplayTrack) => void;
@@ -155,6 +156,7 @@
     onTrackShareSonglink,
     onTrackGoToAlbum,
     onTrackGoToArtist,
+    onTrackShowInfo,
     onTrackDownload,
     onTrackRemoveDownload,
     onTrackReDownload,
@@ -1213,6 +1215,7 @@
               onShareSonglink: !track.isLocal && onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined,
               onGoToAlbum: !track.isLocal && track.albumId && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.albumId!) : undefined,
               onGoToArtist: !track.isLocal && track.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(track.artistId!) : undefined,
+              onShowInfo: !track.isLocal && onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined,
               onDownload: !track.isLocal && onTrackDownload ? () => onTrackDownload(track) : undefined,
               isTrackDownloaded: !track.isLocal ? downloadInfo.status === 'ready' : false,
               onReDownload: !track.isLocal && downloadInfo.status === 'ready' && onTrackReDownload ? () => onTrackReDownload(track) : undefined,

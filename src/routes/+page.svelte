@@ -282,6 +282,7 @@
   import FocusMode from '$lib/components/FocusMode.svelte';
   import PlaylistModal from '$lib/components/PlaylistModal.svelte';
   import PlaylistImportModal from '$lib/components/PlaylistImportModal.svelte';
+  import TrackInfoModal from '$lib/components/TrackInfoModal.svelte';
   import CastPicker from '$lib/components/CastPicker.svelte';
   import LyricsSidebar from '$lib/components/lyrics/LyricsSidebar.svelte';
   import OfflinePlaceholder from '$lib/components/OfflinePlaceholder.svelte';
@@ -337,6 +338,10 @@
   let playlistModalTracksAreLocal = $state(false);
   let isPlaylistImportOpen = $state(false);
   let isAboutModalOpen = $state(false);
+
+  // Track Info Modal State
+  let isTrackInfoOpen = $state(false);
+  let trackInfoTrackId = $state<number | null>(null);
   let userPlaylists = $state<{ id: number; name: string; tracks_count: number }[]>([]);
   
   // Sidebar reference for refreshing playlists
@@ -1667,6 +1672,12 @@
     }
   }
 
+  // Track Info Modal
+  function showTrackInfo(trackId: number) {
+    trackInfoTrackId = trackId;
+    isTrackInfoOpen = true;
+  }
+
   // Auth Handlers
   async function handleStartOffline() {
     // Enable manual offline mode and enter app without authentication
@@ -2430,6 +2441,7 @@
             onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
             onTrackGoToAlbum={handleAlbumClick}
             onTrackGoToArtist={handleArtistClick}
+            onTrackShowInfo={showTrackInfo}
             onTrackDownload={handleDisplayTrackDownload}
             onTrackReDownload={handleDisplayTrackDownload}
             onTrackRemoveDownload={handleTrackRemoveDownload}
@@ -2462,6 +2474,7 @@
           onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
           onTrackGoToAlbum={handleAlbumClick}
           onTrackGoToArtist={handleArtistClick}
+          onTrackShowInfo={showTrackInfo}
           onPlayAll={handlePlayAllAlbum}
           onShuffleAll={handleShuffleAlbum}
           onPlayAllNext={handleAddAlbumToQueueNext}
@@ -2546,6 +2559,7 @@
           onTrackShareSonglink={(track) => shareSonglinkTrack(track.id, track.isrc)}
           onTrackGoToAlbum={handleAlbumClick}
           onTrackGoToArtist={handleArtistClick}
+          onTrackShowInfo={showTrackInfo}
           onTrackDownload={handleDisplayTrackDownload}
           onTrackRemoveDownload={handleTrackRemoveDownload}
           onTrackReDownload={handleDisplayTrackDownload}
@@ -2826,6 +2840,16 @@
     <AboutModal
       isOpen={isAboutModalOpen}
       onClose={() => isAboutModalOpen = false}
+    />
+
+    <!-- Track Info Modal -->
+    <TrackInfoModal
+      isOpen={isTrackInfoOpen}
+      trackId={trackInfoTrackId}
+      onClose={() => {
+        isTrackInfoOpen = false;
+        trackInfoTrackId = null;
+      }}
     />
 
     <!-- Cast Picker -->
