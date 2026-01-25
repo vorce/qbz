@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { ArrowLeft, Filter, ArrowUpDown, LayoutGrid, List, GripVertical, EyeOff, Eye, BarChart2, Play, Pencil, Search, X, Cloud, CloudOff, Wifi, Heart, Folder, FolderPlus, ChevronRight, ChevronDown, Trash2, Star, Music, Disc, Library } from 'lucide-svelte';
+  import { ArrowLeft, Filter, ArrowUpDown, LayoutGrid, List, GripVertical, EyeOff, Eye, BarChart2, Play, Pencil, Search, X, Cloud, CloudOff, Wifi, Heart, Folder, FolderPlus, ChevronRight, ChevronDown, Trash2, Star, Music, Disc, Library, Info } from 'lucide-svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
   import FolderEditModal from '../FolderEditModal.svelte';
@@ -100,6 +100,8 @@
   let draggedId = $state<number | null>(null);
   let dragOverId = $state<number | null>(null);
   let dragOverFolderId = $state<string | null>(null);
+  let absorbingPlaylistId = $state<number | null>(null);
+  let absorbingToFolderId = $state<string | null>(null);
 
   // Folder state
   let folders = $state<PlaylistFolder[]>([]);
@@ -515,22 +517,41 @@
     e.preventDefault();
     if (!draggedId) return;
 
-    // Move playlist to folder
-    const success = await movePlaylistToFolder(draggedId, folderId);
-    if (success) {
-      // Update local settings
-      const updated = new Map(playlistSettings);
-      const existing = updated.get(draggedId);
-      if (existing) {
-        updated.set(draggedId, { ...existing, folder_id: folderId });
-        playlistSettings = updated;
-      }
-      onPlaylistsChanged?.();
-    }
+    const playlistIdToMove = draggedId;
+
+    // Start absorption animation
+    absorbingPlaylistId = playlistIdToMove;
+    absorbingToFolderId = folderId;
 
     draggedId = null;
     dragOverId = null;
     dragOverFolderId = null;
+
+    // Move playlist to folder in backend
+    const success = await movePlaylistToFolder(playlistIdToMove, folderId);
+
+    // Wait for animation then update state
+    setTimeout(() => {
+      if (success) {
+        // Update local settings
+        const updated = new Map(playlistSettings);
+        const existing = updated.get(playlistIdToMove);
+        if (existing) {
+          updated.set(playlistIdToMove, { ...existing, folder_id: folderId });
+        } else {
+          updated.set(playlistIdToMove, {
+            qobuz_playlist_id: playlistIdToMove,
+            hidden: false,
+            position: 0,
+            folder_id: folderId
+          });
+        }
+        playlistSettings = updated;
+        onPlaylistsChanged?.();
+      }
+      absorbingPlaylistId = null;
+      absorbingToFolderId = null;
+    }, 300);
   }
 
   // === Folder Modal ===
@@ -758,6 +779,9 @@
           onclick={() => foldersCollapsed = !foldersCollapsed}
         >
           <span class="section-title">Folders ({folders.length})</span>
+          <span class="info-icon" title="To drag playlists into folders, enable Custom sort order">
+            <Info size={12} />
+          </span>
           {#if foldersCollapsed}
             <ChevronRight size={14} />
           {:else}
@@ -766,52 +790,100 @@
         </button>
 
         {#if !foldersCollapsed}
-          <div class="folders-grid">
-            {#each folders as folder (folder.id)}
-              <div
-                class="folder-card"
-                class:drag-over={dragOverFolderId === folder.id}
-                ondragover={(e) => handleFolderDragOver(e, folder.id)}
-                ondragleave={handleFolderDragLeave}
-                ondrop={(e) => handleFolderDrop(e, folder.id)}
-              >
+          {#if viewMode === 'grid'}
+            <div class="folders-grid">
+              {#each folders as folder (folder.id)}
                 <div
-                  class="folder-card-content"
+                  class="folder-card"
+                  class:drag-over={dragOverFolderId === folder.id}
+                  class:absorbing={absorbingToFolderId === folder.id}
+                  ondragover={(e) => handleFolderDragOver(e, folder.id)}
+                  ondragleave={handleFolderDragLeave}
+                  ondrop={(e) => handleFolderDrop(e, folder.id)}
+                >
+                  <div
+                    class="folder-card-content"
+                    role="button"
+                    tabindex="0"
+                    onclick={() => navigateToFolder(folder.id)}
+                    onkeydown={(e) => e.key === 'Enter' && navigateToFolder(folder.id)}
+                  >
+                    <div class="folder-icon" style={folder.icon_color ? `background: ${folder.icon_color};` : ''}>
+                      {#if folder.icon_type === 'custom' && folder.custom_image_path}
+                        <img src={folder.custom_image_path} alt="" class="folder-custom-img" />
+                      {:else if folder.icon_preset === 'heart'}
+                        <Heart size={32} />
+                      {:else if folder.icon_preset === 'star'}
+                        <Star size={32} />
+                      {:else if folder.icon_preset === 'music'}
+                        <Music size={32} />
+                      {:else if folder.icon_preset === 'disc'}
+                        <Disc size={32} />
+                      {:else if folder.icon_preset === 'library'}
+                        <Library size={32} />
+                      {:else}
+                        <Folder size={32} />
+                      {/if}
+                    </div>
+                    <span class="folder-name">{folder.name}</span>
+                    <span class="folder-count">{getPlaylistCountInFolder(folder.id)} playlists</span>
+                  </div>
+                  <button
+                    class="folder-edit-btn"
+                    onclick={(e) => { e.stopPropagation(); openEditFolderModal(folder); }}
+                    title="Edit folder"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <!-- List view folders (compact) -->
+            <div class="folders-list">
+              {#each folders as folder (folder.id)}
+                <div
+                  class="folder-list-item"
+                  class:drag-over={dragOverFolderId === folder.id}
+                  class:absorbing={absorbingToFolderId === folder.id}
+                  ondragover={(e) => handleFolderDragOver(e, folder.id)}
+                  ondragleave={handleFolderDragLeave}
+                  ondrop={(e) => handleFolderDrop(e, folder.id)}
                   role="button"
                   tabindex="0"
                   onclick={() => navigateToFolder(folder.id)}
                   onkeydown={(e) => e.key === 'Enter' && navigateToFolder(folder.id)}
                 >
-                  <div class="folder-icon" style={folder.icon_color ? `background: ${folder.icon_color};` : ''}>
+                  <div class="folder-list-icon" style={folder.icon_color ? `background: ${folder.icon_color};` : ''}>
                     {#if folder.icon_type === 'custom' && folder.custom_image_path}
-                      <img src={folder.custom_image_path} alt="" class="folder-custom-img" />
+                      <img src={folder.custom_image_path} alt="" class="folder-list-img" />
                     {:else if folder.icon_preset === 'heart'}
-                      <Heart size={32} />
+                      <Heart size={20} />
                     {:else if folder.icon_preset === 'star'}
-                      <Star size={32} />
+                      <Star size={20} />
                     {:else if folder.icon_preset === 'music'}
-                      <Music size={32} />
+                      <Music size={20} />
                     {:else if folder.icon_preset === 'disc'}
-                      <Disc size={32} />
+                      <Disc size={20} />
                     {:else if folder.icon_preset === 'library'}
-                      <Library size={32} />
+                      <Library size={20} />
                     {:else}
-                      <Folder size={32} />
+                      <Folder size={20} />
                     {/if}
                   </div>
-                  <span class="folder-name">{folder.name}</span>
-                  <span class="folder-count">{getPlaylistCountInFolder(folder.id)} playlists</span>
+                  <span class="folder-list-name">{folder.name}</span>
+                  <span class="folder-list-count">{getPlaylistCountInFolder(folder.id)}</span>
+                  <button
+                    class="folder-list-edit"
+                    onclick={(e) => { e.stopPropagation(); openEditFolderModal(folder); }}
+                    title="Edit folder"
+                  >
+                    <Pencil size={12} />
+                  </button>
                 </div>
-                <button
-                  class="folder-edit-btn"
-                  onclick={(e) => { e.stopPropagation(); openEditFolderModal(folder); }}
-                  title="Edit folder"
-                >
-                  <Pencil size={12} />
-                </button>
-              </div>
-            {/each}
-          </div>
+              {/each}
+            </div>
+          {/if}
         {/if}
       </div>
     {/if}
@@ -842,6 +914,7 @@
           class:unavailable={isUnavailable}
           class:dragging={draggedId === playlist.id}
           class:drag-over={dragOverId === playlist.id}
+          class:absorbing={absorbingPlaylistId === playlist.id}
           draggable={sort === 'custom' && !isUnavailable}
           ondragstart={(e) => !isUnavailable && handleDragStart(e, playlist.id)}
           ondragover={(e) => !isUnavailable && handleDragOver(e, playlist.id)}
@@ -940,6 +1013,7 @@
           class:unavailable={isUnavailable}
           class:dragging={draggedId === playlist.id}
           class:drag-over={dragOverId === playlist.id}
+          class:absorbing={absorbingPlaylistId === playlist.id}
           draggable={sort === 'custom' && !isUnavailable}
           ondragstart={(e) => !isUnavailable && handleDragStart(e, playlist.id)}
           ondragover={(e) => !isUnavailable && handleDragOver(e, playlist.id)}
@@ -1172,10 +1246,28 @@
     letter-spacing: 0.04em;
   }
 
+  .info-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: help;
+    margin-left: auto;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 150ms ease;
+  }
+
+  .info-icon:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
   .folders-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, 160px);
+    gap: 16px;
+    justify-content: start;
     margin-top: 12px;
   }
 
@@ -1195,6 +1287,17 @@
     background: var(--accent-primary);
     transform: scale(1.02);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .folder-card.absorbing {
+    animation: folder-pulse 300ms ease;
+    background: var(--accent-primary);
+  }
+
+  @keyframes folder-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
   }
 
   .folder-card-content {
@@ -1262,6 +1365,103 @@
 
   .folder-edit-btn:hover {
     background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  /* List view folders (compact) */
+  .folders-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .folder-list-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .folder-list-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .folder-list-item.drag-over {
+    background: var(--accent-primary);
+    transform: scale(1.02);
+  }
+
+  .folder-list-item.absorbing {
+    animation: folder-pulse 300ms ease;
+    background: var(--accent-primary);
+  }
+
+  .folder-list-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: var(--text-primary);
+    flex-shrink: 0;
+  }
+
+  .folder-list-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  .folder-list-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  .folder-list-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 150ms ease;
+    margin-left: auto;
+  }
+
+  .folder-list-item:hover .folder-list-count {
+    opacity: 1;
+  }
+
+  .folder-list-edit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 150ms ease;
+  }
+
+  .folder-list-item:hover .folder-list-edit {
+    opacity: 1;
+  }
+
+  .folder-list-edit:hover {
+    background: var(--bg-secondary);
     color: var(--text-primary);
   }
 
@@ -1606,6 +1806,15 @@
     border: 2px dashed var(--accent-primary);
   }
 
+  .grid-item.absorbing {
+    animation: absorb-to-folder 300ms ease forwards;
+  }
+
+  @keyframes absorb-to-folder {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.5); }
+  }
+
   /* Grid item header: drag handle only (when in custom sort) */
   .grid-item-header {
     display: flex;
@@ -1838,6 +2047,10 @@
 
   .list-item.drag-over {
     border: 2px dashed var(--accent-primary);
+  }
+
+  .list-item.absorbing {
+    animation: absorb-to-folder 300ms ease forwards;
   }
 
   .list-item .drag-handle {
