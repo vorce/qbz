@@ -205,7 +205,6 @@
         <h3>Background</h3>
 
         <div class="color-section">
-          <h4>Solid Colors</h4>
           <div class="color-grid">
             <button
               class="color-btn"
@@ -229,7 +228,6 @@
         </div>
 
         <div class="color-section">
-          <h4>Gradients</h4>
           <div class="color-grid">
             {#each gradients as gradient}
               <button
@@ -245,7 +243,6 @@
         </div>
 
         <div class="color-section">
-          <h4>Custom Gradient</h4>
           {#if !showCustomGradientPicker}
             <button class="btn-custom-gradient" onclick={() => showCustomGradientPicker = true}>
               Create Custom Gradient
@@ -354,13 +351,6 @@
     font-weight: 600;
     margin: 0 0 4px 0;
     color: var(--text-primary);
-  }
-
-  .modal-section h4 {
-    font-size: 13px;
-    font-weight: 600;
-    margin: 0 0 8px 0;
-    color: var(--text-secondary);
   }
 
   .color-section {

@@ -185,7 +185,6 @@
       <h3>Background</h3>
 
       <div class="color-section">
-        <h4>Solid Colors</h4>
         <div class="color-grid">
           <button
             class="color-btn"
@@ -209,7 +208,6 @@
       </div>
 
       <div class="color-section">
-        <h4>Gradients</h4>
         <div class="color-grid">
           {#each gradients as gradient}
             <button
@@ -282,13 +280,6 @@
     font-weight: 600;
     margin: 0 0 4px 0;
     color: var(--text-primary);
-  }
-
-  .modal-section h4 {
-    font-size: 13px;
-    font-weight: 600;
-    margin: 0 0 8px 0;
-    color: var(--text-secondary);
   }
 
   .color-section {
@@ -426,15 +417,16 @@
 
   .modal-actions {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
+    gap: 12px;
     padding-top: 24px;
+    width: 100%;
   }
 
   .modal-actions-right {
     display: flex;
     gap: 12px;
-    margin-left: auto;
   }
 
   .btn {
@@ -444,7 +436,7 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 150ms ease;
-    border: none;
+    border: 1px solid transparent;
   }
 
   .btn-secondary {
@@ -466,6 +458,7 @@
   }
 
   .btn-danger {
+    margin-right: auto;
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.3);
     color: #ef4444;
