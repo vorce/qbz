@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { ArrowLeft, Filter, ArrowUpDown, LayoutGrid, List, GripVertical, EyeOff, Eye, BarChart2, Play, Pencil, Search, X, Cloud, CloudOff, Wifi, Heart } from 'lucide-svelte';
+  import { ArrowLeft, Filter, ArrowUpDown, LayoutGrid, List, GripVertical, EyeOff, Eye, BarChart2, Play, Pencil, Search, X, Cloud, CloudOff, Wifi, Heart, Folder, FolderPlus, ChevronRight, ChevronDown, Trash2 } from 'lucide-svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
   import { t } from '$lib/i18n';
@@ -12,6 +12,17 @@
     type OfflineStatus,
     type OfflineSettings
   } from '$lib/stores/offlineStore';
+  import {
+    subscribe as subscribeFolders,
+    getFolders,
+    getVisibleFolders,
+    loadFolders,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    movePlaylistToFolder,
+    type PlaylistFolder
+  } from '$lib/stores/playlistFoldersStore';
 
   interface Playlist {
     id: number;
@@ -87,6 +98,18 @@
   // Drag state
   let draggedId = $state<number | null>(null);
   let dragOverId = $state<number | null>(null);
+  let dragOverFolderId = $state<string | null>(null);
+
+  // Folder state
+  let folders = $state<PlaylistFolder[]>([]);
+  let currentFolderId = $state<string | null>(null);
+  let foldersCollapsed = $state(false);
+
+  // Create/Edit folder modal state
+  let showFolderModal = $state(false);
+  let editingFolder = $state<PlaylistFolder | null>(null);
+  let folderName = $state('');
+  let folderColor = $state('#6366f1');
 
   // Persist preferences
   $effect(() => { localStorage.setItem('qbz-pm-filter', filter); });
@@ -168,6 +191,13 @@
       // 'all' shows everything
     }
 
+    // Filter by current folder
+    result = result.filter(p => {
+      const settings = playlistSettings.get(p.id);
+      const playlistFolderId = settings?.folder_id ?? null;
+      return playlistFolderId === currentFolderId;
+    });
+
     // Apply sort
     if (sort === 'name') {
       result.sort((a, b) => a.name.localeCompare(b.name));
@@ -195,8 +225,22 @@
     return result;
   });
 
+  // Get current folder info
+  const currentFolder = $derived(
+    currentFolderId ? folders.find(f => f.id === currentFolderId) : null
+  );
+
+  // Get playlist count for a folder
+  function getPlaylistCountInFolder(folderId: string): number {
+    return playlists.filter(p => {
+      const settings = playlistSettings.get(p.id);
+      return settings?.folder_id === folderId;
+    }).length;
+  }
+
   onMount(() => {
     loadData();
+    loadFolders();
 
     // Subscribe to offline state changes
     const unsubscribeOffline = subscribeOffline(() => {
@@ -204,8 +248,14 @@
       offlineSettings = getOfflineSettings();
     });
 
+    // Subscribe to folder changes
+    const unsubscribeFolders = subscribeFolders(() => {
+      folders = getVisibleFolders();
+    });
+
     return () => {
       unsubscribeOffline();
+      unsubscribeFolders();
     };
   });
 
@@ -436,6 +486,110 @@
   function handleDragEnd() {
     draggedId = null;
     dragOverId = null;
+    dragOverFolderId = null;
+  }
+
+  // === Folder Navigation ===
+
+  function navigateToFolder(folderId: string | null) {
+    currentFolderId = folderId;
+  }
+
+  function navigateToRoot() {
+    currentFolderId = null;
+  }
+
+  // === Folder Drag & Drop ===
+
+  function handleFolderDragOver(e: DragEvent, folderId: string) {
+    e.preventDefault();
+    if (draggedId) {
+      dragOverFolderId = folderId;
+    }
+  }
+
+  function handleFolderDragLeave() {
+    dragOverFolderId = null;
+  }
+
+  async function handleFolderDrop(e: DragEvent, folderId: string) {
+    e.preventDefault();
+    if (!draggedId) return;
+
+    // Move playlist to folder
+    const success = await movePlaylistToFolder(draggedId, folderId);
+    if (success) {
+      // Update local settings
+      const updated = new Map(playlistSettings);
+      const existing = updated.get(draggedId);
+      if (existing) {
+        updated.set(draggedId, { ...existing, folder_id: folderId });
+        playlistSettings = updated;
+      }
+      onPlaylistsChanged?.();
+    }
+
+    draggedId = null;
+    dragOverId = null;
+    dragOverFolderId = null;
+  }
+
+  // === Folder Modal ===
+
+  function openCreateFolderModal() {
+    editingFolder = null;
+    folderName = '';
+    folderColor = '#6366f1';
+    showFolderModal = true;
+  }
+
+  function openEditFolderModal(folder: PlaylistFolder) {
+    editingFolder = folder;
+    folderName = folder.name;
+    folderColor = folder.icon_color;
+    showFolderModal = true;
+  }
+
+  function closeFolderModal() {
+    showFolderModal = false;
+    editingFolder = null;
+    folderName = '';
+  }
+
+  async function handleSaveFolder() {
+    if (!folderName.trim()) return;
+
+    if (editingFolder) {
+      // Update existing folder
+      await updateFolder(editingFolder.id, {
+        name: folderName.trim(),
+        iconColor: folderColor
+      });
+    } else {
+      // Create new folder
+      await createFolder(folderName.trim(), 'preset', 'folder', folderColor);
+    }
+
+    folders = getVisibleFolders();
+    closeFolderModal();
+  }
+
+  async function handleDeleteFolder() {
+    if (!editingFolder) return;
+
+    const confirmed = confirm(`Delete folder "${editingFolder.name}"? Playlists will be moved to root.`);
+    if (!confirmed) return;
+
+    await deleteFolder(editingFolder.id);
+    folders = getVisibleFolders();
+
+    // If we're inside the deleted folder, go back to root
+    if (currentFolderId === editingFolder.id) {
+      currentFolderId = null;
+    }
+
+    closeFolderModal();
+    onPlaylistsChanged?.();
   }
 </script>
 
@@ -448,6 +602,17 @@
     </button>
     <h1>Playlist Manager</h1>
   </div>
+
+  <!-- Breadcrumb Navigation (when inside a folder) -->
+  {#if currentFolderId && currentFolder}
+    <div class="breadcrumb">
+      <button class="breadcrumb-item" onclick={navigateToRoot}>
+        All Playlists
+      </button>
+      <ChevronRight size={14} class="breadcrumb-separator" />
+      <span class="breadcrumb-current">{currentFolder.name}</span>
+    </div>
+  {/if}
 
   <!-- Controls -->
   <div class="controls">
@@ -550,11 +715,24 @@
       {/if}
     </button>
 
-    <span class="playlist-count">{displayPlaylists.length} playlists</span>
+    {#if !currentFolderId}
+      <button class="control-btn" onclick={openCreateFolderModal}>
+        <FolderPlus size={16} />
+        <span>New Folder</span>
+      </button>
+    {/if}
+
+    <span class="playlist-count">
+      {#if !currentFolderId && folders.length > 0}
+        {folders.length} folders, {displayPlaylists.length} playlists
+      {:else}
+        {displayPlaylists.length} playlists
+      {/if}
+    </span>
   </div>
 
   {#if sort === 'custom'}
-    <p class="drag-hint">Drag playlists to reorder them</p>
+    <p class="drag-hint">Drag playlists to reorder them{#if !currentFolderId && folders.length > 0}, or drop onto a folder to move{/if}</p>
   {/if}
 
   <!-- Content -->
@@ -563,11 +741,72 @@
       <div class="spinner"></div>
       <p>Loading playlists...</p>
     </div>
-  {:else if displayPlaylists.length === 0}
-    <div class="empty">
-      <p>{filter === 'hidden' ? 'No hidden playlists' : filter === 'visible' ? 'No visible playlists' : 'No playlists yet'}</p>
-    </div>
-  {:else if viewMode === 'grid'}
+  {:else}
+    <!-- Folders Section (only at root level) -->
+    {#if !currentFolderId && folders.length > 0}
+      <div class="folders-section">
+        <button
+          class="section-header-btn"
+          onclick={() => foldersCollapsed = !foldersCollapsed}
+        >
+          <span class="section-title">Folders ({folders.length})</span>
+          {#if foldersCollapsed}
+            <ChevronRight size={14} />
+          {:else}
+            <ChevronDown size={14} />
+          {/if}
+        </button>
+
+        {#if !foldersCollapsed}
+          <div class="folders-grid">
+            {#each folders as folder (folder.id)}
+              <div
+                class="folder-card"
+                class:drag-over={dragOverFolderId === folder.id}
+                ondragover={(e) => handleFolderDragOver(e, folder.id)}
+                ondragleave={handleFolderDragLeave}
+                ondrop={(e) => handleFolderDrop(e, folder.id)}
+              >
+                <div
+                  class="folder-card-content"
+                  role="button"
+                  tabindex="0"
+                  onclick={() => navigateToFolder(folder.id)}
+                  onkeydown={(e) => e.key === 'Enter' && navigateToFolder(folder.id)}
+                >
+                  <div class="folder-icon" style="color: {folder.icon_color}">
+                    <Folder size={32} />
+                  </div>
+                  <span class="folder-name">{folder.name}</span>
+                  <span class="folder-count">{getPlaylistCountInFolder(folder.id)} playlists</span>
+                </div>
+                <button
+                  class="folder-edit-btn"
+                  onclick={(e) => { e.stopPropagation(); openEditFolderModal(folder); }}
+                  title="Edit folder"
+                >
+                  <Pencil size={12} />
+                </button>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Playlists Section -->
+    {#if displayPlaylists.length === 0 && (currentFolderId || folders.length === 0)}
+      <div class="empty">
+        <p>{filter === 'hidden' ? 'No hidden playlists' : filter === 'visible' ? 'No visible playlists' : currentFolderId ? 'No playlists in this folder' : 'No playlists yet'}</p>
+      </div>
+    {:else if displayPlaylists.length > 0}
+      {#if !currentFolderId && folders.length > 0}
+        <div class="section-header-btn playlists-section-header">
+          <span class="section-title">Playlists ({displayPlaylists.length})</span>
+        </div>
+      {/if}
+
+      {#if viewMode === 'grid'}
     <!-- Grid View -->
     <div class="grid">
       {#each displayPlaylists as playlist (playlist.id)}
@@ -759,8 +998,61 @@
         </div>
       {/each}
     </div>
+      {/if}
+    {/if}
   {/if}
 </div>
+
+<!-- Folder Modal -->
+{#if showFolderModal}
+  <div class="modal-overlay" onclick={closeFolderModal} role="presentation">
+    <div class="modal-content folder-modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <h2 class="modal-title">{editingFolder ? 'Edit Folder' : 'New Folder'}</h2>
+      <div class="form-group">
+        <label for="folder-name-input">Name</label>
+        <input
+          id="folder-name-input"
+          type="text"
+          bind:value={folderName}
+          placeholder="Enter folder name"
+          onkeydown={(e) => e.key === 'Enter' && handleSaveFolder()}
+        />
+      </div>
+      <div class="form-group">
+        <label for="folder-color-input">Color</label>
+        <div class="color-picker">
+          <input
+            id="folder-color-input"
+            type="color"
+            bind:value={folderColor}
+          />
+          <span class="color-preview" style="background: {folderColor}"></span>
+          <span class="color-value">{folderColor}</span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        {#if editingFolder}
+          <button class="btn-danger" onclick={handleDeleteFolder}>
+            <Trash2 size={14} />
+            Delete
+          </button>
+        {/if}
+        <div class="modal-actions-right">
+          <button class="btn-secondary" onclick={closeFolderModal}>
+            Cancel
+          </button>
+          <button
+            class="btn-primary"
+            onclick={handleSaveFolder}
+            disabled={!folderName.trim()}
+          >
+            {editingFolder ? 'Save' : 'Create'}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <!-- Edit Modal -->
 {#if editingPlaylist}
@@ -831,6 +1123,299 @@
 
   .back-btn:hover {
     color: var(--text-primary);
+  }
+
+  /* Breadcrumb */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+
+  .breadcrumb-item {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    transition: color 150ms ease;
+  }
+
+  .breadcrumb-item:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+  }
+
+  .breadcrumb :global(.breadcrumb-separator) {
+    color: var(--text-muted);
+  }
+
+  .breadcrumb-current {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  /* Folders Section */
+  .folders-section {
+    margin-bottom: 24px;
+  }
+
+  .section-header-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 8px 0;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 150ms ease;
+  }
+
+  .section-header-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .playlists-section-header {
+    margin-top: 16px;
+    margin-bottom: 8px;
+    cursor: default;
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .folders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .folder-card {
+    position: relative;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+    padding: 16px;
+    transition: background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+  }
+
+  .folder-card:hover {
+    background: var(--bg-hover);
+  }
+
+  .folder-card.drag-over {
+    background: var(--accent-primary);
+    transform: scale(1.02);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .folder-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .folder-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .folder-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  .folder-card .folder-count {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .folder-edit-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--bg-secondary);
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 150ms ease, background-color 150ms ease;
+  }
+
+  .folder-card:hover .folder-edit-btn {
+    opacity: 1;
+  }
+
+  .folder-edit-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  /* Folder Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 24px;
+    min-width: 320px;
+    max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 20px 0;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  .form-group input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--alpha-10);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 150ms ease;
+  }
+
+  .form-group input[type="text"]:focus {
+    border-color: var(--accent-primary);
+  }
+
+  .color-picker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .color-picker input[type="color"] {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .color-preview {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+  }
+
+  .color-value {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+  }
+
+  .modal-actions-right {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn-secondary,
+  .btn-primary,
+  .btn-danger {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 150ms ease, opacity 150ms ease;
+  }
+
+  .btn-secondary {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--alpha-10);
+    color: var(--text-primary);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-hover);
+  }
+
+  .btn-primary {
+    background: var(--accent-primary);
+    border: none;
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-secondary);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--error);
+    color: var(--error);
+  }
+
+  .btn-danger:hover {
+    background: var(--error);
+    color: white;
   }
 
   .controls {
