@@ -11,9 +11,10 @@
     onHover?: () => void;
     class?: string;
     showLabel?: boolean;
+    indented?: boolean;
   }
 
-  let { icon, label, badge, tooltip, active = false, onclick, onHover, class: className = '', showLabel = true }: Props = $props();
+  let { icon, label, badge, tooltip, active = false, onclick, onHover, class: className = '', showLabel = true, indented = false }: Props = $props();
 
   // When label is hidden, always show tooltip on hover
   const effectiveTooltip = $derived(showLabel ? tooltip : (tooltip || label));
@@ -55,6 +56,7 @@
   class="nav-item {className}"
   class:active
   class:collapsed={!showLabel}
+  class:indented
   title={effectiveTooltip ? undefined : label}
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
@@ -106,6 +108,10 @@
   .nav-item.active {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
+  }
+
+  .nav-item.indented {
+    padding-left: 20px;
   }
 
   .icon-container {
