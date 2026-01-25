@@ -1162,6 +1162,7 @@
     border: none;
     border-radius: 6px;
     cursor: pointer;
+    color: var(--text-muted);
     transition: background-color 150ms ease;
   }
 
@@ -1184,8 +1185,8 @@
   .folder-name {
     flex: 1;
     font-size: 13px;
-    font-weight: 500;
-    color: var(--text-primary);
+    font-weight: 400;
+    color: var(--text-muted);
     text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1195,9 +1196,12 @@
   .folder-count {
     font-size: 11px;
     color: var(--text-muted);
-    padding: 2px 6px;
-    background: var(--bg-tertiary);
-    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .folder-header:hover .folder-count {
+    opacity: 1;
   }
 
   .folder-playlists {
