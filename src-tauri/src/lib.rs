@@ -15,6 +15,7 @@ pub mod offline_cache;
 pub mod flatpak;
 pub mod lastfm;
 pub mod library;
+pub mod listenbrainz;
 pub mod lyrics;
 pub mod media_controls;
 pub mod musicbrainz;
@@ -196,6 +197,9 @@ pub fn run() {
     // Initialize MusicBrainz integration state
     let musicbrainz_state = musicbrainz::MusicBrainzSharedState::new()
         .expect("Failed to initialize MusicBrainz state");
+    // Initialize ListenBrainz integration state
+    let listenbrainz_state = listenbrainz::ListenBrainzSharedState::new()
+        .expect("Failed to initialize ListenBrainz state");
 
     // Read saved audio device and settings for player initialization
     let (saved_device, audio_settings) = audio_settings_state
@@ -406,6 +410,7 @@ pub fn run() {
         .manage(favorites_prefs_state)
         .manage(tray_settings_state)
         .manage(musicbrainz_state)
+        .manage(listenbrainz_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -755,6 +760,21 @@ pub fn run() {
             commands::musicbrainz_get_cache_stats,
             commands::musicbrainz_clear_cache,
             commands::musicbrainz_cleanup_cache,
+            // ListenBrainz integration commands
+            commands::listenbrainz_get_status,
+            commands::listenbrainz_is_enabled,
+            commands::listenbrainz_set_enabled,
+            commands::listenbrainz_connect,
+            commands::listenbrainz_disconnect,
+            commands::listenbrainz_now_playing,
+            commands::listenbrainz_scrobble,
+            commands::listenbrainz_queue_listen,
+            commands::listenbrainz_get_queue,
+            commands::listenbrainz_get_queue_count,
+            commands::listenbrainz_mark_sent,
+            commands::listenbrainz_flush_queue,
+            commands::listenbrainz_clear_queue,
+            commands::listenbrainz_cleanup_queue,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -399,6 +399,14 @@
   // MusicBrainz integration state
   let musicbrainzEnabled = $state(true);
 
+  // ListenBrainz integration state
+  let listenbrainzConnected = $state(false);
+  let listenbrainzUsername = $state('');
+  let listenbrainzEnabled = $state(true);
+  let listenbrainzToken = $state('');
+  let listenbrainzConnecting = $state(false);
+  let showListenBrainzConfig = $state(false);
+
   // Load saved settings on mount
   onMount(() => {
     // Load theme
@@ -467,6 +475,9 @@
 
     // Load MusicBrainz state
     loadMusicBrainzState();
+
+    // Load ListenBrainz state
+    loadListenBrainzState();
 
     // Load notification preferences
     loadToastsPreference();
@@ -678,6 +689,64 @@
       musicbrainzEnabled = enabled;
     } catch (err) {
       console.error('Failed to update MusicBrainz setting:', err);
+    }
+  }
+
+  // ListenBrainz functions
+  async function loadListenBrainzState() {
+    try {
+      const status = await invoke<{
+        connected: boolean;
+        userName: string | null;
+        enabled: boolean;
+      }>('listenbrainz_get_status');
+      listenbrainzConnected = status.connected;
+      listenbrainzUsername = status.userName || '';
+      listenbrainzEnabled = status.enabled;
+    } catch (err) {
+      console.error('Failed to load ListenBrainz state:', err);
+    }
+  }
+
+  async function handleListenBrainzConnect() {
+    if (!listenbrainzToken.trim()) {
+      showListenBrainzConfig = true;
+      return;
+    }
+
+    listenbrainzConnecting = true;
+    try {
+      const userInfo = await invoke<{ user_name: string }>('listenbrainz_connect', {
+        token: listenbrainzToken.trim()
+      });
+      listenbrainzConnected = true;
+      listenbrainzUsername = userInfo.user_name;
+      listenbrainzToken = '';
+      showListenBrainzConfig = false;
+    } catch (err) {
+      console.error('Failed to connect to ListenBrainz:', err);
+      alert(`ListenBrainz error: ${err}`);
+    } finally {
+      listenbrainzConnecting = false;
+    }
+  }
+
+  async function handleListenBrainzDisconnect() {
+    try {
+      await invoke('listenbrainz_disconnect');
+      listenbrainzConnected = false;
+      listenbrainzUsername = '';
+    } catch (err) {
+      console.error('Failed to disconnect ListenBrainz:', err);
+    }
+  }
+
+  async function handleListenBrainzEnabledChange(enabled: boolean) {
+    try {
+      await invoke('listenbrainz_set_enabled', { enabled });
+      listenbrainzEnabled = enabled;
+    } catch (err) {
+      console.error('Failed to update ListenBrainz setting:', err);
     }
   }
 
@@ -1937,6 +2006,64 @@
             disabled={!lastfmApiKey || !lastfmApiSecret || lastfmConnecting}
           >
             {lastfmConnecting ? 'Opening...' : 'Authorize with Last.fm'}
+          </button>
+        </div>
+      {/if}
+    {/if}
+
+    <!-- ListenBrainz Integration -->
+    {#if listenbrainzConnected}
+      <div class="setting-row">
+        <div class="lastfm-connected">
+          <span class="setting-label">ListenBrainz</span>
+          <span class="lastfm-username">{$t('settings.integrations.connectedAs', { values: { username: listenbrainzUsername }})}</span>
+        </div>
+        <button
+          class="connect-btn connected"
+          onclick={handleListenBrainzDisconnect}
+        >
+          {$t('settings.integrations.disconnect')}
+        </button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Scrobbling</span>
+        <Toggle enabled={listenbrainzEnabled} onchange={handleListenBrainzEnabledChange} />
+      </div>
+    {:else}
+      <div class="setting-row" class:last={!showListenBrainzConfig}>
+        <span class="setting-label">ListenBrainz</span>
+        <button
+          class="connect-btn"
+          onclick={() => showListenBrainzConfig = !showListenBrainzConfig}
+          disabled={listenbrainzConnecting}
+        >
+          {listenbrainzConnecting ? 'Connecting...' : $t('settings.integrations.connect')}
+        </button>
+      </div>
+
+      {#if showListenBrainzConfig}
+        <div class="lastfm-config">
+          <p class="config-info">
+            Get your personal token from
+            <a href="https://listenbrainz.org/settings/" target="_blank" rel="noopener">
+              listenbrainz.org/settings
+            </a>
+          </p>
+          <div class="config-field">
+            <label for="listenbrainz-token">User Token</label>
+            <input
+              id="listenbrainz-token"
+              type="password"
+              bind:value={listenbrainzToken}
+              placeholder="Paste your ListenBrainz token"
+            />
+          </div>
+          <button
+            class="auth-start-btn"
+            onclick={handleListenBrainzConnect}
+            disabled={!listenbrainzToken.trim() || listenbrainzConnecting}
+          >
+            {listenbrainzConnecting ? 'Connecting...' : 'Connect'}
           </button>
         </div>
       {/if}
