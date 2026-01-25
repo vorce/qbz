@@ -559,6 +559,13 @@ pub fn run() {
             library::commands::playlist_get_stats,
             library::commands::playlist_get_all_stats,
             library::commands::playlist_increment_play_count,
+            // Playlist folders commands
+            library::commands::create_playlist_folder,
+            library::commands::get_playlist_folders,
+            library::commands::update_playlist_folder,
+            library::commands::delete_playlist_folder,
+            library::commands::reorder_playlist_folders,
+            library::commands::move_playlist_to_folder,
             // Discogs artwork commands
             library::commands::discogs_has_credentials,
             library::commands::discogs_search_artist,
