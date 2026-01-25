@@ -112,6 +112,16 @@
     playlist: null,
     currentFolderId: null
   });
+  let contextMenuSearch = $state('');
+  const FOLDER_SEARCH_THRESHOLD = 8;
+
+  // Filtered folders for context menu
+  const filteredContextFolders = $derived.by(() => {
+    const available = folders.filter(f => f.id !== contextMenu.currentFolderId);
+    if (!contextMenuSearch.trim()) return available;
+    const query = contextMenuSearch.toLowerCase();
+    return available.filter(f => f.name.toLowerCase().includes(query));
+  });
 
   // Offline state
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
@@ -649,6 +659,7 @@
 
   function closeContextMenu() {
     contextMenu = { ...contextMenu, visible: false };
+    contextMenuSearch = '';
   }
 
   async function handleMoveToFolder(folderId: string | null) {
@@ -978,17 +989,31 @@
 
 <!-- Playlist Context Menu -->
 {#if contextMenu.visible}
+  {@const availableFolders = folders.filter(f => f.id !== contextMenu.currentFolderId)}
+  {@const showSearch = availableFolders.length >= FOLDER_SEARCH_THRESHOLD}
   <div
     class="context-menu"
+    class:has-search={showSearch}
     style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
     onclick={(e) => e.stopPropagation()}
     role="menu"
   >
-    {#if folders.length > 0}
+    {#if availableFolders.length > 0}
       <div class="context-menu-section">
         <span class="context-menu-label">Move to folder</span>
-        {#each folders as folder (folder.id)}
-          {#if folder.id !== contextMenu.currentFolderId}
+        {#if showSearch}
+          <div class="context-menu-search">
+            <Search size={14} />
+            <input
+              type="text"
+              placeholder="Search folders..."
+              bind:value={contextMenuSearch}
+              onclick={(e) => e.stopPropagation()}
+            />
+          </div>
+        {/if}
+        <div class="context-menu-folders" class:scrollable={showSearch}>
+          {#each filteredContextFolders as folder (folder.id)}
             <button
               class="context-menu-item"
               onclick={() => handleMoveToFolder(folder.id)}
@@ -996,8 +1021,13 @@
               <Folder size={14} />
               {folder.name}
             </button>
+          {/each}
+          {#if showSearch && filteredContextFolders.length === 0}
+            <div class="context-menu-empty">
+              No folders match
+            </div>
           {/if}
-        {/each}
+        </div>
       </div>
     {/if}
     {#if contextMenu.currentFolderId}
@@ -1009,7 +1039,7 @@
         Move to root
       </button>
     {/if}
-    {#if folders.length === 0 && !contextMenu.currentFolderId}
+    {#if availableFolders.length === 0 && !contextMenu.currentFolderId}
       <div class="context-menu-empty">
         No folders yet
       </div>
@@ -1613,6 +1643,10 @@
     z-index: 10002;
   }
 
+  .context-menu.has-search {
+    min-width: 220px;
+  }
+
   .context-menu-section {
     display: flex;
     flex-direction: column;
@@ -1625,6 +1659,57 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     padding: 6px 10px;
+  }
+
+  .context-menu-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    color: var(--text-muted);
+  }
+
+  .context-menu-search input {
+    flex: 1;
+    background: var(--bg-primary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    color: var(--text-primary);
+    outline: none;
+  }
+
+  .context-menu-search input:focus {
+    border-color: var(--accent-primary);
+  }
+
+  .context-menu-search input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .context-menu-folders {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .context-menu-folders.scrollable {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .context-menu-folders.scrollable::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .context-menu-folders.scrollable::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .context-menu-folders.scrollable::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 2px;
   }
 
   .context-menu-item {
