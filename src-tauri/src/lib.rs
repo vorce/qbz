@@ -17,6 +17,7 @@ pub mod lastfm;
 pub mod library;
 pub mod lyrics;
 pub mod media_controls;
+pub mod musicbrainz;
 pub mod network;
 pub mod offline;
 pub mod playback_context;
@@ -192,6 +193,9 @@ pub fn run() {
     // Initialize subscription validity tracking (for offline download compliance)
     let subscription_state = config::create_subscription_state()
         .expect("Failed to initialize subscription state");
+    // Initialize MusicBrainz integration state
+    let musicbrainz_state = musicbrainz::MusicBrainzSharedState::new()
+        .expect("Failed to initialize MusicBrainz state");
 
     // Read saved audio device and settings for player initialization
     let (saved_device, audio_settings) = audio_settings_state
@@ -401,6 +405,7 @@ pub fn run() {
         .manage(playback_prefs_state)
         .manage(favorites_prefs_state)
         .manage(tray_settings_state)
+        .manage(musicbrainz_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -740,6 +745,16 @@ pub fn run() {
             config::tray_settings::set_enable_tray,
             config::tray_settings::set_minimize_to_tray,
             config::tray_settings::set_close_to_tray,
+            // MusicBrainz integration commands
+            commands::musicbrainz_resolve_track,
+            commands::musicbrainz_resolve_artist,
+            commands::musicbrainz_resolve_release,
+            commands::musicbrainz_get_artist_relationships,
+            commands::musicbrainz_is_enabled,
+            commands::musicbrainz_set_enabled,
+            commands::musicbrainz_get_cache_stats,
+            commands::musicbrainz_clear_cache,
+            commands::musicbrainz_cleanup_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
