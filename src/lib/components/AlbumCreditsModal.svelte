@@ -407,8 +407,8 @@
   }
 
   .album-artwork {
-    width: 260px;
-    height: 260px;
+    width: 200px;
+    height: 200px;
     border-radius: 8px;
     object-fit: cover;
   }
