@@ -175,6 +175,61 @@
   let albumGroupingEnabled = $state(false);
   let showGroupMenu = $state(false);
 
+  // Quality/Format filter
+  type QualityFilter = 'all' | 'hires' | 'cd' | 'lossy' | 'flac' | 'wav' | 'mp3' | 'aac' | 'other';
+  let qualityFilter = $state<QualityFilter>('all');
+  let showQualityMenu = $state(false);
+
+  const LOSSLESS_FORMATS = ['flac', 'wav', 'aiff', 'alac', 'ape', 'dsd', 'dsf', 'dff'];
+  const LOSSY_FORMATS = ['mp3', 'aac', 'm4a', 'ogg', 'opus', 'wma'];
+
+  function isHiRes(album: LocalAlbum): boolean {
+    const isLossless = LOSSLESS_FORMATS.includes(album.format.toLowerCase());
+    return isLossless && ((album.bit_depth !== undefined && album.bit_depth >= 24) || album.sample_rate > 48000);
+  }
+
+  function isCdQuality(album: LocalAlbum): boolean {
+    const isLossless = LOSSLESS_FORMATS.includes(album.format.toLowerCase());
+    const bitDepth = album.bit_depth ?? 16;
+    return isLossless && bitDepth <= 16 && album.sample_rate <= 48000;
+  }
+
+  function isLossy(album: LocalAlbum): boolean {
+    return LOSSY_FORMATS.includes(album.format.toLowerCase());
+  }
+
+  function matchesQualityFilter(album: LocalAlbum, filter: QualityFilter): boolean {
+    if (filter === 'all') return true;
+    if (filter === 'hires') return isHiRes(album);
+    if (filter === 'cd') return isCdQuality(album);
+    if (filter === 'lossy') return isLossy(album);
+    // Format-specific filters
+    const format = album.format.toLowerCase();
+    if (filter === 'flac') return format === 'flac';
+    if (filter === 'wav') return format === 'wav' || format === 'wave';
+    if (filter === 'mp3') return format === 'mp3';
+    if (filter === 'aac') return format === 'aac' || format === 'm4a';
+    if (filter === 'other') {
+      return !['flac', 'wav', 'wave', 'mp3', 'aac', 'm4a'].includes(format);
+    }
+    return true;
+  }
+
+  function getQualityFilterLabel(filter: QualityFilter): string {
+    switch (filter) {
+      case 'all': return 'Quality: All';
+      case 'hires': return 'Hi-Res';
+      case 'cd': return 'CD Quality';
+      case 'lossy': return 'Lossy';
+      case 'flac': return 'FLAC';
+      case 'wav': return 'WAV';
+      case 'mp3': return 'MP3';
+      case 'aac': return 'AAC';
+      case 'other': return 'Other';
+      default: return 'Quality: All';
+    }
+  }
+
   // Performance mode state
   let useVirtualization = $state(isVirtualizationEnabled());
   let virtualizedScrollTarget = $state<string | undefined>(undefined);
@@ -291,10 +346,18 @@
 
   // Memoized filtered and grouped albums
   let filteredAndGroupedAlbums = $derived.by(() => {
-    // Filter albums
-    const filtered = debouncedAlbumSearch
-      ? albums.filter(album => matchesAlbumSearchFast(album, debouncedAlbumSearch))
-      : albums;
+    // Filter albums by search and quality
+    let filtered = albums;
+
+    // Apply search filter
+    if (debouncedAlbumSearch) {
+      filtered = filtered.filter(album => matchesAlbumSearchFast(album, debouncedAlbumSearch));
+    }
+
+    // Apply quality filter
+    if (qualityFilter !== 'all') {
+      filtered = filtered.filter(album => matchesQualityFilter(album, qualityFilter));
+    }
 
     // Group if enabled
     if (!albumGroupingEnabled) {
@@ -2472,6 +2535,88 @@
               {/if}
             </div>
 
+            <!-- Quality/Format Filter -->
+            <div class="dropdown-container">
+              <button
+                class="control-btn"
+                class:active={qualityFilter !== 'all'}
+                onclick={() => (showQualityMenu = !showQualityMenu)}
+                title="Filter by quality/format"
+              >
+                <span>{getQualityFilterLabel(qualityFilter)}</span>
+              </button>
+              {#if showQualityMenu}
+                <div class="dropdown-menu quality-menu">
+                  <div class="dropdown-section-label">Quality</div>
+                  <button
+                    class="dropdown-item"
+                    class:selected={qualityFilter === 'all'}
+                    onclick={() => { qualityFilter = 'all'; showQualityMenu = false; }}
+                  >
+                    All
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={qualityFilter === 'hires'}
+                    onclick={() => { qualityFilter = 'hires'; showQualityMenu = false; }}
+                  >
+                    Hi-Res (24bit+)
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={qualityFilter === 'cd'}
+                    onclick={() => { qualityFilter = 'cd'; showQualityMenu = false; }}
+                  >
+                    CD Quality (16bit)
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={qualityFilter === 'lossy'}
+                    onclick={() => { qualityFilter = 'lossy'; showQualityMenu = false; }}
+                  >
+                    Lossy
+                  </button>
+                  <div class="dropdown-divider"></div>
+                  <div class="dropdown-section-label">Format</div>
+                  <button
+                    class="dropdown-item"
+                    class:selected={qualityFilter === 'flac'}
+                    onclick={() => { qualityFilter = 'flac'; showQualityMenu = false; }}
+                  >
+                    FLAC
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={qualityFilter === 'wav'}
+                    onclick={() => { qualityFilter = 'wav'; showQualityMenu = false; }}
+                  >
+                    WAV
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={qualityFilter === 'mp3'}
+                    onclick={() => { qualityFilter = 'mp3'; showQualityMenu = false; }}
+                  >
+                    MP3
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={qualityFilter === 'aac'}
+                    onclick={() => { qualityFilter = 'aac'; showQualityMenu = false; }}
+                  >
+                    AAC
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    class:selected={qualityFilter === 'other'}
+                    onclick={() => { qualityFilter = 'other'; showQualityMenu = false; }}
+                  >
+                    Other
+                  </button>
+                </div>
+              {/if}
+            </div>
+
             <button
               class="control-btn icon-only"
               onclick={() => (albumViewMode = albumViewMode === 'list' ? 'grid' : 'list')}
@@ -3582,6 +3727,17 @@
     color: var(--text-primary);
   }
 
+  .control-btn.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+  }
+
+  .control-btn.active:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+
   .control-btn.icon-only {
     width: 36px;
     height: 36px;
@@ -3653,6 +3809,25 @@
   .dropdown-item.selected {
     background: var(--bg-tertiary);
     font-weight: 600;
+  }
+
+  .dropdown-section-label {
+    padding: 6px 10px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 6px 0;
+  }
+
+  .quality-menu {
+    max-height: 360px;
   }
 
   /* Content */
