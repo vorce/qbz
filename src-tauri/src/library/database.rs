@@ -92,6 +92,7 @@ impl LibraryDatabase {
             CREATE INDEX IF NOT EXISTS idx_playlist_folders_hidden ON playlist_folders(is_hidden);
 
             -- Playlist local settings (enhances remote Qobuz playlists)
+            -- Note: For existing databases, folder_id is added via migration
             CREATE TABLE IF NOT EXISTS playlist_settings (
                 qobuz_playlist_id INTEGER PRIMARY KEY,
                 custom_artwork_path TEXT,
@@ -106,7 +107,7 @@ impl LibraryDatabase {
                 updated_at INTEGER NOT NULL
             );
 
-            CREATE INDEX IF NOT EXISTS idx_playlist_settings_folder ON playlist_settings(folder_id);
+            -- Note: idx_playlist_settings_folder is created conditionally after migrations run
 
             -- Playlist statistics (play counts, etc.)
             CREATE TABLE IF NOT EXISTS playlist_stats (
@@ -570,6 +571,11 @@ impl LibraryDatabase {
                 "ALTER TABLE artist_images ADD COLUMN canonical_name TEXT;"
             ).map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
         }
+
+        // Create folder_id index after all migrations have run (ensures column exists)
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_playlist_settings_folder ON playlist_settings(folder_id);"
+        ).map_err(|e| LibraryError::Database(format!("Failed to create folder index: {}", e)))?;
 
         Ok(())
     }
