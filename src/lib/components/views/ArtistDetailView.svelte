@@ -1443,6 +1443,7 @@
               artwork={album.artwork}
               title={album.title}
               artist={album.year || ''}
+              genre={album.genre}
               size="large"
               quality={album.quality}
               searchId={`album-${album.id}`}
@@ -1504,6 +1505,7 @@
             artwork={album.artwork}
             title={album.title}
             artist={album.year || ''}
+            genre={album.genre}
             size="large"
             quality={album.quality}
             searchId={`album-${album.id}`}
@@ -1564,6 +1566,7 @@
             artwork={album.artwork}
             title={album.title}
             artist={album.year || ''}
+            genre={album.genre}
             size="large"
             quality={album.quality}
             searchId={`album-${album.id}`}
@@ -1624,6 +1627,7 @@
             artwork={album.artwork}
             title={album.title}
             artist={album.year || ''}
+            genre={album.genre}
             size="large"
             quality={album.quality}
             searchId={`album-${album.id}`}
@@ -1684,6 +1688,7 @@
             artwork={album.artwork}
             title={album.title}
             artist={album.year || ''}
+            genre={album.genre}
             size="large"
             quality={album.quality}
             searchId={`album-${album.id}`}
@@ -1807,6 +1812,7 @@
               artwork={album.artwork}
               title={album.title}
               artist={album.year || ''}
+              genre={album.genre}
               size="large"
               quality={album.quality}
               searchId={`album-${album.id}`}
