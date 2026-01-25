@@ -499,22 +499,11 @@
             ></textarea>
           </div>
 
-          <div class="form-group checkbox">
-            <label>
-              <input
-                type="checkbox"
-                bind:checked={isPublic}
-                disabled={loading}
-              />
-              <span>Make playlist public</span>
-            </label>
-          </div>
-
           {#if folders.length > 0}
             <div class="form-group">
               <label for="folder-select">
                 <Folder size={14} style="display: inline; vertical-align: middle; margin-right: 4px;" />
-                Folder (optional)
+                Folder
               </label>
               <select
                 id="folder-select"
@@ -529,67 +518,80 @@
             </div>
           {/if}
 
-          {#if mode === 'edit'}
+          <div class="checkbox-row">
             <div class="form-group checkbox">
               <label>
                 <input
                   type="checkbox"
-                  bind:checked={hidden}
+                  bind:checked={isPublic}
                   disabled={loading}
                 />
-                <span class="hidden-label">
-                  {#if hidden}
-                    <EyeOff size={14} />
-                  {:else}
-                    <Eye size={14} />
-                  {/if}
-                  Hide from sidebar
-                </span>
+                <span>Make playlist public</span>
               </label>
             </div>
 
-            <div class="danger-zone">
-              <div class="danger-label">Danger Zone</div>
-              {#if showDeleteConfirm}
-                <div class="delete-confirm">
-                  <span>Are you sure? This cannot be undone.</span>
-                  <div class="delete-actions">
-                    <button class="btn-cancel" onclick={() => showDeleteConfirm = false} disabled={loading}>
-                      Cancel
-                    </button>
-                    <button class="btn-delete" onclick={handleDelete} disabled={loading}>
-                      {loading ? 'Deleting...' : 'Delete'}
-                    </button>
-                  </div>
-                </div>
-              {:else}
-                <button class="btn-danger" onclick={() => showDeleteConfirm = true} disabled={loading}>
-                  <Trash2 size={14} />
-                  Delete Playlist
-                </button>
-              {/if}
-            </div>
-          {/if}
+            {#if mode === 'edit'}
+              <div class="form-group checkbox">
+                <label>
+                  <input
+                    type="checkbox"
+                    bind:checked={hidden}
+                    disabled={loading}
+                  />
+                  <span class="hidden-label">
+                    {#if hidden}
+                      <EyeOff size={14} />
+                    {:else}
+                      <Eye size={14} />
+                    {/if}
+                    Hide from sidebar
+                  </span>
+                </label>
+              </div>
+            {/if}
+          </div>
         {/if}
       </div>
 
       <div class="modal-footer">
-        <button class="btn-secondary" onclick={onClose} disabled={loading}>
-          Cancel
-        </button>
-        <button class="btn-primary" onclick={handleSubmit} disabled={loading}>
-          {#if loading}
-            Saving...
-          {:else if mode === 'create'}
-            Create
-          {:else if mode === 'edit'}
-            Save
-          {:else if selectedPlaylistId === CREATE_NEW_PLAYLIST}
-            Create & Add
-          {:else}
-            Add
-          {/if}
-        </button>
+        {#if mode === 'edit'}
+          <div class="footer-left">
+            {#if showDeleteConfirm}
+              <div class="delete-confirm-inline">
+                <span>Delete?</span>
+                <button class="btn-delete-sm" onclick={handleDelete} disabled={loading}>
+                  Yes
+                </button>
+                <button class="btn-cancel-sm" onclick={() => showDeleteConfirm = false} disabled={loading}>
+                  No
+                </button>
+              </div>
+            {:else}
+              <button class="btn-danger-sm" onclick={() => showDeleteConfirm = true} disabled={loading}>
+                <Trash2 size={12} />
+                Delete
+              </button>
+            {/if}
+          </div>
+        {/if}
+        <div class="footer-right">
+          <button class="btn-secondary" onclick={onClose} disabled={loading}>
+            Cancel
+          </button>
+          <button class="btn-primary" onclick={handleSubmit} disabled={loading}>
+            {#if loading}
+              Saving...
+            {:else if mode === 'create'}
+              Create
+            {:else if mode === 'edit'}
+              Save
+            {:else if selectedPlaylistId === CREATE_NEW_PLAYLIST}
+              Create & Add
+            {:else}
+              Add
+            {/if}
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -608,7 +610,7 @@
 
   .modal {
     width: 100%;
-    max-width: 440px;
+    max-width: 490px;
     max-height: 90vh;
     overflow: hidden;
     display: flex;
@@ -741,12 +743,36 @@
     color: var(--text-primary);
   }
 
+  .checkbox-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .checkbox-row .form-group {
+    margin-bottom: 0;
+  }
+
   .modal-footer {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     gap: 12px;
     padding: 16px 24px;
     border-top: 1px solid var(--bg-tertiary);
+  }
+
+  .footer-left {
+    display: flex;
+    align-items: center;
+  }
+
+  .footer-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
   }
 
   .btn-secondary,
@@ -789,6 +815,76 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  /* Compact footer delete button */
+  .btn-danger-sm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    font-size: 13px;
+    color: #ef4444;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .btn-danger-sm:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+
+  .btn-danger-sm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .delete-confirm-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .delete-confirm-inline span {
+    font-size: 13px;
+    color: #ef4444;
+  }
+
+  .btn-delete-sm,
+  .btn-cancel-sm {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 150ms ease;
+    border: none;
+  }
+
+  .btn-cancel-sm {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .btn-cancel-sm:hover:not(:disabled) {
+    background: var(--bg-hover);
+  }
+
+  .btn-delete-sm {
+    background: #ef4444;
+    color: white;
+  }
+
+  .btn-delete-sm:hover:not(:disabled) {
+    background: #dc2626;
+  }
+
+  .btn-delete-sm:disabled,
+  .btn-cancel-sm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .danger-zone {
