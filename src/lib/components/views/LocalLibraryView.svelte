@@ -2093,6 +2093,15 @@
       </div>
 
       <div class="track-list">
+        <div class="track-list-header">
+          <div class="col-number">#</div>
+          <div class="col-title">Title</div>
+          <div class="col-duration">Duration</div>
+          <div class="col-quality">Quality</div>
+          <div class="col-spacer"></div>
+          <div class="col-spacer"></div>
+          <div class="col-spacer"></div>
+        </div>
         {#each albumSections as section (section.disc)}
           {#if showDiscHeaders}
             <div class="disc-header">{section.label}</div>
@@ -4103,6 +4112,47 @@
     margin-top: 0;
   }
 
+  .track-list-header {
+    width: 100%;
+    height: 40px;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 400;
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--bg-tertiary);
+    margin-bottom: 8px;
+  }
+
+  .track-list-header .col-number {
+    width: 48px;
+    text-align: center;
+  }
+
+  .track-list-header .col-title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .track-list-header .col-duration {
+    width: 80px;
+    text-align: center;
+  }
+
+  .track-list-header .col-quality {
+    width: 80px;
+    text-align: center;
+  }
+
+  .track-list-header .col-spacer {
+    width: 28px;
+  }
+
   /* Album Detail */
   .album-detail {
     padding-bottom: 100px;
@@ -4227,7 +4277,9 @@
 
   .album-actions {
     display: flex;
+    align-items: center;
     gap: 12px;
+    margin-top: 4px;
   }
 
   /* Nav row for album detail */
