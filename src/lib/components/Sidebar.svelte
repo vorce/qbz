@@ -780,12 +780,12 @@
                       class="folder-header"
                       onclick={() => handleToggleFolder(folder.id)}
                     >
-                      <span class="folder-chevron" class:expanded={isExpanded_}>
-                        <ChevronRight size={12} />
-                      </span>
                       <Folder size={14} />
                       <span class="folder-name">{folder.name}</span>
                       <span class="folder-count">{folderPlaylists.length}</span>
+                      <span class="folder-chevron" class:expanded={isExpanded_}>
+                        <ChevronRight size={12} />
+                      </span>
                     </button>
                     {#if isExpanded_}
                       <div class="folder-playlists">
