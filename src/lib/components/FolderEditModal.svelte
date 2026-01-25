@@ -1,7 +1,7 @@
 <script lang="ts">
   import { open } from '@tauri-apps/plugin-dialog';
   import Modal from './Modal.svelte';
-  import { Heart, Star, Music, Folder, Disc, Library, Upload } from 'lucide-svelte';
+  import { Heart, Star, Music, Folder, Disc, Library, Headphones, Upload } from 'lucide-svelte';
   import type { PlaylistFolder } from '$lib/stores/playlistFoldersStore';
 
   interface Props {
@@ -34,6 +34,7 @@
     { id: 'folder', label: 'Folder', icon: Folder },
     { id: 'disc', label: 'Disc', icon: Disc },
     { id: 'library', label: 'Library', icon: Library },
+    { id: 'headphones', label: 'Headphones', icon: Headphones },
   ];
 
   const solidColors = [
@@ -137,7 +138,7 @@
   });
 </script>
 
-<Modal {isOpen} onClose={handleCancel} title={folder ? 'Edit Folder' : 'New Folder'} maxWidth="560px">
+<Modal {isOpen} onClose={handleCancel} title={folder ? 'Edit Folder' : 'New Folder'} maxWidth="480px">
   {#snippet children()}
   <div class="folder-modal-content">
     <!-- Name input -->
@@ -154,7 +155,6 @@
     <!-- Icon Section -->
     <div class="modal-section">
       <h3>Icon</h3>
-      <p class="section-description">Choose an icon for this folder</p>
 
       <div class="icon-grid">
         {#each presetIcons as preset}
@@ -164,7 +164,7 @@
             onclick={() => selectPreset(preset.id)}
             title={preset.label}
           >
-            <svelte:component this={preset.icon} size={24} />
+            <svelte:component this={preset.icon} size={17} />
           </button>
         {/each}
       </div>
@@ -183,7 +183,6 @@
     <!-- Background Section -->
     <div class="modal-section">
       <h3>Background</h3>
-      <p class="section-description">Choose a background color or gradient</p>
 
       <div class="color-section">
         <h4>Solid Colors</h4>
@@ -292,12 +291,6 @@
     color: var(--text-secondary);
   }
 
-  .section-description {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin: 0 0 16px 0;
-  }
-
   .color-section {
     margin-bottom: 20px;
   }
@@ -308,19 +301,20 @@
 
   .icon-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 12px;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
   .icon-preset-btn {
-    aspect-ratio: 1;
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--bg-secondary);
     border: 2px solid transparent;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 150ms ease;
     color: var(--text-secondary);
