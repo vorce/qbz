@@ -1673,6 +1673,7 @@
     height: 100%;
     padding: 24px;
     padding-top: 0;
+    padding-left: 18px;
     padding-right: 8px;
     padding-bottom: 100px;
     overflow-y: auto;

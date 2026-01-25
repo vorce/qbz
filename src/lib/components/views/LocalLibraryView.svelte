@@ -3057,7 +3057,7 @@
 
 <style>
   .library-view {
-    padding: 0 24px 100px;
+    padding: 0 24px 100px 18px;
     padding-right: 8px;
     overflow-y: auto;
     height: 100%;

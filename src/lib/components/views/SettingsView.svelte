@@ -2013,7 +2013,7 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
     width: 100%;
     height: 100%;
     overflow-y: auto;
-    padding: 0 32px 24px 32px;
+    padding: 0 32px 24px 18px;
     padding-right: 24px; /* Less padding on right for scrollbar */
   }
 

@@ -1252,6 +1252,7 @@
 <style>
   .playlist-detail {
     padding: 24px;
+    padding-left: 18px;
     padding-right: 8px;
     padding-bottom: 100px;
     overflow-y: auto;
