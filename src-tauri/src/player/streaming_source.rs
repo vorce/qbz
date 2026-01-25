@@ -1,8 +1,11 @@
 //! Buffered media source for streaming playback.
 //!
-//! Wraps an async HTTP response to provide a synchronous `Read + Seek` interface
-//! required by rodio/symphonia decoders. This allows playback to start before
-//! the entire file is downloaded.
+//! Provides two main components:
+//! 1. `BufferedMediaSource` - Wraps an async HTTP response to provide a synchronous
+//!    `Read + Seek` interface required by symphonia decoders.
+//! 2. `IncrementalStreamingSource` - A rodio Source that decodes audio packets
+//!    incrementally as they become available, allowing playback to start before
+//!    the entire file is downloaded.
 //!
 //! # Design
 //!
@@ -20,10 +23,20 @@
 //!
 //! Communication uses `Mutex` + `Condvar` for blocking synchronization.
 
+use std::collections::VecDeque;
 use std::io::{Error as IoError, ErrorKind, Read, Result as IoResult, Seek, SeekFrom};
 use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
 
-use symphonia::core::io::MediaSource;
+use rodio::Source;
+use symphonia::core::audio::SampleBuffer;
+use symphonia::core::codecs::{Decoder, DecoderOptions};
+use symphonia::core::errors::Error as SymphoniaError;
+use symphonia::core::formats::{FormatOptions, FormatReader};
+use symphonia::core::io::{MediaSource, MediaSourceStream};
+use symphonia::core::meta::MetadataOptions;
+use symphonia::core::probe::Hint;
+use symphonia::default::{get_codecs, get_probe};
 
 /// Configuration for the streaming buffer
 #[derive(Debug, Clone)]
@@ -37,8 +50,10 @@ pub struct StreamingConfig {
 impl Default for StreamingConfig {
     fn default() -> Self {
         Self {
-            // 2MB default - enough for format headers and some audio data
-            initial_buffer_bytes: 2 * 1024 * 1024,
+            // 512KB default - enough for format headers and ~2-5 seconds of audio
+            // This allows playback to start quickly while still having enough
+            // buffer to handle network jitter
+            initial_buffer_bytes: 512 * 1024,
             // 100MB max buffer
             max_buffer_bytes: 100 * 1024 * 1024,
         }
@@ -51,9 +66,19 @@ impl StreamingConfig {
     /// For Hi-Res FLAC at 192kHz/24bit stereo, bitrate is roughly 9.2 Mbps
     /// We estimate ~1MB per second as a conservative approximation
     pub fn from_seconds(seconds: u8) -> Self {
-        let bytes = (seconds as usize) * 1024 * 1024;
+        // Minimum 256KB to ensure format detection works
+        let bytes = ((seconds as usize) * 1024 * 1024).max(256 * 1024);
         Self {
             initial_buffer_bytes: bytes,
+            max_buffer_bytes: 100 * 1024 * 1024,
+        }
+    }
+
+    /// Create a minimal config for fastest startup
+    /// Uses smallest buffer that still allows format detection (~256KB)
+    pub fn fast_start() -> Self {
+        Self {
+            initial_buffer_bytes: 256 * 1024,
             max_buffer_bytes: 100 * 1024 * 1024,
         }
     }
@@ -398,6 +423,223 @@ impl BufferWriter {
         } else {
             0
         }
+    }
+}
+
+// =============================================================================
+// IncrementalStreamingSource - A rodio Source that decodes on-demand
+// =============================================================================
+
+/// A rodio Source that decodes audio packets incrementally from a BufferedMediaSource.
+///
+/// This allows playback to start immediately after the initial buffer is filled,
+/// while the rest of the file continues downloading in the background.
+///
+/// The source maintains an internal queue of decoded samples and decodes more
+/// packets on-demand as samples are consumed.
+pub struct IncrementalStreamingSource {
+    /// Sample rate of the audio
+    sample_rate: u32,
+    /// Number of channels
+    channels: u16,
+    /// Queue of decoded samples ready to play
+    sample_queue: VecDeque<i16>,
+    /// The format reader (demuxer)
+    format: Box<dyn FormatReader>,
+    /// The audio decoder
+    decoder: Box<dyn Decoder>,
+    /// Track ID we're decoding
+    track_id: u32,
+    /// Whether we've reached end of stream
+    finished: bool,
+    /// Number of packets decoded (for stats)
+    packets_decoded: u64,
+    /// Reference to the buffered source (for cache retrieval after playback)
+    buffered_source: Arc<BufferedMediaSource>,
+}
+
+impl IncrementalStreamingSource {
+    /// Create a new incremental streaming source.
+    ///
+    /// This initializes the symphonia decoder and prepares for incremental decoding.
+    /// The BufferedMediaSource should already have its initial buffer filled.
+    ///
+    /// Returns the source along with detected sample_rate and channels.
+    pub fn new(
+        buffered_source: Arc<BufferedMediaSource>,
+    ) -> Result<Self, String> {
+        // Create a reader from the buffered source
+        let reader = buffered_source.create_reader();
+        let media_source = Box::new(reader) as Box<dyn MediaSource>;
+        let mss = MediaSourceStream::new(media_source, Default::default());
+
+        let mut hint = Hint::new();
+        hint.with_extension("flac"); // Most Qobuz Hi-Res is FLAC
+
+        let format_opts = FormatOptions {
+            enable_gapless: true,
+            ..Default::default()
+        };
+        let metadata_opts: MetadataOptions = Default::default();
+
+        let probed = get_probe()
+            .format(&hint, mss, &format_opts, &metadata_opts)
+            .map_err(|err| format!("Symphonia probe failed for streaming: {}", err))?;
+
+        let track = probed
+            .format
+            .default_track()
+            .ok_or_else(|| "Symphonia: no supported audio tracks in stream".to_string())?;
+
+        let track_id = track.id;
+        let codec_params = track.codec_params.clone();
+
+        // Extract sample rate and channels from codec params
+        let sample_rate = codec_params
+            .sample_rate
+            .ok_or_else(|| "No sample rate in codec params".to_string())?;
+        let channels = codec_params
+            .channels
+            .map(|c| c.count() as u16)
+            .unwrap_or(2);
+
+        let decoder = get_codecs()
+            .make(&codec_params, &DecoderOptions::default())
+            .map_err(|err| format!("Symphonia decoder init failed for streaming: {}", err))?;
+
+        log::info!(
+            "IncrementalStreamingSource initialized: {}Hz, {} channels",
+            sample_rate,
+            channels
+        );
+
+        Ok(Self {
+            sample_rate,
+            channels,
+            sample_queue: VecDeque::with_capacity(sample_rate as usize * channels as usize), // ~1s buffer
+            format: probed.format,
+            decoder,
+            track_id,
+            finished: false,
+            packets_decoded: 0,
+            buffered_source,
+        })
+    }
+
+    /// Get the sample rate
+    pub fn get_sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+
+    /// Get the number of channels
+    pub fn get_channels(&self) -> u16 {
+        self.channels
+    }
+
+    /// Get reference to the buffered source for cache retrieval
+    pub fn buffered_source(&self) -> &Arc<BufferedMediaSource> {
+        &self.buffered_source
+    }
+
+    /// Decode more packets to fill the sample queue.
+    ///
+    /// This is called when the sample queue is running low.
+    /// It will decode packets until the queue has at least `min_samples` or EOF is reached.
+    fn decode_more(&mut self, min_samples: usize) {
+        if self.finished {
+            return;
+        }
+
+        while self.sample_queue.len() < min_samples {
+            let packet = match self.format.next_packet() {
+                Ok(packet) => packet,
+                Err(SymphoniaError::IoError(ref e)) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    // Not enough data buffered yet - wait briefly and retry
+                    // This happens when playback catches up with download
+                    std::thread::sleep(Duration::from_millis(5));
+                    continue;
+                }
+                Err(SymphoniaError::IoError(_)) => {
+                    // EOF or other IO error
+                    log::info!(
+                        "IncrementalStreamingSource: EOF reached after {} packets",
+                        self.packets_decoded
+                    );
+                    self.finished = true;
+                    return;
+                }
+                Err(err) => {
+                    log::error!("Symphonia read error in stream: {}", err);
+                    self.finished = true;
+                    return;
+                }
+            };
+
+            if packet.track_id() != self.track_id {
+                continue;
+            }
+
+            match self.decoder.decode(&packet) {
+                Ok(audio_buf) => {
+                    let spec = *audio_buf.spec();
+                    let mut sample_buf = SampleBuffer::<i16>::new(audio_buf.frames() as u64, spec);
+                    sample_buf.copy_interleaved_ref(audio_buf);
+
+                    // Add samples to queue
+                    self.sample_queue.extend(sample_buf.samples().iter().copied());
+                    self.packets_decoded += 1;
+                }
+                Err(SymphoniaError::DecodeError(e)) => {
+                    log::warn!("Decode error (skipping packet): {}", e);
+                    continue;
+                }
+                Err(SymphoniaError::ResetRequired) => {
+                    self.decoder.reset();
+                    continue;
+                }
+                Err(err) => {
+                    log::error!("Symphonia decode error: {}", err);
+                    self.finished = true;
+                    return;
+                }
+            }
+        }
+    }
+}
+
+impl Source for IncrementalStreamingSource {
+    fn current_frame_len(&self) -> Option<usize> {
+        // We don't know frame boundaries in the queue
+        None
+    }
+
+    fn channels(&self) -> u16 {
+        self.channels
+    }
+
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+
+    fn total_duration(&self) -> Option<Duration> {
+        // We don't know total duration until download completes
+        // Could estimate from content-length if available
+        None
+    }
+}
+
+impl Iterator for IncrementalStreamingSource {
+    type Item = i16;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // If queue is running low, decode more
+        // Keep at least 0.5 seconds of audio buffered
+        let min_buffer = (self.sample_rate as usize * self.channels as usize) / 2;
+        if self.sample_queue.len() < min_buffer {
+            self.decode_more(min_buffer);
+        }
+
+        self.sample_queue.pop_front()
     }
 }
 

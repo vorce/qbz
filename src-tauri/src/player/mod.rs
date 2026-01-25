@@ -13,7 +13,7 @@
 mod playback_engine;
 mod streaming_source;
 
-pub use streaming_source::{BufferedMediaSource, BufferWriter, StreamingConfig};
+pub use streaming_source::{BufferedMediaSource, BufferWriter, StreamingConfig, IncrementalStreamingSource};
 
 use std::io::{BufReader, Cursor, Read, Seek, SeekFrom};
 use std::panic::{self, AssertUnwindSafe};
@@ -179,96 +179,6 @@ fn decode_with_symphonia(data: &[u8]) -> Result<AudioSpecs, String> {
 
     if samples.is_empty() || sample_rate == 0 || channels == 0 {
         return Err("Symphonia decode produced no audio".to_string());
-    }
-
-    Ok(AudioSpecs {
-        samples: SamplesBuffer::new(channels, sample_rate, samples),
-        sample_rate,
-        channels,
-    })
-}
-
-/// Decode audio from a streaming source (BufferedMediaSource).
-/// Returns decoded samples as they become available.
-/// This allows playback to start before the full file is downloaded.
-fn decode_streaming_source(
-    source: &BufferedMediaSource,
-) -> Result<AudioSpecs, String> {
-    // Create a new reader from the source - shares buffer but has its own read position
-    let reader = source.create_reader();
-    let media_source = Box::new(reader) as Box<dyn MediaSource>;
-    let mss = MediaSourceStream::new(media_source, Default::default());
-
-    let mut hint = Hint::new();
-    hint.with_extension("m4a");
-
-    let format_opts = FormatOptions {
-        enable_gapless: true,
-        ..Default::default()
-    };
-    let metadata_opts: MetadataOptions = Default::default();
-    let mut probed = get_probe()
-        .format(&hint, mss, &format_opts, &metadata_opts)
-        .map_err(|err| format!("Symphonia probe failed for streaming: {}", err))?;
-
-    let track = probed
-        .format
-        .default_track()
-        .ok_or_else(|| "Symphonia: no supported audio tracks in stream".to_string())?;
-    let track_id = track.id;
-    let codec_params = track.codec_params.clone();
-
-    let mut decoder = get_codecs()
-        .make(&codec_params, &DecoderOptions::default())
-        .map_err(|err| format!("Symphonia decoder init failed for streaming: {}", err))?;
-
-    let mut sample_rate = 0;
-    let mut channels = 0u16;
-    let mut samples: Vec<i16> = Vec::new();
-
-    loop {
-        let packet = match probed.format.next_packet() {
-            Ok(packet) => packet,
-            Err(SymphoniaError::IoError(e)) => {
-                // Check if we got WouldBlock (not enough data buffered yet)
-                if e.kind() == std::io::ErrorKind::WouldBlock {
-                    // Wait for more data
-                    std::thread::sleep(Duration::from_millis(10));
-                    continue;
-                }
-                // EOF or other IO error - we're done
-                break;
-            }
-            Err(err) => return Err(format!("Symphonia read error in stream: {}", err)),
-        };
-
-        if packet.track_id() != track_id {
-            continue;
-        }
-
-        match decoder.decode(&packet) {
-            Ok(audio_buf) => {
-                let spec = *audio_buf.spec();
-                if sample_rate == 0 {
-                    sample_rate = spec.rate;
-                    channels = spec.channels.count() as u16;
-                }
-
-                let mut sample_buf = SampleBuffer::<i16>::new(audio_buf.frames() as u64, spec);
-                sample_buf.copy_interleaved_ref(audio_buf);
-                samples.extend_from_slice(sample_buf.samples());
-            }
-            Err(SymphoniaError::DecodeError(_)) => continue,
-            Err(SymphoniaError::ResetRequired) => {
-                decoder.reset();
-                continue;
-            }
-            Err(err) => return Err(format!("Symphonia decode error in stream: {}", err)),
-        }
-    }
-
-    if samples.is_empty() || sample_rate == 0 || channels == 0 {
-        return Err("Symphonia streaming decode produced no audio".to_string());
     }
 
     Ok(AudioSpecs {
@@ -1294,7 +1204,7 @@ impl Player {
                         let volume = thread_state.volume.load(Ordering::SeqCst) as f32 / 100.0;
                         engine.set_volume(volume);
 
-                        // Wait for minimum buffer before decoding
+                        // Wait for minimum buffer before starting playback
                         log::info!("Streaming: waiting for initial buffer...");
                         let start_wait = Instant::now();
                         let max_wait = Duration::from_secs(30);
@@ -1308,25 +1218,38 @@ impl Player {
                             return;
                         }
 
-                        log::info!("Streaming: initial buffer ready, starting decode...");
+                        let buffer_wait_ms = start_wait.elapsed().as_millis();
+                        log::info!(
+                            "Streaming: initial buffer ready in {}ms, creating incremental decoder...",
+                            buffer_wait_ms
+                        );
 
-                        // Decode from streaming source (pass reference, it uses create_reader internally)
-                        let decoded = match decode_streaming_source(&source) {
-                            Ok(specs) => specs,
+                        // Create incremental streaming source - this starts playback IMMEDIATELY
+                        // while continuing to decode/download in background
+                        let incremental_source = match IncrementalStreamingSource::new(source.clone()) {
+                            Ok(s) => s,
                             Err(e) => {
-                                log::error!("Failed to decode streaming audio: {}", e);
+                                log::error!("Failed to create incremental streaming source: {}", e);
                                 return;
                             }
                         };
 
-                        let actual_duration = decoded.samples
-                            .total_duration()
-                            .map(|d| d.as_secs())
-                            .unwrap_or(0);
-                        thread_state.duration.store(actual_duration, Ordering::SeqCst);
+                        // Verify sample rate/channels match what we expected
+                        let actual_sr = incremental_source.get_sample_rate();
+                        let actual_ch = incremental_source.get_channels();
+                        if actual_sr != sample_rate || actual_ch != channels {
+                            log::warn!(
+                                "Streaming: detected format {}Hz/{}ch differs from expected {}Hz/{}ch",
+                                actual_sr, actual_ch, sample_rate, channels
+                            );
+                        }
 
-                        // The samples are already a SamplesBuffer which implements Source
-                        let source_to_play: Box<dyn Source<Item = i16> + Send> = Box::new(decoded.samples);
+                        // Duration unknown until download completes - estimate from content-length if available
+                        // For now, set to 0 and update when known
+                        thread_state.duration.store(0, Ordering::SeqCst);
+
+                        // Box the incremental source to match the expected type
+                        let source_to_play: Box<dyn Source<Item = i16> + Send> = Box::new(incremental_source);
                         if let Err(e) = engine.append(source_to_play) {
                             log::error!("Failed to append streaming source to engine: {}", e);
                             return;
@@ -1338,10 +1261,9 @@ impl Player {
                         thread_state.start_playback_timer(0);
 
                         *current_engine = Some(engine);
-                        // Note: We don't store streaming data in current_audio_data since it's handled differently
                         log::info!(
-                            "Audio thread: streaming playback started, duration: {}s",
-                            actual_duration
+                            "Audio thread: streaming playback STARTED in {}ms (incremental decode active)",
+                            start_wait.elapsed().as_millis()
                         );
                     }
                     AudioCommand::Pause => {
