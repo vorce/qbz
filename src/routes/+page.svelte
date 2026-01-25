@@ -2884,7 +2884,6 @@
         trackInfoTrackId = null;
       }}
       onArtistClick={handleArtistClick}
-      onPerformerSearch={searchForPerformer}
     />
 
     <!-- Album Credits Modal -->
@@ -2904,7 +2903,6 @@
           }
         }
       }}
-      onPerformerSearch={searchForPerformer}
     />
 
     <!-- Cast Picker -->

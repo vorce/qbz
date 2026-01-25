@@ -13,6 +13,13 @@
 
   let { isOpen, albumId, onClose, onTrackPlay, onPerformerSearch }: Props = $props();
 
+  function handlePerformerClick(name: string) {
+    if (onPerformerSearch) {
+      onPerformerSearch(name);
+      onClose();
+    }
+  }
+
   type TabType = 'credits' | 'review';
 
   let loading = $state(false);
@@ -146,9 +153,9 @@
             </div>
           </div>
 
-          <!-- Right column: Track list or Review -->
+          <!-- Right column: Track list or Review (scrollable) -->
           <div class="content-column">
-            <!-- Tab switcher (fixed at top, only shown if review exists) -->
+            <!-- Tab switcher (only shown if review exists) -->
             {#if hasReview}
               <div class="tab-switcher">
                 <button
@@ -168,10 +175,9 @@
               </div>
             {/if}
 
-            <!-- Scrollable content area -->
             <div class="scrollable-content">
               {#if activeTab === 'credits'}
-                <div class="tracks-list">
+              <div class="tracks-list">
                 {#each credits.tracks as track, index (track.id)}
                   {@const isExpanded = expandedTracks.has(track.id)}
                   {@const isHovered = hoveredTrack === track.id}
@@ -223,10 +229,7 @@
                         {#each track.performers as performer}
                           <div class="performer-row">
                             {#if onPerformerSearch}
-                              <button
-                                class="performer-link"
-                                onclick={() => { onPerformerSearch(performer.name); onClose(); }}
-                              >{performer.name}</button>
+                              <button class="performer-link" onclick={() => handlePerformerClick(performer.name)}>{performer.name}</button>
                             {:else}
                               <span class="performer-name">{performer.name}</span>
                             {/if}
@@ -495,13 +498,13 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
-  /* Scrollable content area */
   .scrollable-content {
     flex: 1;
+    overflow-y: auto;
     min-height: 0;
-    overflow-y: scroll;
   }
 
   /* Track list */
