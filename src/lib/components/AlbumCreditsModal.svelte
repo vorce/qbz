@@ -1,6 +1,5 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import Modal from './Modal.svelte';
   import { Play, ChevronDown, ChevronUp, Loader2, X } from 'lucide-svelte';
   import type { AlbumCredits, TrackCredits } from '$lib/types';
 
@@ -64,59 +63,51 @@
     e.stopPropagation();
     onTrackPlay?.(track);
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      onClose();
+    }
+  }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 {#if isOpen}
   <div class="modal-overlay" onclick={onClose} role="dialog" aria-modal="true">
     <div class="credits-modal" onclick={(e) => e.stopPropagation()}>
-      <!-- Header with tabs -->
-      <div class="modal-header">
-        <div class="tabs">
-          <button
-            class="tab"
-            class:active={activeTab === 'credits'}
-            onclick={() => activeTab = 'credits'}
-          >
-            Credits
-          </button>
-          <button
-            class="tab"
-            class:active={activeTab === 'review'}
-            class:disabled={!hasReview}
-            disabled={!hasReview}
-            onclick={() => hasReview && (activeTab = 'review')}
-          >
-            Review
+      {#if loading}
+        <div class="loading-state">
+          <Loader2 size={32} class="spinner" />
+          <span>Loading credits...</span>
+        </div>
+      {:else if error}
+        <div class="error-state">
+          <p>Failed to load album credits</p>
+          <span class="error-message">{error}</span>
+        </div>
+      {:else if credits}
+        <!-- Header with title and artist -->
+        <div class="modal-header">
+          <div class="header-titles">
+            <h2 class="album-title">{credits.album.title}</h2>
+            <span class="album-artist">{credits.album.artist}</span>
+          </div>
+          <button class="close-btn" onclick={onClose} aria-label="Close">
+            <X size={18} />
           </button>
         </div>
-        <button class="close-btn" onclick={onClose} aria-label="Close">
-          <X size={20} />
-        </button>
-      </div>
 
-      <!-- Content -->
-      <div class="modal-content">
-        {#if loading}
-          <div class="loading-state">
-            <Loader2 size={32} class="spinner" />
-            <span>Loading credits...</span>
-          </div>
-        {:else if error}
-          <div class="error-state">
-            <p>Failed to load album credits</p>
-            <span class="error-message">{error}</span>
-          </div>
-        {:else if credits}
-          <div class="credits-layout">
-            <!-- Left column: Album info -->
-            <div class="album-info">
+        <!-- Two-column layout -->
+        <div class="modal-body">
+          <!-- Left column: Album info (fixed, no scroll) -->
+          <div class="album-column">
+            <div class="album-info-scroll">
               <img
                 src={credits.album.artwork}
                 alt={credits.album.title}
                 class="album-artwork"
               />
-              <h2 class="album-title">{credits.album.title}</h2>
-              <p class="album-artist">{credits.album.artist}</p>
 
               <div class="album-meta">
                 {#if credits.album.label}
@@ -144,22 +135,38 @@
                     <span class="badge">{credits.album.bit_depth}-Bit</span>
                   {/if}
                   {#if credits.album.sampling_rate}
-                    <span class="badge">{credits.album.sampling_rate} kHz - Stereo</span>
+                    <span class="badge">{credits.album.sampling_rate} kHz</span>
                   {/if}
                 </div>
               </div>
             </div>
 
-            <!-- Right column: Content based on active tab -->
+            <!-- Tab switcher (only shown if review exists) -->
+            {#if hasReview}
+              <div class="tab-switcher">
+                <button
+                  class="tab-btn"
+                  class:active={activeTab === 'review'}
+                  onclick={() => activeTab = 'review'}
+                >
+                  Review
+                </button>
+              </div>
+            {/if}
+          </div>
+
+          <!-- Right column: Track list or Review (scrollable) -->
+          <div class="content-column">
             {#if activeTab === 'credits'}
               <div class="tracks-list">
-                {#each credits.tracks as track (track.id)}
+                {#each credits.tracks as track, index (track.id)}
                   {@const isExpanded = expandedTracks.has(track.id)}
                   {@const isHovered = hoveredTrack === track.id}
                   {@const hasCredits = track.performers.length > 0 || track.copyright}
+                  {@const isLast = index === credits.tracks.length - 1}
 
                   <div
-                    class="track-panel"
+                    class="track-item"
                     class:expanded={isExpanded}
                     class:has-credits={hasCredits}
                   >
@@ -209,11 +216,15 @@
                           </div>
                         {/each}
                         {#if track.copyright}
-                          <div class="copyright">{track.copyright}</div>
+                          <div class="track-copyright">{track.copyright}</div>
                         {/if}
                       </div>
                     {/if}
                   </div>
+
+                  {#if !isLast}
+                    <div class="track-divider"></div>
+                  {/if}
                 {/each}
               </div>
             {:else if activeTab === 'review' && credits.album.description}
@@ -224,8 +235,8 @@
               </div>
             {/if}
           </div>
-        {/if}
-      </div>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -234,13 +245,12 @@
   .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.75);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    animation: fade-in 150ms ease;
+    animation: fade-in 200ms ease-out;
   }
 
   @keyframes fade-in {
@@ -249,85 +259,29 @@
   }
 
   .credits-modal {
-    background: var(--bg-primary);
-    border: 1px solid var(--bg-tertiary);
+    background: rgba(26, 26, 26, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
     width: 100%;
-    max-width: 700px;
-    max-height: 80vh;
+    max-width: 800px;
+    height: calc(80vh - 5px);
     display: flex;
     flex-direction: column;
-    animation: slide-up 200ms ease;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+    animation: slide-up 200ms ease-out;
+    margin: 20px;
   }
 
   @keyframes slide-up {
     from {
       opacity: 0;
-      transform: translateY(20px) scale(0.98);
+      transform: scale(0.95);
     }
     to {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: scale(1);
     }
-  }
-
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--bg-tertiary);
-  }
-
-  .tabs {
-    display: flex;
-    gap: 24px;
-  }
-
-  .tab {
-    background: none;
-    border: none;
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 0;
-    transition: color 150ms ease;
-  }
-
-  .tab.active {
-    color: var(--accent-primary);
-  }
-
-  .tab.disabled {
-    color: var(--text-muted);
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: transparent;
-    border: none;
-    border-radius: 6px;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .close-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
-
-  .modal-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
   }
 
   .loading-state {
@@ -338,6 +292,7 @@
     gap: 12px;
     padding: 60px 20px;
     color: var(--text-muted);
+    flex: 1;
   }
 
   .loading-state :global(.spinner) {
@@ -353,6 +308,11 @@
     text-align: center;
     padding: 60px 20px;
     color: var(--text-muted);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
 
   .error-message {
@@ -362,15 +322,78 @@
     color: var(--danger);
   }
 
-  .credits-layout {
+  /* Header */
+  .modal-header {
     display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 16px 24px;
+    flex-shrink: 0;
+  }
+
+  .header-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+    padding-right: 16px;
+  }
+
+  .album-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+
+  .album-artist {
+    font-size: 13px;
+    color: var(--text-tertiary, #888888);
+  }
+
+  .close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 200ms ease, color 200ms ease;
+  }
+
+  .close-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  /* Two-column body */
+  .modal-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    padding: 0 24px 24px;
     gap: 24px;
   }
 
-  /* Album Info - Left Column */
-  .album-info {
+  /* Left column: Album info */
+  .album-column {
     width: 200px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .album-info-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
   }
 
   .album-artwork {
@@ -380,21 +403,8 @@
     object-fit: cover;
   }
 
-  .album-title {
-    margin: 16px 0 4px;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-    line-height: 1.3;
-  }
-
-  .album-artist {
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin: 0 0 16px;
-  }
-
   .album-meta {
+    margin-top: 16px;
     font-size: 13px;
     color: var(--text-muted);
   }
@@ -439,23 +449,52 @@
     color: var(--text-secondary);
   }
 
-  /* Tracks List - Right Column */
-  .tracks-list {
+  /* Tab switcher at bottom of album column */
+  .tab-switcher {
+    flex-shrink: 0;
+    padding-top: 16px;
+    margin-top: auto;
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    transition: color 150ms ease;
+  }
+
+  .tab-btn:hover {
+    color: var(--text-secondary);
+  }
+
+  .tab-btn.active {
+    color: var(--accent-primary);
+  }
+
+  /* Right column: Content */
+  .content-column {
     flex: 1;
     min-width: 0;
+    overflow-y: auto;
+  }
+
+  /* Track list */
+  .tracks-list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
   }
 
-  .track-panel {
-    background: var(--bg-secondary);
-    border-radius: 6px;
-    overflow: hidden;
+  .track-item {
+    /* No background */
   }
 
-  .track-panel.expanded {
-    background: var(--bg-tertiary);
+  .track-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .track-header {
@@ -463,16 +502,16 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 12px;
+    padding: 10px 0;
     background: none;
     border: none;
     text-align: left;
     cursor: pointer;
-    transition: background 150ms ease;
+    transition: opacity 150ms ease;
   }
 
   .track-header:hover:not(:disabled) {
-    background: var(--bg-hover);
+    opacity: 0.8;
   }
 
   .track-header:disabled {
@@ -487,6 +526,7 @@
     justify-content: center;
     font-size: 14px;
     color: var(--text-muted);
+    flex-shrink: 0;
   }
 
   .play-btn {
@@ -504,7 +544,7 @@
   }
 
   .play-btn:hover {
-    transform: scale(1.1);
+    transform: scale(1.05);
     background: var(--accent-hover);
   }
 
@@ -535,15 +575,15 @@
 
   .track-chevron {
     color: var(--text-muted);
-    transition: transform 150ms ease;
+    flex-shrink: 0;
   }
 
-  .track-panel.expanded .track-chevron {
+  .track-item.expanded .track-chevron {
     color: var(--text-primary);
   }
 
   .track-credits {
-    padding: 0 12px 12px 52px;
+    padding: 0 0 12px 40px;
     font-size: 13px;
   }
 
@@ -561,19 +601,17 @@
     color: var(--text-muted);
   }
 
-  .copyright {
+  .track-copyright {
     margin-top: 8px;
     padding-top: 8px;
-    border-top: 1px solid var(--bg-hover);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
     font-size: 12px;
     color: var(--text-muted);
   }
 
   /* Review Content */
   .review-content {
-    flex: 1;
-    min-width: 0;
-    overflow-y: auto;
+    padding-right: 8px;
   }
 
   .review-text {
@@ -608,5 +646,27 @@
   .review-text :global(em),
   .review-text :global(i) {
     font-style: italic;
+  }
+
+  /* Scrollbar styling for content column */
+  .content-column::-webkit-scrollbar,
+  .album-info-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .content-column::-webkit-scrollbar-track,
+  .album-info-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .content-column::-webkit-scrollbar-thumb,
+  .album-info-scroll::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+  }
+
+  .content-column::-webkit-scrollbar-thumb:hover,
+  .album-info-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
   }
 </style>
