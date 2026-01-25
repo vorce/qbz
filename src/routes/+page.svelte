@@ -1630,7 +1630,10 @@
     openPlaylistModal('addTrack', trackIds, isLocal);
   }
 
-  function handlePlaylistCreated() {
+  function handlePlaylistCreated(playlist?: import('$lib/types').Playlist) {
+    const trackCount = playlistModalTrackIds.length;
+    const isLocal = playlistModalTracksAreLocal;
+
     if (playlistModalMode === 'addTrack') {
       showToast('Track(s) added to playlist', 'success');
     } else {
@@ -1639,6 +1642,17 @@
     sidebarRef?.refreshPlaylists();
     sidebarRef?.refreshPlaylistSettings();
     sidebarRef?.refreshLocalTrackCounts();
+
+    // If a newly created playlist is provided, ensure the sidebar has the correct count
+    // This handles API eventual consistency where tracks_count might be stale
+    if (playlist && playlist.id > 0 && trackCount > 0) {
+      // Small delay to let refreshPlaylists complete, then override with correct count
+      setTimeout(() => {
+        const qobuzCount = isLocal ? 0 : trackCount;
+        const localCount = isLocal ? trackCount : 0;
+        sidebarRef?.updatePlaylistCounts(playlist.id, qobuzCount, localCount);
+      }, 100);
+    }
   }
 
   function openImportPlaylist() {

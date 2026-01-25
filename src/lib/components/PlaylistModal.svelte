@@ -378,6 +378,8 @@
           });
           void logPlaylistAdd(trackIds, newPlaylist.id);
         }
+        // Update tracks_count to reflect added tracks (API returns 0 at creation)
+        newPlaylist.tracks_count = isLocalTracks ? 0 : trackIds.length;
       }
 
       onSuccess?.(newPlaylist);
