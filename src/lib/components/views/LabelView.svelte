@@ -159,6 +159,10 @@
     return '';
   }
 
+  function getGenreLabel(album: QobuzAlbum): string {
+    return album.genre?.name || '';
+  }
+
   function clearSearch() {
     searchQuery = '';
   }
@@ -273,6 +277,7 @@
             artwork={album.image?.large || album.image?.thumbnail || ''}
             title={album.title}
             artist={album.artist?.name || 'Unknown Artist'}
+            genre={getGenreLabel(album)}
             quality={getQualityLabel(album)}
             size="large"
             onclick={() => onAlbumClick?.(album.id)}

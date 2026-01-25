@@ -327,7 +327,7 @@
   let isArtistAlbumsLoading = $state(false);
 
   // Artist albums for "By the same artist" section in album view
-  let albumArtistAlbums = $state<{ id: string; title: string; artwork: string; quality: string }[]>([]);
+  let albumArtistAlbums = $state<{ id: string; title: string; artwork: string; quality: string; genre: string }[]>([]);
 
   // Overlay States (from uiStore subscription)
   let isQueueOpen = $state(false);
@@ -447,13 +447,15 @@
           id: a.id,
           title: a.title,
           artwork: a.artwork,
-          quality: a.quality
+          quality: a.quality,
+          genre: a.genre
         })),
         ...artistDetail.liveAlbums.map(a => ({
           id: a.id,
           title: a.title,
           artwork: a.artwork,
-          quality: a.quality
+          quality: a.quality,
+          genre: a.genre
         }))
       ].slice(0, 16);
 

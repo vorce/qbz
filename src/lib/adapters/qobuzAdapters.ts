@@ -285,7 +285,8 @@ function buildCompilationAlbums(tracks: QobuzTrack[] | undefined): ArtistAlbumSu
         track.hires_streamable,
         track.maximum_bit_depth,
         track.maximum_sampling_rate
-      )
+      ),
+      genre: album.genre?.name || ''
     });
   }
 

@@ -22,6 +22,7 @@ export interface QobuzTrack {
     title: string;
     image?: QobuzImage;
     label?: { id: number; name: string };
+    genre?: { name: string };
   };
   performer?: { id?: number; name: string };
   hires_streamable?: boolean;
