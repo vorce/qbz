@@ -1,0 +1,546 @@
+<script lang="ts">
+  import { invoke } from '@tauri-apps/api/core';
+  import Modal from './Modal.svelte';
+  import { Play, ChevronDown, ChevronUp, Loader2, X } from 'lucide-svelte';
+  import type { AlbumCredits, TrackCredits } from '$lib/types';
+
+  interface Props {
+    isOpen: boolean;
+    albumId: string | null;
+    onClose: () => void;
+    onTrackPlay?: (track: TrackCredits) => void;
+  }
+
+  let { isOpen, albumId, onClose, onTrackPlay }: Props = $props();
+
+  let loading = $state(false);
+  let error = $state<string | null>(null);
+  let credits = $state<AlbumCredits | null>(null);
+  let expandedTracks = $state<Set<number>>(new Set());
+  let hoveredTrack = $state<number | null>(null);
+
+  // Load album credits when modal opens
+  $effect(() => {
+    if (isOpen && albumId) {
+      loadAlbumCredits(albumId);
+    } else {
+      credits = null;
+      error = null;
+      expandedTracks = new Set();
+    }
+  });
+
+  async function loadAlbumCredits(id: string) {
+    loading = true;
+    error = null;
+    try {
+      credits = await invoke<AlbumCredits>('get_album_credits', { albumId: id });
+      // Auto-expand first track if it has credits
+      if (credits.tracks.length > 0 && credits.tracks[0].performers.length > 0) {
+        expandedTracks = new Set([credits.tracks[0].id]);
+      }
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+      credits = null;
+    } finally {
+      loading = false;
+    }
+  }
+
+  function toggleTrack(trackId: number) {
+    const newSet = new Set(expandedTracks);
+    if (newSet.has(trackId)) {
+      newSet.delete(trackId);
+    } else {
+      newSet.add(trackId);
+    }
+    expandedTracks = newSet;
+  }
+
+  function handleTrackPlay(track: TrackCredits, e: MouseEvent) {
+    e.stopPropagation();
+    onTrackPlay?.(track);
+  }
+</script>
+
+{#if isOpen}
+  <div class="modal-overlay" onclick={onClose} role="dialog" aria-modal="true">
+    <div class="credits-modal" onclick={(e) => e.stopPropagation()}>
+      <!-- Header with tabs -->
+      <div class="modal-header">
+        <div class="tabs">
+          <button class="tab active">Credits</button>
+          <button class="tab disabled" disabled>Review</button>
+        </div>
+        <button class="close-btn" onclick={onClose} aria-label="Close">
+          <X size={20} />
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="modal-content">
+        {#if loading}
+          <div class="loading-state">
+            <Loader2 size={32} class="spinner" />
+            <span>Loading credits...</span>
+          </div>
+        {:else if error}
+          <div class="error-state">
+            <p>Failed to load album credits</p>
+            <span class="error-message">{error}</span>
+          </div>
+        {:else if credits}
+          <div class="credits-layout">
+            <!-- Left column: Album info -->
+            <div class="album-info">
+              <img
+                src={credits.album.artwork}
+                alt={credits.album.title}
+                class="album-artwork"
+              />
+              <h2 class="album-title">{credits.album.title}</h2>
+              <p class="album-artist">{credits.album.artist}</p>
+
+              <div class="album-meta">
+                {#if credits.album.label}
+                  <p class="meta-row">
+                    <span class="meta-label">Released by</span>
+                    <span class="meta-value label-name">{credits.album.label}</span>
+                    {#if credits.album.release_date}
+                      <span class="meta-date">on {new Date(credits.album.release_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                    {/if}
+                  </p>
+                {/if}
+
+                {#if credits.album.genre}
+                  <p class="meta-row">
+                    <span class="meta-value">{credits.album.genre}</span>
+                    <span class="meta-separator">-</span>
+                    <span class="meta-value">{credits.album.track_count} Tracks</span>
+                    <span class="meta-separator">-</span>
+                    <span class="meta-value">{credits.album.duration}</span>
+                  </p>
+                {/if}
+
+                <div class="quality-badges">
+                  {#if credits.album.bit_depth}
+                    <span class="badge">{credits.album.bit_depth}-Bit</span>
+                  {/if}
+                  {#if credits.album.sampling_rate}
+                    <span class="badge">{credits.album.sampling_rate} kHz - Stereo</span>
+                  {/if}
+                </div>
+              </div>
+            </div>
+
+            <!-- Right column: Track list -->
+            <div class="tracks-list">
+              {#each credits.tracks as track (track.id)}
+                {@const isExpanded = expandedTracks.has(track.id)}
+                {@const isHovered = hoveredTrack === track.id}
+                {@const hasCredits = track.performers.length > 0 || track.copyright}
+
+                <div
+                  class="track-panel"
+                  class:expanded={isExpanded}
+                  class:has-credits={hasCredits}
+                >
+                  <button
+                    class="track-header"
+                    onclick={() => hasCredits && toggleTrack(track.id)}
+                    onmouseenter={() => hoveredTrack = track.id}
+                    onmouseleave={() => hoveredTrack = null}
+                    disabled={!hasCredits}
+                  >
+                    <div class="track-number">
+                      {#if isHovered && onTrackPlay}
+                        <button
+                          class="play-btn"
+                          onclick={(e) => handleTrackPlay(track, e)}
+                          aria-label="Play track"
+                        >
+                          <Play size={14} fill="currentColor" />
+                        </button>
+                      {:else}
+                        <span>{track.number}</span>
+                      {/if}
+                    </div>
+                    <div class="track-info">
+                      <span class="track-title">{track.title}</span>
+                      <span class="track-artist">{track.artist}</span>
+                    </div>
+                    {#if hasCredits}
+                      <div class="track-chevron">
+                        {#if isExpanded}
+                          <ChevronUp size={18} />
+                        {:else}
+                          <ChevronDown size={18} />
+                        {/if}
+                      </div>
+                    {/if}
+                  </button>
+
+                  {#if isExpanded && hasCredits}
+                    <div class="track-credits">
+                      {#each track.performers as performer}
+                        <div class="performer-row">
+                          <span class="performer-name">{performer.name}</span>
+                          {#if performer.roles.length > 0}
+                            <span class="performer-roles">, {performer.roles.join(', ')}</span>
+                          {/if}
+                        </div>
+                      {/each}
+                      {#if track.copyright}
+                        <div class="copyright">{track.copyright}</div>
+                      {/if}
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
+
+<style>
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fade-in 150ms ease;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .credits-modal {
+    background: var(--bg-primary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 700px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    animation: slide-up 200ms ease;
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--bg-tertiary);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 24px;
+  }
+
+  .tab {
+    background: none;
+    border: none;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    transition: color 150ms ease;
+  }
+
+  .tab.active {
+    color: var(--accent-primary);
+  }
+
+  .tab.disabled {
+    color: var(--text-muted);
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .close-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  .loading-state :global(.spinner) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .error-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  .error-message {
+    display: block;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--danger);
+  }
+
+  .credits-layout {
+    display: flex;
+    gap: 24px;
+  }
+
+  /* Album Info - Left Column */
+  .album-info {
+    width: 200px;
+    flex-shrink: 0;
+  }
+
+  .album-artwork {
+    width: 200px;
+    height: 200px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+
+  .album-title {
+    margin: 16px 0 4px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+
+  .album-artist {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 16px;
+  }
+
+  .album-meta {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .meta-row {
+    margin: 0 0 8px;
+    line-height: 1.4;
+  }
+
+  .meta-label {
+    display: block;
+    color: var(--text-muted);
+  }
+
+  .label-name {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .meta-date {
+    display: block;
+    color: var(--text-muted);
+  }
+
+  .meta-separator {
+    margin: 0 4px;
+  }
+
+  .quality-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .badge {
+    padding: 4px 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  /* Tracks List - Right Column */
+  .tracks-list {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .track-panel {
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .track-panel.expanded {
+    background: var(--bg-tertiary);
+  }
+
+  .track-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 150ms ease;
+  }
+
+  .track-header:hover:not(:disabled) {
+    background: var(--bg-hover);
+  }
+
+  .track-header:disabled {
+    cursor: default;
+  }
+
+  .track-number {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .play-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-primary);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    transition: transform 150ms ease, background 150ms ease;
+  }
+
+  .play-btn:hover {
+    transform: scale(1.1);
+    background: var(--accent-hover);
+  }
+
+  .track-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .track-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .track-artist {
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .track-chevron {
+    color: var(--text-muted);
+    transition: transform 150ms ease;
+  }
+
+  .track-panel.expanded .track-chevron {
+    color: var(--text-primary);
+  }
+
+  .track-credits {
+    padding: 0 12px 12px 52px;
+    font-size: 13px;
+  }
+
+  .performer-row {
+    padding: 4px 0;
+    color: var(--text-secondary);
+  }
+
+  .performer-name {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .performer-roles {
+    color: var(--text-muted);
+  }
+
+  .copyright {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--bg-hover);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+</style>

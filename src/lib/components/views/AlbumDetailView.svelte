@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { ArrowLeft, Play, Shuffle, Heart, CloudDownload, ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import { ArrowLeft, Play, Shuffle, Heart, CloudDownload, ChevronLeft, ChevronRight, Info } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import AlbumMenu from '../AlbumMenu.svelte';
@@ -90,6 +90,7 @@
     onRelatedAlbumShareSonglink?: (albumId: string) => void;
     onViewArtistDiscography?: () => void;
     checkRelatedAlbumDownloaded?: (albumId: string) => Promise<boolean>;
+    onShowAlbumCredits?: () => void;
   }
 
   let {
@@ -132,7 +133,8 @@
     onRelatedAlbumShareQobuz,
     onRelatedAlbumShareSonglink,
     onViewArtistDiscography,
-    checkRelatedAlbumDownloaded
+    checkRelatedAlbumDownloaded,
+    onShowAlbumCredits
   }: Props = $props();
 
   let isFavorite = $state(false);
@@ -349,6 +351,15 @@
             fill={isFavorite ? 'var(--accent-primary)' : 'none'}
           />
         </button>
+        {#if onShowAlbumCredits}
+          <button
+            class="action-btn-circle"
+            onclick={onShowAlbumCredits}
+            title="Album credits"
+          >
+            <Info size={18} />
+          </button>
+        {/if}
         <AlbumMenu
           onPlayNext={onPlayAllNext}
           onPlayLater={onPlayAllLater}

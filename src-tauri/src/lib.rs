@@ -485,6 +485,7 @@ pub fn run() {
             commands::get_current_user_id,
             commands::subscribe_playlist,
             commands::get_track_info,
+            commands::get_album_credits,
             // Playlist import commands
             commands::playlist_import_preview,
             commands::playlist_import_execute,

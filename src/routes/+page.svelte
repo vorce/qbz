@@ -283,6 +283,7 @@
   import PlaylistModal from '$lib/components/PlaylistModal.svelte';
   import PlaylistImportModal from '$lib/components/PlaylistImportModal.svelte';
   import TrackInfoModal from '$lib/components/TrackInfoModal.svelte';
+  import AlbumCreditsModal from '$lib/components/AlbumCreditsModal.svelte';
   import CastPicker from '$lib/components/CastPicker.svelte';
   import LyricsSidebar from '$lib/components/lyrics/LyricsSidebar.svelte';
   import OfflinePlaceholder from '$lib/components/OfflinePlaceholder.svelte';
@@ -343,6 +344,10 @@
   let isTrackInfoOpen = $state(false);
   let trackInfoTrackId = $state<number | null>(null);
   let userPlaylists = $state<{ id: number; name: string; tracks_count: number }[]>([]);
+
+  // Album Credits Modal State
+  let isAlbumCreditsOpen = $state(false);
+  let albumCreditsAlbumId = $state<string | null>(null);
   
   // Sidebar reference for refreshing playlists
   let sidebarRef: { getPlaylists: () => { id: number; name: string; tracks_count: number }[], refreshPlaylists: () => void } | undefined;
@@ -1678,6 +1683,12 @@
     isTrackInfoOpen = true;
   }
 
+  // Album Credits Modal
+  function showAlbumCredits(albumId: string) {
+    albumCreditsAlbumId = albumId;
+    isAlbumCreditsOpen = true;
+  }
+
   // Auth Handlers
   async function handleStartOffline() {
     // Enable manual offline mode and enter app without authentication
@@ -2501,6 +2512,7 @@
           onRelatedAlbumShareSonglink={shareAlbumSonglinkById}
           onViewArtistDiscography={handleViewArtistDiscography}
           checkRelatedAlbumDownloaded={checkAlbumFullyDownloaded}
+          onShowAlbumCredits={() => selectedAlbum && showAlbumCredits(selectedAlbum.id)}
         />
       {:else if activeView === 'artist' && selectedArtist}
         <ArtistDetailView
@@ -2849,6 +2861,25 @@
       onClose={() => {
         isTrackInfoOpen = false;
         trackInfoTrackId = null;
+      }}
+    />
+
+    <!-- Album Credits Modal -->
+    <AlbumCreditsModal
+      isOpen={isAlbumCreditsOpen}
+      albumId={albumCreditsAlbumId}
+      onClose={() => {
+        isAlbumCreditsOpen = false;
+        albumCreditsAlbumId = null;
+      }}
+      onTrackPlay={(trackCredits) => {
+        // Find the corresponding track in the selected album and play it
+        if (selectedAlbum?.tracks) {
+          const track = selectedAlbum.tracks.find(t => t.id === trackCredits.id);
+          if (track) {
+            handleAlbumTrackPlay(track);
+          }
+        }
       }}
     />
 

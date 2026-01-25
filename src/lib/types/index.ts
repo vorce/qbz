@@ -44,6 +44,42 @@ export interface TrackInfo {
   performers: Performer[];
 }
 
+// Album credits - consolidated view from album header
+export interface AlbumCredits {
+  album: AlbumInfo;
+  tracks: TrackCredits[];
+}
+
+export interface AlbumInfo {
+  id: string;
+  artwork: string;
+  title: string;
+  artist: string;
+  artist_id?: number;
+  year: string;
+  release_date?: string;
+  label: string;
+  genre: string;
+  quality: string;
+  track_count: number;
+  duration: string;
+  bit_depth?: number;
+  sampling_rate?: number;
+}
+
+export interface TrackCredits {
+  id: number;
+  number: number;
+  title: string;
+  artist: string;
+  duration: string;
+  duration_seconds: number;
+  performers: Performer[];
+  copyright?: string;
+  album_id?: string;
+  artist_id?: number;
+}
+
 export interface QobuzAlbum {
   id: string;
   title: string;
