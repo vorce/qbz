@@ -2029,7 +2029,7 @@
   }
 </script>
 
-<div class="library-view">
+<div class="library-view" class:virtualized-active={activeTab === 'albums' && !showHiddenAlbums && albums.length > 0}>
   {#if selectedAlbum}
     {@const albumSections = buildAlbumSections(albumTracks)}
     {@const showDiscHeaders = albumSections.length > 1}
@@ -2895,6 +2895,11 @@
     padding-right: 8px;
     overflow-y: auto;
     height: 100%;
+  }
+
+  .library-view.virtualized-active {
+    overflow: hidden;
+    padding-bottom: 0;
   }
 
   /* Custom scrollbar */
