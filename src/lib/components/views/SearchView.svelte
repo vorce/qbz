@@ -26,6 +26,12 @@
     calculateAlbumsPerPage();
     calculateArtistsPerPage();
     window.addEventListener('resize', handleResize);
+
+    // Auto-search if query is pre-filled (e.g., from performer link)
+    if (query.trim().length >= 2 && !allResults && !albumResults && !trackResults && !artistResults) {
+      performSearch();
+    }
+
     return () => window.removeEventListener('resize', handleResize);
   });
 

@@ -8,9 +8,10 @@
     trackId: number | null;
     onClose: () => void;
     onArtistClick?: (artistId: number) => void;
+    onPerformerSearch?: (name: string) => void;
   }
 
-  let { isOpen, trackId, onClose, onArtistClick }: Props = $props();
+  let { isOpen, trackId, onClose, onArtistClick, onPerformerSearch }: Props = $props();
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -195,7 +196,18 @@
               {#each groupedCredits as { role, names }}
                 <div class="credit-item">
                   <span class="credit-label">{formatRole(role)}</span>
-                  <span class="credit-value">{names.join(', ')}</span>
+                  <span class="credit-value">
+                    {#each names as name, i}
+                      {#if onPerformerSearch}
+                        <button
+                          class="performer-link"
+                          onclick={() => { onPerformerSearch(name); onClose(); }}
+                        >{name}</button>{#if i < names.length - 1}, {/if}
+                      {:else}
+                        {name}{#if i < names.length - 1}, {/if}
+                      {/if}
+                    {/each}
+                  </span>
                 </div>
               {/each}
             </div>
@@ -431,6 +443,21 @@
   .credit-value {
     font-size: 14px;
     color: var(--text-primary);
+  }
+
+  .performer-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  .performer-link:hover {
+    color: var(--accent-primary);
+    text-decoration: underline;
   }
 
   /* Copyright */

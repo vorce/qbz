@@ -145,9 +145,9 @@
             </div>
           </div>
 
-          <!-- Right column: Track list or Review (scrollable) -->
+          <!-- Right column: Track list or Review -->
           <div class="content-column">
-            <!-- Tab switcher (only shown if review exists) -->
+            <!-- Tab switcher (fixed at top, only shown if review exists) -->
             {#if hasReview}
               <div class="tab-switcher">
                 <button
@@ -167,8 +167,10 @@
               </div>
             {/if}
 
-            {#if activeTab === 'credits'}
-              <div class="tracks-list">
+            <!-- Scrollable content area -->
+            <div class="scrollable-content">
+              {#if activeTab === 'credits'}
+                <div class="tracks-list">
                 {#each credits.tracks as track, index (track.id)}
                   {@const isExpanded = expandedTracks.has(track.id)}
                   {@const isHovered = hoveredTrack === track.id}
@@ -237,13 +239,14 @@
                   {/if}
                 {/each}
               </div>
-            {:else if activeTab === 'review' && credits.album.description}
-              <div class="review-content">
-                <div class="review-text">
-                  {@html credits.album.description}
+              {:else if activeTab === 'review' && credits.album.description}
+                <div class="review-content">
+                  <div class="review-text">
+                    {@html credits.album.description}
+                  </div>
                 </div>
-              </div>
-            {/if}
+              {/if}
+            </div>
           </div>
         </div>
       {/if}
@@ -482,9 +485,15 @@
   .content-column {
     flex: 1;
     min-width: 0;
-    overflow-y: scroll;
     display: flex;
     flex-direction: column;
+  }
+
+  /* Scrollable content area */
+  .scrollable-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: scroll;
   }
 
   /* Track list */
@@ -654,22 +663,22 @@
     font-style: italic;
   }
 
-  /* Scrollbar styling for content column */
-  .content-column::-webkit-scrollbar {
+  /* Scrollbar styling for scrollable content */
+  .scrollable-content::-webkit-scrollbar {
     width: 8px;
   }
 
-  .content-column::-webkit-scrollbar-track {
+  .scrollable-content::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 4px;
   }
 
-  .content-column::-webkit-scrollbar-thumb {
+  .scrollable-content::-webkit-scrollbar-thumb {
     background: var(--bg-tertiary);
     border-radius: 4px;
   }
 
-  .content-column::-webkit-scrollbar-thumb:hover {
+  .scrollable-content::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
   }
 

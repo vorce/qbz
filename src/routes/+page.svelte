@@ -26,6 +26,9 @@
     type Toast as ToastData
   } from '$lib/stores/toastStore';
 
+  // Search state for performer search
+  import { setSearchState } from '$lib/stores/searchState';
+
   // Playback context and preferences
   import { 
     initPlaybackContextStore,
@@ -491,6 +494,22 @@
       console.error('Failed to load artist:', err);
       showToast('Failed to load artist', 'error');
     }
+  }
+
+  /**
+   * Search for a performer by name (from track credits)
+   */
+  function searchForPerformer(name: string) {
+    // Set search state with performer name, clear previous results to trigger auto-search
+    setSearchState({
+      query: name,
+      activeTab: 'all',
+      albumResults: null,
+      trackResults: null,
+      artistResults: null,
+      allResults: null
+    });
+    navigateTo('search');
   }
 
   /**
@@ -2865,6 +2884,7 @@
         trackInfoTrackId = null;
       }}
       onArtistClick={handleArtistClick}
+      onPerformerSearch={searchForPerformer}
     />
 
     <!-- Album Credits Modal -->
