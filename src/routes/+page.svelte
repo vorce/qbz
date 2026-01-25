@@ -2546,9 +2546,14 @@
           }
           onPlaylistUpdated={() => {
             sidebarRef?.refreshPlaylists();
+            sidebarRef?.refreshPlaylistSettings();
             sidebarRef?.refreshLocalTrackCounts();
           }}
-          onPlaylistDeleted={() => { sidebarRef?.refreshPlaylists(); navGoBack(); }}
+          onPlaylistDeleted={() => {
+            sidebarRef?.refreshPlaylists();
+            sidebarRef?.refreshPlaylistSettings();
+            navGoBack();
+          }}
         />
       {:else if isFavoritesView(activeView)}
         {#if offlineStatus.isOffline}
@@ -2594,6 +2599,11 @@
         <PlaylistManagerView
           onBack={navGoBack}
           onPlaylistSelect={selectPlaylist}
+          onPlaylistsChanged={() => {
+            sidebarRef?.refreshPlaylists();
+            sidebarRef?.refreshPlaylistSettings();
+            sidebarRef?.refreshLocalTrackCounts();
+          }}
         />
       {/if}
     </main>

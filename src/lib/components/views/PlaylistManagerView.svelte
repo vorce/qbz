@@ -45,9 +45,10 @@
   interface Props {
     onBack?: () => void;
     onPlaylistSelect?: (playlistId: number) => void;
+    onPlaylistsChanged?: () => void;
   }
 
-  let { onBack, onPlaylistSelect }: Props = $props();
+  let { onBack, onPlaylistSelect, onPlaylistsChanged }: Props = $props();
 
   let playlists = $state<Playlist[]>([]);
   let playlistSettings = $state<Map<number, PlaylistSettings>>(new Map());
@@ -335,12 +336,14 @@
     editModalOpen = false;
     editingPlaylist = null;
     loadData(); // Refresh
+    onPlaylistsChanged?.();
   }
 
   function handleDelete(playlistId: number) {
     editModalOpen = false;
     editingPlaylist = null;
     loadData(); // Refresh
+    onPlaylistsChanged?.();
   }
 
   async function toggleHidden(playlist: Playlist) {
@@ -351,6 +354,7 @@
       const updated = new Map(playlistSettings);
       updated.set(playlist.id, { ...current, qobuz_playlist_id: playlist.id, hidden: newHidden, position: current?.position ?? 0 });
       playlistSettings = updated;
+      onPlaylistsChanged?.();
     } catch (err) {
       console.error('Failed to toggle hidden:', err);
     }
@@ -364,6 +368,7 @@
       const updated = new Map(playlistSettings);
       updated.set(playlist.id, { ...current, qobuz_playlist_id: playlist.id, is_favorite: newFavorite, hidden: current?.hidden ?? false, position: current?.position ?? 0 });
       playlistSettings = updated;
+      onPlaylistsChanged?.();
     } catch (err) {
       console.error('Failed to toggle favorite:', err);
     }
@@ -418,6 +423,7 @@
         updated.set(id, { ...existing, qobuz_playlist_id: id, hidden: existing?.hidden ?? false, position: index });
       });
       playlistSettings = updated;
+      onPlaylistsChanged?.();
     } catch (err) {
       console.error('Failed to reorder playlists:', err);
     }
