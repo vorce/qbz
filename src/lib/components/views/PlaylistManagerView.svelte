@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { ArrowLeft, Filter, ArrowUpDown, LayoutGrid, List, GripVertical, EyeOff, Eye, BarChart2, Play, Pencil, Search, X, Cloud, CloudOff, Wifi, Heart, Folder, FolderPlus, ChevronRight, ChevronDown, Trash2 } from 'lucide-svelte';
+  import { ArrowLeft, Filter, ArrowUpDown, LayoutGrid, List, GripVertical, EyeOff, Eye, BarChart2, Play, Pencil, Search, X, Cloud, CloudOff, Wifi, Heart, Folder, FolderPlus, ChevronRight, ChevronDown, Trash2, Star, Music, Disc, Library } from 'lucide-svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
+  import FolderEditModal from '../FolderEditModal.svelte';
   import { t } from '$lib/i18n';
   import {
     subscribe as subscribeOffline,
@@ -108,7 +109,6 @@
   // Create/Edit folder modal state
   let showFolderModal = $state(false);
   let editingFolder = $state<PlaylistFolder | null>(null);
-  let folderName = $state('');
 
   // Persist preferences
   $effect(() => { localStorage.setItem('qbz-pm-filter', filter); });
@@ -537,50 +537,62 @@
 
   function openCreateFolderModal() {
     editingFolder = null;
-    folderName = '';
     showFolderModal = true;
   }
 
   function openEditFolderModal(folder: PlaylistFolder) {
     editingFolder = folder;
-    folderName = folder.name;
     showFolderModal = true;
   }
 
   function closeFolderModal() {
     showFolderModal = false;
     editingFolder = null;
-    folderName = '';
   }
 
-  async function handleSaveFolder() {
-    if (!folderName.trim()) return;
-
-    if (editingFolder) {
-      // Update existing folder (name only for now)
-      await updateFolder(editingFolder.id, {
-        name: folderName.trim()
+  async function handleSaveFolder(
+    folder: PlaylistFolder | null,
+    updates: {
+      name: string;
+      iconType: string;
+      iconPreset: string;
+      iconColor: string;
+      customImagePath?: string;
+    }
+  ) {
+    if (folder) {
+      // Update existing folder
+      await updateFolder(folder.id, {
+        name: updates.name,
+        iconType: updates.iconType,
+        iconPreset: updates.iconPreset,
+        iconColor: updates.iconColor,
+        customImagePath: updates.customImagePath
       });
     } else {
-      // Create new folder (simple, name only)
-      await createFolder(folderName.trim());
+      // Create new folder
+      await createFolder(
+        updates.name,
+        updates.iconType,
+        updates.iconPreset,
+        updates.iconColor
+      );
     }
 
     folders = getVisibleFolders();
     closeFolderModal();
+    onPlaylistsChanged?.();
   }
 
-  async function handleDeleteFolder() {
-    if (!editingFolder) return;
-
-    const confirmed = confirm(`Delete folder "${editingFolder.name}"? Playlists will be moved to root.`);
+  async function handleDeleteFolder(folder: PlaylistFolder) {
+    const confirmed = confirm(`Delete folder "${folder.name}"? Playlists will be moved to root.`);
     if (!confirmed) return;
 
-    await deleteFolder(editingFolder.id);
+    await deleteFolder(folder.id);
     folders = getVisibleFolders();
 
     // If we're inside the deleted folder, go back to root
-    if (currentFolderId === editingFolder.id) {
+    if (currentFolderId === folder.id) {
       currentFolderId = null;
     }
 
@@ -770,8 +782,22 @@
                   onclick={() => navigateToFolder(folder.id)}
                   onkeydown={(e) => e.key === 'Enter' && navigateToFolder(folder.id)}
                 >
-                  <div class="folder-icon">
-                    <Folder size={32} />
+                  <div class="folder-icon" style={folder.icon_color ? `background: ${folder.icon_color};` : ''}>
+                    {#if folder.icon_type === 'custom' && folder.custom_image_path}
+                      <img src={folder.custom_image_path} alt="" class="folder-custom-img" />
+                    {:else if folder.icon_preset === 'heart'}
+                      <Heart size={32} />
+                    {:else if folder.icon_preset === 'star'}
+                      <Star size={32} />
+                    {:else if folder.icon_preset === 'music'}
+                      <Music size={32} />
+                    {:else if folder.icon_preset === 'disc'}
+                      <Disc size={32} />
+                    {:else if folder.icon_preset === 'library'}
+                      <Library size={32} />
+                    {:else}
+                      <Folder size={32} />
+                    {/if}
                   </div>
                   <span class="folder-name">{folder.name}</span>
                   <span class="folder-count">{getPlaylistCountInFolder(folder.id)} playlists</span>
@@ -1000,43 +1026,13 @@
 </div>
 
 <!-- Folder Modal -->
-{#if showFolderModal}
-  <div class="modal-overlay" onclick={closeFolderModal} role="presentation">
-    <div class="modal-content folder-modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-      <h2 class="modal-title">{editingFolder ? 'Edit Folder' : 'New Folder'}</h2>
-      <div class="form-group">
-        <label for="folder-name-input">Name</label>
-        <input
-          id="folder-name-input"
-          type="text"
-          bind:value={folderName}
-          placeholder="Enter folder name"
-          onkeydown={(e) => e.key === 'Enter' && handleSaveFolder()}
-        />
-      </div>
-            <div class="modal-actions">
-        {#if editingFolder}
-          <button class="btn-danger" onclick={handleDeleteFolder}>
-            <Trash2 size={14} />
-            Delete
-          </button>
-        {/if}
-        <div class="modal-actions-right">
-          <button class="btn-secondary" onclick={closeFolderModal}>
-            Cancel
-          </button>
-          <button
-            class="btn-primary"
-            onclick={handleSaveFolder}
-            disabled={!folderName.trim()}
-          >
-            {editingFolder ? 'Save' : 'Create'}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-{/if}
+<FolderEditModal
+  isOpen={showFolderModal}
+  folder={editingFolder}
+  onClose={closeFolderModal}
+  onSave={handleSaveFolder}
+  onDelete={handleDeleteFolder}
+/>
 
 <!-- Edit Modal -->
 {#if editingPlaylist}
@@ -1213,6 +1209,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    color: var(--text-primary);
+  }
+
+  .folder-custom-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px;
   }
 
   .folder-name {
