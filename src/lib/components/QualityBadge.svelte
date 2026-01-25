@@ -13,21 +13,13 @@
     format
   }: Props = $props();
 
-  // Define lossy formats
-  const LOSSY_FORMATS = ['mp3', 'aac', 'm4a', 'ogg', 'opus', 'wma'];
-
   // Determine quality tier
   const tier = $derived.by(() => {
     const fmt = (format || quality || '').toLowerCase();
 
-    // Check for lossy formats FIRST - they should never be "CD" quality
-    const isLossyFormat = LOSSY_FORMATS.some(f => fmt.includes(f));
-    if (isLossyFormat) {
-      // MP3/lossy at CD-like sample rates gets special 'mp3-cd' tier
-      if (samplingRate && samplingRate >= 44.1 && samplingRate <= 48) {
-        return 'mp3-cd';
-      }
-      return 'lossy';
+    // Check for MP3 FIRST - it should never be "CD" quality
+    if (fmt.includes('mp3')) {
+      return 'mp3';
     }
 
     // Check bitDepth and samplingRate for lossless formats
@@ -78,12 +70,9 @@
       const rate = samplingRate || 44.1;
       return `${depth}-bit / ${rate} kHz`;
     }
-    if (tier === 'mp3-cd') {
+    if (tier === 'mp3') {
       const rate = samplingRate || 44.1;
-      return `${rate} kHz (Lossy)`;
-    }
-    if (tier === 'lossy') {
-      return '320 kbps';
+      return `${rate} kHz`;
     }
     return '16-bit / 44.1 kHz';
   });
@@ -92,8 +81,7 @@
     if (tier === 'max') return 'Hi-Res';
     if (tier === 'hires') return 'Hi-Res';
     if (tier === 'cd') return 'CD';
-    if (tier === 'mp3-cd') return 'MP3';
-    if (tier === 'lossy') return 'MP3';
+    if (tier === 'mp3') return 'MP3';
     return 'CD';
   });
 
@@ -101,8 +89,7 @@
   const iconPath = $derived.by(() => {
     if (tier === 'max' || tier === 'hires') return '/hi-res-gray.svg';
     if (tier === 'cd') return '/cd.svg';
-    if (tier === 'mp3-cd') return '/mp3-cd.svg';
-    if (tier === 'lossy') return '/mp3.svg';
+    if (tier === 'mp3') return '/mp3.svg';
     return '/cd.svg';
   });
 
