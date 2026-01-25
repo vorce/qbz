@@ -8,9 +8,10 @@
     albumId: string | null;
     onClose: () => void;
     onTrackPlay?: (track: TrackCredits) => void;
+    onPerformerSearch?: (name: string) => void;
   }
 
-  let { isOpen, albumId, onClose, onTrackPlay }: Props = $props();
+  let { isOpen, albumId, onClose, onTrackPlay, onPerformerSearch }: Props = $props();
 
   type TabType = 'credits' | 'review';
 
@@ -221,7 +222,14 @@
                       <div class="track-credits">
                         {#each track.performers as performer}
                           <div class="performer-row">
-                            <span class="performer-name">{performer.name}</span>
+                            {#if onPerformerSearch}
+                              <button
+                                class="performer-link"
+                                onclick={() => { onPerformerSearch(performer.name); onClose(); }}
+                              >{performer.name}</button>
+                            {:else}
+                              <span class="performer-name">{performer.name}</span>
+                            {/if}
                             {#if performer.roles.length > 0}
                               <span class="performer-roles">, {performer.roles.join(', ')}</span>
                             {/if}
@@ -610,6 +618,22 @@
   .performer-name {
     font-weight: 500;
     color: var(--text-primary);
+  }
+
+  .performer-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  .performer-link:hover {
+    color: var(--accent-primary);
+    text-decoration: underline;
   }
 
   .performer-roles {

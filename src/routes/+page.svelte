@@ -2904,6 +2904,7 @@
           }
         }
       }}
+      onPerformerSearch={searchForPerformer}
     />
 
     <!-- Cast Picker -->
