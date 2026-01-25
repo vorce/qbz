@@ -30,6 +30,7 @@
     position: number;
     play_count?: number;
     hasLocalContent?: LocalContentStatus;
+    folder_id?: string | null;
   }
 
   type SortOption = 'name' | 'recent' | 'tracks' | 'playcount' | 'custom';

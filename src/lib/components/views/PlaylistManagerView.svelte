@@ -30,6 +30,7 @@
     position: number;
     hasLocalContent?: LocalContentStatus;
     is_favorite?: boolean;
+    folder_id?: string | null;
   }
 
   interface PlaylistStats {

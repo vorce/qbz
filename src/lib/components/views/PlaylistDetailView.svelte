@@ -103,6 +103,7 @@
     hidden?: boolean;
     position?: number;
     is_favorite?: boolean;
+    folder_id?: string | null;
   }
 
   interface PlaylistStats {
