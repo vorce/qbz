@@ -329,7 +329,7 @@ async fn search_artist_tracks(
 ) -> Result<Vec<u64>, String> {
     // Search for the artist
     let search_results = client
-        .search_artists(artist_name, 5, 0)
+        .search_artists(artist_name, 5, 0, None)
         .await
         .map_err(|e| format!("Search failed: {}", e))?;
 
@@ -352,7 +352,7 @@ async fn search_artist_tracks(
 
     // Get the artist's top tracks by searching with artist name
     let track_results = client
-        .search_tracks(artist_name, max_tracks as u32, 0)
+        .search_tracks(artist_name, max_tracks as u32, 0, None)
         .await
         .map_err(|e| format!("Track search failed: {}", e))?;
 

@@ -512,6 +512,7 @@
     setSearchState({
       query: name,
       activeTab: 'all',
+      filterType: null,
       albumResults: null,
       trackResults: null,
       artistResults: null,
