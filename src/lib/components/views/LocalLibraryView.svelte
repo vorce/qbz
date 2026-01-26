@@ -1474,6 +1474,7 @@
   function openAlbumEditModal() {
     if (!selectedAlbum) return;
     editingAlbumHidden = false;
+    albumMetadataRefreshed = false;
     discogsImageOptions = [];
     selectedDiscogsImage = null;
     showAlbumEditModal = true;
@@ -3147,7 +3148,7 @@
             <div class="album-title">{selectedAlbum.title}</div>
             <div class="album-artist">{selectedAlbum.artist}</div>
           </div>
-          <div class="album-actions">
+          <div class="album-settings-actions">
             <button
               class="album-action-btn"
               onclick={openTagEditorFromAlbumSettings}
@@ -4970,7 +4971,7 @@
 
   .modal {
     width: 100%;
-    max-width: 570px;
+    max-width: 684px;
     max-height: 90vh;
     overflow: hidden;
     display: flex;
@@ -5029,7 +5030,7 @@
   }
 
   .album-title {
-    font-size: 20px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--text-primary);
     line-height: 1.2;
@@ -5037,14 +5038,14 @@
 
   .album-artist {
     margin-top: 6px;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 400;
     color: var(--text-primary);
     line-height: 1.25;
     word-break: break-word;
   }
 
-  .album-actions {
+  .album-settings-actions {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -5140,8 +5141,8 @@
   }
 
   .artwork-preview {
-    width: 64px;
-    height: 64px;
+    width: 74px;
+    height: 74px;
     border-radius: 6px;
     object-fit: cover;
     background: var(--bg-tertiary);
