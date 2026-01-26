@@ -2042,10 +2042,10 @@
   /* Network Sidebar - matches LyricsSidebar dimensions */
   .network-sidebar {
     position: fixed;
-    top: 52px;
+    top: 32px;
     right: 0;
     width: 340px;
-    height: calc(100vh - 104px);
+    height: calc(100vh - 32px - 72px);
     background: var(--bg-secondary);
     border-left: 1px solid var(--bg-tertiary);
     z-index: 100;
