@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music, Heart, Search, X, ChevronLeft, ChevronRight, Radio, MoreHorizontal, Info } from 'lucide-svelte';
+  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music, Heart, Search, X, ChevronLeft, ChevronRight, Radio, MoreHorizontal, Info, Share2 } from 'lucide-svelte';
   import type { ArtistDetail, QobuzArtist } from '$lib/types';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
@@ -117,6 +117,7 @@
   let isRadioLoading = $state(false);
   let radioLoadingMessage = $state('');
   let radioJustCreated = $state(false);
+  let showNetworkSidebar = $state(false);
   let similarArtists = $state<QobuzArtist[]>([]);
   let similarArtistsLoading = $state(false);
   let similarArtistImageErrors = $state<Set<number>>(new Set());
@@ -1155,6 +1156,14 @@
             {/key}
           {/if}
         </div>
+        <button
+          class="network-btn"
+          class:active={showNetworkSidebar}
+          onclick={() => showNetworkSidebar = !showNetworkSidebar}
+          title="Artist Network"
+        >
+          <Share2 size={24} />
+        </button>
       </div>
     </div>
   </div>
@@ -2056,6 +2065,31 @@
 
   .radio-btn-wrapper {
     position: relative;
+  }
+
+  .network-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: background 200ms ease, color 200ms ease;
+    flex-shrink: 0;
+  }
+
+  .network-btn:hover {
+    background: var(--bg-hover);
+    color: var(--accent-primary);
+  }
+
+  .network-btn.active {
+    color: var(--accent-primary);
+    background: var(--bg-hover);
   }
 
   .floating-message {
