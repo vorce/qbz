@@ -390,6 +390,20 @@ pub fn run() {
                     log::info!("Close to tray: hiding window instead of closing");
                     let _ = window.hide();
                     api.prevent_close();
+                } else {
+                    // Cleanup cast devices on actual close
+                    log::info!("App closing: cleaning up cast devices");
+                    
+                    // Disconnect Chromecast if connected (sends message through channel)
+                    if let Some(cast_state) = window.app_handle().try_state::<cast::CastState>() {
+                        log::info!("Disconnecting Chromecast on app exit");
+                        cast_state.chromecast.disconnect();
+                    }
+                    
+                    // Note: DLNA connection will be dropped when the app exits,
+                    // which will naturally close the connection. The tokio Mutex
+                    // prevents us from synchronously stopping playback here.
+                    log::info!("DLNA connection will be cleaned up on drop");
                 }
             }
         })
@@ -619,6 +633,7 @@ pub fn run() {
             cast::commands::cast_connect,
             cast::commands::cast_disconnect,
             cast::commands::cast_get_status,
+            cast::commands::cast_get_position,
             cast::commands::cast_play_track,
             cast::commands::cast_play_local_track,
             cast::commands::cast_play,
@@ -633,6 +648,7 @@ pub fn run() {
             cast::dlna::commands::dlna_connect,
             cast::dlna::commands::dlna_disconnect,
             cast::dlna::commands::dlna_get_status,
+            cast::dlna::commands::dlna_get_position,
             cast::dlna::commands::dlna_play_track,
             cast::dlna::commands::dlna_load_media,
             cast::dlna::commands::dlna_play,
