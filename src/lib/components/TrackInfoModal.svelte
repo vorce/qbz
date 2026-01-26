@@ -9,10 +9,21 @@
     onClose: () => void;
     onArtistClick?: (artistId: number) => void;
     onPerformerSearch?: (name: string) => void;
+    onMusicianClick?: (name: string, role: string) => void;
     onLabelClick?: (labelId: number, labelName: string) => void;
   }
 
-  let { isOpen, trackId, onClose, onArtistClick, onPerformerSearch, onLabelClick }: Props = $props();
+  let { isOpen, trackId, onClose, onArtistClick, onPerformerSearch, onMusicianClick, onLabelClick }: Props = $props();
+
+  function handlePerformerClick(name: string, role: string) {
+    if (onMusicianClick) {
+      onMusicianClick(name, role);
+      onClose();
+    } else if (onPerformerSearch) {
+      onPerformerSearch(name);
+      onClose();
+    }
+  }
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -217,10 +228,10 @@
                   <span class="credit-label">{formatRole(role)}</span>
                   <span class="credit-value">
                     {#each names as name, i}
-                      {#if onPerformerSearch}
+                      {#if onMusicianClick || onPerformerSearch}
                         <button
                           class="performer-link"
-                          onclick={() => { onPerformerSearch(name); onClose(); }}
+                          onclick={() => handlePerformerClick(name, role)}
                         >{name}</button>{#if i < names.length - 1}, {/if}
                       {:else}
                         {name}{#if i < names.length - 1}, {/if}

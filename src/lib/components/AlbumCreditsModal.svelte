@@ -9,13 +9,18 @@
     onClose: () => void;
     onTrackPlay?: (track: TrackCredits) => void;
     onPerformerSearch?: (name: string) => void;
+    onMusicianClick?: (name: string, role: string) => void;
     onLabelClick?: (labelId: number, labelName: string) => void;
   }
 
-  let { isOpen, albumId, onClose, onTrackPlay, onPerformerSearch, onLabelClick }: Props = $props();
+  let { isOpen, albumId, onClose, onTrackPlay, onPerformerSearch, onMusicianClick, onLabelClick }: Props = $props();
 
-  function handlePerformerClick(name: string) {
-    if (onPerformerSearch) {
+  function handlePerformerClick(name: string, roles: string[]) {
+    const role = roles.length > 0 ? roles[0] : 'Performer';
+    if (onMusicianClick) {
+      onMusicianClick(name, role);
+      onClose();
+    } else if (onPerformerSearch) {
       onPerformerSearch(name);
       onClose();
     }
@@ -241,8 +246,8 @@
                       <div class="track-credits">
                         {#each track.performers as performer}
                           <div class="performer-row">
-                            {#if onPerformerSearch}
-                              <button class="performer-link" onclick={() => handlePerformerClick(performer.name)}>{performer.name}</button>
+                            {#if onMusicianClick || onPerformerSearch}
+                              <button class="performer-link" onclick={() => handlePerformerClick(performer.name, performer.roles)}>{performer.name}</button>
                             {:else}
                               <span class="performer-name">{performer.name}</span>
                             {/if}

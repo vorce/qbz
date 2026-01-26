@@ -324,6 +324,51 @@ export interface SongLinkResponse {
   contentType: string;
 }
 
+// ============ Musician Types ============
+
+/**
+ * Musician confidence level for MusicBrainz ↔ Qobuz matching
+ * Determines what UI is shown when a musician is clicked:
+ * - confirmed (3): Navigate to Qobuz Artist Page
+ * - contextual (2): Navigate to Musician Page
+ * - weak (1): Show Informational Modal only
+ * - none (0): Show Informational Modal only
+ */
+export type MusicianConfidence = 'confirmed' | 'contextual' | 'weak' | 'none';
+
+/**
+ * Resolved musician with confidence assessment
+ */
+export interface ResolvedMusician {
+  name: string;
+  role: string;
+  mbid?: string;
+  qobuz_artist_id?: number;
+  confidence: MusicianConfidence;
+  bands: string[];
+  appears_on_count: number;
+}
+
+/**
+ * Album appearance for a musician
+ */
+export interface AlbumAppearance {
+  album_id: string;
+  album_title: string;
+  album_artwork: string;
+  artist_name: string;
+  year?: string;
+  role_on_album: string;
+}
+
+/**
+ * Musician appearances response
+ */
+export interface MusicianAppearances {
+  albums: AlbumAppearance[];
+  total: number;
+}
+
 // ============ Preferences Types ============
 
 export interface FavoritesPreferences {

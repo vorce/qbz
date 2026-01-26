@@ -75,6 +75,7 @@
     onTrackGoToAlbum?: (albumId: string) => void;
     onTrackGoToArtist?: (artistId: number) => void;
     onLabelClick?: (labelId: number, labelName?: string) => void;
+    onMusicianClick?: (name: string, role: string) => void;
     activeTrackId?: number | null;
     isPlaybackActive?: boolean;
   }
@@ -107,6 +108,7 @@
     onTrackGoToAlbum,
     onTrackGoToArtist,
     onLabelClick,
+    onMusicianClick,
     activeTrackId = null,
     isPlaybackActive = false
   }: Props = $props();
@@ -1995,9 +1997,10 @@
                       {@const tooltip = tooltipParts.length > 0
                         ? (periodStr ? `${tooltipParts.join(', ')} (${periodStr})` : tooltipParts.join(', '))
                         : (periodStr || member.name)}
+                      {@const memberRole = member.roles[0] || 'Band Member'}
                       <button
                         class="sidebar-artist-link"
-                        onclick={() => navigateToRelatedArtist(member.name)}
+                        onclick={() => onMusicianClick ? onMusicianClick(member.name, memberRole) : navigateToRelatedArtist(member.name)}
                         title={tooltip}
                       >
                         <User size={12} />
@@ -2012,7 +2015,7 @@
                     {#each groupedGroups as group}
                       <button
                         class="sidebar-artist-link"
-                        onclick={() => navigateToRelatedArtist(group.name)}
+                        onclick={() => onMusicianClick ? onMusicianClick(group.name, 'Band') : navigateToRelatedArtist(group.name)}
                         title={group.roles.length > 0 ? group.roles.join(', ') : group.name}
                       >
                         <Music size={12} />
@@ -2025,9 +2028,10 @@
                   <div class="relationship-group">
                     <span class="relationship-label">Collaborators</span>
                     {#each groupedCollaborators as collab}
+                      {@const collabRole = collab.roles[0] || 'Collaborator'}
                       <button
                         class="sidebar-artist-link"
-                        onclick={() => navigateToRelatedArtist(collab.name)}
+                        onclick={() => onMusicianClick ? onMusicianClick(collab.name, collabRole) : navigateToRelatedArtist(collab.name)}
                         title={collab.roles.length > 0 ? collab.roles.join(', ') : collab.name}
                       >
                         <User size={12} />
