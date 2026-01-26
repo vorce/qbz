@@ -394,11 +394,17 @@ function categorizeAlbum(album: QobuzAlbum, mainArtistId: number): 'tributes' | 
 
 /**
  * Extract unique labels from albums
+ * Only considers albums categorized as 'albums' (main Discography)
+ * to avoid pollution from tributes, compilations, etc.
  */
-function extractLabelsFromAlbums(albums: QobuzAlbum[]): { id: number; name: string }[] {
+function extractLabelsFromAlbums(albums: QobuzAlbum[], artistId: number): { id: number; name: string }[] {
   const labelMap = new Map<number, string>();
 
   for (const album of albums) {
+    // Only extract labels from main discography albums
+    const category = categorizeAlbum(album, artistId);
+    if (category !== 'albums') continue;
+
     if (album.label?.id && album.label?.name) {
       // Only add if we haven't seen this label ID before
       if (!labelMap.has(album.label.id)) {
@@ -464,7 +470,7 @@ export function convertQobuzArtist(artist: QobuzArtist): ArtistDetail {
     tributes,
     others,
     playlists: toArtistPlaylists(artist.playlists),
-    labels: extractLabelsFromAlbums(albumItems),
+    labels: extractLabelsFromAlbums(albumItems, artist.id),
     totalAlbums: artist.albums?.total || artist.albums_count || 0,
     albumsFetched
   };
@@ -529,9 +535,9 @@ export function appendArtistAlbums(
     }
   }
 
-  // Merge new labels from new albums
+  // Merge new labels from new albums (only from main discography)
   const existingLabelIds = new Set(artist.labels.map(l => l.id));
-  const newLabels = extractLabelsFromAlbums(newAlbums)
+  const newLabels = extractLabelsFromAlbums(newAlbums, artist.id)
     .filter(l => !existingLabelIds.has(l.id));
   const labels = [...artist.labels, ...newLabels]
     .sort((a, b) => a.name.localeCompare(b.name));

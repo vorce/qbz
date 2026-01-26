@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music, Heart, Search, X, ChevronLeft, ChevronRight, Radio, MoreHorizontal, Info, Tag } from 'lucide-svelte';
+  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music, Heart, Search, X, ChevronLeft, ChevronRight, Radio, MoreHorizontal, Info, Disc } from 'lucide-svelte';
   import type { ArtistDetail, QobuzArtist } from '$lib/types';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
@@ -1939,7 +1939,7 @@
                   onclick={() => onLabelClick?.(label.id, label.name)}
                   title={label.name}
                 >
-                  <Tag size={12} />
+                  <Disc size={12} />
                   {label.name}
                 </button>
               {/each}
