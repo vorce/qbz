@@ -15,6 +15,7 @@
     title: string;
     artist: string;
     genre: string;
+    releaseDate?: string;
     quality?: string;
     size?: 'standard' | 'large';
     searchId?: string;
@@ -40,6 +41,7 @@
     title,
     artist,
     genre,
+    releaseDate,
     quality,
     size = 'standard',
     searchId,
@@ -89,6 +91,19 @@
   function handleImageError() {
     imageError = true;
   }
+
+  function formatReleaseDate(dateStr: string | undefined): string {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
+
+  const formattedDate = $derived(formatReleaseDate(releaseDate));
 
   async function handleToggleFavorite(event: MouseEvent) {
     event.stopPropagation();
@@ -184,7 +199,12 @@
     <!-- Action Overlay -->
     {#if hasOverlay}
       <div class="action-overlay" class:menu-open={menuOpen}>
-        <div class="overlay-genre">{genre}</div>
+        <div class="overlay-info">
+          <span class="overlay-genre">{genre}</span>
+          {#if formattedDate}
+            <span class="overlay-date">{formattedDate}</span>
+          {/if}
+        </div>
         <div class="action-buttons">
           {#if showFavoriteButton}
             <button
@@ -393,14 +413,29 @@
     height: 30px;
   }
 
-  .overlay-genre {
+  .overlay-info {
     align-self: flex-start;
     width: 100%;
     text-align: left;
     padding: 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .overlay-genre {
     font-size: 14px;
     font-weight: 600;
     color: white;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .overlay-date {
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.85);
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
   }
 

@@ -1519,6 +1519,7 @@
               title={album.title}
               artist={album.year || ''}
               genre={album.genre}
+              releaseDate={album.releaseDate}
               size="large"
               quality={album.quality}
               searchId={`album-${album.id}`}
@@ -1581,6 +1582,7 @@
             title={album.title}
             artist={album.year || ''}
             genre={album.genre}
+            releaseDate={album.releaseDate}
             size="large"
             quality={album.quality}
             searchId={`album-${album.id}`}
@@ -1642,6 +1644,7 @@
             title={album.title}
             artist={album.year || ''}
             genre={album.genre}
+            releaseDate={album.releaseDate}
             size="large"
             quality={album.quality}
             searchId={`album-${album.id}`}
@@ -1703,6 +1706,7 @@
             title={album.title}
             artist={album.year || ''}
             genre={album.genre}
+            releaseDate={album.releaseDate}
             size="large"
             quality={album.quality}
             searchId={`album-${album.id}`}
@@ -1764,6 +1768,7 @@
             title={album.title}
             artist={album.year || ''}
             genre={album.genre}
+            releaseDate={album.releaseDate}
             size="large"
             quality={album.quality}
             searchId={`album-${album.id}`}
@@ -1888,6 +1893,7 @@
               title={album.title}
               artist={album.year || ''}
               genre={album.genre}
+              releaseDate={album.releaseDate}
               size="large"
               quality={album.quality}
               searchId={`album-${album.id}`}
