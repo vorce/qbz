@@ -47,6 +47,7 @@
   let yearInput = $state('');
   let genre = $state('');
   let catalogNumber = $state('');
+  let albumTotalDiscs = $state(1);
   let persistence: PersistenceMode = $state('sidecar');
   let saving = $state(false);
 
@@ -74,6 +75,7 @@
 
     const firstCatalog = tracks.find(t => (t.catalog_number ?? '').trim())?.catalog_number;
     catalogNumber = (album.catalog_number ?? firstCatalog ?? '').toString();
+    albumTotalDiscs = totalDiscs;
     persistence = 'sidecar';
 
     trackEdits = tracks.map(t => ({
@@ -204,10 +206,6 @@
   >
     {#snippet children()}
       <div class="tag-editor">
-        <p class="subtitle">
-          Changes apply to LocalLibrary indexing and search. Qobuz catalog is not modified.
-        </p>
-
         <div class="grid grid-2">
           <div class="field">
             <label>Album name</label>
@@ -243,45 +241,44 @@
 
         <div class="section">
           <h3>Tracklist</h3>
-            <div class="track-table">
-              <div class="track-head">
-                <div class="cell cell-head">Track</div>
-                <div class="cell cell-head">Track title</div>
-                <div class="cell cell-head">Disc</div>
-              </div>
-              <div class="track-body">
-                {#each trackEdits as t, i (t.id)}
-                  <div class="track-row">
-                    <div class="cell">
+          <div class="track-table">
+            <div class="track-head">
+              <div class="cell cell-head">Track</div>
+              <div class="cell cell-head">Track title</div>
+              <div class="cell cell-head">Disc</div>
+            </div>
+            <div class="track-body">
+              {#each trackEdits as t, i (t.id)}
+                <div class="track-row">
+                  <div class="cell">
                       <input class="table-input control-xs num" type="number" min="1" step="1" bind:value={t.trackNumber} />
                     </div>
                     <div class="cell">
                       <input class="table-input control-xs" type="text" bind:value={t.title} />
                     </div>
-                    <div class="cell">
-                      <div class="disc-of">
-                        <input class="table-input control-xs num" type="number" min="1" step="1" bind:value={t.discNumber} />
-                        <span class="disc-sep">of</span>
-                        <input class="table-input control-xs num" type="number" value={totalDiscs} readonly tabindex="-1" />
-                      </div>
+                  <div class="cell">
+                    <div class="disc-of">
+                      <input class="table-input control-xs num" type="number" min="1" step="1" bind:value={t.discNumber} />
+                      <span class="disc-sep">of</span>
+                      <input
+                        class="table-input control-xs num"
+                        type="number"
+                        min="1"
+                        step="1"
+                        bind:value={albumTotalDiscs}
+                      />
                     </div>
                   </div>
-                {/each}
-              </div>
+                </div>
+              {/each}
             </div>
+          </div>
         </div>
 
-        <div class="section">
-          <h3>Reference (read-only)</h3>
-          <div class="ref-grid">
-            <div class="ref-item">
-              <span class="ref-label">Album path</span>
-            <span class="ref-value mono">{album?.directory_path ?? ''}</span>
-          </div>
-          <div class="ref-item">
-            <span class="ref-label">Format</span>
-            <span class="ref-value">{album ? `${album.format.toUpperCase()} ${album.bit_depth ?? 16}-bit / ${(album.sample_rate / 1000).toFixed(1)} kHz` : ''}</span>
-          </div>
+      <div class="section">
+        <div class="ref-item flat">
+          <span class="ref-label">Album path</span>
+          <span class="ref-value mono">{album?.directory_path ?? ''}</span>
         </div>
       </div>
     </div>
@@ -292,7 +289,7 @@
       <label class="footer-label" for="persistence-select">Persistence</label>
       <select
         id="persistence-select"
-        class="select control-sm"
+        class="select control-xs"
         bind:value={persistence}
       >
         <option value="sidecar">QBZ sidecar (does not modify files)</option>
@@ -305,7 +302,7 @@
     <div class="footer-actions">
       <button class="secondary-btn" onclick={onClose} disabled={saving}>Cancel</button>
       <button class="primary-btn" onclick={handleSave} disabled={saving}>
-        {saving ? 'Saving...' : 'Save changes'}
+        {saving ? 'Saving...' : 'Save'}
       </button>
     </div>
   {/snippet}
@@ -421,6 +418,7 @@
     scroll-snap-type: y mandatory;
     scrollbar-gutter: stable;
     overscroll-behavior: contain;
+    padding: 0 12px;
   }
 
   .track-body .track-row {
@@ -467,10 +465,16 @@
     color: var(--text-primary);
     padding: 0;
     height: 100%;
+    border-bottom: 1px solid transparent;
   }
 
   .table-input:focus {
     outline: none;
+    border-bottom-color: var(--accent-primary);
+  }
+
+  .track-row:focus-within {
+    background: var(--bg-hover);
   }
 
   /* Hide number spinners, keep keyboard support */
