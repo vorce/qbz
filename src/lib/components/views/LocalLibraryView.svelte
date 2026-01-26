@@ -640,6 +640,7 @@
   let discogsImageOptions = $state<DiscogsImageOption[]>([]);
   let selectedDiscogsImage = $state<string | null>(null);
   let fetchingDiscogsImages = $state(false);
+  let discogsFetchSuccessful = $state(false);
   let discogsImagePage = $state(0);
   const IMAGES_PER_PAGE = 4;
 
@@ -1477,6 +1478,7 @@
     albumMetadataRefreshed = false;
     discogsImageOptions = [];
     selectedDiscogsImage = null;
+    discogsFetchSuccessful = false;
     showAlbumEditModal = true;
   }
 
@@ -1529,6 +1531,7 @@
       discogsImageOptions = [];
       selectedDiscogsImage = null;
       discogsImagePage = 0;
+      discogsFetchSuccessful = false;
 
       const options = await invoke<DiscogsImageOption[]>('discogs_search_artwork', {
         artist: selectedAlbum.artist,
@@ -1537,6 +1540,7 @@
       });
 
       discogsImageOptions = options;
+      discogsFetchSuccessful = options.length > 0;
       console.log(`Found ${options.length} Discogs artwork options`);
     } catch (err) {
       console.error('Failed to fetch Discogs artwork:', err);
@@ -3177,7 +3181,7 @@
           <label>Album Artwork</label>
           <div class="artwork-layout">
             <div class="artwork-left">
-              <div class="artwork-row">
+              <div class="artwork-row artwork-row-vertical">
                 {#if selectedAlbum.artwork_path}
                   <img
                     src={getArtworkUrl(selectedAlbum.artwork_path)}
@@ -3189,64 +3193,57 @@
                     <Disc3 size={24} />
                   </div>
                 {/if}
-                <div class="artwork-actions">
-                  <button
-                    class="discogs-btn"
-                    onclick={handleSetAlbumArtwork}
-                    disabled={updatingArtwork}
-                  >
-                    <Upload size={14} />
-                    <span>{updatingArtwork ? 'Updating...' : 'Change Cover'}</span>
-                  </button>
-                  <button
-                    class="discogs-btn"
-                    onclick={fetchDiscogsArtwork}
-                    disabled={fetchingDiscogsImages}
-                  >
-                    <img src="/discogs_icon.svg" alt="Discogs" class="discogs-icon" />
-                    <span>{fetchingDiscogsImages ? 'Fetching...' : 'Fetch from Discogs'}</span>
-                  </button>
-                </div>
+              </div>
+
+              <div class="artwork-actions-row">
+                <button
+                  class="discogs-btn discogs-btn-wide"
+                  onclick={handleSetAlbumArtwork}
+                  disabled={updatingArtwork}
+                >
+                  <Upload size={14} />
+                  <span>{updatingArtwork ? 'Updating...' : 'Change cover'}</span>
+                </button>
+                <button
+                  class="discogs-btn discogs-btn-wide"
+                  onclick={fetchDiscogsArtwork}
+                  disabled={fetchingDiscogsImages}
+                >
+                  <img src="/discogs_icon.svg" alt="Discogs" class="discogs-icon" />
+                  <span>{fetchingDiscogsImages ? 'Fetching...' : 'Get from Discogs'}</span>
+                </button>
               </div>
             </div>
 
-            <div class="discogs-panel">
-              <div class="discogs-header">
-                <div class="discogs-title">Select Artwork from Discogs</div>
-                {#if discogsImageOptions.length > IMAGES_PER_PAGE}
-                  <div class="carousel-controls">
-                    <button
-                      class="carousel-btn"
-                      onclick={prevDiscogsPage}
-                      disabled={!hasPrevDiscogsPages}
-                      title="Previous"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-                    <span class="page-indicator">
-                      {discogsImagePage + 1} / {Math.ceil(discogsImageOptions.length / IMAGES_PER_PAGE)}
-                    </span>
-                    <button
-                      class="carousel-btn"
-                      onclick={nextDiscogsPage}
-                      disabled={!hasMoreDiscogsPages}
-                      title="Next"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                {/if}
-              </div>
-
-              {#if discogsImageOptions.length === 0}
-                <div class="discogs-placeholder">
-                  {#if fetchingDiscogsImages}
-                    <span>Fetching...</span>
-                  {:else}
-                    <span>Click “Fetch from Discogs” to show results here.</span>
+            <div class="discogs-panel" class:active={discogsFetchSuccessful}>
+              {#if discogsFetchSuccessful}
+                <div class="discogs-header">
+                  <div class="discogs-title">Select Artwork from Discogs</div>
+                  {#if discogsImageOptions.length > IMAGES_PER_PAGE}
+                    <div class="carousel-controls">
+                      <button
+                        class="carousel-btn"
+                        onclick={prevDiscogsPage}
+                        disabled={!hasPrevDiscogsPages}
+                        title="Previous"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <span class="page-indicator">
+                        {discogsImagePage + 1} / {Math.ceil(discogsImageOptions.length / IMAGES_PER_PAGE)}
+                      </span>
+                      <button
+                        class="carousel-btn"
+                        onclick={nextDiscogsPage}
+                        disabled={!hasMoreDiscogsPages}
+                        title="Next"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
                   {/if}
                 </div>
-              {:else}
+
                 <div class="discogs-options discogs-options-compact">
                   {#each paginatedDiscogsImages as option, i}
                     <button
@@ -3266,7 +3263,6 @@
                   {/each}
                 </div>
               {/if}
-              <p class="form-hint discogs-hint">Click a cover to select it, then Save.</p>
             </div>
           </div>
         </div>
@@ -5153,23 +5149,34 @@
     gap: 16px;
   }
 
+  .artwork-row-vertical {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
   .artwork-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(320px, 360px) 1fr;
     gap: 16px;
     align-items: start;
   }
 
   .discogs-panel {
     min-width: 0;
-    border: 1px solid var(--bg-tertiary);
+    border: 1px solid transparent;
     border-radius: 10px;
     padding: 10px 12px;
-    background: var(--bg-secondary);
+    background: transparent;
     height: 208px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .discogs-panel.active {
+    border-color: var(--bg-tertiary);
+    background: var(--bg-secondary);
   }
 
   .discogs-title {
@@ -5178,24 +5185,14 @@
     color: var(--text-secondary);
   }
 
-  .discogs-placeholder {
-    flex: 1;
+  .artwork-actions-row {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    font-size: 12px;
-    text-align: center;
-    padding: 10px;
-  }
-
-  .discogs-hint {
-    margin-top: 8px;
+    gap: 10px;
   }
 
   .artwork-preview {
-    width: 74px;
-    height: 74px;
+    width: 150px;
+    height: 150px;
     border-radius: 6px;
     object-fit: cover;
     background: var(--bg-tertiary);
@@ -5206,12 +5203,6 @@
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
-  }
-
-  .artwork-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
   }
 
   .discogs-btn {
@@ -5227,6 +5218,14 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 150ms ease;
+  }
+
+  .discogs-btn-wide {
+    flex: 1;
+    justify-content: center;
+    height: 44px;
+    padding: 10px 10px;
+    white-space: nowrap;
   }
 
   .discogs-btn:hover:not(:disabled) {
