@@ -1032,6 +1032,7 @@
         </div>
       {/if}
 
+      <!-- TEMPORARILY HIDDEN FOR SIDEBAR EXPERIMENTS
       {#if similarArtistsLoading}
         <div class="similar-loading">Loading similar artists...</div>
       {:else if similarArtists.length > 0}
@@ -1054,7 +1055,7 @@
         </div>
       {/if}
 
-      <!-- MusicBrainz Relationships -->
+      MusicBrainz Relationships
       {#if mbRelationshipsLoading}
         <div class="mb-relationships-loading">Loading artist relationships...</div>
       {:else if hasRelationships}
@@ -1120,6 +1121,7 @@
           {/if}
         </div>
       {/if}
+      END TEMPORARILY HIDDEN -->
 
       <!-- Action Buttons -->
       <div class="artist-actions">
