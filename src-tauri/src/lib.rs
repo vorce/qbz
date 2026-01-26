@@ -436,6 +436,7 @@ pub fn run() {
             commands::get_artist_detail,
             commands::get_artist_albums,
             commands::get_similar_artists,
+            commands::get_label,
             // Playback commands
             commands::play_track,
             commands::prefetch_track,
@@ -698,6 +699,8 @@ pub fn run() {
             config::audio_settings::set_audio_backend_type,
             config::audio_settings::set_audio_alsa_plugin,
             config::audio_settings::set_audio_alsa_hardware_volume,
+            config::audio_settings::set_audio_stream_first_track,
+            config::audio_settings::set_audio_stream_buffer_seconds,
             // Audio backend commands
             commands::get_available_backends,
             commands::get_devices_for_backend,
@@ -775,6 +778,10 @@ pub fn run() {
             commands::listenbrainz_flush_queue,
             commands::listenbrainz_clear_queue,
             commands::listenbrainz_cleanup_queue,
+            // Smart playlist generation commands
+            commands::smart_playlist_preview,
+            commands::smart_playlist_resolve_artist,
+            commands::smart_playlist_get_available_types,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

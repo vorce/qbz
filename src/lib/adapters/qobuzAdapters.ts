@@ -260,7 +260,8 @@ function toArtistAlbumSummary(album: QobuzAlbum): ArtistAlbumSummary {
     title: album.title,
     artwork,
     year: album.release_date_original?.split('-')[0],
-    quality
+    quality,
+    genre: album.genre?.name || "Unknown genre"
   };
 }
 
@@ -284,7 +285,8 @@ function buildCompilationAlbums(tracks: QobuzTrack[] | undefined): ArtistAlbumSu
         track.hires_streamable,
         track.maximum_bit_depth,
         track.maximum_sampling_rate
-      )
+      ),
+      genre: album.genre?.name || ''
     });
   }
 
@@ -325,6 +327,7 @@ export function convertQobuzAlbum(album: QobuzAlbum): AlbumDetail {
     year: album.release_date_original?.split('-')[0] || '',
     releaseDate: album.release_date_original,
     label: album.label?.name || '',
+    labelId: album.label?.id,
     genre: album.genre?.name || '',
     quality,
     trackCount: album.tracks_count || album.tracks?.items?.length || 0,

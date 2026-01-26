@@ -32,6 +32,7 @@
     title: string;
     artwork: string;
     quality: string;
+    genre: string;
   }
 
   interface Props {
@@ -44,6 +45,7 @@
       year: string;
       releaseDate?: string;
       label: string;
+      labelId?: number;
       genre: string;
       quality: string;
       trackCount: number;
@@ -52,6 +54,7 @@
     };
     onBack: () => void;
     onArtistClick?: () => void;
+    onLabelClick?: (labelId: number, labelName: string) => void;
     onTrackPlay?: (track: Track) => void;
     onTrackPlayNext?: (track: Track) => void;
     onTrackPlayLater?: (track: Track) => void;
@@ -97,6 +100,7 @@
     album,
     onBack,
     onArtistClick,
+    onLabelClick,
     onTrackPlay,
     onTrackPlayNext,
     onTrackPlayLater,
@@ -318,7 +322,17 @@
       {:else}
         <div class="artist-name">{album.artist}</div>
       {/if}
-      <div class="album-info">{formattedReleaseDate} • {album.label} • {album.genre}</div>
+      <div class="album-info">
+        {formattedReleaseDate} •
+        {#if album.labelId && onLabelClick}
+          <button class="label-link" onclick={() => onLabelClick!(album.labelId!, album.label)}>
+            {album.label}
+          </button>
+        {:else}
+          {album.label}
+        {/if}
+         • {album.genre}
+      </div>
       <div class="album-quality">{album.quality}</div>
       <div class="album-stats">{album.trackCount} tracks • {album.duration}</div>
 
@@ -470,6 +484,7 @@
                 artwork={relatedAlbum.artwork}
                 title={relatedAlbum.title}
                 artist={album.artist}
+                genre={relatedAlbum.genre}
                 size="large"
                 quality={relatedAlbum.quality}
                 onclick={() => onRelatedAlbumClick?.(relatedAlbum.id)}
@@ -605,6 +620,21 @@
   }
 
   .artist-link:hover {
+    text-decoration: underline;
+  }
+
+  .label-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  .label-link:hover {
+    color: var(--accent-primary);
     text-decoration: underline;
   }
 
