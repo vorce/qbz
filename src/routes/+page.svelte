@@ -2654,6 +2654,7 @@
           onTrackGoToArtist={handleArtistClick}
           onPlaylistClick={selectPlaylist}
           onLabelClick={handleLabelClick}
+          onMusicianClick={handleMusicianClick}
           activeTrackId={currentTrack?.id ?? null}
           isPlaybackActive={isPlaying}
         />
