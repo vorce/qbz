@@ -17,11 +17,12 @@ use crate::AppState;
 #[tauri::command]
 pub async fn play_track(
     track_id: u64,
+    duration_secs: Option<u64>,
     state: State<'_, AppState>,
     offline_cache: State<'_, OfflineCacheState>,
     audio_settings: State<'_, AudioSettingsState>,
 ) -> Result<(), String> {
-    log::info!("Command: play_track {}", track_id);
+    log::info!("Command: play_track {} (duration: {:?}s)", track_id, duration_secs);
 
     // First check offline cache (persistent disk cache)
     {
@@ -118,25 +119,28 @@ pub async fn play_track(
 
     if stream_first_enabled {
         // Use streaming playback - start playing before full download
-        log::info!("Streaming mode enabled - starting stream-first playback for track {}", track_id);
+        log::info!("🚀 Streaming mode enabled - starting stream-first playback for track {}", track_id);
 
-        // Get content length and audio info via HEAD request
-        let (content_length, sample_rate, channels) = get_stream_info(&stream_url.url).await?;
+        // Get content length, audio info, and measured speed via HEAD request
+        let stream_info = get_stream_info(&stream_url.url).await?;
 
         log::info!(
-            "Stream info: {} bytes, {}Hz, {} channels",
-            content_length,
-            sample_rate,
-            channels
+            "📊 Stream info: {:.2} MB, {}Hz, {} channels, {:.1} MB/s",
+            stream_info.content_length as f64 / (1024.0 * 1024.0),
+            stream_info.sample_rate,
+            stream_info.channels,
+            stream_info.speed_mbps
         );
 
-        // Start streaming playback and get buffer writer
-        let buffer_writer = state.player.play_streaming(
+        // Start streaming playback with dynamic buffer based on measured speed
+        // The player will use from_speed_mbps internally
+        let buffer_writer = state.player.play_streaming_dynamic(
             track_id,
-            sample_rate,
-            channels,
-            content_length,
-            buffer_seconds,
+            stream_info.sample_rate,
+            stream_info.channels,
+            stream_info.content_length,
+            stream_info.speed_mbps,
+            duration_secs.unwrap_or(0), // Use 0 if not provided
         )?;
 
         // Release client lock before spawning background download
@@ -145,9 +149,10 @@ pub async fn play_track(
         // Spawn background task to download and push data to buffer
         let url = stream_url.url.clone();
         let cache_clone = cache.clone();
+        let content_len = stream_info.content_length;
         tokio::spawn(async move {
-            match download_and_stream(&url, buffer_writer, track_id, cache_clone).await {
-                Ok(()) => log::info!("Streaming download complete for track {}", track_id),
+            match download_and_stream(&url, buffer_writer, track_id, cache_clone, content_len).await {
+                Ok(()) => log::info!("🎵 Track {} ready for instant replay from cache", track_id),
                 Err(e) => log::error!("Streaming download failed for track {}: {}", track_id, e),
             }
         });
@@ -278,9 +283,17 @@ async fn download_audio(url: &str) -> Result<Vec<u8>, String> {
     Ok(bytes.to_vec())
 }
 
-/// Get stream info (content length, sample rate, channels) via HEAD request and initial bytes
-async fn get_stream_info(url: &str) -> Result<(u64, u32, u16), String> {
-    use std::time::Duration;
+/// Stream info including measured download speed
+pub struct StreamInfo {
+    pub content_length: u64,
+    pub sample_rate: u32,
+    pub channels: u16,
+    pub speed_mbps: f64,
+}
+
+/// Get stream info (content length, sample rate, channels, speed) via HEAD request and initial bytes
+async fn get_stream_info(url: &str) -> Result<StreamInfo, String> {
+    use std::time::{Duration, Instant};
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
@@ -307,8 +320,10 @@ async fn get_stream_info(url: &str) -> Result<(u64, u32, u16), String> {
         .and_then(|s| s.parse::<u64>().ok())
         .ok_or_else(|| "No content-length header".to_string())?;
 
-    // Download first ~64KB to probe audio format
+    // Download first ~64KB to probe audio format and measure speed
     // This is enough for FLAC/M4A headers
+    let start_time = Instant::now();
+    
     let range_response = client
         .get(url)
         .header("User-Agent", "Mozilla/5.0")
@@ -326,10 +341,30 @@ async fn get_stream_info(url: &str) -> Result<(u64, u32, u16), String> {
         .await
         .map_err(|e| format!("Failed to read initial bytes: {}", e))?;
 
+    let elapsed = start_time.elapsed();
+    let bytes_downloaded = initial_bytes.len() as f64;
+    let speed_mbps = if elapsed.as_secs_f64() > 0.0 {
+        (bytes_downloaded / elapsed.as_secs_f64()) / (1024.0 * 1024.0)
+    } else {
+        10.0 // Assume fast if instant
+    };
+
+    log::info!(
+        "📶 Probe: {}KB in {:.0}ms = {:.1} MB/s",
+        initial_bytes.len() / 1024,
+        elapsed.as_millis(),
+        speed_mbps
+    );
+
     // Try to extract audio format from initial bytes
     let (sample_rate, channels) = extract_audio_format_from_header(&initial_bytes)?;
 
-    Ok((content_length, sample_rate, channels))
+    Ok(StreamInfo {
+        content_length,
+        sample_rate,
+        channels,
+        speed_mbps,
+    })
 }
 
 /// Extract sample rate and channels from audio file header
@@ -427,8 +462,9 @@ async fn download_and_stream(
     writer: crate::player::BufferWriter,
     track_id: u64,
     cache: Arc<AudioCache>,
+    content_length: u64,
 ) -> Result<(), String> {
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
     use futures_util::StreamExt;
 
     let client = reqwest::Client::builder()
@@ -437,7 +473,10 @@ async fn download_and_stream(
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
-    log::info!("Starting streaming download for track {}", track_id);
+    log::info!("📥 Starting streaming download for track {} ({:.2} MB total)", 
+        track_id, 
+        content_length as f64 / (1024.0 * 1024.0)
+    );
 
     let response = client
         .get(url)
@@ -450,9 +489,12 @@ async fn download_and_stream(
         return Err(format!("Stream request failed: {}", response.status()));
     }
 
-    let mut all_data = Vec::new();
+    let mut all_data = Vec::with_capacity(content_length as usize);
     let mut stream = response.bytes_stream();
     let mut bytes_received = 0u64;
+    let start_time = Instant::now();
+    let mut last_log_time = Instant::now();
+    let mut last_log_bytes = 0u64;
 
     while let Some(chunk_result) = stream.next().await {
         let chunk = chunk_result.map_err(|e| format!("Stream chunk error: {}", e))?;
@@ -466,9 +508,39 @@ async fn download_and_stream(
             log::error!("Failed to push chunk to buffer: {}", e);
         }
 
-        // Log progress every ~1MB
-        if bytes_received % (1024 * 1024) < chunk.len() as u64 {
-            log::debug!("Streaming download progress: {} bytes", bytes_received);
+        // Log progress every ~500ms with speed info
+        let now = Instant::now();
+        if now.duration_since(last_log_time) >= Duration::from_millis(500) {
+            let elapsed_total = start_time.elapsed().as_secs_f64();
+            let elapsed_interval = now.duration_since(last_log_time).as_secs_f64();
+            let bytes_this_interval = bytes_received - last_log_bytes;
+            
+            // Current speed (MB/s)
+            let current_speed = (bytes_this_interval as f64 / elapsed_interval) / (1024.0 * 1024.0);
+            // Average speed
+            let avg_speed = (bytes_received as f64 / elapsed_total) / (1024.0 * 1024.0);
+            // Progress percentage
+            let progress = (bytes_received as f64 / content_length as f64) * 100.0;
+            // ETA
+            let remaining_bytes = content_length.saturating_sub(bytes_received);
+            let eta_secs = if avg_speed > 0.0 {
+                remaining_bytes as f64 / (avg_speed * 1024.0 * 1024.0)
+            } else {
+                0.0
+            };
+
+            log::info!(
+                "📊 Download: {:.1}% ({:.2}/{:.2} MB) | Speed: {:.2} MB/s (avg: {:.2}) | ETA: {:.1}s",
+                progress,
+                bytes_received as f64 / (1024.0 * 1024.0),
+                content_length as f64 / (1024.0 * 1024.0),
+                current_speed,
+                avg_speed,
+                eta_secs
+            );
+
+            last_log_time = now;
+            last_log_bytes = bytes_received;
         }
     }
 
@@ -477,9 +549,18 @@ async fn download_and_stream(
         log::error!("Failed to mark buffer complete: {}", e);
     }
 
-    log::info!("Streaming download complete: {} bytes total", bytes_received);
+    let total_time = start_time.elapsed();
+    let avg_speed = (bytes_received as f64 / total_time.as_secs_f64()) / (1024.0 * 1024.0);
+    
+    log::info!(
+        "✅ Streaming download complete: {:.2} MB in {:.1}s ({:.2} MB/s avg)",
+        bytes_received as f64 / (1024.0 * 1024.0),
+        total_time.as_secs_f64(),
+        avg_speed
+    );
 
     // Cache the complete file for future plays
+    log::info!("💾 Caching track {} for future playback", track_id);
     cache.insert(track_id, all_data);
 
     Ok(())

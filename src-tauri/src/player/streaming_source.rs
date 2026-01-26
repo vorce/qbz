@@ -82,6 +82,38 @@ impl StreamingConfig {
             max_buffer_bytes: 100 * 1024 * 1024,
         }
     }
+
+    /// Create config dynamically based on measured download speed
+    ///
+    /// - Very fast (>10 MB/s): 256KB (instant start)
+    /// - Fast (5-10 MB/s): 384KB
+    /// - Normal (2-5 MB/s): 512KB
+    /// - Slow (1-2 MB/s): 1MB (more buffer to prevent stutter)
+    /// - Very slow (<1 MB/s): 2MB
+    pub fn from_speed_mbps(speed_mbps: f64) -> Self {
+        let initial_buffer = if speed_mbps >= 10.0 {
+            256 * 1024 // 256KB - instant start for very fast connections
+        } else if speed_mbps >= 5.0 {
+            384 * 1024 // 384KB
+        } else if speed_mbps >= 2.0 {
+            512 * 1024 // 512KB - default
+        } else if speed_mbps >= 1.0 {
+            1024 * 1024 // 1MB - more buffer for slower connections
+        } else {
+            2 * 1024 * 1024 // 2MB - maximum buffer for very slow connections
+        };
+
+        log::info!(
+            "📶 Dynamic buffer: {:.1} MB/s detected → {}KB initial buffer",
+            speed_mbps,
+            initial_buffer / 1024
+        );
+
+        Self {
+            initial_buffer_bytes: initial_buffer,
+            max_buffer_bytes: 100 * 1024 * 1024,
+        }
+    }
 }
 
 /// Internal state shared between reader and writer

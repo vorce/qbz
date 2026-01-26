@@ -58,6 +58,7 @@ enum AudioCommand {
         track_id: u64,
         sample_rate: u32,
         channels: u16,
+        duration_secs: u64,
     },
     /// Pause playback
     Pause,
@@ -1057,12 +1058,13 @@ impl Player {
                             actual_duration
                         );
                     }
-                    AudioCommand::PlayStreaming { source, track_id, sample_rate, channels } => {
+                    AudioCommand::PlayStreaming { source, track_id, sample_rate, channels, duration_secs } => {
                         log::info!(
-                            "Audio thread: starting streaming playback for track {} ({}Hz, {} channels)",
+                            "Audio thread: starting streaming playback for track {} ({}Hz, {} channels, {}s)",
                             track_id,
                             sample_rate,
-                            channels
+                            channels,
+                            duration_secs
                         );
                         *pause_suspend_deadline = None;
 
@@ -1244,9 +1246,9 @@ impl Player {
                             );
                         }
 
-                        // Duration unknown until download completes - estimate from content-length if available
-                        // For now, set to 0 and update when known
-                        thread_state.duration.store(0, Ordering::SeqCst);
+                        // Set duration from track metadata (passed from frontend)
+                        // This allows the seekbar to show progress even during streaming
+                        thread_state.duration.store(duration_secs, Ordering::SeqCst);
 
                         // Box the incremental source to match the expected type
                         let source_to_play: Box<dyn Source<Item = i16> + Send> = Box::new(incremental_source);
@@ -1667,13 +1669,15 @@ impl Player {
         channels: u16,
         content_length: u64,
         buffer_seconds: u8,
+        duration_secs: u64,
     ) -> Result<BufferWriter, String> {
         log::info!(
-            "Player: Starting streaming playback for track {} ({}Hz, {}ch, {} bytes total)",
+            "Player: Starting streaming playback for track {} ({}Hz, {}ch, {} bytes total, {}s)",
             track_id,
             sample_rate,
             channels,
-            content_length
+            content_length,
+            duration_secs
         );
 
         // Use StreamingConfig::from_seconds for proper buffer sizing
@@ -1688,6 +1692,7 @@ impl Player {
                 track_id,
                 sample_rate,
                 channels,
+                duration_secs,
             })
             .map_err(|e| {
                 log::error!("Player: Failed to send streaming command: {}", e);
@@ -1695,6 +1700,50 @@ impl Player {
             })?;
 
         log::info!("Player: Streaming playback initiated");
+        Ok(writer)
+    }
+
+    /// Play from streaming source with dynamic buffer based on measured speed
+    /// Returns the BufferWriter so caller can push data as it downloads
+    pub fn play_streaming_dynamic(
+        &self,
+        track_id: u64,
+        sample_rate: u32,
+        channels: u16,
+        content_length: u64,
+        speed_mbps: f64,
+        duration_secs: u64,
+    ) -> Result<BufferWriter, String> {
+        log::info!(
+            "Player: Starting dynamic streaming for track {} ({}Hz, {}ch, {:.2} MB, {:.1} MB/s, {}s)",
+            track_id,
+            sample_rate,
+            channels,
+            content_length as f64 / (1024.0 * 1024.0),
+            speed_mbps,
+            duration_secs
+        );
+
+        // Use StreamingConfig::from_speed_mbps for dynamic buffer sizing
+        let config = StreamingConfig::from_speed_mbps(speed_mbps);
+
+        let (source, writer) = BufferedMediaSource::new(config, Some(content_length));
+        let source = Arc::new(source);
+
+        self.tx
+            .send(AudioCommand::PlayStreaming {
+                source: source.clone(),
+                track_id,
+                sample_rate,
+                channels,
+                duration_secs,
+            })
+            .map_err(|e| {
+                log::error!("Player: Failed to send streaming command: {}", e);
+                format!("Failed to send streaming play command: {}", e)
+            })?;
+
+        log::info!("Player: Dynamic streaming playback initiated");
         Ok(writer)
     }
 
