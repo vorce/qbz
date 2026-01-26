@@ -3141,7 +3141,8 @@
       
       <div class="modal-body">
         <div class="form-group">
-          <label>Metadata</label>
+          <label>Album name</label>
+          <div class="album-name-display">{selectedAlbum.title}</div>
           <button class="settings-action-btn" onclick={openTagEditorFromAlbumSettings}>
             <img src="/edit-tool.svg" alt="" class="settings-action-icon" />
             <span>Edit Album info</span>
@@ -5033,6 +5034,17 @@
   .form-group input[type="text"]:focus:not(:disabled) {
     outline: none;
     border-color: var(--accent-primary);
+  }
+
+  .album-name-display {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+    margin-bottom: 10px;
   }
 
   .toggle-label {
