@@ -112,9 +112,9 @@ impl DlnaConnection {
         // Build DIDL-Lite metadata with actual content type
         let didl_metadata = build_didl_metadata(uri, metadata, content_type);
         
-        log::debug!("DLNA: Loading media URI: {}", uri);
-        log::debug!("DLNA: Content-Type: {}", content_type);
-        log::debug!("DLNA: DIDL Metadata:\n{}", didl_metadata);
+        log::info!("DLNA: Loading media URI: {}", uri);
+        log::info!("DLNA: Content-Type: {}", content_type);
+        log::info!("DLNA: DIDL Metadata:\n{}", didl_metadata);
 
         let payload = format!(
             "<InstanceID>0</InstanceID><CurrentURI>{}</CurrentURI><CurrentURIMetaData>{}</CurrentURIMetaData>",
@@ -122,15 +122,21 @@ impl DlnaConnection {
             xml_escape(&didl_metadata)
         );
 
-        let response = av_service
-            .action(&self.device_url, "SetAVTransportURI", &payload)
-            .await
-            .map_err(|e| {
-                log::error!("DLNA: SetAVTransportURI failed: {}", e);
-                DlnaError::Playback(e.to_string())
-            })?;
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            av_service.action(&self.device_url, "SetAVTransportURI", &payload)
+        )
+        .await
+        .map_err(|_| {
+            log::error!("DLNA: SetAVTransportURI timed out after 10s");
+            DlnaError::Playback("SetAVTransportURI timed out".to_string())
+        })?
+        .map_err(|e| {
+            log::error!("DLNA: SetAVTransportURI failed: {}", e);
+            DlnaError::Playback(e.to_string())
+        })?;
 
-        log::debug!("DLNA: SetAVTransportURI response: {:?}", response);
+        log::info!("DLNA: SetAVTransportURI response: {:?}", response);
         self.current_uri = Some(uri.to_string());
         log::info!("DLNA: Set URI to {}", uri);
 
@@ -146,15 +152,21 @@ impl DlnaConnection {
         let av_service = self.av_transport_service.as_ref()
             .ok_or_else(|| DlnaError::Playback("Device has no AVTransport service".to_string()))?;
 
-        let response = av_service
-            .action(&self.device_url, "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>")
-            .await
-            .map_err(|e| {
-                log::error!("DLNA: Play action failed: {}", e);
-                DlnaError::Playback(e.to_string())
-            })?;
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            av_service.action(&self.device_url, "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>")
+        )
+        .await
+        .map_err(|_| {
+            log::error!("DLNA: Play action timed out after 10s");
+            DlnaError::Playback("Play action timed out".to_string())
+        })?
+        .map_err(|e| {
+            log::error!("DLNA: Play action failed: {}", e);
+            DlnaError::Playback(e.to_string())
+        })?;
 
-        log::debug!("DLNA: Play response: {:?}", response);
+        log::info!("DLNA: Play response: {:?}", response);
         self.is_playing = true;
         log::info!("DLNA: Play started successfully");
         Ok(())

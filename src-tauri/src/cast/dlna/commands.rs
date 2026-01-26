@@ -111,6 +111,8 @@ pub async fn dlna_play_track(
     dlna_state: State<'_, DlnaState>,
     app_state: State<'_, AppState>,
 ) -> Result<(), String> {
+    log::info!("DLNA: dlna_play_track called for track_id={}", track_id);
+    
     // Get stream URL from Qobuz
     let stream_url = {
         let client = app_state.client.lock().await;
@@ -153,7 +155,7 @@ pub async fn dlna_play_track(
     };
 
     log::info!("DLNA: Playing track {} via MediaServer URL: {}", track_id, url);
-    log::debug!("DLNA: Content-Type from Qobuz: {}", content_type);
+    log::info!("DLNA: Content-Type from Qobuz: {}", content_type);
 
     // Load media on DLNA device
     {
