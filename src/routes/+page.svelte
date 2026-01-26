@@ -522,6 +522,7 @@
    * - Weak (1), None (0): Show Informational Modal
    */
   async function handleMusicianClick(name: string, role: string) {
+    showToast(`Looking up ${name}...`, 'info');
     try {
       const musician = await invoke<ResolvedMusician>('resolve_musician', { name, role });
       console.log('Resolved musician:', musician);
@@ -552,6 +553,7 @@
       }
     } catch (err) {
       console.error('Failed to resolve musician:', err);
+      showToast('Could not look up musician info', 'error');
       // Fallback: open modal with basic info
       musicianModalData = {
         name,
