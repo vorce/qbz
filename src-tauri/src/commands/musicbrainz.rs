@@ -402,16 +402,18 @@ fn extract_relationships(artist: &ArtistFullResponse) -> ArtistRelationships {
                     begin: relation.begin.clone(),
                     end: relation.end.clone(),
                 }),
+                ended: relation.ended.unwrap_or(false),
             };
 
             match relation.relation_type.as_str() {
                 "member of band" => {
                     if relation.direction.as_deref() == Some("backward") {
-                        groups.push(related);
-                    } else if relation.ended == Some(true) {
-                        past_members.push(related);
-                    } else {
+                        // We're viewing a BAND, the related artist is a MEMBER
+                        // All members go to the same list - don't separate by ended status
                         members.push(related);
+                    } else {
+                        // We're viewing a PERSON, the related artist is a BAND/GROUP
+                        groups.push(related);
                     }
                 }
                 "collaboration" => {

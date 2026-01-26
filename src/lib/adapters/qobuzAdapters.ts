@@ -393,6 +393,33 @@ function categorizeAlbum(album: QobuzAlbum, mainArtistId: number): 'tributes' | 
 }
 
 /**
+ * Extract unique labels from albums
+ * Only considers albums categorized as 'albums' (main Discography)
+ * to avoid pollution from tributes, compilations, etc.
+ */
+function extractLabelsFromAlbums(albums: QobuzAlbum[], artistId: number): { id: number; name: string }[] {
+  const labelMap = new Map<number, string>();
+
+  for (const album of albums) {
+    // Only extract labels from main discography albums
+    const category = categorizeAlbum(album, artistId);
+    if (category !== 'albums') continue;
+
+    if (album.label?.id && album.label?.name) {
+      // Only add if we haven't seen this label ID before
+      if (!labelMap.has(album.label.id)) {
+        labelMap.set(album.label.id, album.label.name);
+      }
+    }
+  }
+
+  // Convert to array and sort by name
+  return Array.from(labelMap.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
  * Convert Qobuz API artist response to UI ArtistDetail model
  */
 export function convertQobuzArtist(artist: QobuzArtist): ArtistDetail {
@@ -443,6 +470,7 @@ export function convertQobuzArtist(artist: QobuzArtist): ArtistDetail {
     tributes,
     others,
     playlists: toArtistPlaylists(artist.playlists),
+    labels: extractLabelsFromAlbums(albumItems, artist.id),
     totalAlbums: artist.albums?.total || artist.albums_count || 0,
     albumsFetched
   };
@@ -507,6 +535,13 @@ export function appendArtistAlbums(
     }
   }
 
+  // Merge new labels from new albums (only from main discography)
+  const existingLabelIds = new Set(artist.labels.map(l => l.id));
+  const newLabels = extractLabelsFromAlbums(newAlbums, artist.id)
+    .filter(l => !existingLabelIds.has(l.id));
+  const labels = [...artist.labels, ...newLabels]
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return {
     ...artist,
     albums,
@@ -514,6 +549,7 @@ export function appendArtistAlbums(
     liveAlbums,
     tributes,
     others,
+    labels,
     totalAlbums: totalAlbums ?? artist.totalAlbums,
     albumsFetched: albumsFetched ?? artist.albumsFetched + newAlbums.length
   };

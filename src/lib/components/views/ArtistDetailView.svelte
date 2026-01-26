@@ -1,13 +1,14 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music, Heart, Search, X, ChevronLeft, ChevronRight, Radio, MoreHorizontal, Info } from 'lucide-svelte';
+  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music, Heart, Search, X, ChevronLeft, ChevronRight, Radio, MoreHorizontal, Info, Disc } from 'lucide-svelte';
   import type { ArtistDetail, QobuzArtist } from '$lib/types';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
   import { consumeContextTrackFocus, setPlaybackContext, getPlaybackContext } from '$lib/stores/playbackContextStore';
   import { togglePlay } from '$lib/stores/playerStore';
   import { getQueue, syncQueueState, playQueueIndex } from '$lib/stores/queueStore';
-  import { tick } from 'svelte';
+  import { subscribeContentSidebar, toggleContentSidebar, type ContentSidebarType } from '$lib/stores/sidebarStore';
+  import { tick, onMount, onDestroy } from 'svelte';
 
   interface Track {
     id: number;
@@ -73,6 +74,7 @@
     onTrackShareSonglink?: (track: Track) => void;
     onTrackGoToAlbum?: (albumId: string) => void;
     onTrackGoToArtist?: (artistId: number) => void;
+    onLabelClick?: (labelId: number, labelName?: string) => void;
     activeTrackId?: number | null;
     isPlaybackActive?: boolean;
   }
@@ -104,6 +106,7 @@
     onTrackShareSonglink,
     onTrackGoToAlbum,
     onTrackGoToArtist,
+    onLabelClick,
     activeTrackId = null,
     isPlaybackActive = false
   }: Props = $props();
@@ -117,6 +120,18 @@
   let isRadioLoading = $state(false);
   let radioLoadingMessage = $state('');
   let radioJustCreated = $state(false);
+  let showNetworkSidebar = $state(false);
+  let unsubscribeSidebar: (() => void) | null = null;
+
+  onMount(() => {
+    unsubscribeSidebar = subscribeContentSidebar((active: ContentSidebarType) => {
+      showNetworkSidebar = active === 'network';
+    });
+  });
+
+  onDestroy(() => {
+    unsubscribeSidebar?.();
+  });
   let similarArtists = $state<QobuzArtist[]>([]);
   let similarArtistsLoading = $state(false);
   let similarArtistImageErrors = $state<Set<number>>(new Set());
@@ -127,6 +142,7 @@
     name: string;
     role?: string;
     period?: { begin?: string; end?: string };
+    ended: boolean;
   }
   interface ArtistRelationships {
     members: RelatedArtist[];
@@ -134,9 +150,17 @@
     groups: RelatedArtist[];
     collaborators: RelatedArtist[];
   }
+  interface GroupedMember {
+    mbid: string;
+    name: string;
+    roles: string[];
+    period?: { begin?: string; end?: string };
+    ended: boolean;
+  }
   let mbRelationships = $state<ArtistRelationships | null>(null);
   let mbRelationshipsLoading = $state(false);
   let mbArtistMbid = $state<string | null>(null);
+  let mbAvailable = $state(true); // Assume available until proven otherwise
   let artistDetailEl = $state<HTMLDivElement | null>(null);
   let aboutSection = $state<HTMLDivElement | null>(null);
   let topTracksSection = $state<HTMLDivElement | null>(null);
@@ -480,11 +504,13 @@
     mbRelationshipsLoading = true;
     mbRelationships = null;
     mbArtistMbid = null;
+    mbAvailable = true; // Reset on each load attempt
 
     try {
       // Check if MusicBrainz is enabled
       const enabled = await invoke<boolean>('musicbrainz_is_enabled');
       if (!enabled) {
+        mbAvailable = false;
         mbRelationshipsLoading = false;
         return;
       }
@@ -519,6 +545,7 @@
       };
     } catch (err) {
       console.error('Failed to load MusicBrainz relationships:', err);
+      mbAvailable = false;
       mbRelationships = null;
     } finally {
       mbRelationshipsLoading = false;
@@ -555,8 +582,44 @@
   let hasRelationships = $derived(
     mbRelationships &&
     (mbRelationships.members.length > 0 ||
-     mbRelationships.pastMembers.length > 0 ||
-     mbRelationships.groups.length > 0)
+     mbRelationships.groups.length > 0 ||
+     mbRelationships.collaborators.length > 0)
+  );
+
+  // Group members by MBID, combining their roles
+  function groupMembersByMbid(members: RelatedArtist[]): GroupedMember[] {
+    const grouped = new Map<string, GroupedMember>();
+    for (const member of members) {
+      const existing = grouped.get(member.mbid);
+      if (existing) {
+        if (member.role && !existing.roles.includes(member.role)) {
+          existing.roles.push(member.role);
+        }
+        // If any entry is ended, mark as ended
+        if (member.ended) {
+          existing.ended = true;
+        }
+      } else {
+        grouped.set(member.mbid, {
+          mbid: member.mbid,
+          name: member.name,
+          roles: member.role ? [member.role] : [],
+          period: member.period,
+          ended: member.ended
+        });
+      }
+    }
+    return Array.from(grouped.values());
+  }
+
+  let groupedMembers = $derived(
+    mbRelationships ? groupMembersByMbid(mbRelationships.members) : []
+  );
+  let groupedGroups = $derived(
+    mbRelationships ? groupMembersByMbid(mbRelationships.groups) : []
+  );
+  let groupedCollaborators = $derived(
+    mbRelationships ? groupMembersByMbid(mbRelationships.collaborators) : []
   );
 
   function getSimilarArtistImage(similar: QobuzArtist): string {
@@ -1032,6 +1095,7 @@
         </div>
       {/if}
 
+      <!-- TEMPORARILY HIDDEN FOR SIDEBAR EXPERIMENTS
       {#if similarArtistsLoading}
         <div class="similar-loading">Loading similar artists...</div>
       {:else if similarArtists.length > 0}
@@ -1054,7 +1118,7 @@
         </div>
       {/if}
 
-      <!-- MusicBrainz Relationships -->
+      MusicBrainz Relationships
       {#if mbRelationshipsLoading}
         <div class="mb-relationships-loading">Loading artist relationships...</div>
       {:else if hasRelationships}
@@ -1120,6 +1184,7 @@
           {/if}
         </div>
       {/if}
+      END TEMPORARILY HIDDEN -->
 
       <!-- Action Buttons -->
       <div class="artist-actions">
@@ -1153,6 +1218,14 @@
             {/key}
           {/if}
         </div>
+        <button
+          class="network-btn"
+          class:active={showNetworkSidebar}
+          onclick={() => toggleContentSidebar('network')}
+          title="Artist Network"
+        >
+          <img src="/element-connect.svg" alt="Network" class="network-icon" />
+        </button>
       </div>
     </div>
   </div>
@@ -1841,6 +1914,137 @@
       {/if}
     </div>
   {/if}
+
+  <!-- Artist Network Sidebar -->
+  {#if showNetworkSidebar}
+    <aside class="network-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-header-icon">
+          <img src="/element-connect.svg" alt="" />
+        </div>
+        <div class="sidebar-header-text">
+          <h3 class="sidebar-title">Network</h3>
+          <div class="sidebar-subtitle">{artist.name}</div>
+        </div>
+        <button class="sidebar-close" onclick={() => toggleContentSidebar('network')} title="Close">
+          <X size={18} />
+        </button>
+      </div>
+
+      <div class="sidebar-content">
+        <!-- Labels Section -->
+        <section class="sidebar-section">
+          <h4 class="section-label">LABELS</h4>
+          <div class="section-items">
+            {#if artist.labels.length > 0}
+              {#each artist.labels as label}
+                <button
+                  class="sidebar-artist-link"
+                  onclick={() => onLabelClick?.(label.id, label.name)}
+                  title={label.name}
+                >
+                  <Disc size={12} />
+                  {label.name}
+                </button>
+              {/each}
+            {:else}
+              <span class="placeholder-text">No label info</span>
+            {/if}
+          </div>
+        </section>
+
+        <!-- Similar Artists Section -->
+        <section class="sidebar-section">
+          <h4 class="section-label">SIMILAR ARTISTS</h4>
+          <div class="section-items">
+            {#if similarArtistsLoading}
+              <span class="placeholder-text">Loading...</span>
+            {:else if similarArtists.length > 0}
+              {#each similarArtists as similar}
+                <button
+                  class="sidebar-artist-link"
+                  onclick={() => onTrackGoToArtist?.(similar.id)}
+                  title={similar.name}
+                >
+                  <User size={12} />
+                  {similar.name}
+                </button>
+              {/each}
+            {:else}
+              <span class="placeholder-text">No similar artists found</span>
+            {/if}
+          </div>
+        </section>
+
+        <!-- MusicBrainz Relationships (only shown if MB is enabled and available) -->
+        {#if mbAvailable}
+          <section class="sidebar-section">
+            <h4 class="section-label">RELATIONSHIPS</h4>
+            <div class="section-items">
+              {#if mbRelationshipsLoading}
+                <span class="placeholder-text">Loading...</span>
+              {:else if hasRelationships}
+                {#if groupedMembers.length > 0}
+                  <div class="relationship-group">
+                    <span class="relationship-label">Members & Former</span>
+                    {#each groupedMembers as member}
+                      {@const periodStr = member.period?.begin || member.period?.end
+                        ? `${member.period.begin || '?'} - ${member.period.end || 'present'}`
+                        : ''}
+                      {@const tooltipParts = [...member.roles]}
+                      {@const tooltip = tooltipParts.length > 0
+                        ? (periodStr ? `${tooltipParts.join(', ')} (${periodStr})` : tooltipParts.join(', '))
+                        : (periodStr || member.name)}
+                      <button
+                        class="sidebar-artist-link"
+                        onclick={() => navigateToRelatedArtist(member.name)}
+                        title={tooltip}
+                      >
+                        <User size={12} />
+                        {member.name}
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+                {#if groupedGroups.length > 0}
+                  <div class="relationship-group">
+                    <span class="relationship-label">Member Of</span>
+                    {#each groupedGroups as group}
+                      <button
+                        class="sidebar-artist-link"
+                        onclick={() => navigateToRelatedArtist(group.name)}
+                        title={group.roles.length > 0 ? group.roles.join(', ') : group.name}
+                      >
+                        <Music size={12} />
+                        {group.name}
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+                {#if groupedCollaborators.length > 0}
+                  <div class="relationship-group">
+                    <span class="relationship-label">Collaborators</span>
+                    {#each groupedCollaborators as collab}
+                      <button
+                        class="sidebar-artist-link"
+                        onclick={() => navigateToRelatedArtist(collab.name)}
+                        title={collab.roles.length > 0 ? collab.roles.join(', ') : collab.name}
+                      >
+                        <User size={12} />
+                        {collab.name}
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              {:else}
+                <span class="placeholder-text">No relationships found</span>
+              {/if}
+            </div>
+          </section>
+        {/if}
+      </div>
+    </aside>
+  {/if}
 </div>
 
 <style>
@@ -1853,6 +2057,175 @@
     padding-right: 8px;
     padding-bottom: 100px;
     overflow-y: auto;
+    position: relative;
+  }
+
+  /* Network Sidebar - matches LyricsSidebar dimensions */
+  .network-sidebar {
+    position: fixed;
+    top: 32px;
+    right: 0;
+    width: 340px;
+    height: calc(100vh - 32px - 72px);
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--bg-tertiary);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 200ms ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid var(--bg-tertiary);
+    background: var(--bg-primary);
+    flex-shrink: 0;
+  }
+
+  .sidebar-header-icon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    color: var(--accent-primary);
+  }
+
+  .sidebar-header-icon img {
+    width: 18px;
+    height: 18px;
+    filter: brightness(0) saturate(100%) invert(56%) sepia(63%) saturate(4848%) hue-rotate(230deg) brightness(102%) contrast(101%);
+  }
+
+  .sidebar-header-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sidebar-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  .sidebar-subtitle {
+    font-size: 13px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+
+  .sidebar-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: background 150ms ease, color 150ms ease;
+  }
+
+  .sidebar-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .sidebar-section {
+    margin-bottom: 24px;
+  }
+
+  .sidebar-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 0;
+  }
+
+  .section-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .placeholder-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .sidebar-artist-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-align: left;
+    transition: background 150ms ease, color 150ms ease;
+  }
+
+  .sidebar-artist-link:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+
+  .relationship-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 16px;
+  }
+
+  .relationship-group:last-child {
+    margin-bottom: 0;
+  }
+
+  .relationship-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 6px;
   }
 
   /* Custom scrollbar */
@@ -2056,6 +2429,42 @@
     position: relative;
   }
 
+  .network-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: background 200ms ease, color 200ms ease;
+    flex-shrink: 0;
+  }
+
+  .network-btn:hover {
+    background: var(--bg-hover);
+    color: var(--accent-primary);
+  }
+
+  .network-btn.active {
+    background: var(--bg-hover);
+  }
+
+  .network-btn .network-icon {
+    width: 24px;
+    height: 24px;
+    filter: brightness(0) saturate(100%) invert(70%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(90%) contrast(90%);
+    transition: filter 150ms ease;
+  }
+
+  .network-btn:hover .network-icon,
+  .network-btn.active .network-icon {
+    filter: brightness(0) saturate(100%) invert(56%) sepia(63%) saturate(4848%) hue-rotate(230deg) brightness(102%) contrast(101%);
+  }
+
   .floating-message {
     position: absolute;
     left: 50%;
@@ -2108,9 +2517,9 @@
     line-height: 1.7;
     color: var(--text-secondary);
     font-weight: 300;
-    /* Smart 3-line clamp */
+    /* Smart 2-line clamp */
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }

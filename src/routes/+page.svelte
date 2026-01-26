@@ -242,10 +242,14 @@
   // MiniPlayer
   import { enterMiniplayerMode } from '$lib/services/miniplayerService';
 
+  // Sidebar mutual exclusion
+  import { closeContentSidebar, subscribeContentSidebar, type ContentSidebarType } from '$lib/stores/sidebarStore';
+
   // Lyrics state management
   import {
     subscribe as subscribeLyrics,
     toggleSidebar as toggleLyricsSidebar,
+    hideSidebar as hideLyricsSidebar,
     startWatching as startLyricsWatching,
     stopWatching as stopLyricsWatching,
     startActiveLineUpdates,
@@ -2078,6 +2082,10 @@
     // Subscribe to UI state changes
     const unsubscribeUI = subscribeUI(() => {
       const uiState = getUIState();
+      // Close network sidebar when queue opens
+      if (uiState.isQueueOpen && !isQueueOpen) {
+        closeContentSidebar('network');
+      }
       isQueueOpen = uiState.isQueueOpen;
       isFullScreenOpen = uiState.isFullScreenOpen;
       isFocusModeOpen = uiState.isFocusModeOpen;
@@ -2179,6 +2187,18 @@
       lyricsActiveIndex = state.activeIndex;
       lyricsActiveProgress = state.activeProgress;
       lyricsSidebarVisible = state.sidebarVisible;
+      // Close network sidebar when lyrics opens
+      if (state.sidebarVisible) {
+        closeContentSidebar('network');
+      }
+    });
+
+    // Subscribe to content sidebar for mutual exclusion (network closes lyrics/queue)
+    const unsubscribeContentSidebar = subscribeContentSidebar((active: ContentSidebarType) => {
+      if (active === 'network') {
+        hideLyricsSidebar();
+        closeQueue();
+      }
     });
 
     // Subscribe to cast state changes
@@ -2307,6 +2327,7 @@
       unsubscribePlayer();
       unsubscribeQueue();
       unsubscribeLyrics();
+      unsubscribeContentSidebar();
       unsubscribeCast();
       stopLyricsWatching();
       stopActiveLineUpdates();
@@ -2575,6 +2596,7 @@
           onTrackGoToAlbum={handleAlbumClick}
           onTrackGoToArtist={handleArtistClick}
           onPlaylistClick={selectPlaylist}
+          onLabelClick={handleLabelClick}
           activeTrackId={currentTrack?.id ?? null}
           isPlaybackActive={isPlaying}
         />

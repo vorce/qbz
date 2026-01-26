@@ -328,6 +328,7 @@ pub struct RelatedArtist {
     pub name: String,
     pub role: Option<String>,
     pub period: Option<Period>,
+    pub ended: bool,
 }
 
 /// Time period for a relationship
