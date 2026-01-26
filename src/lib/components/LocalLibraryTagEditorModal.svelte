@@ -406,14 +406,14 @@
     border-top: 1px solid var(--bg-tertiary);
   }
 
-.track-body {
-  max-height: calc(var(--track-row-height) * 5);
-  overflow-y: auto;
-  scroll-snap-type: y mandatory;
-  scrollbar-gutter: stable;
-  overscroll-behavior: contain;
-  padding: 0 0 2px 0;
-}
+  .track-body {
+    max-height: calc(var(--track-row-height) * 5);
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+    padding: 0;
+  }
 
   .track-body .track-row {
     scroll-snap-align: start;
@@ -424,12 +424,12 @@
     background: var(--bg-secondary);
   }
 
-.cell {
-  border-right: 1px solid var(--bg-tertiary);
-  padding: 10px;
-  display: flex;
-  align-items: center;
-}
+  .cell {
+    border-right: 1px solid var(--bg-tertiary);
+    padding: 10px;
+    display: flex;
+    align-items: center;
+  }
 
   .cell:last-child {
     border-right: none;
@@ -473,14 +473,22 @@
 }
 
 /* Hide number spinners, keep keyboard support */
-  input[type="number"]::-webkit-outer-spin-button,
-  input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+.ref-inline {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-primary);
+  padding: 4px 2px 0;
 }
 
 .ref-inline {
@@ -517,6 +525,13 @@ input[type="number"] {
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+.footer-actions :global(.primary-btn),
+.footer-actions :global(.secondary-btn) {
+  min-width: 96px;
+  height: 40px;
+  border-radius: 10px;
 }
 
 .select-inline {
