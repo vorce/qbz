@@ -107,6 +107,7 @@
   let isClearingLyrics = $state(false);
   let lyricsCacheStats = $state<{ entries: number; sizeBytes: number } | null>(null);
   let isClearingMusicBrainz = $state(false);
+  let musicBrainzCacheStats = $state<{ recordings: number; artists: number; releases: number; relations: number } | null>(null);
 
   // Migration state
   let showMigrationModal = $state(false);
@@ -464,6 +465,9 @@
 
     // Load lyrics cache stats
     loadLyricsCacheStats();
+
+    // Load MusicBrainz cache stats
+    loadMusicBrainzCacheStats();
 
     // Load audio devices first (includes PipeWire sinks), then settings
     // Also load backends and ALSA plugins
@@ -1499,10 +1503,20 @@
     try {
       await invoke('musicbrainz_clear_cache');
       console.log('MusicBrainz cache cleared');
+      await loadMusicBrainzCacheStats();
     } catch (err) {
       console.error('Failed to clear MusicBrainz cache:', err);
     } finally {
       isClearingMusicBrainz = false;
+    }
+  }
+
+  async function loadMusicBrainzCacheStats() {
+    try {
+      musicBrainzCacheStats = await invoke('musicbrainz_get_cache_stats');
+    } catch (err) {
+      console.error('Failed to load MusicBrainz cache stats:', err);
+      musicBrainzCacheStats = null;
     }
   }
 
@@ -2204,13 +2218,17 @@
       <div class="setting-info">
         <span class="setting-label">MusicBrainz Cache</span>
         <small class="setting-note">
-          Artist relationships, metadata enrichment
+          {#if musicBrainzCacheStats}
+            {musicBrainzCacheStats.artists} artists, {musicBrainzCacheStats.relations} relations, {musicBrainzCacheStats.recordings} recordings
+          {:else}
+            -
+          {/if}
         </small>
       </div>
       <button
         class="clear-btn"
         onclick={handleClearMusicBrainzCache}
-        disabled={isClearingMusicBrainz}
+        disabled={isClearingMusicBrainz || !musicBrainzCacheStats || (musicBrainzCacheStats.artists === 0 && musicBrainzCacheStats.relations === 0 && musicBrainzCacheStats.recordings === 0)}
       >
         {isClearingMusicBrainz ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
