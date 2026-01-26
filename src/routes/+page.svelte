@@ -3004,6 +3004,7 @@
       }}
       onArtistClick={handleArtistClick}
       onLabelClick={handleLabelClick}
+      onMusicianClick={handleMusicianClick}
     />
 
     <!-- Album Credits Modal -->
@@ -3024,6 +3025,7 @@
         }
       }}
       onLabelClick={handleLabelClick}
+      onMusicianClick={handleMusicianClick}
     />
 
     <!-- Musician Modal (for confidence level 0-1) -->
