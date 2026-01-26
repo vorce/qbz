@@ -128,6 +128,7 @@
     name: string;
     role?: string;
     period?: { begin?: string; end?: string };
+    ended: boolean;
   }
   interface ArtistRelationships {
     members: RelatedArtist[];
@@ -140,6 +141,7 @@
     name: string;
     roles: string[];
     period?: { begin?: string; end?: string };
+    ended: boolean;
   }
   let mbRelationships = $state<ArtistRelationships | null>(null);
   let mbRelationshipsLoading = $state(false);
@@ -562,8 +564,8 @@
   let hasRelationships = $derived(
     mbRelationships &&
     (mbRelationships.members.length > 0 ||
-     mbRelationships.pastMembers.length > 0 ||
-     mbRelationships.groups.length > 0)
+     mbRelationships.groups.length > 0 ||
+     mbRelationships.collaborators.length > 0)
   );
 
   // Group members by MBID, combining their roles
@@ -575,12 +577,17 @@
         if (member.role && !existing.roles.includes(member.role)) {
           existing.roles.push(member.role);
         }
+        // If any entry is ended, mark as ended
+        if (member.ended) {
+          existing.ended = true;
+        }
       } else {
         grouped.set(member.mbid, {
           mbid: member.mbid,
           name: member.name,
           roles: member.role ? [member.role] : [],
-          period: member.period
+          period: member.period,
+          ended: member.ended
         });
       }
     }
@@ -589,9 +596,6 @@
 
   let groupedMembers = $derived(
     mbRelationships ? groupMembersByMbid(mbRelationships.members) : []
-  );
-  let groupedPastMembers = $derived(
-    mbRelationships ? groupMembersByMbid(mbRelationships.pastMembers) : []
   );
   let groupedGroups = $derived(
     mbRelationships ? groupMembersByMbid(mbRelationships.groups) : []
@@ -1946,25 +1950,18 @@
                 <div class="relationship-group">
                   <span class="relationship-label">Members</span>
                   {#each groupedMembers as member}
+                    {@const periodStr = member.period?.begin || member.period?.end
+                      ? `${member.period.begin || '?'} - ${member.period.end || 'present'}`
+                      : ''}
+                    {@const tooltipParts = [...member.roles]}
+                    {@const tooltip = tooltipParts.length > 0
+                      ? (periodStr ? `${tooltipParts.join(', ')} (${periodStr})` : tooltipParts.join(', '))
+                      : (periodStr || member.name)}
                     <button
                       class="sidebar-artist-link"
+                      class:ended={member.ended}
                       onclick={() => navigateToRelatedArtist(member.name)}
-                      title={member.roles.length > 0 ? member.roles.join(', ') : member.name}
-                    >
-                      <User size={12} />
-                      {member.name}
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-              {#if groupedPastMembers.length > 0}
-                <div class="relationship-group">
-                  <span class="relationship-label">Former Members</span>
-                  {#each groupedPastMembers as member}
-                    <button
-                      class="sidebar-artist-link past-member"
-                      onclick={() => navigateToRelatedArtist(member.name)}
-                      title={member.roles.length > 0 ? member.roles.join(', ') : member.name}
+                      title={tooltip}
                     >
                       <User size={12} />
                       {member.name}
@@ -2140,11 +2137,11 @@
     color: var(--text-primary);
   }
 
-  .sidebar-artist-link.past-member {
+  .sidebar-artist-link.ended {
     color: var(--text-muted);
   }
 
-  .sidebar-artist-link.past-member:hover {
+  .sidebar-artist-link.ended:hover {
     color: var(--text-primary);
   }
 
