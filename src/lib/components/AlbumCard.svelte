@@ -368,6 +368,24 @@
     left: 50%;
     top: 75%;
     transform: translate(-50%, -50%);
+    opacity: 0;
+  }
+
+  .album-card:hover .action-buttons,
+  .action-overlay:focus-within .action-buttons,
+  .action-overlay.menu-open .action-buttons {
+    animation: slide-in-down 0.4s ease-out forwards;
+  }
+
+  @keyframes slide-in-down {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, calc(-50% - 12px));
+    }
+    100% {
+      opacity: 1;
+      transform: translate(-50%, -50%);
+    }
   }
 
   .overlay-btn {
@@ -421,6 +439,25 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  .album-card:hover .overlay-info,
+  .action-overlay:focus-within .overlay-info,
+  .action-overlay.menu-open .overlay-info {
+    animation: slide-in-up 0.4s ease-out forwards;
+  }
+
+  @keyframes slide-in-up {
+    0% {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .overlay-genre {
