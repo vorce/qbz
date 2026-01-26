@@ -171,24 +171,21 @@ pub async fn get_musician_appearances(
 
             albums.push(AlbumAppearance {
                 album_id: album.id.clone(),
-                album_title: album.title.clone().unwrap_or_default(),
+                album_title: album.title.clone(),
                 album_artwork: album
                     .image
-                    .as_ref()
-                    .and_then(|i| i.large.clone())
-                    .or_else(|| album.image.as_ref().and_then(|i| i.thumbnail.clone()))
+                    .large
+                    .clone()
+                    .or_else(|| album.image.thumbnail.clone())
                     .unwrap_or_default(),
+                // AlbumSummary doesn't have artist field, use track's performer
                 artist_name: track
-                    .album
+                    .performer
                     .as_ref()
-                    .and_then(|a| a.artist.as_ref())
-                    .map(|a| a.name.clone())
+                    .map(|p| p.name.clone())
                     .unwrap_or_else(|| performer_name.to_string()),
-                year: album
-                    .release_date_original
-                    .as_ref()
-                    .and_then(|d| d.split('-').next())
-                    .map(|s| s.to_string()),
+                // AlbumSummary doesn't have release_date_original
+                year: None,
                 role_on_album: role,
             });
         }
