@@ -152,11 +152,14 @@ pub async fn dlna_play_track(
         url.ok_or_else(|| "Failed to build media URL".to_string())?
     };
 
+    log::info!("DLNA: Playing track {} via MediaServer URL: {}", track_id, url);
+    log::debug!("DLNA: Content-Type from Qobuz: {}", content_type);
+
     // Load media on DLNA device
     {
         let mut connection = dlna_state.connection.lock().await;
         let conn = connection.as_mut().ok_or_else(|| "Not connected".to_string())?;
-        conn.load_media(&url, &metadata).await.map_err(|e| e.to_string())?;
+        conn.load_media(&url, &metadata, &content_type).await.map_err(|e| e.to_string())?;
     }
 
     // Start playback

@@ -101,7 +101,7 @@ impl DlnaConnection {
     }
 
     /// Set the media URI and start playback
-    pub async fn load_media(&mut self, uri: &str, metadata: &DlnaMetadata) -> Result<(), DlnaError> {
+    pub async fn load_media(&mut self, uri: &str, metadata: &DlnaMetadata, content_type: &str) -> Result<(), DlnaError> {
         if !self.connected {
             return Err(DlnaError::NotConnected);
         }
@@ -109,8 +109,12 @@ impl DlnaConnection {
         let av_service = self.av_transport_service.as_ref()
             .ok_or_else(|| DlnaError::Playback("Device has no AVTransport service".to_string()))?;
 
-        // Build DIDL-Lite metadata
-        let didl_metadata = build_didl_metadata(uri, metadata);
+        // Build DIDL-Lite metadata with actual content type
+        let didl_metadata = build_didl_metadata(uri, metadata, content_type);
+        
+        log::debug!("DLNA: Loading media URI: {}", uri);
+        log::debug!("DLNA: Content-Type: {}", content_type);
+        log::debug!("DLNA: DIDL Metadata:\n{}", didl_metadata);
 
         let payload = format!(
             "<InstanceID>0</InstanceID><CurrentURI>{}</CurrentURI><CurrentURIMetaData>{}</CurrentURIMetaData>",
@@ -118,11 +122,15 @@ impl DlnaConnection {
             xml_escape(&didl_metadata)
         );
 
-        av_service
+        let response = av_service
             .action(&self.device_url, "SetAVTransportURI", &payload)
             .await
-            .map_err(|e| DlnaError::Playback(e.to_string()))?;
+            .map_err(|e| {
+                log::error!("DLNA: SetAVTransportURI failed: {}", e);
+                DlnaError::Playback(e.to_string())
+            })?;
 
+        log::debug!("DLNA: SetAVTransportURI response: {:?}", response);
         self.current_uri = Some(uri.to_string());
         log::info!("DLNA: Set URI to {}", uri);
 
@@ -138,13 +146,17 @@ impl DlnaConnection {
         let av_service = self.av_transport_service.as_ref()
             .ok_or_else(|| DlnaError::Playback("Device has no AVTransport service".to_string()))?;
 
-        av_service
+        let response = av_service
             .action(&self.device_url, "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>")
             .await
-            .map_err(|e| DlnaError::Playback(e.to_string()))?;
+            .map_err(|e| {
+                log::error!("DLNA: Play action failed: {}", e);
+                DlnaError::Playback(e.to_string())
+            })?;
 
+        log::debug!("DLNA: Play response: {:?}", response);
         self.is_playing = true;
-        log::info!("DLNA: Play");
+        log::info!("DLNA: Play started successfully");
         Ok(())
     }
 
@@ -244,7 +256,7 @@ impl DlnaConnection {
 }
 
 /// Build DIDL-Lite metadata for a track
-fn build_didl_metadata(uri: &str, metadata: &DlnaMetadata) -> String {
+fn build_didl_metadata(uri: &str, metadata: &DlnaMetadata, content_type: &str) -> String {
     let duration = metadata.duration_secs.map(|d| {
         let hours = d / 3600;
         let minutes = (d % 3600) / 60;
@@ -256,6 +268,10 @@ fn build_didl_metadata(uri: &str, metadata: &DlnaMetadata) -> String {
         .map(|url| format!(r#"<upnp:albumArtURI>{}</upnp:albumArtURI>"#, xml_escape(url)))
         .unwrap_or_default();
 
+    // Use actual content type for protocolInfo - critical for DLNA compatibility
+    // Many devices reject content if protocolInfo doesn't match actual MIME type
+    let protocol_info = format!("http-get:*:{}:*", content_type);
+
     format!(
         r#"<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">
   <item id="0" parentID="-1" restricted="1">
@@ -264,7 +280,7 @@ fn build_didl_metadata(uri: &str, metadata: &DlnaMetadata) -> String {
     <upnp:album>{}</upnp:album>
     <upnp:artist>{}</upnp:artist>
     {}
-    <res duration="{}" protocolInfo="http-get:*:audio/flac:*">{}</res>
+    <res duration="{}" protocolInfo="{}">{}</res>
     <upnp:class>object.item.audioItem.musicTrack</upnp:class>
   </item>
 </DIDL-Lite>"#,
@@ -274,6 +290,7 @@ fn build_didl_metadata(uri: &str, metadata: &DlnaMetadata) -> String {
         xml_escape(&metadata.artist),
         artwork,
         duration,
+        protocol_info,
         xml_escape(uri)
     )
 }
