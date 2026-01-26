@@ -106,6 +106,7 @@
   // Lyrics cache state
   let isClearingLyrics = $state(false);
   let lyricsCacheStats = $state<{ entries: number; sizeBytes: number } | null>(null);
+  let isClearingMusicBrainz = $state(false);
 
   // Migration state
   let showMigrationModal = $state(false);
@@ -1492,6 +1493,19 @@
     }
   }
 
+  async function handleClearMusicBrainzCache() {
+    if (isClearingMusicBrainz) return;
+    isClearingMusicBrainz = true;
+    try {
+      await invoke('musicbrainz_clear_cache');
+      console.log('MusicBrainz cache cleared');
+    } catch (err) {
+      console.error('Failed to clear MusicBrainz cache:', err);
+    } finally {
+      isClearingMusicBrainz = false;
+    }
+  }
+
   function formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -2162,7 +2176,7 @@
         {isClearing ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
     </div>
-    <div class="setting-row last">
+    <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{$t('settings.lyrics.clearLyrics')}</span>
         <small class="setting-note">
@@ -2184,6 +2198,21 @@
         disabled={isClearingLyrics}
       >
         {isClearingLyrics ? $t('settings.storage.clearing') : $t('actions.clear')}
+      </button>
+    </div>
+    <div class="setting-row last">
+      <div class="setting-info">
+        <span class="setting-label">MusicBrainz Cache</span>
+        <small class="setting-note">
+          Artist relationships, metadata enrichment
+        </small>
+      </div>
+      <button
+        class="clear-btn"
+        onclick={handleClearMusicBrainzCache}
+        disabled={isClearingMusicBrainz}
+      >
+        {isClearingMusicBrainz ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
     </div>
   </section>
