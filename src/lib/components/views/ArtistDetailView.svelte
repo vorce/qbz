@@ -1852,6 +1852,91 @@
       {/if}
     </div>
   {/if}
+
+  <!-- Artist Network Sidebar -->
+  {#if showNetworkSidebar}
+    <aside class="network-sidebar">
+      <div class="sidebar-header">
+        <h3 class="sidebar-title">Artist Network</h3>
+        <button class="sidebar-close" onclick={() => showNetworkSidebar = false} title="Close">
+          <X size={18} />
+        </button>
+      </div>
+
+      <div class="sidebar-content">
+        <!-- Labels Section -->
+        <section class="sidebar-section">
+          <h4 class="section-label">LABELS</h4>
+          <div class="section-items">
+            <span class="placeholder-text">Coming soon...</span>
+          </div>
+        </section>
+
+        <!-- Similar Artists Section -->
+        <section class="sidebar-section">
+          <h4 class="section-label">SIMILAR ARTISTS</h4>
+          <div class="section-items">
+            {#if similarArtistsLoading}
+              <span class="placeholder-text">Loading...</span>
+            {:else if similarArtists.length > 0}
+              {#each similarArtists as similar}
+                <button
+                  class="sidebar-artist-link"
+                  onclick={() => onTrackGoToArtist?.(similar.id)}
+                  title={similar.name}
+                >
+                  {similar.name}
+                </button>
+              {/each}
+            {:else}
+              <span class="placeholder-text">No similar artists found</span>
+            {/if}
+          </div>
+        </section>
+
+        <!-- MusicBrainz Relationships -->
+        <section class="sidebar-section">
+          <h4 class="section-label">RELATIONSHIPS</h4>
+          <div class="section-items">
+            {#if mbRelationshipsLoading}
+              <span class="placeholder-text">Loading...</span>
+            {:else if hasRelationships}
+              {#if mbRelationships && mbRelationships.members.length > 0}
+                <div class="relationship-group">
+                  <span class="relationship-label">Band Members</span>
+                  {#each mbRelationships.members as member}
+                    <button
+                      class="sidebar-artist-link"
+                      onclick={() => navigateToRelatedArtist(member.name)}
+                    >
+                      <User size={12} />
+                      {member.name}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+              {#if mbRelationships && mbRelationships.groups.length > 0}
+                <div class="relationship-group">
+                  <span class="relationship-label">Member Of</span>
+                  {#each mbRelationships.groups as group}
+                    <button
+                      class="sidebar-artist-link"
+                      onclick={() => navigateToRelatedArtist(group.name)}
+                    >
+                      <Music size={12} />
+                      {group.name}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            {:else}
+              <span class="placeholder-text">No relationships found</span>
+            {/if}
+          </div>
+        </section>
+      </div>
+    </aside>
+  {/if}
 </div>
 
 <style>
@@ -1864,6 +1949,138 @@
     padding-right: 8px;
     padding-bottom: 100px;
     overflow-y: auto;
+    position: relative;
+  }
+
+  /* Network Sidebar */
+  .network-sidebar {
+    position: fixed;
+    top: 52px;
+    right: 0;
+    width: 280px;
+    height: calc(100vh - 52px - 72px);
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border-primary);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 200ms ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-primary);
+    flex-shrink: 0;
+  }
+
+  .sidebar-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .sidebar-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: background 150ms ease, color 150ms ease;
+  }
+
+  .sidebar-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .sidebar-section {
+    margin-bottom: 24px;
+  }
+
+  .sidebar-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 0;
+  }
+
+  .section-items {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .placeholder-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .sidebar-artist-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-align: left;
+    transition: background 150ms ease, color 150ms ease;
+  }
+
+  .sidebar-artist-link:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .relationship-group {
+    margin-bottom: 16px;
+  }
+
+  .relationship-group:last-child {
+    margin-bottom: 0;
+  }
+
+  .relationship-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 8px;
   }
 
   /* Custom scrollbar */
