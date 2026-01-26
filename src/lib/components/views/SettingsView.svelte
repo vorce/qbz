@@ -106,6 +106,8 @@
   // Lyrics cache state
   let isClearingLyrics = $state(false);
   let lyricsCacheStats = $state<{ entries: number; sizeBytes: number } | null>(null);
+  let isClearingMusicBrainz = $state(false);
+  let musicBrainzCacheStats = $state<{ recordings: number; artists: number; releases: number; relations: number } | null>(null);
 
   // Migration state
   let showMigrationModal = $state(false);
@@ -248,6 +250,8 @@
   let selectedBackend = $state<string>('Auto');
   let selectedAlsaPlugin = $state<string>('hw (Direct Hardware)');
   let alsaHardwareVolume = $state(false);
+  let streamFirstTrack = $state(false);
+  let streamBufferSeconds = $state(3);
 
   // Backend system state
   let availableBackends = $state<BackendInfo[]>([]);
@@ -396,6 +400,17 @@
   let showLastfmConfig = $state(false);
   let hasEmbeddedCredentials = $state(false);
 
+  // MusicBrainz integration state
+  let musicbrainzEnabled = $state(true);
+
+  // ListenBrainz integration state
+  let listenbrainzConnected = $state(false);
+  let listenbrainzUsername = $state('');
+  let listenbrainzEnabled = $state(true);
+  let listenbrainzToken = $state('');
+  let listenbrainzConnecting = $state(false);
+  let showListenBrainzConfig = $state(false);
+
   // Load saved settings on mount
   onMount(() => {
     // Load theme
@@ -451,6 +466,9 @@
     // Load lyrics cache stats
     loadLyricsCacheStats();
 
+    // Load MusicBrainz cache stats
+    loadMusicBrainzCacheStats();
+
     // Load audio devices first (includes PipeWire sinks), then settings
     // Also load backends and ALSA plugins
     Promise.all([
@@ -461,6 +479,12 @@
 
     // Load Last.fm state
     loadLastfmState();
+
+    // Load MusicBrainz state
+    loadMusicBrainzState();
+
+    // Load ListenBrainz state
+    loadListenBrainzState();
 
     // Load notification preferences
     loadToastsPreference();
@@ -658,6 +682,81 @@
     localStorage.setItem('qbz-lastfm-scrobbling', String(enabled));
   }
 
+  async function loadMusicBrainzState() {
+    try {
+      musicbrainzEnabled = await invoke<boolean>('musicbrainz_is_enabled');
+    } catch (err) {
+      console.error('Failed to load MusicBrainz state:', err);
+    }
+  }
+
+  async function handleMusicBrainzChange(enabled: boolean) {
+    try {
+      await invoke('musicbrainz_set_enabled', { enabled });
+      musicbrainzEnabled = enabled;
+    } catch (err) {
+      console.error('Failed to update MusicBrainz setting:', err);
+    }
+  }
+
+  // ListenBrainz functions
+  async function loadListenBrainzState() {
+    try {
+      const status = await invoke<{
+        connected: boolean;
+        userName: string | null;
+        enabled: boolean;
+      }>('listenbrainz_get_status');
+      listenbrainzConnected = status.connected;
+      listenbrainzUsername = status.userName || '';
+      listenbrainzEnabled = status.enabled;
+    } catch (err) {
+      console.error('Failed to load ListenBrainz state:', err);
+    }
+  }
+
+  async function handleListenBrainzConnect() {
+    if (!listenbrainzToken.trim()) {
+      showListenBrainzConfig = true;
+      return;
+    }
+
+    listenbrainzConnecting = true;
+    try {
+      const userInfo = await invoke<{ user_name: string }>('listenbrainz_connect', {
+        token: listenbrainzToken.trim()
+      });
+      listenbrainzConnected = true;
+      listenbrainzUsername = userInfo.user_name;
+      listenbrainzToken = '';
+      showListenBrainzConfig = false;
+    } catch (err) {
+      console.error('Failed to connect to ListenBrainz:', err);
+      alert(`ListenBrainz error: ${err}`);
+    } finally {
+      listenbrainzConnecting = false;
+    }
+  }
+
+  async function handleListenBrainzDisconnect() {
+    try {
+      await invoke('listenbrainz_disconnect');
+      listenbrainzConnected = false;
+      listenbrainzUsername = '';
+    } catch (err) {
+      console.error('Failed to disconnect ListenBrainz:', err);
+    }
+  }
+
+  async function handleListenBrainzEnabledChange(enabled: boolean) {
+    try {
+      await invoke('listenbrainz_set_enabled', { enabled });
+      listenbrainzEnabled = enabled;
+    } catch (err) {
+      console.error('Failed to update ListenBrainz setting:', err);
+    }
+  }
+
   async function handleShowDownloadsChange(enabled: boolean) {
     try {
       await invoke('set_show_downloads_in_library', { show: enabled });
@@ -794,6 +893,8 @@
     backend_type: 'PipeWire' | 'Alsa' | 'Pulse' | null;
     alsa_plugin: 'Hw' | 'PlugHw' | 'Pcm' | null;
     alsa_hardware_volume: boolean;
+    stream_first_track: boolean;
+    stream_buffer_seconds: number;
   }
 
   interface BackendInfo {
@@ -939,6 +1040,8 @@
       }
 
       alsaHardwareVolume = settings.alsa_hardware_volume ?? false;
+      streamFirstTrack = settings.stream_first_track ?? false;
+      streamBufferSeconds = settings.stream_buffer_seconds ?? 3;
 
       // Validate mutual exclusion: DAC Passthrough disables Gapless + Crossfade
       if (dacPassthrough) {
@@ -1102,6 +1205,28 @@
       console.log('[Audio] ALSA hardware volume changed:', enabled);
     } catch (err) {
       console.error('[Audio] Failed to change ALSA hardware volume:', err);
+    }
+  }
+
+  async function handleStreamFirstTrackChange(enabled: boolean) {
+    streamFirstTrack = enabled;
+    try {
+      await invoke('set_audio_stream_first_track', { enabled });
+      console.log('[Audio] Stream first track changed:', enabled);
+    } catch (err) {
+      console.error('[Audio] Failed to change stream first track:', err);
+    }
+  }
+
+  async function handleStreamBufferSecondsChange(seconds: number) {
+    // Clamp to valid range
+    const clamped = Math.max(1, Math.min(10, Math.round(seconds)));
+    streamBufferSeconds = clamped;
+    try {
+      await invoke('set_audio_stream_buffer_seconds', { seconds: clamped });
+      console.log('[Audio] Stream buffer seconds changed:', clamped);
+    } catch (err) {
+      console.error('[Audio] Failed to change stream buffer seconds:', err);
     }
   }
 
@@ -1372,6 +1497,29 @@
     }
   }
 
+  async function handleClearMusicBrainzCache() {
+    if (isClearingMusicBrainz) return;
+    isClearingMusicBrainz = true;
+    try {
+      await invoke('musicbrainz_clear_cache');
+      console.log('MusicBrainz cache cleared');
+      await loadMusicBrainzCacheStats();
+    } catch (err) {
+      console.error('Failed to clear MusicBrainz cache:', err);
+    } finally {
+      isClearingMusicBrainz = false;
+    }
+  }
+
+  async function loadMusicBrainzCacheStats() {
+    try {
+      musicBrainzCacheStats = await invoke('musicbrainz_get_cache_stats');
+    } catch (err) {
+      console.error('Failed to load MusicBrainz cache stats:', err);
+      musicBrainzCacheStats = null;
+    }
+  }
+
   function formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -1557,6 +1705,30 @@
         <br />
         <strong>Recommended:</strong> Switch to ALSA Direct backend for true bit-perfect audio.
       </div>
+    </div>
+    {/if}
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">Stream Uncached Tracks</span>
+        <span class="setting-desc">Start playback faster when track is not in cache. Seeking may be limited during initial buffering.</span>
+      </div>
+      <Toggle enabled={streamFirstTrack} onchange={handleStreamFirstTrackChange} />
+    </div>
+    {#if streamFirstTrack}
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">Initial Buffer Size</span>
+        <span class="setting-desc">Seconds to buffer before starting playback ({streamBufferSeconds}s)</span>
+      </div>
+      <input
+        type="range"
+        min="1"
+        max="10"
+        step="1"
+        value={streamBufferSeconds}
+        oninput={(e) => handleStreamBufferSecondsChange(parseInt(e.currentTarget.value))}
+        class="buffer-slider"
+      />
     </div>
     {/if}
     <div class="setting-row last">
@@ -1918,6 +2090,75 @@
         </div>
       {/if}
     {/if}
+
+    <!-- ListenBrainz Integration -->
+    {#if listenbrainzConnected}
+      <div class="setting-row">
+        <div class="lastfm-connected">
+          <span class="setting-label">ListenBrainz</span>
+          <span class="lastfm-username">{$t('settings.integrations.connectedAs', { values: { username: listenbrainzUsername }})}</span>
+        </div>
+        <button
+          class="connect-btn connected"
+          onclick={handleListenBrainzDisconnect}
+        >
+          {$t('settings.integrations.disconnect')}
+        </button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Scrobbling</span>
+        <Toggle enabled={listenbrainzEnabled} onchange={handleListenBrainzEnabledChange} />
+      </div>
+    {:else}
+      <div class="setting-row" class:last={!showListenBrainzConfig}>
+        <span class="setting-label">ListenBrainz</span>
+        <button
+          class="connect-btn"
+          onclick={() => showListenBrainzConfig = !showListenBrainzConfig}
+          disabled={listenbrainzConnecting}
+        >
+          {listenbrainzConnecting ? 'Connecting...' : $t('settings.integrations.connect')}
+        </button>
+      </div>
+
+      {#if showListenBrainzConfig}
+        <div class="lastfm-config">
+          <p class="config-info">
+            Get your personal token from
+            <a href="https://listenbrainz.org/settings/" target="_blank" rel="noopener">
+              listenbrainz.org/settings
+            </a>
+          </p>
+          <div class="config-field">
+            <label for="listenbrainz-token">User Token</label>
+            <input
+              id="listenbrainz-token"
+              type="password"
+              bind:value={listenbrainzToken}
+              placeholder="Paste your ListenBrainz token"
+            />
+          </div>
+          <button
+            class="auth-start-btn"
+            onclick={handleListenBrainzConnect}
+            disabled={!listenbrainzToken.trim() || listenbrainzConnecting}
+          >
+            {listenbrainzConnecting ? 'Connecting...' : 'Connect'}
+          </button>
+        </div>
+      {/if}
+    {/if}
+
+    <!-- MusicBrainz Integration -->
+    <div class="setting-row last">
+      <div class="setting-info">
+        <span class="setting-label">MusicBrainz</span>
+        <small class="setting-note">
+          Enable artist relationships and enhanced metadata from MusicBrainz.
+        </small>
+      </div>
+      <Toggle enabled={musicbrainzEnabled} onchange={handleMusicBrainzChange} />
+    </div>
   </section>
 
   <!-- Storage Section (Memory Cache) -->
@@ -1949,7 +2190,7 @@
         {isClearing ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
     </div>
-    <div class="setting-row last">
+    <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{$t('settings.lyrics.clearLyrics')}</span>
         <small class="setting-note">
@@ -1971,6 +2212,25 @@
         disabled={isClearingLyrics}
       >
         {isClearingLyrics ? $t('settings.storage.clearing') : $t('actions.clear')}
+      </button>
+    </div>
+    <div class="setting-row last">
+      <div class="setting-info">
+        <span class="setting-label">MusicBrainz Cache</span>
+        <small class="setting-note">
+          {#if musicBrainzCacheStats}
+            {musicBrainzCacheStats.artists} artists, {musicBrainzCacheStats.relations} relations, {musicBrainzCacheStats.recordings} recordings
+          {:else}
+            -
+          {/if}
+        </small>
+      </div>
+      <button
+        class="clear-btn"
+        onclick={handleClearMusicBrainzCache}
+        disabled={isClearingMusicBrainz || !musicBrainzCacheStats || (musicBrainzCacheStats.artists === 0 && musicBrainzCacheStats.relations === 0 && musicBrainzCacheStats.recordings === 0)}
+      >
+        {isClearingMusicBrainz ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
     </div>
   </section>
@@ -2734,6 +2994,41 @@ flatpak override --user --filesystem=$HOME/music-nas com.blitzfc.qbz</pre>
   .warning-content strong {
     color: rgb(251, 191, 36);
     font-weight: 600;
+  }
+
+  /* Buffer slider styling */
+  .buffer-slider {
+    width: 120px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--alpha-20);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .buffer-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--accent-color, #3b82f6);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+
+  .buffer-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+
+  .buffer-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--accent-color, #3b82f6);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
   }
 </style>
 

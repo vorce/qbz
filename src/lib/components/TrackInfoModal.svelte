@@ -9,9 +9,21 @@
     onClose: () => void;
     onArtistClick?: (artistId: number) => void;
     onPerformerSearch?: (name: string) => void;
+    onMusicianClick?: (name: string, role: string) => void;
+    onLabelClick?: (labelId: number, labelName: string) => void;
   }
 
-  let { isOpen, trackId, onClose, onArtistClick, onPerformerSearch }: Props = $props();
+  let { isOpen, trackId, onClose, onArtistClick, onPerformerSearch, onMusicianClick, onLabelClick }: Props = $props();
+
+  function handlePerformerClick(name: string, role: string) {
+    if (onMusicianClick) {
+      onMusicianClick(name, role);
+      onClose();
+    } else if (onPerformerSearch) {
+      onPerformerSearch(name);
+      onClose();
+    }
+  }
 
   let loading = $state(false);
   let error = $state<string | null>(null);
@@ -187,6 +199,24 @@
                 <span class="metadata-value mono">{trackInfo.track.isrc}</span>
               </div>
             {/if}
+            {#if trackInfo.track.album?.label}
+              <div class="metadata-item">
+                <span class="metadata-label">LABEL</span>
+                {#if onLabelClick}
+                  <button
+                    class="label-link"
+                    onclick={() => {
+                      onLabelClick!(trackInfo!.track.album!.label!.id, trackInfo!.track.album!.label!.name);
+                      onClose();
+                    }}
+                  >
+                    {trackInfo.track.album.label.name}
+                  </button>
+                {:else}
+                  <span class="metadata-value">{trackInfo.track.album.label.name}</span>
+                {/if}
+              </div>
+            {/if}
           </div>
 
           <!-- Credits Grid (2 columns) -->
@@ -198,10 +228,10 @@
                   <span class="credit-label">{formatRole(role)}</span>
                   <span class="credit-value">
                     {#each names as name, i}
-                      {#if onPerformerSearch}
+                      {#if onMusicianClick || onPerformerSearch}
                         <button
                           class="performer-link"
-                          onclick={() => { onPerformerSearch(name); onClose(); }}
+                          onclick={() => handlePerformerClick(name, role)}
                         >{name}</button>{#if i < names.length - 1}, {/if}
                       {:else}
                         {name}{#if i < names.length - 1}, {/if}
@@ -464,5 +494,22 @@
   .copyright {
     font-size: 12px;
     color: var(--text-muted);
+  }
+
+  /* Label link */
+  .label-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 14px;
+    color: var(--accent-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: opacity 150ms ease;
+  }
+
+  .label-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
   }
 </style>

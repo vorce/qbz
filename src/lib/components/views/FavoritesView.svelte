@@ -16,6 +16,7 @@
     id: string;
     title: string;
     artist: { id: number; name: string };
+    genre?: { name: string };
     image: { small?: string; thumbnail?: string; large?: string };
     release_date_original?: string;
     hires: boolean;
@@ -556,6 +557,10 @@
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function getGenreLabel(album: FavoriteAlbum): string {
+    return album.genre?.name || 'Unknown genre'
   }
 
   function getQualityLabel(item: { hires?: boolean; maximum_bit_depth?: number; maximum_sampling_rate?: number }): string {
@@ -1295,6 +1300,7 @@
                         artwork={album.image?.large || album.image?.thumbnail || ''}
                         title={album.title}
                         artist={album.artist.name}
+                        genre={getGenreLabel(album)}
                         size="large"
                         quality={getQualityLabel(album)}
                         onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
@@ -1367,6 +1373,7 @@
                 artwork={album.image?.large || album.image?.thumbnail || ''}
                 title={album.title}
                 artist={album.artist.name}
+                genre={getGenreLabel(album)}
                 size="large"
                 quality={getQualityLabel(album)}
                 onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}

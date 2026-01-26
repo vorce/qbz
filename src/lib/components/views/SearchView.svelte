@@ -4,7 +4,7 @@
   import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
-  import { getSearchState, setSearchState, type SearchResults, type SearchAllResults, type SearchTab } from '$lib/stores/searchState';
+  import { getSearchState, setSearchState, type SearchResults, type SearchAllResults, type SearchTab, type SearchFilterType } from '$lib/stores/searchState';
   import { setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { togglePlay } from '$lib/stores/playerStore';
   import { t } from '$lib/i18n';
@@ -140,6 +140,7 @@
     id: string;
     title: string;
     artist: { name: string };
+    genre?: { name: string; };
     image: { small?: string; thumbnail?: string; large?: string };
     release_date_original?: string;
     hires_streamable?: boolean;
@@ -174,6 +175,7 @@
 
   let query = $state(cachedState.query ?? '');
   let activeTab = $state<SearchTab>(cachedState.activeTab ?? 'all');
+  let filterType = $state<SearchFilterType>(cachedState.filterType ?? null);
   let isSearching = $state(false);
   let searchError = $state<string | null>(null);
 
@@ -193,10 +195,13 @@
 
   function debounceSearch() {
     if (searchTimeout) clearTimeout(searchTimeout);
+    // Reset filter when user types a new search
+    filterType = null;
     if (query.trim().length < 2) {
       albumResults = null;
       trackResults = null;
       artistResults = null;
+      allResults = null;
       return;
     }
     searchTimeout = setTimeout(() => performSearch(), 300);
@@ -208,6 +213,7 @@
       searchTimeout = null;
     }
     query = '';
+    filterType = null;
     searchError = null;
     isSearching = false;
     albumResults = null;
@@ -231,6 +237,7 @@
     setSearchState<Album, Track, Artist>({
       query,
       activeTab,
+      filterType,
       albumResults,
       trackResults,
       artistResults,
@@ -281,7 +288,8 @@
       // Search based on active tab - reset to first page
       if (activeTab === 'all') {
         allResults = await invoke<SearchAllResults<Album, Track, Artist>>('search_all', {
-          query: query.trim()
+          query: query.trim(),
+          searchType: filterType
         });
         console.log('All results:', allResults);
         if (allResults && allResults.albums.items) {
@@ -291,7 +299,8 @@
         albumResults = await invoke<SearchResults<Album>>('search_albums', {
           query: query.trim(),
           limit: PAGE_SIZE,
-          offset: 0
+          offset: 0,
+          searchType: filterType
         });
         console.log('Album results:', albumResults);
         if (albumResults && albumResults.items) {
@@ -301,14 +310,16 @@
         trackResults = await invoke<SearchResults<Track>>('search_tracks', {
           query: query.trim(),
           limit: PAGE_SIZE,
-          offset: 0
+          offset: 0,
+          searchType: filterType
         });
         console.log('Track results:', trackResults);
       } else if (activeTab === 'artists') {
         artistResults = await invoke<SearchResults<Artist>>('search_artists', {
           query: query.trim(),
           limit: PAGE_SIZE,
-          offset: 0
+          offset: 0,
+          searchType: filterType
         });
         console.log('Artist results:', artistResults);
       }
@@ -331,7 +342,8 @@
         const moreResults = await invoke<SearchResults<Album>>('search_albums', {
           query: query.trim(),
           limit: PAGE_SIZE,
-          offset: newOffset
+          offset: newOffset,
+          searchType: filterType
         });
         await loadAllAlbumDownloadStatuses(moreResults.items);
         albumResults = {
@@ -344,7 +356,8 @@
         const moreResults = await invoke<SearchResults<Track>>('search_tracks', {
           query: query.trim(),
           limit: PAGE_SIZE,
-          offset: newOffset
+          offset: newOffset,
+          searchType: filterType
         });
         trackResults = {
           ...moreResults,
@@ -356,7 +369,8 @@
         const moreResults = await invoke<SearchResults<Artist>>('search_artists', {
           query: query.trim(),
           limit: PAGE_SIZE,
-          offset: newOffset
+          offset: newOffset,
+          searchType: filterType
         });
         artistResults = {
           ...moreResults,
@@ -378,10 +392,34 @@
     }
   }
 
+  // Filter functions
+  function setFilter(type: SearchFilterType) {
+    filterType = type;
+    if (query.trim().length >= 2) {
+      performSearch();
+    }
+  }
+
+  function clearFilter() {
+    filterType = null;
+    if (query.trim().length >= 2) {
+      performSearch();
+    }
+  }
+
+  // Check if we have any results to show filters
+  let hasResults = $derived(
+    !!(allResults || albumResults || trackResults || artistResults)
+  );
+
   function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function getGenreLabel(album: Album): string {
+    return album.genre?.name || 'Unknown genre'
   }
 
   function getQualityLabel(track: Track | Album): string {
@@ -532,55 +570,102 @@
     </div>
   </div>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button
-      class="tab"
-      class:active={activeTab === 'all'}
-      onclick={() => handleTabChange('all')}
-    >
-      <Search size={18} />
-      <span>All</span>
-    </button>
-    <button
-      class="tab"
-      class:active={activeTab === 'albums'}
-      onclick={() => handleTabChange('albums')}
-    >
-      <Disc3 size={18} />
-      <span>{$t('search.albums')}</span>
-      {#if albumResults}
-        <span class="count">{albumResults.total}</span>
-      {:else if allResults}
-        <span class="count">{allResults.albums.total}</span>
-      {/if}
-    </button>
-    <button
-      class="tab"
-      class:active={activeTab === 'tracks'}
-      onclick={() => handleTabChange('tracks')}
-    >
-      <Music size={18} />
-      <span>{$t('search.tracks')}</span>
-      {#if trackResults}
-        <span class="count">{trackResults.total}</span>
-      {:else if allResults}
-        <span class="count">{allResults.tracks.total}</span>
-      {/if}
-    </button>
-    <button
-      class="tab"
-      class:active={activeTab === 'artists'}
-      onclick={() => handleTabChange('artists')}
-    >
-      <Mic2 size={18} />
-      <span>{$t('search.artists')}</span>
-      {#if artistResults}
-        <span class="count">{artistResults.total}</span>
-      {:else if allResults}
-        <span class="count">{allResults.artists.total}</span>
-      {/if}
-    </button>
+  <!-- Tabs and Filters Row -->
+  <div class="tabs-row">
+    <div class="tabs">
+      <button
+        class="tab"
+        class:active={activeTab === 'all'}
+        onclick={() => handleTabChange('all')}
+      >
+        <Search size={18} />
+        <span>All</span>
+      </button>
+      <button
+        class="tab"
+        class:active={activeTab === 'albums'}
+        onclick={() => handleTabChange('albums')}
+      >
+        <Disc3 size={18} />
+        <span>{$t('search.albums')}</span>
+      </button>
+      <button
+        class="tab"
+        class:active={activeTab === 'tracks'}
+        onclick={() => handleTabChange('tracks')}
+      >
+        <Music size={18} />
+        <span>{$t('search.tracks')}</span>
+      </button>
+      <button
+        class="tab"
+        class:active={activeTab === 'artists'}
+        onclick={() => handleTabChange('artists')}
+      >
+        <Mic2 size={18} />
+        <span>{$t('search.artists')}</span>
+      </button>
+    </div>
+
+    {#if hasResults}
+      <div class="filters">
+        <label class="filter-option">
+          <input
+            type="radio"
+            name="searchFilter"
+            checked={filterType === 'MainArtist'}
+            onchange={() => setFilter('MainArtist')}
+          />
+          <span>Artist</span>
+        </label>
+        <label class="filter-option">
+          <input
+            type="radio"
+            name="searchFilter"
+            checked={filterType === 'Performer'}
+            onchange={() => setFilter('Performer')}
+          />
+          <span>Performer</span>
+        </label>
+        <label class="filter-option">
+          <input
+            type="radio"
+            name="searchFilter"
+            checked={filterType === 'Composer'}
+            onchange={() => setFilter('Composer')}
+          />
+          <span>Composer</span>
+        </label>
+        <label class="filter-option">
+          <input
+            type="radio"
+            name="searchFilter"
+            checked={filterType === 'Label'}
+            onchange={() => setFilter('Label')}
+          />
+          <span>Label</span>
+        </label>
+        <label class="filter-option">
+          <input
+            type="radio"
+            name="searchFilter"
+            checked={filterType === 'ReleaseName'}
+            onchange={() => setFilter('ReleaseName')}
+          />
+          <span>Release</span>
+        </label>
+
+        <button
+          class="clear-filter-btn"
+          class:visible={filterType !== null}
+          onclick={clearFilter}
+          title="Clear filter"
+          disabled={!filterType}
+        >
+          <X size={14} />
+        </button>
+      </div>
+    {/if}
   </div>
 
   <!-- Results -->
@@ -640,6 +725,7 @@
                 artwork={getAlbumArtwork(allResults.albums.items[0])}
                 title={allResults.albums.items[0].title}
                 artist={allResults.albums.items[0].artist?.name || 'Unknown Artist'}
+                genre={getGenreLabel(allResults.albums.items[0])}
                 size="large"
                 quality={getQualityLabel(allResults.albums.items[0])}
                 onPlay={onAlbumPlay ? () => onAlbumPlay(allResults.albums.items[0].id) : undefined}
@@ -776,6 +862,7 @@
                           artwork={getAlbumArtwork(album)}
                           title={album.title}
                           artist={album.artist?.name || 'Unknown Artist'}
+                          genre={getGenreLabel(album)}
                           size="large"
                           quality={getQualityLabel(album)}
                           onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
@@ -915,6 +1002,7 @@
               artwork={getAlbumArtwork(album)}
               title={album.title}
               artist={album.artist?.name || 'Unknown Artist'}
+              genre={getGenreLabel(album)}
               size="large"
               quality={getQualityLabel(album)}
               onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
@@ -1176,12 +1264,19 @@
     color: var(--text-primary);
   }
 
-  .tabs {
+  .tabs-row {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
     margin-bottom: 24px;
     border-bottom: 1px solid var(--bg-tertiary);
     padding-bottom: 16px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
   }
 
   .tab {
@@ -1209,11 +1304,61 @@
     border-bottom-color: var(--accent-primary);
   }
 
-  .tab .count {
-    padding: 2px 8px;
-    background-color: var(--bg-tertiary);
-    border-radius: 12px;
-    font-size: 12px;
+  /* Filters */
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .filter-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: color 150ms ease;
+  }
+
+  .filter-option input[type="radio"] {
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+    margin: 0;
+  }
+
+  .filter-option:has(input:checked) {
+    color: var(--text-primary);
+  }
+
+  .filter-option:hover {
+    color: var(--text-primary);
+  }
+
+  .clear-filter-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 150ms ease;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .clear-filter-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .clear-filter-btn.visible:hover {
+    background: var(--bg-quaternary, var(--bg-tertiary));
+    color: var(--text-primary);
   }
 
   .results {

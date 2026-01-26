@@ -9,12 +9,18 @@
     onClose: () => void;
     onTrackPlay?: (track: TrackCredits) => void;
     onPerformerSearch?: (name: string) => void;
+    onMusicianClick?: (name: string, role: string) => void;
+    onLabelClick?: (labelId: number, labelName: string) => void;
   }
 
-  let { isOpen, albumId, onClose, onTrackPlay, onPerformerSearch }: Props = $props();
+  let { isOpen, albumId, onClose, onTrackPlay, onPerformerSearch, onMusicianClick, onLabelClick }: Props = $props();
 
-  function handlePerformerClick(name: string) {
-    if (onPerformerSearch) {
+  function handlePerformerClick(name: string, roles: string[]) {
+    const role = roles.length > 0 ? roles[0] : 'Performer';
+    if (onMusicianClick) {
+      onMusicianClick(name, role);
+      onClose();
+    } else if (onPerformerSearch) {
       onPerformerSearch(name);
       onClose();
     }
@@ -121,7 +127,19 @@
                 {#if credits.album.label}
                   <p class="meta-row">
                     <span class="meta-label">Released by</span>
-                    <span class="meta-value label-name">{credits.album.label}</span>
+                    {#if credits.album.label_id && onLabelClick}
+                      <button
+                        class="label-link"
+                        onclick={() => {
+                          onLabelClick!(credits!.album.label_id!, credits!.album.label);
+                          onClose();
+                        }}
+                      >
+                        {credits.album.label}
+                      </button>
+                    {:else}
+                      <span class="meta-value label-name">{credits.album.label}</span>
+                    {/if}
                     {#if credits.album.release_date}
                       <span class="meta-date">on {new Date(credits.album.release_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
                     {/if}
@@ -228,8 +246,8 @@
                       <div class="track-credits">
                         {#each track.performers as performer}
                           <div class="performer-row">
-                            {#if onPerformerSearch}
-                              <button class="performer-link" onclick={() => handlePerformerClick(performer.name)}>{performer.name}</button>
+                            {#if onMusicianClick || onPerformerSearch}
+                              <button class="performer-link" onclick={() => handlePerformerClick(performer.name, performer.roles)}>{performer.name}</button>
                             {:else}
                               <span class="performer-name">{performer.name}</span>
                             {/if}
@@ -446,6 +464,22 @@
   .label-name {
     font-weight: 600;
     color: var(--text-primary);
+  }
+
+  .label-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  .label-link:hover {
+    color: var(--accent-primary);
+    text-decoration: underline;
   }
 
   .meta-date {

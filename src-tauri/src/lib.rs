@@ -15,8 +15,10 @@ pub mod offline_cache;
 pub mod flatpak;
 pub mod lastfm;
 pub mod library;
+pub mod listenbrainz;
 pub mod lyrics;
 pub mod media_controls;
+pub mod musicbrainz;
 pub mod network;
 pub mod offline;
 pub mod playback_context;
@@ -192,6 +194,12 @@ pub fn run() {
     // Initialize subscription validity tracking (for offline download compliance)
     let subscription_state = config::create_subscription_state()
         .expect("Failed to initialize subscription state");
+    // Initialize MusicBrainz integration state
+    let musicbrainz_state = musicbrainz::MusicBrainzSharedState::new()
+        .expect("Failed to initialize MusicBrainz state");
+    // Initialize ListenBrainz integration state
+    let listenbrainz_state = listenbrainz::ListenBrainzSharedState::new()
+        .expect("Failed to initialize ListenBrainz state");
 
     // Read saved audio device and settings for player initialization
     let (saved_device, audio_settings) = audio_settings_state
@@ -401,6 +409,8 @@ pub fn run() {
         .manage(playback_prefs_state)
         .manage(favorites_prefs_state)
         .manage(tray_settings_state)
+        .manage(musicbrainz_state)
+        .manage(listenbrainz_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -426,6 +436,7 @@ pub fn run() {
             commands::get_artist_detail,
             commands::get_artist_albums,
             commands::get_similar_artists,
+            commands::get_label,
             // Playback commands
             commands::play_track,
             commands::prefetch_track,
@@ -688,6 +699,8 @@ pub fn run() {
             config::audio_settings::set_audio_backend_type,
             config::audio_settings::set_audio_alsa_plugin,
             config::audio_settings::set_audio_alsa_hardware_volume,
+            config::audio_settings::set_audio_stream_first_track,
+            config::audio_settings::set_audio_stream_buffer_seconds,
             // Audio backend commands
             commands::get_available_backends,
             commands::get_devices_for_backend,
@@ -740,6 +753,38 @@ pub fn run() {
             config::tray_settings::set_enable_tray,
             config::tray_settings::set_minimize_to_tray,
             config::tray_settings::set_close_to_tray,
+            // MusicBrainz integration commands
+            commands::musicbrainz_resolve_track,
+            commands::musicbrainz_resolve_artist,
+            commands::musicbrainz_resolve_release,
+            commands::musicbrainz_get_artist_relationships,
+            commands::musicbrainz_is_enabled,
+            commands::musicbrainz_set_enabled,
+            commands::musicbrainz_get_cache_stats,
+            commands::musicbrainz_clear_cache,
+            commands::musicbrainz_cleanup_cache,
+            // Musician resolution commands
+            commands::resolve_musician,
+            commands::get_musician_appearances,
+            // ListenBrainz integration commands
+            commands::listenbrainz_get_status,
+            commands::listenbrainz_is_enabled,
+            commands::listenbrainz_set_enabled,
+            commands::listenbrainz_connect,
+            commands::listenbrainz_disconnect,
+            commands::listenbrainz_now_playing,
+            commands::listenbrainz_scrobble,
+            commands::listenbrainz_queue_listen,
+            commands::listenbrainz_get_queue,
+            commands::listenbrainz_get_queue_count,
+            commands::listenbrainz_mark_sent,
+            commands::listenbrainz_flush_queue,
+            commands::listenbrainz_clear_queue,
+            commands::listenbrainz_cleanup_queue,
+            // Smart playlist generation commands
+            commands::smart_playlist_preview,
+            commands::smart_playlist_resolve_artist,
+            commands::smart_playlist_get_available_types,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
