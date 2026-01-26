@@ -283,7 +283,7 @@
     {/snippet}
 
   {#snippet footer()}
-    <div class="editor-footer">
+    <div class="footer-row">
       <div class="footer-left">
         <label class="footer-label" for="persistence-select">Persistence</label>
         <select
@@ -499,18 +499,11 @@ input[type="number"] {
   padding: 0 2px;
 }
 
-.footer {
+.footer-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-}
-
-.editor-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
   width: 100%;
 }
 
