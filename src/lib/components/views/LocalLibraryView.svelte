@@ -9,8 +9,10 @@
     Network, Power, PowerOff, ChevronLeft, ChevronRight, Shuffle, SlidersHorizontal, ArrowUpDown, ChevronDown
   } from 'lucide-svelte';
   import FolderSettingsModal from '../FolderSettingsModal.svelte';
+  import LocalLibraryTagEditorModal from '../LocalLibraryTagEditorModal.svelte';
   import { t } from '$lib/i18n';
   import { downloadSettingsVersion } from '$lib/stores/downloadSettingsStore';
+  import { showToast } from '$lib/stores/toastStore';
   import AlbumCard from '../AlbumCard.svelte';
   import VirtualizedAlbumList from '../VirtualizedAlbumList.svelte';
   import VirtualizedArtistGrid from '../VirtualizedArtistGrid.svelte';
@@ -55,6 +57,7 @@
     disc_number?: number;
     year?: number;
     genre?: string;
+    catalog_number?: string;
     duration_secs: number;
     format: string;
     bit_depth?: number;
@@ -630,7 +633,8 @@
 
   // Album edit modal state
   let showAlbumEditModal = $state(false);
-  let editingAlbumTitle = $state('');
+  let showTagEditorModal = $state(false);
+  let refreshingAlbumMetadata = $state(false);
   let editingAlbumHidden = $state(false);
   let discogsImageOptions = $state<DiscogsImageOption[]>([]);
   let selectedDiscogsImage = $state<string | null>(null);
@@ -1468,11 +1472,50 @@
 
   function openAlbumEditModal() {
     if (!selectedAlbum) return;
-    editingAlbumTitle = selectedAlbum.title;
     editingAlbumHidden = false;
     discogsImageOptions = [];
     selectedDiscogsImage = null;
     showAlbumEditModal = true;
+  }
+
+  function openTagEditorFromAlbumSettings() {
+    if (!selectedAlbum) return;
+    showAlbumEditModal = false;
+    showTagEditorModal = true;
+  }
+
+  async function handleTagEditorSaved() {
+    if (!selectedAlbum) return;
+    await loadLibraryData();
+    await loadAlbumById(selectedAlbum.id);
+  }
+
+  async function handleRefreshAlbumMetadataFromFiles() {
+    if (!selectedAlbum || refreshingAlbumMetadata) return;
+
+    const confirmed = await ask(
+      'This will re-read embedded metadata from the audio files and discard QBZ sidecar overrides for this album.',
+      {
+        title: 'Refresh metadata from files?',
+        kind: 'warning',
+        okLabel: 'Refresh',
+        cancelLabel: 'Cancel'
+      }
+    );
+    if (!confirmed) return;
+
+    try {
+      refreshingAlbumMetadata = true;
+      await invoke('library_refresh_album_metadata_from_files', { albumGroupKey: selectedAlbum.id });
+      showToast('Metadata refreshed from files', 'success');
+      showAlbumEditModal = false;
+      await handleTagEditorSaved();
+    } catch (err) {
+      console.error('Failed to refresh metadata:', err);
+      showToast(`Failed to refresh metadata: ${err}`, 'error');
+    } finally {
+      refreshingAlbumMetadata = false;
+    }
   }
 
   async function fetchDiscogsArtwork() {
@@ -3085,12 +3128,12 @@
   {/if}
 </div>
 
-<!-- Album Edit Modal -->
+<!-- Album Settings Modal -->
 {#if showAlbumEditModal && selectedAlbum}
   <div class="modal-overlay" onclick={() => showAlbumEditModal = false}>
     <div class="modal" onclick={(e: MouseEvent) => e.stopPropagation()}>
       <div class="modal-header">
-        <h2>Edit Album</h2>
+        <h2>Album Settings</h2>
         <button class="close-btn" onclick={() => showAlbumEditModal = false}>
           <X size={20} />
         </button>
@@ -3098,16 +3141,21 @@
       
       <div class="modal-body">
         <div class="form-group">
-          <label for="album-title">Album Title</label>
-          <input
-            id="album-title"
-            type="text"
-            bind:value={editingAlbumTitle}
-            placeholder="Album title"
-            readonly
-            disabled
-          />
-          <p class="form-hint">Album title editing coming soon</p>
+          <label>Metadata</label>
+          <button class="settings-action-btn" onclick={openTagEditorFromAlbumSettings}>
+            <img src="/edit-tool.svg" alt="" class="settings-action-icon" />
+            <span>Edit Album info</span>
+          </button>
+          <p class="form-hint">Edit metadata for LocalLibrary indexing and search.</p>
+        </div>
+
+        <div class="form-group">
+          <label>Refresh</label>
+          <button class="settings-action-btn danger" onclick={handleRefreshAlbumMetadataFromFiles} disabled={refreshingAlbumMetadata}>
+            <RefreshCw size={16} class={refreshingAlbumMetadata ? 'spinning' : ''} />
+            <span>{refreshingAlbumMetadata ? 'Refreshing...' : 'Refresh metadata from files'}</span>
+          </button>
+          <p class="form-hint">Re-read embedded file tags and discard QBZ sidecar overrides.</p>
         </div>
 
         <div class="form-group">
@@ -3218,6 +3266,15 @@
     </div>
   </div>
 {/if}
+
+<!-- LocalLibrary Tag Editor Modal -->
+<LocalLibraryTagEditorModal
+  isOpen={showTagEditorModal}
+  album={selectedAlbum}
+  tracks={albumTracks}
+  onClose={() => (showTagEditorModal = false)}
+  onSaved={handleTagEditorSaved}
+/>
 
 <!-- Folder Settings Modal -->
 <FolderSettingsModal
@@ -5001,6 +5058,40 @@
     margin-top: 6px;
     font-size: 12px;
     color: var(--text-muted);
+  }
+
+  .settings-action-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 10px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .settings-action-btn:hover {
+    background: var(--bg-hover);
+  }
+
+  .settings-action-btn.danger {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+
+  .settings-action-btn.danger:hover {
+    background: rgba(239, 68, 68, 0.18);
+  }
+
+  .settings-action-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.9;
   }
 
   .artwork-row {
