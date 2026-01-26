@@ -198,7 +198,7 @@
   isOpen={isOpen}
   onClose={onClose}
   title="Edit Local Metadata (LocalLibrary)"
-  maxWidth="980px"
+  maxWidth="820px"
 >
   {#snippet children()}
     <div class="tag-editor">
@@ -209,23 +209,23 @@
       <div class="grid">
         <div class="field">
           <label>Album name</label>
-          <input class="text" type="text" bind:value={albumTitle} />
+          <input class="text text-sm" type="text" bind:value={albumTitle} />
         </div>
         <div class="field">
           <label>Album artist</label>
-          <input class="text" type="text" bind:value={albumArtist} />
+          <input class="text text-sm" type="text" bind:value={albumArtist} />
         </div>
         <div class="field">
           <label>Year</label>
-          <input class="text" type="text" inputmode="numeric" bind:value={yearInput} placeholder="e.g. 1999" />
+          <input class="text text-sm" type="text" inputmode="numeric" bind:value={yearInput} placeholder="e.g. 1999" />
         </div>
         <div class="field">
           <label>Genre</label>
-          <input class="text" type="text" bind:value={genre} placeholder="Free text" />
+          <input class="text text-sm" type="text" bind:value={genre} placeholder="Free text" />
         </div>
         <div class="field span-2">
           <label>Catalog / Release ID (optional)</label>
-          <input class="text" type="text" bind:value={catalogNumber} />
+          <input class="text text-sm" type="text" bind:value={catalogNumber} />
         </div>
       </div>
 
@@ -241,11 +241,11 @@
             <div class="track-row">
               <div class="col-num">{i + 1}</div>
               <div class="col-title">
-                <input class="text" type="text" bind:value={t.title} />
+                <input class="text text-sm" type="text" bind:value={t.title} />
               </div>
               <div class="col-disc">
                 <input
-                  class="text disc"
+                  class="text text-sm disc"
                   type="number"
                   min="1"
                   bind:value={t.discNumber}
@@ -340,6 +340,13 @@
     padding: 10px 12px;
     color: var(--text-primary);
     font-size: 14px;
+  }
+
+  /* Bootstrap-ish "sm" control sizing (relative step down). */
+  .text-sm {
+    padding: 6px 10px;
+    font-size: 13px;
+    border-radius: 6px;
   }
 
   .text:focus {
