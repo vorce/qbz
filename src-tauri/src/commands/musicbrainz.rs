@@ -407,11 +407,15 @@ fn extract_relationships(artist: &ArtistFullResponse) -> ArtistRelationships {
             match relation.relation_type.as_str() {
                 "member of band" => {
                     if relation.direction.as_deref() == Some("backward") {
-                        groups.push(related);
-                    } else if relation.ended == Some(true) {
-                        past_members.push(related);
+                        // We're viewing a BAND, the related artist is a MEMBER
+                        if relation.ended == Some(true) {
+                            past_members.push(related);
+                        } else {
+                            members.push(related);
+                        }
                     } else {
-                        members.push(related);
+                        // We're viewing a PERSON, the related artist is a BAND/GROUP
+                        groups.push(related);
                     }
                 }
                 "collaboration" => {
