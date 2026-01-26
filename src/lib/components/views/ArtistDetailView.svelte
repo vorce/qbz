@@ -1948,7 +1948,7 @@
             {:else if hasRelationships}
               {#if groupedMembers.length > 0}
                 <div class="relationship-group">
-                  <span class="relationship-label">Members</span>
+                  <span class="relationship-label">Members & Former</span>
                   {#each groupedMembers as member}
                     {@const periodStr = member.period?.begin || member.period?.end
                       ? `${member.period.begin || '?'} - ${member.period.end || 'present'}`
