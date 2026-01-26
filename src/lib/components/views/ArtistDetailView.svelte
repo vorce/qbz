@@ -2015,7 +2015,7 @@
                     {#each groupedGroups as group}
                       <button
                         class="sidebar-artist-link"
-                        onclick={() => navigateToRelatedArtist(group.name)}
+                        onclick={() => onMusicianClick ? onMusicianClick(group.name, 'Band') : navigateToRelatedArtist(group.name)}
                         title={group.roles.length > 0 ? group.roles.join(', ') : group.name}
                       >
                         <Music size={12} />
