@@ -6,7 +6,7 @@
   import {
     HardDrive, Music, Disc3, Mic2, FolderPlus, Trash2, RefreshCw,
     Settings, ArrowLeft, X, Play, AlertCircle, ImageDown, Upload, Search, LayoutGrid, List, Edit3,
-    Network, Power, PowerOff, ChevronLeft, ChevronRight, Shuffle, SlidersHorizontal, ArrowUpDown, ChevronDown
+    Network, Power, PowerOff, ChevronLeft, ChevronRight, Shuffle, SlidersHorizontal, ArrowUpDown, ChevronDown, Check
   } from 'lucide-svelte';
   import FolderSettingsModal from '../FolderSettingsModal.svelte';
   import LocalLibraryTagEditorModal from '../LocalLibraryTagEditorModal.svelte';
@@ -635,6 +635,7 @@
   let showAlbumEditModal = $state(false);
   let showTagEditorModal = $state(false);
   let refreshingAlbumMetadata = $state(false);
+  let albumMetadataRefreshed = $state(false);
   let editingAlbumHidden = $state(false);
   let discogsImageOptions = $state<DiscogsImageOption[]>([]);
   let selectedDiscogsImage = $state<string | null>(null);
@@ -1506,9 +1507,10 @@
 
     try {
       refreshingAlbumMetadata = true;
+      albumMetadataRefreshed = false;
       await invoke('library_refresh_album_metadata_from_files', { albumGroupKey: selectedAlbum.id });
       showToast('Metadata refreshed from files', 'success');
-      showAlbumEditModal = false;
+      albumMetadataRefreshed = true;
       await handleTagEditorSaved();
     } catch (err) {
       console.error('Failed to refresh metadata:', err);
@@ -3147,20 +3149,25 @@
           </div>
           <div class="album-actions">
             <button
-              class="icon-square-btn"
+              class="album-action-btn"
               onclick={openTagEditorFromAlbumSettings}
-              title="Edit album info"
+              title="Edit album metadata for LocalLibrary indexing and search"
             >
               <Edit3 size={18} />
+              <span>Edit album info</span>
             </button>
             <button
-              class="icon-square-btn"
-              class:spinning={refreshingAlbumMetadata}
+              class="album-action-btn"
               onclick={handleRefreshAlbumMetadataFromFiles}
               disabled={refreshingAlbumMetadata}
-              title="Refresh metadata from files"
+              title="Re-read embedded file tags and discard QBZ sidecar overrides"
             >
-              <RefreshCw size={18} class={refreshingAlbumMetadata ? 'spinning' : ''} />
+              {#if albumMetadataRefreshed && !refreshingAlbumMetadata}
+                <Check size={18} />
+              {:else}
+                <RefreshCw size={18} class={refreshingAlbumMetadata ? 'spinning' : ''} />
+              {/if}
+              <span>{refreshingAlbumMetadata ? 'Refreshing...' : 'Refresh metadata'}</span>
             </button>
           </div>
         </div>
@@ -4858,7 +4865,8 @@
   }
 
   .album-info .artist {
-    font-size: 16px;
+    font-size: 18px;
+    font-weight: 500;
     color: var(--text-primary);
     margin: 0 0 8px 0;
   }
@@ -4869,6 +4877,9 @@
     padding: 0;
     text-align: left;
     cursor: pointer;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--accent-primary);
   }
 
   .album-info .artist-link:hover {
@@ -5018,17 +5029,17 @@
   }
 
   .album-title {
-    font-size: 18px;
-    font-weight: 650;
+    font-size: 20px;
+    font-weight: 700;
     color: var(--text-primary);
     line-height: 1.2;
   }
 
   .album-artist {
     margin-top: 6px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 400;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     line-height: 1.25;
     word-break: break-word;
   }
@@ -5039,12 +5050,14 @@
     gap: 10px;
   }
 
-  .icon-square-btn {
-    width: 40px;
+  .album-action-btn {
+    width: 190px;
     height: 40px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 12px;
     background: var(--bg-tertiary);
     border: 1px solid var(--bg-tertiary);
     border-radius: 10px;
@@ -5053,11 +5066,11 @@
     transition: all 150ms ease;
   }
 
-  .icon-square-btn:hover:not(:disabled) {
+  .album-action-btn:hover:not(:disabled) {
     background: var(--bg-hover);
   }
 
-  .icon-square-btn:disabled {
+  .album-action-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
