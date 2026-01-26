@@ -93,7 +93,7 @@
   // Favorites state management
   import { loadFavorites } from '$lib/stores/favoritesStore';
   import { getDefaultFavoritesTab } from '$lib/utils/favorites';
-  import type { FavoritesPreferences } from '$lib/types';
+  import type { FavoritesPreferences, ResolvedMusician } from '$lib/types';
 
   // Navigation state management
   import {
@@ -279,6 +279,7 @@
   import SettingsView from '$lib/components/views/SettingsView.svelte';
   import AlbumDetailView from '$lib/components/views/AlbumDetailView.svelte';
   import ArtistDetailView from '$lib/components/views/ArtistDetailView.svelte';
+  import MusicianPageView from '$lib/components/views/MusicianPageView.svelte';
   import LabelView from '$lib/components/views/LabelView.svelte';
   import PlaylistDetailView from '$lib/components/views/PlaylistDetailView.svelte';
   import FavoritesView from '$lib/components/views/FavoritesView.svelte';
@@ -293,6 +294,7 @@
   import PlaylistImportModal from '$lib/components/PlaylistImportModal.svelte';
   import TrackInfoModal from '$lib/components/TrackInfoModal.svelte';
   import AlbumCreditsModal from '$lib/components/AlbumCreditsModal.svelte';
+  import MusicianModal from '$lib/components/MusicianModal.svelte';
   import CastPicker from '$lib/components/CastPicker.svelte';
   import LyricsSidebar from '$lib/components/lyrics/LyricsSidebar.svelte';
   import OfflinePlaceholder from '$lib/components/OfflinePlaceholder.svelte';
@@ -328,6 +330,8 @@
   let selectedAlbum = $state<AlbumDetail | null>(null);
   let selectedArtist = $state<ArtistDetail | null>(null);
   let selectedLabel = $state<{ id: number; name: string } | null>(null);
+  let selectedMusician = $state<ResolvedMusician | null>(null);
+  let musicianModalData = $state<ResolvedMusician | null>(null);
   let isArtistAlbumsLoading = $state(false);
 
   // Artist albums for "By the same artist" section in album view
@@ -508,6 +512,59 @@
   function handleLabelClick(labelId: number, labelName?: string) {
     selectedLabel = { id: labelId, name: labelName || '' };
     navigateTo('label');
+  }
+
+  /**
+   * Handle musician click from credits
+   * Resolves musician and routes based on confidence level:
+   * - Confirmed (3): Navigate to Qobuz Artist Page
+   * - Contextual (2): Navigate to Musician Page
+   * - Weak (1), None (0): Show Informational Modal
+   */
+  async function handleMusicianClick(name: string, role: string) {
+    try {
+      const musician = await invoke<ResolvedMusician>('resolve_musician', { name, role });
+      console.log('Resolved musician:', musician);
+
+      switch (musician.confidence) {
+        case 'confirmed':
+          // Has a Qobuz artist page - navigate there
+          if (musician.qobuz_artist_id) {
+            handleArtistClick(musician.qobuz_artist_id);
+          } else {
+            // Fallback: show modal
+            musicianModalData = musician;
+          }
+          break;
+
+        case 'contextual':
+          // Show full Musician Page
+          selectedMusician = musician;
+          navigateTo('musician');
+          break;
+
+        case 'weak':
+        case 'none':
+        default:
+          // Show Informational Modal only
+          musicianModalData = musician;
+          break;
+      }
+    } catch (err) {
+      console.error('Failed to resolve musician:', err);
+      // Fallback: open modal with basic info
+      musicianModalData = {
+        name,
+        role,
+        confidence: 'none',
+        bands: [],
+        appears_on_count: 0
+      };
+    }
+  }
+
+  function closeMusicianModal() {
+    musicianModalData = null;
   }
 
   /**
@@ -2600,6 +2657,13 @@
           activeTrackId={currentTrack?.id ?? null}
           isPlaybackActive={isPlaying}
         />
+      {:else if activeView === 'musician' && selectedMusician}
+        <MusicianPageView
+          musician={selectedMusician}
+          onBack={navGoBack}
+          onAlbumClick={handleAlbumClick}
+          onArtistClick={handleArtistClick}
+        />
       {:else if activeView === 'label' && selectedLabel}
         <LabelView
           labelId={selectedLabel.id}
@@ -2961,6 +3025,15 @@
       }}
       onLabelClick={handleLabelClick}
     />
+
+    <!-- Musician Modal (for confidence level 0-1) -->
+    {#if musicianModalData}
+      <MusicianModal
+        musician={musicianModalData}
+        onClose={closeMusicianModal}
+        onNavigateToArtist={handleArtistClick}
+      />
+    {/if}
 
     <!-- Cast Picker -->
     <CastPicker

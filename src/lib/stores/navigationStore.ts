@@ -14,6 +14,7 @@ export type ViewType =
   | 'settings'
   | 'album'
   | 'artist'
+  | 'musician'
   | 'label'
   | 'playlist'
   | 'playlist-manager'
