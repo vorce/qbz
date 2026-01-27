@@ -147,6 +147,8 @@ impl ArtistVectorBuilder {
 
     /// Build vector component from MusicBrainz relationships
     async fn build_from_musicbrainz(&self, artist_mbid: &str) -> Result<(SparseVector, usize), String> {
+        log::debug!("[VectorBuilder] build_from_musicbrainz: checking cache for {}", artist_mbid);
+
         // Try cache first
         let cached = {
             let cache = self.mb_cache.lock().await;
@@ -154,10 +156,13 @@ impl ArtistVectorBuilder {
         };
 
         let relations = if let Some(rel) = cached {
+            log::debug!("[VectorBuilder] build_from_musicbrainz: cache hit for {}", artist_mbid);
             rel
         } else {
+            log::debug!("[VectorBuilder] build_from_musicbrainz: fetching from API for {}", artist_mbid);
             // Fetch from API
             let response = self.mb_client.get_artist_with_relations(artist_mbid).await?;
+            log::debug!("[VectorBuilder] build_from_musicbrainz: API response received for {}", artist_mbid);
 
             // Extract relationships from raw response
             let extracted = extract_relationships(&response);
@@ -259,13 +264,26 @@ impl ArtistVectorBuilder {
         };
 
         if has_fresh {
+            log::debug!("[VectorBuilder] Artist {} has fresh vector, skipping build", artist_mbid);
             return Ok(false);
         }
 
         // Build new vector
-        self.build_vector(artist_mbid, artist_name, qobuz_artist_id).await?;
-
-        Ok(true)
+        log::info!("[VectorBuilder] Building vector for artist: {}", artist_mbid);
+        match self.build_vector(artist_mbid, artist_name, qobuz_artist_id).await {
+            Ok(result) => {
+                log::info!(
+                    "[VectorBuilder] Vector built: {} MB relations, {} Qobuz similar",
+                    result.mb_relations_count,
+                    result.qobuz_similar_count
+                );
+                Ok(true)
+            }
+            Err(e) => {
+                log::error!("[VectorBuilder] Failed to build vector for {}: {}", artist_mbid, e);
+                Err(e)
+            }
+        }
     }
 }
 
