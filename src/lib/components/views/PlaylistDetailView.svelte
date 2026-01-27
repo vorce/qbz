@@ -7,6 +7,8 @@
   import { invoke } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import TrackRow from '../TrackRow.svelte';
+  import PlaylistSuggestions from '../PlaylistSuggestions.svelte';
+  import { extractUniqueArtists } from '$lib/services/playlistSuggestionsService';
   import { type OfflineCacheStatus } from '$lib/stores/offlineCacheState';
   import {
     subscribe as subscribeOffline,
@@ -191,6 +193,15 @@
   let totalTrackCount = $derived((playlist?.tracks_count ?? 0) + localTracks.length);
   let localTracksDuration = $derived(localTracks.reduce((sum, t) => sum + t.duration_secs, 0));
   let totalDuration = $derived((playlist?.duration ?? 0) + localTracksDuration);
+
+  // Playlist suggestions: extract unique artists from Qobuz tracks (not local)
+  const playlistArtists = $derived(
+    extractUniqueArtists(tracks.filter(t => !t.isLocal))
+  );
+  // Track IDs to exclude from suggestions (already in playlist)
+  const excludeTrackIds = $derived(
+    tracks.filter(t => !t.isLocal).map(t => t.id)
+  );
 
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -1175,6 +1186,23 @@
     }
   }
 
+  // Add a suggested track to the playlist
+  async function handleAddSuggestedTrack(trackId: number) {
+    try {
+      await invoke('add_tracks_to_playlist', {
+        playlistId,
+        trackIds: [trackId]
+      });
+      // Reload to show the new track
+      await loadPlaylist();
+      notifyParentOfCounts();
+      onPlaylistUpdated?.();
+    } catch (err) {
+      console.error('Failed to add suggested track:', err);
+      throw err; // Re-throw so the suggestions component knows it failed
+    }
+  }
+
   async function handlePlayAll() {
     // Get all display tracks (Qobuz + local, respecting search/sort)
     const allTracks = displayTracks;
@@ -1646,6 +1674,17 @@
         </div>
       {/if}
     </div>
+
+    <!-- Playlist Suggestions -->
+    {#if playlist && !searchQuery && playlistArtists.length > 0}
+      <PlaylistSuggestions
+        playlistId={playlistId}
+        artists={playlistArtists}
+        excludeTrackIds={excludeTrackIds}
+        onAddTrack={handleAddSuggestedTrack}
+        showReasons={false}
+      />
+    {/if}
 
   {/if}
 </div>
