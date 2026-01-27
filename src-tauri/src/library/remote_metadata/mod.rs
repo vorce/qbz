@@ -222,6 +222,365 @@ pub fn parse_discogs_duration(duration: &str) -> Option<u32> {
     }
 }
 
+/// Convert Discogs extended search result to unified DTO
+pub fn discogs_extended_to_search_result(
+    result: &crate::discogs::DiscogsSearchResultExtended,
+) -> RemoteAlbumSearchResult {
+    // Discogs title format is usually "Artist - Album"
+    let (artist, title) = if let Some(pos) = result.title.find(" - ") {
+        let (a, t) = result.title.split_at(pos);
+        (a.to_string(), t.trim_start_matches(" - ").to_string())
+    } else {
+        ("Unknown Artist".to_string(), result.title.clone())
+    };
+
+    // Parse year from string
+    let year = result.year.as_ref().and_then(|y| y.parse::<u16>().ok());
+
+    // Get first label
+    let label = result.label.as_ref().and_then(|l| l.first().cloned());
+
+    // Get format as string
+    let format = result.format.as_ref().map(|f| f.join(", "));
+
+    RemoteAlbumSearchResult {
+        provider: RemoteProvider::Discogs,
+        provider_id: result.id.to_string(),
+        title,
+        artist,
+        year,
+        track_count: None,
+        country: result.country.clone(),
+        label,
+        catalog_number: result.catno.clone(),
+        confidence: None,
+        format,
+    }
+}
+
+/// Convert MusicBrainz full release to unified metadata DTO
+pub fn musicbrainz_full_to_metadata(
+    release: &crate::musicbrainz::ReleaseFullResponse,
+) -> RemoteAlbumMetadata {
+    // Extract artist from artist-credit
+    let artist = release
+        .artist_credit
+        .as_ref()
+        .map(|credits| {
+            credits
+                .iter()
+                .map(|c| {
+                    format!(
+                        "{}{}",
+                        c.name.as_deref().unwrap_or(&c.artist.name),
+                        c.joinphrase.as_deref().unwrap_or("")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("")
+        })
+        .unwrap_or_default();
+
+    // Extract year from date
+    let year = release.date.as_ref().and_then(|d| {
+        d.split('-').next().and_then(|y| y.parse::<u16>().ok())
+    });
+
+    // Extract genres from tags (sorted by count, take top 5)
+    let genres = release.tags.as_ref().map(|tags| {
+        let mut sorted: Vec<_> = tags.iter().collect();
+        sorted.sort_by(|a, b| b.count.cmp(&a.count));
+        sorted.iter().take(5).map(|t| t.name.clone()).collect()
+    });
+
+    // Extract label and catalog number
+    let (label, catalog_number) = release
+        .label_info
+        .as_ref()
+        .and_then(|info| info.first())
+        .map(|li| {
+            (
+                li.label.as_ref().map(|l| l.name.clone()),
+                li.catalog_number.clone(),
+            )
+        })
+        .unwrap_or((None, None));
+
+    // Count discs
+    let disc_count = release.media.as_ref().map(|m| m.len() as u8);
+
+    // Convert tracks
+    let tracks = release.media.as_ref().map(|media| {
+        let mut all_tracks = Vec::new();
+        for medium in media {
+            if let Some(tracks) = &medium.tracks {
+                for track in tracks {
+                    all_tracks.push(RemoteTrackMetadata {
+                        disc_number: medium.position,
+                        track_number: track.position,
+                        title: track.title.clone().or_else(|| {
+                            track.recording.as_ref().and_then(|r| r.title.clone())
+                        }).unwrap_or_default(),
+                        duration_ms: track.length.map(|l| l as u32).or_else(|| {
+                            track.recording.as_ref().and_then(|r| r.length.map(|l| l as u32))
+                        }),
+                    });
+                }
+            }
+        }
+        all_tracks
+    });
+
+    RemoteAlbumMetadata {
+        provider: RemoteProvider::MusicBrainz,
+        provider_id: release.id.clone(),
+        title: release.title.clone(),
+        artist,
+        year,
+        genres,
+        label,
+        catalog_number,
+        country: release.country.clone(),
+        barcode: release.barcode.clone(),
+        tracks,
+        disc_count,
+        source_url: Some(format!("https://musicbrainz.org/release/{}", release.id)),
+    }
+}
+
+/// Convert Discogs full release to unified metadata DTO
+pub fn discogs_full_to_metadata(
+    release: &crate::discogs::DiscogsReleaseMetadata,
+) -> RemoteAlbumMetadata {
+    // Combine artists with join phrases
+    let artist = release
+        .artists
+        .as_ref()
+        .map(|artists| {
+            artists
+                .iter()
+                .map(|a| {
+                    format!(
+                        "{}{}",
+                        a.name.clone(),
+                        a.join.as_deref().unwrap_or("")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("")
+        })
+        .unwrap_or_default();
+
+    // Combine genres and styles
+    let genres = {
+        let mut combined = Vec::new();
+        if let Some(g) = &release.genres {
+            combined.extend(g.clone());
+        }
+        if let Some(s) = &release.styles {
+            combined.extend(s.clone());
+        }
+        if combined.is_empty() {
+            None
+        } else {
+            Some(combined)
+        }
+    };
+
+    // Get first label and catalog number
+    let (label, catalog_number) = release
+        .labels
+        .as_ref()
+        .and_then(|labels| labels.first())
+        .map(|l| (Some(l.name.clone()), l.catno.clone()))
+        .unwrap_or((None, None));
+
+    // Convert tracklist
+    let tracks = release.tracklist.as_ref().map(|tracklist| {
+        tracklist
+            .iter()
+            .filter(|t| {
+                // Filter out headings (disc separators)
+                t.track_type.as_deref() != Some("heading")
+            })
+            .map(|t| {
+                let (disc_number, track_number) = parse_discogs_position(&t.position);
+                RemoteTrackMetadata {
+                    disc_number: Some(disc_number),
+                    track_number: Some(track_number),
+                    title: t.title.clone(),
+                    duration_ms: t.duration.as_ref().and_then(|d| parse_discogs_duration(d)),
+                }
+            })
+            .collect()
+    });
+
+    // Count unique discs
+    let disc_count = tracks.as_ref().map(|t| {
+        t.iter()
+            .filter_map(|track| track.disc_number)
+            .max()
+            .unwrap_or(1)
+    });
+
+    RemoteAlbumMetadata {
+        provider: RemoteProvider::Discogs,
+        provider_id: release.id.to_string(),
+        title: release.title.clone(),
+        artist,
+        year: release.year.map(|y| y as u16),
+        genres,
+        label,
+        catalog_number,
+        country: release.country.clone(),
+        barcode: None, // Discogs doesn't include barcode in release details
+        tracks,
+        disc_count,
+        source_url: release.uri.clone(),
+    }
+}
+
+// ============ Main Service Functions ============
+
+impl RemoteMetadataState {
+    /// Search for albums using the specified provider
+    pub async fn search_albums(
+        &self,
+        provider: RemoteProvider,
+        query: &str,
+        artist: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<RemoteAlbumSearchResult>, RemoteMetadataError> {
+        // Check cache first
+        let cache_key = format!("{:?}:{}:{:?}:{}", provider, query, artist, limit);
+        if let Some(cached) = self.cache.get_search(&cache_key) {
+            log::debug!("Cache hit for search: {}", cache_key);
+            return Ok(cached);
+        }
+
+        let results = match provider {
+            RemoteProvider::MusicBrainz => {
+                self.search_musicbrainz(query, artist.unwrap_or(""), limit).await?
+            }
+            RemoteProvider::Discogs => {
+                self.search_discogs(query, artist.unwrap_or(""), limit).await?
+            }
+        };
+
+        // Cache results
+        self.cache.set_search(&cache_key, results.clone());
+
+        Ok(results)
+    }
+
+    /// Get full album metadata by provider ID
+    pub async fn get_album_metadata(
+        &self,
+        provider: RemoteProvider,
+        provider_id: &str,
+    ) -> Result<RemoteAlbumMetadata, RemoteMetadataError> {
+        // Check cache first
+        let cache_key = format!("{:?}:{}", provider, provider_id);
+        if let Some(cached) = self.cache.get_metadata(&cache_key) {
+            log::debug!("Cache hit for metadata: {}", cache_key);
+            return Ok(cached);
+        }
+
+        let metadata = match provider {
+            RemoteProvider::MusicBrainz => {
+                self.get_musicbrainz_metadata(provider_id).await?
+            }
+            RemoteProvider::Discogs => {
+                self.get_discogs_metadata(provider_id).await?
+            }
+        };
+
+        // Cache results
+        self.cache.set_metadata(&cache_key, metadata.clone());
+
+        Ok(metadata)
+    }
+
+    /// Search MusicBrainz for releases
+    async fn search_musicbrainz(
+        &self,
+        query: &str,
+        artist: &str,
+        limit: usize,
+    ) -> Result<Vec<RemoteAlbumSearchResult>, RemoteMetadataError> {
+        let mb_state = self.musicbrainz.as_ref()
+            .ok_or(RemoteMetadataError::ProviderUnavailable)?;
+
+        let response = mb_state.client
+            .search_releases_extended(query, artist, None, limit)
+            .await
+            .map_err(|e| RemoteMetadataError::NetworkError(e))?;
+
+        let results = response.releases
+            .iter()
+            .map(musicbrainz_release_to_search_result)
+            .collect();
+
+        Ok(results)
+    }
+
+    /// Search Discogs for releases
+    async fn search_discogs(
+        &self,
+        query: &str,
+        artist: &str,
+        limit: usize,
+    ) -> Result<Vec<RemoteAlbumSearchResult>, RemoteMetadataError> {
+        let client = self.discogs.lock().await;
+
+        let results = client
+            .search_releases(artist, query, None, limit)
+            .await
+            .map_err(|e| RemoteMetadataError::NetworkError(e))?;
+
+        let converted = results
+            .iter()
+            .map(discogs_extended_to_search_result)
+            .collect();
+
+        Ok(converted)
+    }
+
+    /// Get full metadata from MusicBrainz
+    async fn get_musicbrainz_metadata(
+        &self,
+        release_id: &str,
+    ) -> Result<RemoteAlbumMetadata, RemoteMetadataError> {
+        let mb_state = self.musicbrainz.as_ref()
+            .ok_or(RemoteMetadataError::ProviderUnavailable)?;
+
+        let response = mb_state.client
+            .get_release_with_tracks(release_id)
+            .await
+            .map_err(|e| RemoteMetadataError::NetworkError(e))?;
+
+        Ok(musicbrainz_full_to_metadata(&response))
+    }
+
+    /// Get full metadata from Discogs
+    async fn get_discogs_metadata(
+        &self,
+        release_id: &str,
+    ) -> Result<RemoteAlbumMetadata, RemoteMetadataError> {
+        let release_id: u64 = release_id.parse()
+            .map_err(|_| RemoteMetadataError::InvalidProviderId)?;
+
+        let client = self.discogs.lock().await;
+
+        let response = client
+            .get_release_metadata(release_id)
+            .await
+            .map_err(|e| RemoteMetadataError::NetworkError(e))?;
+
+        Ok(discogs_full_to_metadata(&response))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -200,6 +200,13 @@ pub fn run() {
     // Initialize ListenBrainz integration state
     let listenbrainz_state = listenbrainz::ListenBrainzSharedState::new()
         .expect("Failed to initialize ListenBrainz state");
+    // Initialize remote metadata state (for Tag Editor service integration)
+    let remote_metadata_state = commands::RemoteMetadataSharedState {
+        inner: Arc::new(Mutex::new(library::remote_metadata::RemoteMetadataState::new(
+            Some(Arc::new(musicbrainz::MusicBrainzSharedState::new()
+                .expect("Failed to initialize MusicBrainz for remote metadata")))
+        ))),
+    };
 
     // Read saved audio device and settings for player initialization
     let (saved_device, audio_settings) = audio_settings_state
@@ -425,6 +432,7 @@ pub fn run() {
         .manage(tray_settings_state)
         .manage(musicbrainz_state)
         .manage(listenbrainz_state)
+        .manage(remote_metadata_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -804,6 +812,11 @@ pub fn run() {
             commands::smart_playlist_preview,
             commands::smart_playlist_resolve_artist,
             commands::smart_playlist_get_available_types,
+            // Remote metadata commands (Tag Editor service integration)
+            commands::remote_metadata_search,
+            commands::remote_metadata_get_album,
+            commands::remote_metadata_cache_stats,
+            commands::remote_metadata_clear_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
