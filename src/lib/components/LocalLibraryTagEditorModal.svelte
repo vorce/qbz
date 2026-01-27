@@ -299,8 +299,8 @@
         {/if}
       </div>
       <div class="footer-actions">
-        <button class="secondary-btn" onclick={onClose} disabled={saving}>Cancel</button>
-        <button class="primary-btn" onclick={handleSave} disabled={saving}>
+        <button class="btn btn-secondary" onclick={onClose} disabled={saving}>Cancel</button>
+        <button class="btn btn-primary" onclick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : 'Save'}
         </button>
       </div>
@@ -520,11 +520,8 @@ input[type="number"] {
   margin-left: auto;
 }
 
-.footer-actions :global(.primary-btn),
-.footer-actions :global(.secondary-btn) {
+.footer-actions :global(.btn) {
   min-width: 96px;
-  height: 40px;
-  border-radius: 10px;
 }
 
 .select-inline {

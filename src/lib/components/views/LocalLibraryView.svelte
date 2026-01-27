@@ -2533,7 +2533,7 @@
         {/if}
 
         <div class="settings-actions">
-          <button class="secondary-btn" onclick={toggleHiddenAlbumsView}>
+          <button class="btn btn-secondary" onclick={toggleHiddenAlbumsView}>
             <span>{showHiddenAlbums ? 'Show Active Albums' : 'View Hidden Albums'}</span>
             {#if hiddenAlbums.length > 0}
               <span class="count">({hiddenAlbums.length})</span>
@@ -2541,7 +2541,7 @@
           </button>
           {#if hasDiscogsCredentials}
             <button
-              class="secondary-btn"
+              class="btn btn-secondary"
               onclick={handleFetchMissingArtwork}
               disabled={fetchingArtwork || isOffline}
               title={isOffline ? 'Artwork fetching unavailable offline' : ''}
@@ -2645,7 +2645,7 @@
           <div class="albums-section">
             <div class="section-header">
               <h3>Hidden Albums ({hiddenAlbums.length})</h3>
-              <button class="secondary-btn" onclick={toggleHiddenAlbumsView}>
+              <button class="btn btn-secondary" onclick={toggleHiddenAlbumsView}>
                 <span>Back to Active Albums</span>
               </button>
             </div>
@@ -3281,10 +3281,10 @@
         </div>
 
         <div class="footer-actions">
-          <button class="secondary-btn" onclick={() => showAlbumEditModal = false}>
+          <button class="btn btn-secondary" onclick={() => showAlbumEditModal = false}>
             Cancel
           </button>
-          <button class="primary-btn" onclick={saveAlbumEdit}>
+          <button class="btn btn-primary" onclick={saveAlbumEdit}>
             Save
           </button>
         </div>
@@ -3705,30 +3705,6 @@
     flex-wrap: wrap;
     gap: 12px;
     align-items: center;
-  }
-
-  .secondary-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-subtle);
-    border-radius: 8px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .secondary-btn:hover:not(:disabled) {
-    background: var(--bg-hover);
-    border-color: var(--text-muted);
-  }
-
-  .secondary-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .discogs-hint {
@@ -5413,36 +5389,5 @@
 
   .footer-hint {
     margin-top: 0;
-  }
-
-  .secondary-btn,
-  .primary-btn {
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .secondary-btn {
-    background: transparent;
-    border: 1px solid var(--text-muted);
-    color: var(--text-secondary);
-  }
-
-  .secondary-btn:hover {
-    border-color: var(--text-primary);
-    color: var(--text-primary);
-  }
-
-  .primary-btn {
-    background: var(--accent-primary);
-    border: none;
-    color: white;
-  }
-
-  .primary-btn:hover {
-    background: var(--accent-hover);
   }
 </style>

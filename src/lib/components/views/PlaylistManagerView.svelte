@@ -1534,56 +1534,6 @@
     gap: 12px;
   }
 
-  .btn-secondary,
-  .btn-primary,
-  .btn-danger {
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: background-color 150ms ease, opacity 150ms ease;
-  }
-
-  .btn-secondary {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--alpha-10);
-    color: var(--text-primary);
-  }
-
-  .btn-secondary:hover {
-    background: var(--bg-hover);
-  }
-
-  .btn-primary {
-    background: var(--accent-primary);
-    border: none;
-    color: white;
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background: var(--accent-secondary);
-  }
-
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .btn-danger {
-    background: transparent;
-    border: 1px solid var(--error);
-    color: var(--error);
-  }
-
-  .btn-danger:hover {
-    background: var(--error);
-    color: white;
-  }
-
   .controls {
     display: flex;
     align-items: center;
