@@ -1696,8 +1696,8 @@
       {/if}
     </div>
 
-    <!-- Playlist Suggestions -->
-    {#if playlist && !searchQuery && playlistArtists.length > 0}
+    <!-- Playlist Suggestions (only for owned playlists) -->
+    {#if playlist && !searchQuery && playlistArtists.length > 0 && isOwnPlaylist}
       <PlaylistSuggestions
         playlistId={playlistId}
         artists={playlistArtists}
