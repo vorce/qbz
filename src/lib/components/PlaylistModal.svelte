@@ -504,7 +504,7 @@
           {#if folders.length > 0}
             <div class="form-group">
               <label for="folder-select">
-                <Folder size={14} style="display: inline; vertical-align: middle; margin-right: 4px;" />
+                <Folder size={14} class="icon-inline" />
                 Folder
               </label>
               <select
