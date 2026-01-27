@@ -128,33 +128,6 @@ pub fn musicbrainz_release_to_search_result(
 
 // ============ Discogs Adapter ============
 
-/// Convert Discogs release search result to unified DTO
-pub fn discogs_release_to_search_result(
-    result: &crate::discogs::SearchResult,
-) -> RemoteAlbumSearchResult {
-    // Discogs title format is usually "Artist - Album"
-    let (artist, title) = if let Some(pos) = result.title.find(" - ") {
-        let (a, t) = result.title.split_at(pos);
-        (a.to_string(), t.trim_start_matches(" - ").to_string())
-    } else {
-        ("Unknown Artist".to_string(), result.title.clone())
-    };
-
-    RemoteAlbumSearchResult {
-        provider: RemoteProvider::Discogs,
-        provider_id: result.id.to_string(),
-        title,
-        artist,
-        year: None, // Not in search result, need to fetch details
-        track_count: None,
-        country: None,
-        label: None,
-        catalog_number: None,
-        confidence: None,
-        format: None,
-    }
-}
-
 /// Parse Discogs track position to (disc_number, track_number)
 /// Handles formats: "1", "A1", "1-1", "CD1-1", "1.1"
 pub fn parse_discogs_position(position: &str) -> (u8, u8) {
