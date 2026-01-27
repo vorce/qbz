@@ -4,17 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Optional release tag to build (e.g. v1.1.6)"
+        description: "Optional release tag to build (e.g. v1.1.7)"
         required: false
         type: string
   push:
-    branches: [main]
     tags:
       - "v*"
-  pull_request:
-    branches: [main]
-  release:
-    types: [created]
 
 jobs:
   build-linux-aarch64:
