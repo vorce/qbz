@@ -54,12 +54,16 @@ pub async fn get_playlist_suggestions_v2(
         input.exclude_track_ids.len()
     );
 
+    // Get config early to check skip_vector_build
+    let config = input.config.unwrap_or_default();
+    let skip_network = config.skip_vector_build;
+
     // Resolve artist names to MBIDs (with caching)
     let resolve_start = Instant::now();
     let mut artist_mbids = Vec::new();
     let mut cached_count = 0;
     let mut resolved_count = 0;
-    let mut failed_count = 0;
+    let mut skipped_count = 0;
 
     for artist in &input.artists {
         // Check cache first
@@ -78,8 +82,14 @@ pub async fn get_playlist_suggestions_v2(
                     continue;
                 }
             }
-            // Cached as "no match"
-            failed_count += 1;
+            // Cached as "no match" - skip
+            skipped_count += 1;
+            continue;
+        }
+
+        // If skip_network is true, don't make network calls for uncached artists
+        if skip_network {
+            skipped_count += 1;
             continue;
         }
 
@@ -125,16 +135,17 @@ pub async fn get_playlist_suggestions_v2(
             let cache = mb_state.cache.lock().await;
             let _ = cache.set_artist(&artist.name, &ResolvedArtist::empty());
         }
-        failed_count += 1;
+        skipped_count += 1;
     }
 
     let resolve_elapsed = resolve_start.elapsed();
     log::info!(
-        "[Suggestions] MBID resolution took {:?}: {} cached, {} resolved, {} failed",
+        "[Suggestions] MBID resolution took {:?}: {} cached, {} resolved, {} skipped (skip_network={})",
         resolve_elapsed,
         cached_count,
         resolved_count,
-        failed_count
+        skipped_count,
+        skip_network
     );
 
     if artist_mbids.is_empty() {
@@ -156,8 +167,7 @@ pub async fn get_playlist_suggestions_v2(
         RelationshipWeights::default(),
     ));
 
-    // Create the engine with config
-    let config = input.config.unwrap_or_default();
+    // Log config (already extracted above for skip_network check)
     log::info!("[Suggestions] Config: max_artists={}, tracks_per={}, pool_size={}, skip_build={}",
         config.max_artists, config.tracks_per_artist, config.max_pool_size, config.skip_vector_build);
 
