@@ -222,6 +222,19 @@ pub struct ReleaseResult {
     pub release_group: Option<ReleaseGroupRef>,
     #[serde(rename = "artist-credit")]
     pub artist_credit: Option<Vec<ArtistCredit>>,
+    /// Media info (contains track counts per disc)
+    pub media: Option<Vec<ReleaseSearchMedium>>,
+    /// Total track count across all media
+    #[serde(rename = "track-count")]
+    pub track_count: Option<u16>,
+}
+
+/// Simplified medium info for search results
+#[derive(Debug, Deserialize)]
+pub struct ReleaseSearchMedium {
+    pub format: Option<String>,
+    #[serde(rename = "track-count")]
+    pub track_count: Option<u16>,
 }
 
 /// Label information

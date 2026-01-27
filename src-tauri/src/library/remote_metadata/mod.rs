@@ -97,18 +97,32 @@ pub fn musicbrainz_release_to_search_result(
         })
         .unwrap_or((None, None));
 
+    // Get track count - either from direct field or sum from media
+    let track_count = release.track_count.or_else(|| {
+        release.media.as_ref().map(|media| {
+            media.iter().filter_map(|m| m.track_count).sum()
+        })
+    });
+
+    // Get format from first medium
+    let format = release
+        .media
+        .as_ref()
+        .and_then(|m| m.first())
+        .and_then(|m| m.format.clone());
+
     RemoteAlbumSearchResult {
         provider: RemoteProvider::MusicBrainz,
         provider_id: release.id.clone(),
         title: release.title.clone(),
         artist,
         year,
-        track_count: None, // Not available in search results
+        track_count,
         country: release.country.clone(),
         label,
         catalog_number,
         confidence: release.score.map(|s| s.min(100) as u8),
-        format: None,
+        format,
     }
 }
 

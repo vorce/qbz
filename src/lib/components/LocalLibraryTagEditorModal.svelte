@@ -98,6 +98,7 @@
   let remoteResults = $state<RemoteAlbumSearchResult[]>([]);
   let selectedRemoteId = $state<string | null>(null);
   let showRemotePanel = $state(false);
+  let hasSearched = $state(false);
 
   type TrackEdit = {
     id: number;
@@ -143,6 +144,7 @@
       remoteResults = [];
       selectedRemoteId = null;
       showRemotePanel = false;
+      hasSearched = false;
     }
   });
 
@@ -165,12 +167,12 @@
         limit: 10
       });
       remoteResults = results;
-      if (results.length === 0) {
-        showToast('No results found', 'info');
-      }
+      hasSearched = true;
+      showRemotePanel = results.length > 0;
     } catch (err) {
       console.error('Remote search failed:', err);
       showToast(`Search failed: ${err}`, 'error');
+      hasSearched = true;
     } finally {
       remoteSearching = false;
     }
@@ -429,18 +431,21 @@
                 Search
               {/if}
             </button>
-            {#if remoteResults.length > 0}
-              <button
-                class="btn btn-ghost btn-sm chevron-toggle"
-                onclick={() => showRemotePanel = !showRemotePanel}
-                type="button"
-                title={showRemotePanel ? 'Hide results' : 'Show results'}
-              >
-                <svg class="icon-inline chevron" class:rotated={showRemotePanel} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-                <span class="result-count">{remoteResults.length}</span>
-              </button>
+            {#if hasSearched}
+              {#if remoteResults.length > 0}
+                <button
+                  class="btn btn-ghost btn-sm result-status"
+                  onclick={() => showRemotePanel = !showRemotePanel}
+                  type="button"
+                >
+                  <span class="result-text">{remoteResults.length} results</span>
+                  <svg class="icon-inline chevron" class:rotated={showRemotePanel} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+              {:else}
+                <span class="no-results">No results, try different search</span>
+              {/if}
             {/if}
           </div>
 
@@ -871,30 +876,32 @@ input[type="number"] {
     background: var(--bg-secondary);
   }
 
-  .chevron-toggle {
+  .result-status {
     margin-left: auto;
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 8px !important;
+    padding: 4px 10px !important;
   }
 
-  .chevron-toggle .chevron {
+  .result-status .chevron {
     transition: transform 0.2s ease;
   }
 
-  .chevron-toggle .chevron.rotated {
+  .result-status .chevron.rotated {
     transform: rotate(180deg);
   }
 
-  .result-count {
+  .result-text {
+    font-size: 12px;
+    color: var(--accent-primary);
+  }
+
+  .no-results {
+    margin-left: auto;
     font-size: 11px;
     color: var(--text-muted);
-    background: var(--bg-tertiary);
-    padding: 2px 6px;
-    border-radius: 10px;
-    min-width: 18px;
-    text-align: center;
+    font-style: italic;
   }
 
   .remote-panel {
