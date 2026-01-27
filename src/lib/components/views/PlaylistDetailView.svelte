@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ChevronRight, ImagePlus, Edit3, BarChart2, Heart, CloudDownload, ListPlus } from 'lucide-svelte';
+  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ChevronRight, ChevronUp, ImagePlus, Edit3, BarChart2, Heart, CloudDownload, ListPlus, GripVertical } from 'lucide-svelte';
   import AlbumMenu from '../AlbumMenu.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
@@ -210,6 +210,11 @@
   let playlistStats = $state<PlaylistStats | null>(null);
   let editModalOpen = $state(false);
   let isFavorite = $state(false);
+
+  // Custom order state
+  let customOrderMap = $state<Map<string, number>>(new Map());  // "trackId:isLocal" -> position
+  let customOrderLoading = $state(false);
+  let isCustomOrderMode = $derived(sortBy === 'custom');
 
   // User ownership state (to show "Copy to Library" button for non-owned playlists)
   let currentUserId = $state<number | null>(null);
@@ -486,6 +491,7 @@
     searchQuery = '';
     playlistSettings = null;
     isFavorite = false;
+    customOrderMap = new Map();
 
     // Skip loading settings for pending playlists
     if (playlistId < 0) {
@@ -501,6 +507,11 @@
         customArtworkPath = settings.custom_artwork_path || null;
         searchQuery = settings.last_search_query || '';
         isFavorite = settings.is_favorite ?? false;
+
+        // Load custom order if in custom mode
+        if (sortBy === 'custom') {
+          await loadOrInitCustomOrder();
+        }
       }
     } catch (err) {
       console.error('Failed to load playlist settings:', err);
@@ -555,11 +566,142 @@
     sortBy = field;
     sortOrder = order;
     showSortMenu = false;
+
+    // When switching to custom mode, load or initialize custom order
+    if (field === 'custom') {
+      await loadOrInitCustomOrder();
+    }
+
     try {
       await invoke('playlist_set_sort', { playlistId, sortBy: field, sortOrder: order });
     } catch (err) {
       console.error('Failed to save sort settings:', err);
     }
+  }
+
+  // Load custom order from backend or initialize if not exists
+  async function loadOrInitCustomOrder() {
+    if (playlistId < 0) return; // Skip for pending playlists
+
+    customOrderLoading = true;
+    try {
+      // Check if custom order exists
+      const hasOrder = await invoke<boolean>('playlist_has_custom_order', { playlistId });
+
+      if (hasOrder) {
+        // Load existing custom order
+        const orders = await invoke<[number, boolean, number][]>('playlist_get_custom_order', { playlistId });
+        const newMap = new Map<string, number>();
+        for (const [trackId, isLocal, position] of orders) {
+          newMap.set(`${trackId}:${isLocal}`, position);
+        }
+        customOrderMap = newMap;
+      } else {
+        // Initialize from current track arrangement
+        await initCustomOrderFromCurrentTracks();
+      }
+    } catch (err) {
+      console.error('Failed to load custom order:', err);
+    } finally {
+      customOrderLoading = false;
+    }
+  }
+
+  // Initialize custom order from the current track list
+  async function initCustomOrderFromCurrentTracks() {
+    // Get all tracks in current display order (before custom sort applied)
+    const allTracks = [...tracks];
+    const localTracksInPlaylist = localTracks.map((t, idx) => ({
+      ...t,
+      playlist_position: idx
+    }));
+
+    // Build track ID list: (trackId, isLocal)
+    const trackIds: [number, boolean][] = [];
+
+    // Add Qobuz tracks first (in original order)
+    for (const t of allTracks) {
+      if (!t.isLocal) {
+        trackIds.push([t.id, false]);
+      }
+    }
+
+    // Add local tracks (by their position)
+    for (const t of localTracksInPlaylist) {
+      trackIds.push([t.id, true]);
+    }
+
+    // Save to backend
+    try {
+      await invoke('playlist_init_custom_order', { playlistId, trackIds });
+
+      // Update local state
+      const newMap = new Map<string, number>();
+      for (let i = 0; i < trackIds.length; i++) {
+        const [trackId, isLocal] = trackIds[i];
+        newMap.set(`${trackId}:${isLocal}`, i);
+      }
+      customOrderMap = newMap;
+    } catch (err) {
+      console.error('Failed to initialize custom order:', err);
+    }
+  }
+
+  // Move a track to a new position
+  async function moveTrack(trackId: number, isLocal: boolean, fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+
+    // Optimistic update: reorder the map
+    const key = `${trackId}:${isLocal}`;
+    const newMap = new Map(customOrderMap);
+
+    // Adjust positions
+    for (const [k, pos] of newMap) {
+      if (k === key) {
+        newMap.set(k, toIndex);
+      } else if (fromIndex < toIndex) {
+        // Moving down: shift tracks between from+1 and to up
+        if (pos > fromIndex && pos <= toIndex) {
+          newMap.set(k, pos - 1);
+        }
+      } else {
+        // Moving up: shift tracks between to and from-1 down
+        if (pos >= toIndex && pos < fromIndex) {
+          newMap.set(k, pos + 1);
+        }
+      }
+    }
+    customOrderMap = newMap;
+
+    // Persist to backend
+    try {
+      await invoke('playlist_move_track', {
+        playlistId,
+        trackId: Math.abs(trackId),
+        isLocal,
+        newPosition: toIndex
+      });
+    } catch (err) {
+      console.error('Failed to move track:', err);
+      // Reload to get consistent state
+      await loadOrInitCustomOrder();
+    }
+  }
+
+  // Helper to move track up one position
+  function moveTrackUp(track: DisplayTrack, currentIndex: number) {
+    if (currentIndex === 0) return;
+    const isLocal = track.isLocal ?? false;
+    const trackId = isLocal ? Math.abs(track.id) : track.id;
+    moveTrack(trackId, isLocal, currentIndex, currentIndex - 1);
+  }
+
+  // Helper to move track down one position
+  function moveTrackDown(track: DisplayTrack, currentIndex: number) {
+    if (currentIndex >= displayTracks.length - 1) return;
+    const isLocal = track.isLocal ?? false;
+    const trackId = isLocal ? Math.abs(track.id) : track.id;
+    moveTrack(trackId, isLocal, currentIndex, currentIndex + 1);
   }
 
   async function selectCustomArtwork() {
@@ -688,8 +830,14 @@
             cmp = labelA.localeCompare(labelB);
             break;
           case 'custom':
-            // Use customPosition if available, otherwise preserve original order
-            cmp = (a.customPosition ?? a.addedIndex ?? 0) - (b.customPosition ?? b.addedIndex ?? 0);
+            // Get positions from customOrderMap
+            const aIsLocal = a.isLocal ?? false;
+            const bIsLocal = b.isLocal ?? false;
+            const aKey = `${aIsLocal ? Math.abs(a.id) : a.id}:${aIsLocal}`;
+            const bKey = `${bIsLocal ? Math.abs(b.id) : b.id}:${bIsLocal}`;
+            const aPos = customOrderMap.get(aKey) ?? a.addedIndex ?? 0;
+            const bPos = customOrderMap.get(bKey) ?? b.addedIndex ?? 0;
+            cmp = aPos - bPos;
             break;
         }
         return sortOrder === 'desc' ? -cmp : cmp;
@@ -1214,8 +1362,32 @@
         <div
           class="track-row-wrapper"
           class:unavailable={!available}
+          class:custom-order-mode={isCustomOrderMode}
           title={!available ? $t('offline.trackNotAvailable') : undefined}
         >
+          {#if isCustomOrderMode}
+            <div class="reorder-controls">
+              <button
+                class="reorder-btn"
+                onclick={() => moveTrackUp(track, idx)}
+                disabled={idx === 0}
+                title="Move up"
+              >
+                <ChevronUp size={16} />
+              </button>
+              <div class="drag-handle" title="Drag to reorder">
+                <GripVertical size={16} />
+              </div>
+              <button
+                class="reorder-btn"
+                onclick={() => moveTrackDown(track, idx)}
+                disabled={idx === displayTracks.length - 1}
+                title="Move down"
+              >
+                <ChevronDown size={16} />
+              </button>
+            </div>
+          {/if}
           <TrackRow
             trackId={track.isLocal ? undefined : track.id}
             number={idx + 1}
@@ -1815,6 +1987,56 @@
 
   .track-row-wrapper.unavailable :global(.track-row) {
     filter: grayscale(100%);
+  }
+
+  /* Custom order mode */
+  .track-row-wrapper.custom-order-mode {
+    padding-left: 0;
+  }
+
+  .reorder-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .reorder-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary, #888);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s, color 0.15s;
+  }
+
+  .reorder-btn:hover:not(:disabled) {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.1));
+    color: var(--text-primary, #fff);
+  }
+
+  .reorder-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .drag-handle {
+    color: var(--text-secondary, #888);
+    cursor: grab;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .drag-handle:active {
+    cursor: grabbing;
   }
 
 </style>
