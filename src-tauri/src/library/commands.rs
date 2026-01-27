@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use serde::Deserialize;
-use tauri::State;
+use tauri::{Emitter, State};
 use tokio::sync::Mutex;
 
 use crate::discogs::DiscogsClient;
@@ -1616,6 +1616,7 @@ pub async fn library_update_album_metadata(
 
 #[tauri::command]
 pub async fn library_write_album_metadata_to_files(
+    app: tauri::AppHandle,
     request: LibraryAlbumMetadataUpdateRequest,
     state: State<'_, LibraryState>,
 ) -> Result<(), String> {
@@ -1663,7 +1664,16 @@ pub async fn library_write_album_metadata_to_files(
                 by_file.entry(track.file_path.clone()).or_insert(track);
             }
 
+            let total = by_file.len();
+            let mut current = 0usize;
+
             for (file_path, track) in by_file {
+                current += 1;
+                // Emit progress event
+                let _ = app.emit("library:tag_write_progress", serde_json::json!({
+                    "current": current,
+                    "total": total
+                }));
                 let path = Path::new(&file_path);
                 if !path.is_file() {
                     return Err("One or more audio files were not found on disk.".to_string());

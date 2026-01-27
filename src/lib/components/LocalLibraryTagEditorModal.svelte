@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
   import { invoke } from '@tauri-apps/api/core';
+  import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import { ask } from '@tauri-apps/plugin-dialog';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import { showToast } from '$lib/stores/toastStore';
@@ -90,6 +91,7 @@
   let albumTotalDiscs = $state(1);
   let persistence: PersistenceMode = $state('sidecar');
   let saving = $state(false);
+  let writeProgress = $state<{ current: number; total: number } | null>(null);
 
   // Remote metadata search state
   let remoteProvider: RemoteProvider = $state('musicbrainz');
@@ -345,10 +347,17 @@
     if (!payload) return;
 
     saving = true;
+    writeProgress = null;
+    let unlisten: UnlistenFn | null = null;
+
     try {
       if (persistence === 'sidecar') {
         await invoke('library_update_album_metadata', { request: payload });
       } else {
+        // Listen for progress events
+        unlisten = await listen<{ current: number; total: number }>('library:tag_write_progress', (event) => {
+          writeProgress = event.payload;
+        });
         await invoke('library_write_album_metadata_to_files', { request: payload });
       }
       showToast('Album metadata saved', 'success');
@@ -357,6 +366,8 @@
     } catch (err) {
       alert(`Failed to save metadata: ${err}`);
     } finally {
+      if (unlisten) unlisten();
+      writeProgress = null;
       saving = false;
     }
   }
@@ -571,7 +582,13 @@
         <button class="btn btn-primary" onclick={handleSave} disabled={saving}>
           {#if saving}
             <span class="spinner-inline"></span>
-            {persistence === 'direct' ? 'Writing tags...' : 'Saving...'}
+            {#if writeProgress}
+              Writing {writeProgress.current} of {writeProgress.total}...
+            {:else if persistence === 'direct'}
+              Writing tags...
+            {:else}
+              Saving...
+            {/if}
           {:else}
             Save
           {/if}
