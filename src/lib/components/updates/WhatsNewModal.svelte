@@ -54,7 +54,7 @@
 <div
   class="whats-new-modal"
   style={`
-    --updates-modal-max-height: ${maxHeightPx}px;
+    --updates-modal-max-height: ${maxHeightPx - 150}px;
     --updates-overlay-pad-top: ${TITLEBAR_HEIGHT + INNER_MARGIN}px;
     --updates-overlay-pad-bottom: ${PLAYER_HEIGHT + INNER_MARGIN}px;
   `}
@@ -63,11 +63,11 @@
     {isOpen}
     onClose={onClose}
     title={modalTitle}
-    maxWidth="860px"
+    maxWidth="910px"
   >
     {#if release}
       {#if releaseHtml}
-        <div class="release-body prose">
+        <div class="release-body whats-new-content">
           {@html releaseHtml}
         </div>
       {:else}
@@ -99,62 +99,59 @@
     color: var(--text-primary);
   }
 
-  /* Minimal prose styling for safe markdown output */
-  :global(.whats-new-modal .prose p) {
-    margin: 0 0 12px;
-    line-height: 1.6;
+  /* Whats New content styling - using !important to override any conflicting styles */
+  .whats-new-content :global(p) {
+    margin: 0 0 12px !important;
+    line-height: 1.6 !important;
   }
 
-  :global(.whats-new-modal .prose ul) {
-    margin: 6px 0 14px 10px;
-    padding: 0 0 0 44px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    list-style-position: outside;
+  .whats-new-content :global(ul) {
+    margin: 6px 0 14px 10px !important;
+    padding: 0 0 0 24px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    list-style-type: disc !important;
+    list-style-position: outside !important;
   }
 
-  :global(.whats-new-modal .prose li) {
-    line-height: 1.6;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 400;
+  /* First level list items - brighter color */
+  .whats-new-content :global(li) {
+    line-height: 1.6 !important;
+    color: var(--text-secondary) !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
   }
 
-  :global(.whats-new-modal .prose li)::marker {
-    color: color-mix(in srgb, var(--text-secondary) 85%, transparent);
+  /* Nested lists - extra indentation */
+  .whats-new-content :global(ul ul) {
+    margin: 6px 0 8px 0 !important;
+    padding-left: 24px !important;
   }
 
-  /* Nested/child list items - darker color and proper indentation */
-  :global(.whats-new-modal .prose ul ul) {
-    margin: 4px 0 8px 16px;
-    padding-left: 20px;
+  /* Nested list items - darker/muted color */
+  .whats-new-content :global(ul ul li) {
+    color: var(--text-muted) !important;
+    font-size: 13px !important;
   }
 
-  :global(.whats-new-modal .prose li li) {
-    color: var(--text-muted);
-    font-size: 13px;
+  /* Section headings */
+  .whats-new-content :global(h3),
+  .whats-new-content :global(.wn-section) {
+    margin: 16px 0 8px !important;
+    font-weight: 800 !important;
+    font-size: 18px !important;
+    letter-spacing: 0.2px !important;
+    color: var(--text-primary) !important;
   }
 
-  :global(.whats-new-modal .prose li li)::marker {
-    color: color-mix(in srgb, var(--text-muted) 70%, transparent);
-  }
-
-  :global(.whats-new-modal .prose h3),
-  :global(.whats-new-modal .prose .wn-section) {
-    margin: 16px 0 8px;
-    font-weight: 800;
-    font-size: 18px;
-    letter-spacing: 0.2px;
-  }
-
-  :global(.whats-new-modal .prose code) {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--bg-hover);
-    padding: 1px 6px;
-    border-radius: 6px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+  .whats-new-content :global(code) {
+    background: var(--bg-tertiary) !important;
+    border: 1px solid var(--bg-hover) !important;
+    padding: 1px 6px !important;
+    border-radius: 6px !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+    font-size: 12px !important;
   }
 
   .empty {
