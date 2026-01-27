@@ -27,7 +27,7 @@ pub struct UpdatePreferences {
 impl Default for UpdatePreferences {
     fn default() -> Self {
         Self {
-            check_on_launch: true,
+            check_on_launch: false,
             show_whats_new_on_launch: true,
         }
     }
