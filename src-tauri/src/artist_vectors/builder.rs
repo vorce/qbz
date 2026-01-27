@@ -74,18 +74,24 @@ impl ArtistVectorBuilder {
         artist_name: Option<&str>,
         qobuz_artist_id: Option<u64>,
     ) -> Result<BuildResult, String> {
+        log::info!("[VectorBuilder] build_vector START for {}", artist_mbid);
+
         let mut vector = SparseVector::new();
         let mut sources = Vec::new();
         let mut mb_relations_count = 0;
         let mut qobuz_similar_count = 0;
 
         // 1. Get or create index for this artist
+        log::info!("[VectorBuilder] Acquiring store lock...");
         {
             let mut store = self.store.lock().await;
+            log::info!("[VectorBuilder] Store lock acquired, creating index");
             store.get_or_create_idx(artist_mbid, artist_name)?;
         }
+        log::info!("[VectorBuilder] Store lock released");
 
         // 2. Fetch MusicBrainz relationships
+        log::info!("[VectorBuilder] Fetching MusicBrainz relationships...");
         match self.build_from_musicbrainz(artist_mbid).await {
             Ok((mb_vec, count)) => {
                 vector = vector.add(&mb_vec);
