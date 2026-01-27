@@ -396,11 +396,10 @@ impl SuggestionsEngine {
         };
 
         // Extract artist name and ID from track performer
-        let (track_artist, artist_id) = track
-            .performer
-            .as_ref()
-            .map(|p| (p.name.clone(), p.id))
-            .unwrap_or_default();
+        let (track_artist, artist_id) = match &track.performer {
+            Some(p) => (p.name.clone(), Some(p.id)),
+            None => (String::new(), None),
+        };
 
         SuggestedTrack {
             track_id: track.id,
