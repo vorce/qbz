@@ -457,11 +457,18 @@
                   >
                     <span class="result-title">{result.title}</span>
                     <span class="result-artist">{result.artist}</span>
-                    <span class="result-meta">
-                      {#if result.year}{result.year}{/if}
-                      {#if result.year && result.country} · {/if}
-                      {#if result.country}{result.country}{/if}
-                    </span>
+                    <div class="result-details">
+                      {#if result.year}<span class="detail">{result.year}</span>{/if}
+                      {#if result.track_count}<span class="detail">{result.track_count} tracks</span>{/if}
+                      {#if result.country}<span class="detail">{result.country}</span>{/if}
+                      {#if result.format}<span class="detail">{result.format}</span>{/if}
+                    </div>
+                    {#if result.label || result.catalog_number}
+                      <div class="result-label">
+                        {#if result.label}<span>{result.label}</span>{/if}
+                        {#if result.catalog_number}<span class="mono">{result.catalog_number}</span>{/if}
+                      </div>
+                    {/if}
                   </button>
                 {/each}
               </div>
@@ -900,28 +907,30 @@ input[type="number"] {
   }
 
   .remote-results {
-    max-height: 140px;
-    overflow-y: auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    padding: 4px;
     border: 1px solid var(--bg-tertiary);
     border-radius: 6px;
-    padding: 4px;
   }
 
   .remote-result {
+    flex: 0 0 calc(50% - 3px);
+    min-width: 200px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 6px 8px;
-    background: transparent;
+    gap: 4px;
+    padding: 8px 10px;
+    background: var(--bg-secondary);
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: 6px;
     text-align: left;
     cursor: pointer;
     transition: background 0.15s ease, border-color 0.15s ease;
-    overflow: hidden;
+    scroll-snap-align: start;
   }
 
   .remote-result:hover {
@@ -934,26 +943,52 @@ input[type="number"] {
   }
 
   .result-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-primary);
-    white-space: nowrap;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .result-artist {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .result-meta {
+  .result-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .result-details .detail {
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .result-label {
+    display: flex;
+    gap: 6px;
     font-size: 10px;
     color: var(--text-muted);
     opacity: 0.8;
+    margin-top: auto;
+    padding-top: 4px;
+    border-top: 1px solid var(--bg-tertiary);
+  }
+
+  .result-label .mono {
+    opacity: 0.7;
   }
 
   .remote-actions {
