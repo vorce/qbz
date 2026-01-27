@@ -4,6 +4,7 @@
 
 pub mod api;
 pub mod api_cache;
+pub mod artist_vectors;
 pub mod audio;
 pub mod cache;
 pub mod cast;
