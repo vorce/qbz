@@ -19,6 +19,8 @@
   const PLAYER_HEIGHT = 104;
   const TITLEBAR_HEIGHT = $derived(showTitleBar ? 32 : 0);
   const INNER_MARGIN = 20;
+  const EXTRA_PAD_TOP = 40;
+  const EXTRA_PAD_BOTTOM = 130;
   const MAX_MODAL_OFFSET_PX = 145;
 
   let maxHeightPx = $state(720);
@@ -55,8 +57,8 @@
   class="whats-new-modal"
   style={`
     --updates-modal-max-height: ${maxHeightPx - 150}px;
-    --updates-overlay-pad-top: ${TITLEBAR_HEIGHT + INNER_MARGIN}px;
-    --updates-overlay-pad-bottom: ${PLAYER_HEIGHT + INNER_MARGIN}px;
+    --updates-overlay-pad-top: ${TITLEBAR_HEIGHT + INNER_MARGIN + EXTRA_PAD_TOP}px;
+    --updates-overlay-pad-bottom: ${PLAYER_HEIGHT + INNER_MARGIN + EXTRA_PAD_BOTTOM}px;
   `}
 >
   <Modal
@@ -139,8 +141,8 @@
   .whats-new-content :global(h3),
   .whats-new-content :global(.wn-section) {
     margin: 16px 0 8px !important;
-    font-weight: 800 !important;
-    font-size: 18px !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
     letter-spacing: 0.2px !important;
     color: var(--text-primary) !important;
   }
