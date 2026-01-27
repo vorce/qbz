@@ -157,26 +157,52 @@ export async function cleanupVectorStore(maxAgeDays?: number): Promise<number> {
 
 // ============ Helpers ============
 
+/** Default number of top artists to use for suggestions */
+const DEFAULT_TOP_ARTISTS = 5;
+
 /**
- * Extract unique artists from playlist tracks
+ * Extract top artists from playlist tracks, sorted by frequency (track count)
+ *
+ * @param tracks - Playlist tracks
+ * @param limit - Maximum number of artists to return (default: 5)
+ */
+export function extractTopArtists(
+  tracks: Array<{ artist?: string; artistId?: number }>,
+  limit: number = DEFAULT_TOP_ARTISTS
+): PlaylistArtist[] {
+  // Count tracks per artist
+  const artistCounts = new Map<string, { count: number; qobuzId?: number }>();
+
+  for (const track of tracks) {
+    if (track.artist) {
+      const existing = artistCounts.get(track.artist);
+      if (existing) {
+        existing.count++;
+      } else {
+        artistCounts.set(track.artist, { count: 1, qobuzId: track.artistId });
+      }
+    }
+  }
+
+  // Sort by count descending, take top N
+  const sorted = [...artistCounts.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, limit);
+
+  return sorted.map(([name, data]) => ({
+    name,
+    qobuzId: data.qobuzId
+  }));
+}
+
+/**
+ * Extract unique artists from playlist tracks (legacy, use extractTopArtists instead)
+ * @deprecated Use extractTopArtists for better performance
  */
 export function extractUniqueArtists(
   tracks: Array<{ artist?: string; artistId?: number }>
 ): PlaylistArtist[] {
-  const seen = new Set<string>();
-  const artists: PlaylistArtist[] = [];
-
-  for (const track of tracks) {
-    if (track.artist && !seen.has(track.artist)) {
-      seen.add(track.artist);
-      artists.push({
-        name: track.artist,
-        qobuzId: track.artistId
-      });
-    }
-  }
-
-  return artists;
+  return extractTopArtists(tracks, Infinity);
 }
 
 /**

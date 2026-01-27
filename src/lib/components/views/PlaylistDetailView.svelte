@@ -8,7 +8,7 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import TrackRow from '../TrackRow.svelte';
   import PlaylistSuggestions from '../PlaylistSuggestions.svelte';
-  import { extractUniqueArtists } from '$lib/services/playlistSuggestionsService';
+  import { extractTopArtists } from '$lib/services/playlistSuggestionsService';
   import { type OfflineCacheStatus } from '$lib/stores/offlineCacheState';
   import {
     subscribe as subscribeOffline,
@@ -194,9 +194,9 @@
   let localTracksDuration = $derived(localTracks.reduce((sum, t) => sum + t.duration_secs, 0));
   let totalDuration = $derived((playlist?.duration ?? 0) + localTracksDuration);
 
-  // Playlist suggestions: extract unique artists from Qobuz tracks (not local)
+  // Playlist suggestions: extract top 5 artists by track count (not local tracks)
   const playlistArtists = $derived(
-    extractUniqueArtists(tracks.filter(t => !t.isLocal))
+    extractTopArtists(tracks.filter(t => !t.isLocal), 5)
   );
   // Track IDs to exclude from suggestions (already in playlist)
   const excludeTrackIds = $derived(

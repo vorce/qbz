@@ -97,7 +97,7 @@
         artists,
         excludeTrackIds,
         showReasons,
-        { max_pool_size: poolSize, skip_vector_build: true }
+        { max_pool_size: poolSize }
       );
       const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
       log(`Backend returned in ${elapsed}s:`, {

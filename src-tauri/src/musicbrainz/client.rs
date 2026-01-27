@@ -16,18 +16,29 @@ const MUSICBRAINZ_PROXY_URL: &str = "https://qbz-api-proxy.blitzkriegfc.workers.
 /// Direct MusicBrainz API URL (fallback)
 const MUSICBRAINZ_API_URL: &str = "https://musicbrainz.org/ws/2";
 
-/// Rate limiter for MusicBrainz API (1 request per second)
+/// Rate limiter for MusicBrainz API
 pub struct RateLimiter {
     last_request: Mutex<Instant>,
     min_interval: Duration,
 }
 
 impl RateLimiter {
+    /// Create rate limiter for direct MusicBrainz API (1 req/sec)
     pub fn new() -> Self {
+        Self::with_interval(Duration::from_millis(1100))
+    }
+
+    /// Create rate limiter for proxy (faster, proxy handles actual rate limiting)
+    pub fn for_proxy() -> Self {
+        Self::with_interval(Duration::from_millis(200))
+    }
+
+    /// Create rate limiter with custom interval
+    pub fn with_interval(min_interval: Duration) -> Self {
         Self {
             // Start in the past so first request doesn't wait
             last_request: Mutex::new(Instant::now() - Duration::from_secs(2)),
-            min_interval: Duration::from_millis(1100), // Slightly over 1 second for safety
+            min_interval,
         }
     }
 
@@ -96,9 +107,16 @@ impl MusicBrainzClient {
             .build()
             .unwrap_or_else(|_| Client::new());
 
+        // Use faster rate limiter when using proxy (proxy handles actual rate limiting)
+        let rate_limiter = if config.use_proxy {
+            RateLimiter::for_proxy()
+        } else {
+            RateLimiter::new()
+        };
+
         Self {
             client,
-            rate_limiter: Arc::new(RateLimiter::new()),
+            rate_limiter: Arc::new(rate_limiter),
             config: Arc::new(Mutex::new(config)),
         }
     }
