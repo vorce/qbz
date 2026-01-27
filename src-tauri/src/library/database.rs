@@ -155,6 +155,23 @@ impl LibraryDatabase {
             CREATE INDEX IF NOT EXISTS idx_playlist_local_tracks_playlist
                 ON playlist_local_tracks(qobuz_playlist_id);
 
+            -- Custom track order per playlist (user-defined arrangement)
+            CREATE TABLE IF NOT EXISTS playlist_track_custom_order (
+                id INTEGER PRIMARY KEY,
+                qobuz_playlist_id INTEGER NOT NULL,
+                track_id INTEGER NOT NULL,
+                is_local INTEGER DEFAULT 0,
+                custom_position INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                UNIQUE(qobuz_playlist_id, track_id, is_local)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_playlist_custom_order_playlist
+                ON playlist_track_custom_order(qobuz_playlist_id);
+            CREATE INDEX IF NOT EXISTS idx_playlist_custom_order_position
+                ON playlist_track_custom_order(qobuz_playlist_id, custom_position);
+
             -- Album settings (per-album customization)
             CREATE TABLE IF NOT EXISTS album_settings (
                 album_group_key TEXT PRIMARY KEY,
@@ -599,6 +616,36 @@ impl LibraryDatabase {
         self.conn.execute_batch(
             "CREATE INDEX IF NOT EXISTS idx_playlist_settings_folder ON playlist_settings(folder_id);"
         ).map_err(|e| LibraryError::Database(format!("Failed to create folder index: {}", e)))?;
+
+        // Migration: Create playlist_track_custom_order table for custom track arrangement
+        let has_custom_order_table: bool = self.conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='playlist_track_custom_order'",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|count| count > 0)
+            .unwrap_or(false);
+
+        if !has_custom_order_table {
+            log::info!("Running migration: creating playlist_track_custom_order table");
+            self.conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS playlist_track_custom_order (
+                    id INTEGER PRIMARY KEY,
+                    qobuz_playlist_id INTEGER NOT NULL,
+                    track_id INTEGER NOT NULL,
+                    is_local INTEGER DEFAULT 0,
+                    custom_position INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(qobuz_playlist_id, track_id, is_local)
+                );
+                CREATE INDEX IF NOT EXISTS idx_playlist_custom_order_playlist
+                    ON playlist_track_custom_order(qobuz_playlist_id);
+                CREATE INDEX IF NOT EXISTS idx_playlist_custom_order_position
+                    ON playlist_track_custom_order(qobuz_playlist_id, custom_position);"
+            ).map_err(|e| LibraryError::Database(format!("Migration failed: {}", e)))?;
+        }
 
         Ok(())
     }
@@ -2525,6 +2572,204 @@ impl LibraryDatabase {
             "DELETE FROM playlist_local_tracks WHERE qobuz_playlist_id = ?1",
             params![qobuz_playlist_id as i64],
         ).map_err(|e| LibraryError::Database(format!("Failed to clear playlist local tracks: {}", e)))?;
+
+        Ok(())
+    }
+
+    // === Playlist Custom Track Order ===
+
+    /// Get custom track order for a playlist
+    /// Returns Vec of (track_id, is_local, custom_position)
+    pub fn get_playlist_custom_order(&self, qobuz_playlist_id: u64) -> Result<Vec<(i64, bool, i32)>, LibraryError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT track_id, is_local, custom_position
+             FROM playlist_track_custom_order
+             WHERE qobuz_playlist_id = ?1
+             ORDER BY custom_position ASC"
+        ).map_err(|e| LibraryError::Database(format!("Failed to prepare custom order query: {}", e)))?;
+
+        let rows = stmt.query_map(params![qobuz_playlist_id as i64], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i32>(1)? != 0,
+                row.get::<_, i32>(2)?
+            ))
+        }).map_err(|e| LibraryError::Database(format!("Failed to query custom order: {}", e)))?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row.map_err(|e| LibraryError::Database(format!("Failed to read custom order row: {}", e)))?);
+        }
+        Ok(result)
+    }
+
+    /// Initialize custom order for a playlist from a list of track IDs
+    /// This sets up the initial order based on the current track arrangement
+    pub fn init_playlist_custom_order(
+        &self,
+        qobuz_playlist_id: u64,
+        track_ids: &[(i64, bool)],  // (track_id, is_local)
+    ) -> Result<(), LibraryError> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        // Clear existing custom order
+        self.conn.execute(
+            "DELETE FROM playlist_track_custom_order WHERE qobuz_playlist_id = ?1",
+            params![qobuz_playlist_id as i64],
+        ).map_err(|e| LibraryError::Database(format!("Failed to clear existing custom order: {}", e)))?;
+
+        // Insert new order
+        let mut stmt = self.conn.prepare(
+            "INSERT INTO playlist_track_custom_order
+             (qobuz_playlist_id, track_id, is_local, custom_position, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+        ).map_err(|e| LibraryError::Database(format!("Failed to prepare custom order insert: {}", e)))?;
+
+        for (position, (track_id, is_local)) in track_ids.iter().enumerate() {
+            stmt.execute(params![
+                qobuz_playlist_id as i64,
+                *track_id,
+                *is_local as i32,
+                position as i32,
+                now,
+                now,
+            ]).map_err(|e| LibraryError::Database(format!("Failed to insert custom order: {}", e)))?;
+        }
+
+        Ok(())
+    }
+
+    /// Set entire custom order for a playlist (batch update)
+    pub fn set_playlist_custom_order(
+        &self,
+        qobuz_playlist_id: u64,
+        orders: &[(i64, bool, i32)],  // (track_id, is_local, position)
+    ) -> Result<(), LibraryError> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        // Clear existing custom order
+        self.conn.execute(
+            "DELETE FROM playlist_track_custom_order WHERE qobuz_playlist_id = ?1",
+            params![qobuz_playlist_id as i64],
+        ).map_err(|e| LibraryError::Database(format!("Failed to clear existing custom order: {}", e)))?;
+
+        // Insert new order
+        let mut stmt = self.conn.prepare(
+            "INSERT INTO playlist_track_custom_order
+             (qobuz_playlist_id, track_id, is_local, custom_position, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+        ).map_err(|e| LibraryError::Database(format!("Failed to prepare custom order insert: {}", e)))?;
+
+        for (track_id, is_local, position) in orders {
+            stmt.execute(params![
+                qobuz_playlist_id as i64,
+                *track_id,
+                *is_local as i32,
+                *position,
+                now,
+                now,
+            ]).map_err(|e| LibraryError::Database(format!("Failed to insert custom order: {}", e)))?;
+        }
+
+        Ok(())
+    }
+
+    /// Move a single track to a new position (reorders other tracks accordingly)
+    pub fn move_playlist_track(
+        &self,
+        qobuz_playlist_id: u64,
+        track_id: i64,
+        is_local: bool,
+        new_position: i32,
+    ) -> Result<(), LibraryError> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        // Get current position of the track
+        let current_position: Option<i32> = self.conn.query_row(
+            "SELECT custom_position FROM playlist_track_custom_order
+             WHERE qobuz_playlist_id = ?1 AND track_id = ?2 AND is_local = ?3",
+            params![qobuz_playlist_id as i64, track_id, is_local as i32],
+            |row| row.get(0),
+        ).ok();
+
+        let current_position = match current_position {
+            Some(pos) => pos,
+            None => {
+                // Track not in custom order yet, just insert it
+                self.conn.execute(
+                    "INSERT INTO playlist_track_custom_order
+                     (qobuz_playlist_id, track_id, is_local, custom_position, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![qobuz_playlist_id as i64, track_id, is_local as i32, new_position, now, now],
+                ).map_err(|e| LibraryError::Database(format!("Failed to insert track position: {}", e)))?;
+                return Ok(());
+            }
+        };
+
+        if current_position == new_position {
+            return Ok(());
+        }
+
+        // Shift other tracks to make room
+        if new_position < current_position {
+            // Moving up: shift tracks between new_position and current_position down
+            self.conn.execute(
+                "UPDATE playlist_track_custom_order
+                 SET custom_position = custom_position + 1, updated_at = ?4
+                 WHERE qobuz_playlist_id = ?1
+                   AND custom_position >= ?2
+                   AND custom_position < ?3",
+                params![qobuz_playlist_id as i64, new_position, current_position, now],
+            ).map_err(|e| LibraryError::Database(format!("Failed to shift tracks: {}", e)))?;
+        } else {
+            // Moving down: shift tracks between current_position and new_position up
+            self.conn.execute(
+                "UPDATE playlist_track_custom_order
+                 SET custom_position = custom_position - 1, updated_at = ?4
+                 WHERE qobuz_playlist_id = ?1
+                   AND custom_position > ?2
+                   AND custom_position <= ?3",
+                params![qobuz_playlist_id as i64, current_position, new_position, now],
+            ).map_err(|e| LibraryError::Database(format!("Failed to shift tracks: {}", e)))?;
+        }
+
+        // Update the track's position
+        self.conn.execute(
+            "UPDATE playlist_track_custom_order
+             SET custom_position = ?3, updated_at = ?5
+             WHERE qobuz_playlist_id = ?1 AND track_id = ?2 AND is_local = ?4",
+            params![qobuz_playlist_id as i64, track_id, new_position, is_local as i32, now],
+        ).map_err(|e| LibraryError::Database(format!("Failed to update track position: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// Check if a playlist has custom order defined
+    pub fn has_playlist_custom_order(&self, qobuz_playlist_id: u64) -> Result<bool, LibraryError> {
+        let count: i32 = self.conn.query_row(
+            "SELECT COUNT(*) FROM playlist_track_custom_order WHERE qobuz_playlist_id = ?1",
+            params![qobuz_playlist_id as i64],
+            |row| row.get(0),
+        ).map_err(|e| LibraryError::Database(format!("Failed to check custom order: {}", e)))?;
+
+        Ok(count > 0)
+    }
+
+    /// Clear custom order for a playlist
+    pub fn clear_playlist_custom_order(&self, qobuz_playlist_id: u64) -> Result<(), LibraryError> {
+        self.conn.execute(
+            "DELETE FROM playlist_track_custom_order WHERE qobuz_playlist_id = ?1",
+            params![qobuz_playlist_id as i64],
+        ).map_err(|e| LibraryError::Database(format!("Failed to clear custom order: {}", e)))?;
 
         Ok(())
     }

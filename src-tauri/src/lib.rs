@@ -596,6 +596,13 @@ pub fn run() {
             library::commands::playlist_get_stats,
             library::commands::playlist_get_all_stats,
             library::commands::playlist_increment_play_count,
+            // Playlist custom order commands
+            library::commands::playlist_get_custom_order,
+            library::commands::playlist_init_custom_order,
+            library::commands::playlist_set_custom_order,
+            library::commands::playlist_move_track,
+            library::commands::playlist_has_custom_order,
+            library::commands::playlist_clear_custom_order,
             // Playlist folders commands
             library::commands::create_playlist_folder,
             library::commands::get_playlist_folders,

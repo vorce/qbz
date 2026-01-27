@@ -1338,6 +1338,92 @@ pub async fn playlist_increment_play_count(
         .map_err(|e| e.to_string())
 }
 
+// === Playlist Custom Track Order ===
+
+/// Get custom track order for a playlist
+/// Returns Vec of (track_id, is_local, position)
+#[tauri::command]
+pub async fn playlist_get_custom_order(
+    playlist_id: u64,
+    state: State<'_, LibraryState>,
+) -> Result<Vec<(i64, bool, i32)>, String> {
+    log::info!("Command: playlist_get_custom_order {}", playlist_id);
+
+    let db = state.db.lock().await;
+    db.get_playlist_custom_order(playlist_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Initialize custom order for a playlist from current track arrangement
+#[tauri::command]
+pub async fn playlist_init_custom_order(
+    playlist_id: u64,
+    track_ids: Vec<(i64, bool)>,  // (track_id, is_local)
+    state: State<'_, LibraryState>,
+) -> Result<(), String> {
+    log::info!("Command: playlist_init_custom_order {} ({} tracks)", playlist_id, track_ids.len());
+
+    let db = state.db.lock().await;
+    db.init_playlist_custom_order(playlist_id, &track_ids)
+        .map_err(|e| e.to_string())
+}
+
+/// Set entire custom order for a playlist (batch update)
+#[tauri::command]
+pub async fn playlist_set_custom_order(
+    playlist_id: u64,
+    orders: Vec<(i64, bool, i32)>,  // (track_id, is_local, position)
+    state: State<'_, LibraryState>,
+) -> Result<(), String> {
+    log::info!("Command: playlist_set_custom_order {} ({} tracks)", playlist_id, orders.len());
+
+    let db = state.db.lock().await;
+    db.set_playlist_custom_order(playlist_id, &orders)
+        .map_err(|e| e.to_string())
+}
+
+/// Move a single track to a new position
+#[tauri::command]
+pub async fn playlist_move_track(
+    playlist_id: u64,
+    track_id: i64,
+    is_local: bool,
+    new_position: i32,
+    state: State<'_, LibraryState>,
+) -> Result<(), String> {
+    log::info!("Command: playlist_move_track {} track {} -> pos {}", playlist_id, track_id, new_position);
+
+    let db = state.db.lock().await;
+    db.move_playlist_track(playlist_id, track_id, is_local, new_position)
+        .map_err(|e| e.to_string())
+}
+
+/// Check if a playlist has custom order defined
+#[tauri::command]
+pub async fn playlist_has_custom_order(
+    playlist_id: u64,
+    state: State<'_, LibraryState>,
+) -> Result<bool, String> {
+    log::info!("Command: playlist_has_custom_order {}", playlist_id);
+
+    let db = state.db.lock().await;
+    db.has_playlist_custom_order(playlist_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Clear custom order for a playlist
+#[tauri::command]
+pub async fn playlist_clear_custom_order(
+    playlist_id: u64,
+    state: State<'_, LibraryState>,
+) -> Result<(), String> {
+    log::info!("Command: playlist_clear_custom_order {}", playlist_id);
+
+    let db = state.db.lock().await;
+    db.clear_playlist_custom_order(playlist_id)
+        .map_err(|e| e.to_string())
+}
+
 // === Discogs Artwork ===
 
 /// Check if Discogs credentials are configured (proxy handles credentials)
