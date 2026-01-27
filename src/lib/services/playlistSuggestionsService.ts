@@ -15,6 +15,8 @@ export interface SuggestionConfig {
   max_pool_size?: number;
   vector_max_age_days?: number;
   min_similarity?: number;
+  /** Skip building vectors - only use existing cached vectors (faster but may have fewer results) */
+  skip_vector_build?: boolean;
 }
 
 export interface SuggestedTrack {

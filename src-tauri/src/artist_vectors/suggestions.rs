@@ -34,6 +34,8 @@ pub struct SuggestionConfig {
     pub vector_max_age_days: i64,
     /// Minimum similarity score to include artist
     pub min_similarity: f32,
+    /// Skip building vectors - only use existing cached vectors (faster but may have fewer results)
+    pub skip_vector_build: bool,
 }
 
 impl Default for SuggestionConfig {
@@ -44,6 +46,7 @@ impl Default for SuggestionConfig {
             max_pool_size: 100,
             vector_max_age_days: 7,
             min_similarity: 0.1,
+            skip_vector_build: false,
         }
     }
 }
@@ -136,18 +139,22 @@ impl SuggestionsEngine {
             });
         }
 
-        // 1. Ensure vectors exist for playlist artists
-        log::info!("[SuggestionsEngine] Step 1: Ensuring vectors for {} artists", playlist_artist_mbids.len());
+        // 1. Ensure vectors exist for playlist artists (skip if configured)
         let step1_start = Instant::now();
-        for (i, mbid) in playlist_artist_mbids.iter().enumerate() {
-            let artist_start = Instant::now();
-            let _ = self
-                .builder
-                .ensure_vector(mbid, None, None, self.config.vector_max_age_days)
-                .await;
-            log::debug!("[SuggestionsEngine] ensure_vector {}/{} took {:?}", i + 1, playlist_artist_mbids.len(), artist_start.elapsed());
+        if self.config.skip_vector_build {
+            log::info!("[SuggestionsEngine] Step 1: SKIPPED (skip_vector_build=true), using only cached vectors");
+        } else {
+            log::info!("[SuggestionsEngine] Step 1: Ensuring vectors for {} artists", playlist_artist_mbids.len());
+            for (i, mbid) in playlist_artist_mbids.iter().enumerate() {
+                let artist_start = Instant::now();
+                let _ = self
+                    .builder
+                    .ensure_vector(mbid, None, None, self.config.vector_max_age_days)
+                    .await;
+                log::debug!("[SuggestionsEngine] ensure_vector {}/{} took {:?}", i + 1, playlist_artist_mbids.len(), artist_start.elapsed());
+            }
+            log::info!("[SuggestionsEngine] Step 1 completed in {:?}", step1_start.elapsed());
         }
-        log::info!("[SuggestionsEngine] Step 1 completed in {:?}", step1_start.elapsed());
 
         // 2. Compute combined playlist vector
         log::info!("[SuggestionsEngine] Step 2: Computing playlist vector");

@@ -158,8 +158,8 @@ pub async fn get_playlist_suggestions_v2(
 
     // Create the engine with config
     let config = input.config.unwrap_or_default();
-    log::info!("[Suggestions] Config: max_artists={}, tracks_per={}, pool_size={}",
-        config.max_artists, config.tracks_per_artist, config.max_pool_size);
+    log::info!("[Suggestions] Config: max_artists={}, tracks_per={}, pool_size={}, skip_build={}",
+        config.max_artists, config.tracks_per_artist, config.max_pool_size, config.skip_vector_build);
 
     let engine = SuggestionsEngine::new(
         store_state.store.clone(),
