@@ -287,11 +287,11 @@ pub fn musicbrainz_full_to_metadata(
     });
 
     // Extract genres from tags (sorted by count, take top 5)
-    let genres = release.tags.as_ref().map(|tags| {
+    let genres: Vec<String> = release.tags.as_ref().map(|tags| {
         let mut sorted: Vec<_> = tags.iter().collect();
         sorted.sort_by(|a, b| b.count.cmp(&a.count));
         sorted.iter().take(5).map(|t| t.name.clone()).collect()
-    });
+    }).unwrap_or_default();
 
     // Extract label and catalog number
     let (label, catalog_number) = release
@@ -307,17 +307,17 @@ pub fn musicbrainz_full_to_metadata(
         .unwrap_or((None, None));
 
     // Count discs
-    let disc_count = release.media.as_ref().map(|m| m.len() as u8);
+    let disc_count = release.media.as_ref().map(|m| m.len() as u8).unwrap_or(1);
 
     // Convert tracks
-    let tracks = release.media.as_ref().map(|media| {
+    let tracks: Vec<RemoteTrackMetadata> = release.media.as_ref().map(|media| {
         let mut all_tracks = Vec::new();
         for medium in media {
             if let Some(tracks) = &medium.tracks {
                 for track in tracks {
                     all_tracks.push(RemoteTrackMetadata {
-                        disc_number: medium.position,
-                        track_number: track.position,
+                        disc_number: medium.position.unwrap_or(1),
+                        track_number: track.position.unwrap_or(1),
                         title: track.title.clone().or_else(|| {
                             track.recording.as_ref().and_then(|r| r.title.clone())
                         }).unwrap_or_default(),
@@ -329,7 +329,7 @@ pub fn musicbrainz_full_to_metadata(
             }
         }
         all_tracks
-    });
+    }).unwrap_or_default();
 
     RemoteAlbumMetadata {
         provider: RemoteProvider::MusicBrainz,
@@ -372,7 +372,7 @@ pub fn discogs_full_to_metadata(
         .unwrap_or_default();
 
     // Combine genres and styles
-    let genres = {
+    let genres: Vec<String> = {
         let mut combined = Vec::new();
         if let Some(g) = &release.genres {
             combined.extend(g.clone());
@@ -380,11 +380,7 @@ pub fn discogs_full_to_metadata(
         if let Some(s) = &release.styles {
             combined.extend(s.clone());
         }
-        if combined.is_empty() {
-            None
-        } else {
-            Some(combined)
-        }
+        combined
     };
 
     // Get first label and catalog number
@@ -396,7 +392,7 @@ pub fn discogs_full_to_metadata(
         .unwrap_or((None, None));
 
     // Convert tracklist
-    let tracks = release.tracklist.as_ref().map(|tracklist| {
+    let tracks: Vec<RemoteTrackMetadata> = release.tracklist.as_ref().map(|tracklist| {
         tracklist
             .iter()
             .filter(|t| {
@@ -406,22 +402,17 @@ pub fn discogs_full_to_metadata(
             .map(|t| {
                 let (disc_number, track_number) = parse_discogs_position(&t.position);
                 RemoteTrackMetadata {
-                    disc_number: Some(disc_number),
-                    track_number: Some(track_number),
+                    disc_number,
+                    track_number,
                     title: t.title.clone(),
                     duration_ms: t.duration.as_ref().and_then(|d| parse_discogs_duration(d)),
                 }
             })
             .collect()
-    });
+    }).unwrap_or_default();
 
     // Count unique discs
-    let disc_count = tracks.as_ref().map(|t| {
-        t.iter()
-            .filter_map(|track| track.disc_number)
-            .max()
-            .unwrap_or(1)
-    });
+    let disc_count = tracks.iter().map(|t| t.disc_number).max().unwrap_or(1);
 
     RemoteAlbumMetadata {
         provider: RemoteProvider::Discogs,
@@ -452,9 +443,8 @@ impl RemoteMetadataState {
         limit: usize,
     ) -> Result<Vec<RemoteAlbumSearchResult>, RemoteMetadataError> {
         // Check cache first
-        let cache_key = format!("{:?}:{}:{:?}:{}", provider, query, artist, limit);
-        if let Some(cached) = self.cache.get_search(&cache_key) {
-            log::debug!("Cache hit for search: {}", cache_key);
+        if let Some(cached) = self.cache.get_search(provider, query, None, artist).await {
+            log::debug!("Cache hit for search: {:?} {}", provider, query);
             return Ok(cached);
         }
 
@@ -468,7 +458,7 @@ impl RemoteMetadataState {
         };
 
         // Cache results
-        self.cache.set_search(&cache_key, results.clone());
+        self.cache.set_search(provider, query, None, artist, results.clone()).await;
 
         Ok(results)
     }
@@ -480,9 +470,8 @@ impl RemoteMetadataState {
         provider_id: &str,
     ) -> Result<RemoteAlbumMetadata, RemoteMetadataError> {
         // Check cache first
-        let cache_key = format!("{:?}:{}", provider, provider_id);
-        if let Some(cached) = self.cache.get_metadata(&cache_key) {
-            log::debug!("Cache hit for metadata: {}", cache_key);
+        if let Some(cached) = self.cache.get_metadata(provider, provider_id).await {
+            log::debug!("Cache hit for metadata: {:?} {}", provider, provider_id);
             return Ok(cached);
         }
 
@@ -496,7 +485,7 @@ impl RemoteMetadataState {
         };
 
         // Cache results
-        self.cache.set_metadata(&cache_key, metadata.clone());
+        self.cache.set_metadata(provider, provider_id, metadata.clone()).await;
 
         Ok(metadata)
     }
@@ -509,7 +498,7 @@ impl RemoteMetadataState {
         limit: usize,
     ) -> Result<Vec<RemoteAlbumSearchResult>, RemoteMetadataError> {
         let mb_state = self.musicbrainz.as_ref()
-            .ok_or(RemoteMetadataError::ProviderUnavailable)?;
+            .ok_or(RemoteMetadataError::ProviderUnavailable("MusicBrainz not initialized".to_string()))?;
 
         let response = mb_state.client
             .search_releases_extended(query, artist, None, limit)
@@ -552,7 +541,7 @@ impl RemoteMetadataState {
         release_id: &str,
     ) -> Result<RemoteAlbumMetadata, RemoteMetadataError> {
         let mb_state = self.musicbrainz.as_ref()
-            .ok_or(RemoteMetadataError::ProviderUnavailable)?;
+            .ok_or(RemoteMetadataError::ProviderUnavailable("MusicBrainz not initialized".to_string()))?;
 
         let response = mb_state.client
             .get_release_with_tracks(release_id)
@@ -568,7 +557,7 @@ impl RemoteMetadataState {
         release_id: &str,
     ) -> Result<RemoteAlbumMetadata, RemoteMetadataError> {
         let release_id: u64 = release_id.parse()
-            .map_err(|_| RemoteMetadataError::InvalidProviderId)?;
+            .map_err(|_| RemoteMetadataError::InvalidProviderId("Invalid Discogs release ID".to_string()))?;
 
         let client = self.discogs.lock().await;
 

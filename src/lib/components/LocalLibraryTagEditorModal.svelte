@@ -2,6 +2,7 @@
   import Modal from './Modal.svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { ask } from '@tauri-apps/plugin-dialog';
+  import { open } from '@tauri-apps/plugin-opener';
   import { showToast } from '$lib/stores/toastStore';
 
   interface LocalTrack {
@@ -195,6 +196,11 @@
       if (metadata.catalog_number) catalogNumber = metadata.catalog_number;
       if (metadata.disc_count) albumTotalDiscs = metadata.disc_count;
 
+      // Check for track count mismatch
+      const remoteTrackCount = metadata.tracks?.length ?? 0;
+      const localTrackCount = trackEdits.length;
+      const hasMismatch = remoteTrackCount > 0 && remoteTrackCount !== localTrackCount;
+
       // Apply track-level metadata if available
       if (metadata.tracks && metadata.tracks.length > 0) {
         // Match tracks by position
@@ -207,13 +213,47 @@
         }
       }
 
-      showToast(`Applied metadata from ${remoteProvider === 'musicbrainz' ? 'MusicBrainz' : 'Discogs'}`, 'success');
+      const providerName = remoteProvider === 'musicbrainz' ? 'MusicBrainz' : 'Discogs';
+      if (hasMismatch) {
+        showToast(
+          `Applied from ${providerName}. Track count differs: local=${localTrackCount}, remote=${remoteTrackCount}`,
+          'warning'
+        );
+      } else {
+        showToast(`Applied metadata from ${providerName}`, 'success');
+      }
       showRemotePanel = false;
     } catch (err) {
       console.error('Failed to fetch metadata:', err);
-      showToast(`Failed to fetch metadata: ${err}`, 'error');
+      // Check for rate limiting
+      const errStr = String(err);
+      if (errStr.includes('429') || errStr.toLowerCase().includes('rate')) {
+        showToast('Rate limited. Please wait a moment and try again.', 'warning');
+      } else {
+        showToast(`Failed to fetch metadata: ${err}`, 'error');
+      }
     } finally {
       remoteLoading = false;
+    }
+  }
+
+  function getSourceUrl(result: RemoteAlbumSearchResult): string {
+    if (result.provider === 'musicbrainz') {
+      return `https://musicbrainz.org/release/${result.provider_id}`;
+    } else {
+      return `https://www.discogs.com/release/${result.provider_id}`;
+    }
+  }
+
+  async function openInBrowser() {
+    const selected = remoteResults.find(r => r.provider_id === selectedRemoteId);
+    if (!selected) return;
+    const url = getSourceUrl(selected);
+    try {
+      await open(url);
+    } catch (err) {
+      console.error('Failed to open URL:', err);
+      showToast('Failed to open browser', 'error');
     }
   }
 
@@ -429,6 +469,20 @@
                 </div>
 
                 <div class="remote-actions">
+                  <button
+                    class="btn btn-ghost btn-sm"
+                    onclick={openInBrowser}
+                    disabled={!selectedRemoteId}
+                    type="button"
+                    title="Open in browser"
+                  >
+                    <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                    Open
+                  </button>
                   <button
                     class="btn btn-primary btn-sm"
                     onclick={applyRemoteMetadata}
@@ -915,6 +969,7 @@ input[type="number"] {
   .remote-actions {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
   }
 
   .spinner-inline {

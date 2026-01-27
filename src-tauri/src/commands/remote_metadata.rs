@@ -80,7 +80,7 @@ pub async fn remote_metadata_cache_stats(
     state: State<'_, RemoteMetadataSharedState>,
 ) -> Result<crate::library::remote_metadata::CacheStats, String> {
     let state_guard = state.inner.lock().await;
-    Ok(state_guard.cache.stats())
+    Ok(state_guard.cache.stats().await)
 }
 
 /// Clear the remote metadata cache
@@ -90,7 +90,7 @@ pub async fn remote_metadata_clear_cache(
 ) -> Result<(), String> {
     log::info!("Command: remote_metadata_clear_cache");
     let state_guard = state.inner.lock().await;
-    state_guard.cache.clear_all();
+    state_guard.cache.clear_all().await;
     Ok(())
 }
 
