@@ -153,22 +153,25 @@ impl ArtistVectorBuilder {
 
     /// Build vector component from MusicBrainz relationships
     async fn build_from_musicbrainz(&self, artist_mbid: &str) -> Result<(SparseVector, usize), String> {
-        log::debug!("[VectorBuilder] build_from_musicbrainz: checking cache for {}", artist_mbid);
+        log::info!("[VectorBuilder] build_from_musicbrainz: checking cache for {}", artist_mbid);
 
         // Try cache first
+        log::info!("[VectorBuilder] Acquiring mb_cache lock...");
         let cached = {
             let cache = self.mb_cache.lock().await;
+            log::info!("[VectorBuilder] mb_cache lock acquired, checking relations");
             cache.get_artist_relations(artist_mbid)?
         };
+        log::info!("[VectorBuilder] mb_cache lock released, cached={}", cached.is_some());
 
         let relations = if let Some(rel) = cached {
-            log::debug!("[VectorBuilder] build_from_musicbrainz: cache hit for {}", artist_mbid);
+            log::info!("[VectorBuilder] Cache HIT for {}", artist_mbid);
             rel
         } else {
-            log::debug!("[VectorBuilder] build_from_musicbrainz: fetching from API for {}", artist_mbid);
+            log::info!("[VectorBuilder] Cache MISS - calling MusicBrainz API for {}", artist_mbid);
             // Fetch from API
             let response = self.mb_client.get_artist_with_relations(artist_mbid).await?;
-            log::debug!("[VectorBuilder] build_from_musicbrainz: API response received for {}", artist_mbid);
+            log::info!("[VectorBuilder] MusicBrainz API response received for {}", artist_mbid);
 
             // Extract relationships from raw response
             let extracted = extract_relationships(&response);
