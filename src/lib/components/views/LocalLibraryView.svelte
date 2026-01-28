@@ -692,6 +692,14 @@
     if (!selectedArtistName) return [];
     const normalizedSelected = normalizeArtistName(selectedArtistName);
 
+    // Special case: when user selects "Various Artists" from the list,
+    // show all albums where the album artist is "Various Artists"
+    if (normalizedSelected === 'various artists') {
+      return albums.filter(album =>
+        normalizeArtistName(album.artist) === 'various artists'
+      );
+    }
+
     // Split selected artist into parts for multi-artist matching
     // e.g., "Katsutoshi Kitagawa, Mina Kubota" -> ["katsutoshi kitagawa", "mina kubota"]
     const selectedParts = selectedArtistName.split(/,|&|feat\.|ft\.|featuring|with/i)
@@ -2214,7 +2222,8 @@
 
   async function handleLocalArtistClick(name?: string) {
     if (!name) return;
-    if (normalizeArtistName(name) === 'various artists') return;
+    // Note: "Various Artists" is allowed when clicking from artist list,
+    // but blocked in album header via HTML condition
 
     // Close album detail view if open and navigate to library
     if (selectedAlbum) {
