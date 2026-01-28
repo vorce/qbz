@@ -103,8 +103,13 @@
   // Handle favorite toggle internally
   async function handleToggleFavorite(e: MouseEvent) {
     e.stopPropagation();
+    console.log('[TrackRow] handleToggleFavorite called, trackId:', trackId);
     if (trackId !== undefined) {
-      await toggleTrackFavorite(trackId);
+      console.log('[TrackRow] Calling toggleTrackFavorite for track:', trackId);
+      const result = await toggleTrackFavorite(trackId);
+      console.log('[TrackRow] toggleTrackFavorite result:', result);
+    } else {
+      console.warn('[TrackRow] trackId is undefined, cannot toggle favorite');
     }
   }
 
@@ -205,6 +210,7 @@
     <div class="favorite-placeholder"></div>
   {:else if !hideFavorite}
     <button
+      type="button"
       class="favorite-btn"
       class:is-favorite={isFavorite}
       onclick={handleToggleFavorite}
