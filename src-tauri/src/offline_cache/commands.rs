@@ -347,6 +347,11 @@ pub async fn remove_cached_track(
             std::fs::remove_file(path)
                 .map_err(|e| format!("Failed to delete file: {}", e))?;
         }
+
+        // Clean up empty album folder (and artist folder if also empty)
+        if let Some(album_dir) = path.parent() {
+            cleanup_empty_folder(album_dir, &cache_state.cache_dir);
+        }
     }
     drop(db);
 
@@ -365,6 +370,43 @@ pub async fn clear_offline_cache(
 ) -> Result<(), String> {
     log::info!("Command: clear_offline_cache");
     purge_all_cached_files(cache_state.inner(), library_state.inner()).await
+}
+
+/// Clean up empty folders after deleting a track
+/// Removes the album folder if empty, then the artist folder if also empty
+fn cleanup_empty_folder(folder: &std::path::Path, cache_root: &std::path::Path) {
+    // Don't delete the cache root itself
+    if folder == cache_root || !folder.starts_with(cache_root) {
+        return;
+    }
+
+    // Check if folder is empty (or only contains cover.jpg)
+    if let Ok(entries) = std::fs::read_dir(folder) {
+        let entries: Vec<_> = entries.flatten().collect();
+
+        // If folder only contains non-audio files (like cover.jpg), delete the whole folder
+        let has_audio_files = entries.iter().any(|e| {
+            e.path().extension()
+                .map(|ext| ext == "flac" || ext == "mp3" || ext == "wav" || ext == "m4a")
+                .unwrap_or(false)
+        });
+
+        if !has_audio_files {
+            // Delete all files in the folder (cover.jpg, etc.)
+            for entry in &entries {
+                let _ = std::fs::remove_file(entry.path());
+            }
+            // Delete the folder itself
+            if std::fs::remove_dir(folder).is_ok() {
+                log::info!("Removed empty album folder: {:?}", folder);
+
+                // Try to clean up parent (artist) folder if now empty
+                if let Some(parent) = folder.parent() {
+                    cleanup_empty_folder(parent, cache_root);
+                }
+            }
+        }
+    }
 }
 
 /// Clear entire offline cache (internal helper)
@@ -386,12 +428,32 @@ pub async fn purge_all_cached_files(
         }
     }
 
-    // Also clear the tracks directory
+    // Also clear the tracks directory (legacy unorganized files)
     let tracks_dir = cache_state.cache_dir.join("tracks");
     if tracks_dir.exists() {
         if let Ok(entries) = std::fs::read_dir(&tracks_dir) {
             for entry in entries.flatten() {
                 let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+
+    // Clear organized artist/album folders
+    // Look for any subdirectories in cache_dir that are not "tracks" or system files
+    if let Ok(entries) = std::fs::read_dir(&cache_state.cache_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                // Skip the tracks directory and database files
+                if name != "tracks" && !name.ends_with(".db") && !name.ends_with(".db-journal") {
+                    // This is likely an artist folder, delete it recursively
+                    if let Err(e) = std::fs::remove_dir_all(&path) {
+                        log::warn!("Failed to remove folder {:?}: {}", path, e);
+                    } else {
+                        log::info!("Removed artist folder: {:?}", path);
+                    }
+                }
             }
         }
     }
@@ -577,6 +639,11 @@ async fn evict_if_needed(
         let path = std::path::Path::new(&file_path);
         if path.exists() {
             let _ = std::fs::remove_file(path);
+
+            // Clean up empty album folder (and artist folder if also empty)
+            if let Some(album_dir) = path.parent() {
+                cleanup_empty_folder(album_dir, &cache_state.cache_dir);
+            }
         }
     }
 
