@@ -126,8 +126,7 @@
 
   .trigger {
     height: 40px;
-    min-width: 160px;
-    width: 100%;
+    width: 170px;
     padding: 0 16px;
     background-color: var(--bg-tertiary);
     border-radius: 8px;
@@ -143,7 +142,7 @@
   }
 
   .dropdown.wide .trigger {
-    min-width: 280px;
+    width: 280px;
   }
 
   .value-text {
@@ -168,7 +167,7 @@
     top: 100%;
     left: 0;
     margin-top: 4px;
-    min-width: 200px;
+    min-width: 170px;
     width: max-content;
     background-color: var(--bg-tertiary);
     border-radius: 8px;
