@@ -2660,6 +2660,7 @@
             onTrackReDownload={handleDisplayTrackDownload}
             onTrackRemoveDownload={handleTrackRemoveDownload}
             checkTrackDownloaded={checkTrackDownloaded}
+            getTrackOfflineCacheStatus={getTrackOfflineCacheStatus}
             activeTrackId={currentTrack?.id ?? null}
             isPlaybackActive={isPlaying}
             sidebarExpanded={sidebarExpanded}

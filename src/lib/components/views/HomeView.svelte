@@ -76,6 +76,7 @@
     onTrackRemoveDownload?: (trackId: number) => void;
     onTrackReDownload?: (track: DisplayTrack) => void;
     checkTrackDownloaded?: (trackId: number) => boolean;
+    getTrackOfflineCacheStatus?: (trackId: number) => { status: string; progress: number };
     activeTrackId?: number | null;
     isPlaybackActive?: boolean;
     sidebarExpanded?: boolean;
@@ -109,6 +110,7 @@
     onTrackRemoveDownload,
     onTrackReDownload,
     checkTrackDownloaded,
+    getTrackOfflineCacheStatus,
     activeTrackId = null,
     isPlaybackActive = false,
     sidebarExpanded = true
@@ -839,7 +841,8 @@
           <div class="track-list compact">
             {#each continueTracks as track, index (`${track.id}-${downloadStateVersion}`)}
               {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
-              {@const isTrackDownloaded = checkTrackDownloaded?.(track.id) || false}
+              {@const cacheStatus = getTrackOfflineCacheStatus?.(track.id) ?? { status: 'none', progress: 0 }}
+              {@const isTrackDownloaded = cacheStatus.status === 'ready'}
               <TrackRow
                 trackId={track.id}
                 number={index + 1}
@@ -850,6 +853,8 @@
                 quality={getTrackQuality(track)}
                 isPlaying={isActiveTrack}
                 compact={true}
+                downloadStatus={cacheStatus.status}
+                downloadProgress={cacheStatus.progress}
                 onArtistClick={track.artistId && onArtistClick ? () => onArtistClick(track.artistId!) : undefined}
                 onAlbumClick={track.albumId && onAlbumClick ? () => onAlbumClick(track.albumId!) : undefined}
                 onPlay={() => handleContinueTrackPlay(track, index)}
