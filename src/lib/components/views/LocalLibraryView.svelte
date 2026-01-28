@@ -5848,6 +5848,13 @@
     flex: 1;
     overflow-y: auto;
     padding: 4px 12px 4px 0;
+    /* Smooth scrolling optimizations */
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    /* GPU acceleration for smoother scrolling */
+    will-change: scroll-position;
+    contain: strict;
   }
 
   .artist-group-header {
@@ -5865,6 +5872,8 @@
     gap: 12px;
     width: 100%;
     padding: 8px;
+    /* Performance optimizations */
+    contain: layout style;
     background: transparent;
     border: none;
     border-radius: 8px;
@@ -5976,6 +5985,10 @@
     gap: 16px;
     align-content: start;
     padding-right: 8px;
+    /* Smooth scrolling optimizations */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    contain: strict;
   }
 
   .empty-small {
