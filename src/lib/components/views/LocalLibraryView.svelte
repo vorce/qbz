@@ -2215,8 +2215,27 @@
   function handleLocalArtistClick(name?: string) {
     if (!name) return;
     if (normalizeArtistName(name) === 'various artists') return;
+
+    // Close album detail view if open and navigate to library
+    if (selectedAlbum) {
+      clearLocalAlbum();
+      navigateTo('library'); // This adds to history so back button works
+    }
+
+    // Switch to artists tab
+    activeTab = 'artists';
+
     // Select artist to show their albums in the right column
     selectedArtistName = name;
+
+    // Scroll to the artist card after DOM updates
+    tick().then(() => {
+      const artistId = `local-artist-${normalizeArtistName(name)}`;
+      const artistCard = document.getElementById(artistId);
+      if (artistCard) {
+        artistCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
   }
 
   /**
@@ -2568,7 +2587,7 @@
         </div>
         <div class="album-info">
           <h1>{selectedAlbum.title}</h1>
-          {#if onQobuzArtistClick}
+          {#if normalizeArtistName(selectedAlbum.artist) !== 'various artists'}
             <button class="artist artist-link" type="button" onclick={() => handleLocalArtistClick(selectedAlbum?.artist)}>
               {selectedAlbum.artist}
             </button>
@@ -3254,6 +3273,7 @@
                       {@const displayName = getArtistDisplayName(artist.name)}
                       {@const artistImage = artistImages.get(artist.name)}
                       <button
+                        id="local-artist-{normalizeArtistName(artist.name)}"
                         class="artist-card-compact"
                         class:selected={selectedArtistName === artist.name}
                         onclick={() => handleLocalArtistClick(artist.name)}
