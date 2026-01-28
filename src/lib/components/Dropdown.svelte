@@ -168,11 +168,12 @@
     top: 100%;
     left: 0;
     margin-top: 4px;
-    min-width: 100%;
+    min-width: 200px;
+    width: max-content;
     background-color: var(--bg-tertiary);
     border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    padding: 4px 0;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     z-index: 10000;
     max-height: 300px;
     overflow-y: auto;
@@ -200,31 +201,29 @@
   .menu.expand-left {
     left: auto;
     right: 0;
-    min-width: 320px;
   }
 
   .option {
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 16px;
     text-align: left;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-secondary);
     background: none;
     border: none;
     cursor: pointer;
-    transition: background-color 150ms ease;
+    transition: background-color 150ms ease, color 150ms ease;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .menu.compact .option {
-    padding: 10px 14px;
+    padding: 8px 12px;
     font-size: 12px;
   }
 
   .option:hover {
     background-color: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .option.selected {
