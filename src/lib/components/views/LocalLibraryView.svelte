@@ -3239,6 +3239,7 @@
           {@const { grouped: groupedArtists, alphaGroups: artistAlphaGroups } = groupedArtistsMemo}
           {@const filteredArtists = filteredArtistsMemo}
 
+          <div class="artists-tab-container">
           <!-- Horizontal alphabetical index at the top -->
           <div class="artist-alpha-index-horizontal">
             {#each alphaIndexLetters as letter}
@@ -3340,6 +3341,7 @@
                 </div>
               {/if}
             </div>
+          </div>
           </div>
         {/if}
       {:else if activeTab === 'tracks'}
@@ -5793,27 +5795,35 @@
     pointer-events: none;
   }
 
-  .artist-two-column-layout {
+  .artists-tab-container {
     display: flex;
-    gap: 24px;
-    /* 320px for header/tabs, 104px for NowPlayingBar */
-    height: calc(100vh - 424px);
+    flex-direction: column;
+    height: calc(100vh - 320px); /* Header + tabs + player */
     min-height: 400px;
   }
 
+  .artist-two-column-layout {
+    display: flex;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+    margin: 0 -24px 0 -18px; /* Negative margins to extend to edges */
+    padding: 0;
+  }
+
   .artist-column {
-    width: 220px;
+    width: 240px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    background: var(--bg-secondary);
-    border-radius: 12px;
+    background: transparent;
+    border-right: 1px solid var(--bg-tertiary);
     overflow: hidden;
+    padding-left: 18px;
   }
 
   .artist-column-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--bg-tertiary);
+    padding: 8px 16px 8px 0;
   }
 
   .artist-count {
@@ -5824,7 +5834,7 @@
   .artist-list-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: 8px;
+    padding: 4px 12px 4px 0;
   }
 
   .artist-group-header {
@@ -5921,6 +5931,7 @@
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
+    padding: 0 24px 0 24px;
   }
 
   .artist-albums-header {
