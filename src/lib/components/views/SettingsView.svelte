@@ -130,6 +130,11 @@
   let isClearingVectorStore = $state(false);
   let vectorStoreStats = $state<{ artist_count: number; vector_count: number; entry_count: number } | null>(null);
 
+  // Artwork cache state (local library thumbnails)
+  let isClearingArtwork = $state(false);
+  let artworkCacheStats = $state<{ artwork_cache_bytes: number; thumbnails_cache_bytes: number; artwork_file_count: number; thumbnail_file_count: number } | null>(null);
+  let isClearingAllCaches = $state(false);
+
   // Migration state
   let showMigrationModal = $state(false);
   let legacyTracksCount = $state(0);
@@ -560,6 +565,9 @@
 
     // Load vector store stats
     loadVectorStoreStats();
+
+    // Load artwork cache stats
+    loadArtworkCacheStats();
 
     // Load audio devices first (includes PipeWire sinks), then settings
     // Also load backends and ALSA plugins
@@ -1652,6 +1660,60 @@
     }
   }
 
+  async function loadArtworkCacheStats() {
+    try {
+      artworkCacheStats = await invoke('library_get_cache_stats');
+    } catch (err) {
+      console.error('Failed to load artwork cache stats:', err);
+      artworkCacheStats = null;
+    }
+  }
+
+  async function handleClearArtworkCache() {
+    if (isClearingArtwork) return;
+    isClearingArtwork = true;
+    try {
+      // Clear both legacy artwork cache and new thumbnails cache
+      await invoke('library_clear_artwork_cache');
+      await invoke('library_clear_thumbnails_cache');
+      console.log('Artwork caches cleared');
+      await loadArtworkCacheStats();
+    } catch (err) {
+      console.error('Failed to clear artwork cache:', err);
+    } finally {
+      isClearingArtwork = false;
+    }
+  }
+
+  async function handleClearAllCaches() {
+    if (isClearingAllCaches) return;
+    isClearingAllCaches = true;
+    try {
+      // Clear all caches in parallel
+      await Promise.all([
+        invoke('clear_cache'),
+        clearLyricsCache(),
+        invoke('musicbrainz_clear_cache'),
+        invoke('clear_vector_store'),
+        invoke('library_clear_artwork_cache'),
+        invoke('library_clear_thumbnails_cache')
+      ]);
+      console.log('All caches cleared');
+      // Reload all stats
+      await Promise.all([
+        loadCacheStats(),
+        loadLyricsCacheStats(),
+        loadMusicBrainzCacheStats(),
+        loadVectorStoreStats(),
+        loadArtworkCacheStats()
+      ]);
+    } catch (err) {
+      console.error('Failed to clear all caches:', err);
+    } finally {
+      isClearingAllCaches = false;
+    }
+  }
+
   function formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -2467,7 +2529,7 @@
         {isClearingMusicBrainz ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
     </div>
-    <div class="setting-row last">
+    <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">Artist Vectors (Suggestions)</span>
         <small class="setting-note">
@@ -2484,6 +2546,40 @@
         disabled={isClearingVectorStore || !vectorStoreStats || vectorStoreStats.entry_count === 0}
       >
         {isClearingVectorStore ? $t('settings.storage.clearing') : $t('actions.clear')}
+      </button>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">Artwork Thumbnails</span>
+        <small class="setting-note">
+          {#if artworkCacheStats}
+            {artworkCacheStats.thumbnail_file_count} thumbnails ({formatBytes(artworkCacheStats.thumbnails_cache_bytes)}){#if artworkCacheStats.artwork_file_count > 0}, {artworkCacheStats.artwork_file_count} legacy files ({formatBytes(artworkCacheStats.artwork_cache_bytes)}){/if}
+          {:else}
+            -
+          {/if}
+        </small>
+      </div>
+      <button
+        class="clear-btn"
+        onclick={handleClearArtworkCache}
+        disabled={isClearingArtwork || !artworkCacheStats || (artworkCacheStats.thumbnails_cache_bytes === 0 && artworkCacheStats.artwork_cache_bytes === 0)}
+      >
+        {isClearingArtwork ? $t('settings.storage.clearing') : $t('actions.clear')}
+      </button>
+    </div>
+    <div class="setting-row last">
+      <div class="setting-info">
+        <span class="setting-label">Clear All Caches</span>
+        <small class="setting-note">
+          Clears all cached data above (queue, lyrics, metadata, vectors, artwork)
+        </small>
+      </div>
+      <button
+        class="clear-btn danger"
+        onclick={handleClearAllCaches}
+        disabled={isClearingAllCaches}
+      >
+        {isClearingAllCaches ? $t('settings.storage.clearing') : 'Clear All'}
       </button>
     </div>
   </section>
@@ -2991,6 +3087,17 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
   .clear-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .clear-btn.danger {
+    background: #ff6b6b;
+    color: white;
+    border-color: #ff6b6b;
+  }
+
+  .clear-btn.danger:hover:not(:disabled) {
+    background: #ff5252;
+    border-color: #ff5252;
   }
 
   .folder-btn {
