@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 use super::errors::LibraryError;
 
 /// Default thumbnail size (width and height)
-const THUMBNAIL_SIZE: u32 = 200;
+/// 500px is a good balance for UI display while keeping file size reasonable
+const THUMBNAIL_SIZE: u32 = 500;
 
 /// Get the thumbnails directory path
 pub fn get_thumbnails_dir() -> Result<PathBuf, LibraryError> {

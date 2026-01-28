@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::library::{AudioFormat, AudioProperties, LibraryError, LocalTrack};
+use crate::library::thumbnails::{generate_thumbnail, generate_thumbnail_from_bytes};
 
 /// Metadata extractor using lofty
 pub struct MetadataExtractor;
@@ -425,72 +426,44 @@ impl MetadataExtractor {
         }
     }
 
-    /// Extract and save artwork to cache directory
-    /// Returns path to saved artwork or None
-    pub fn extract_artwork(file_path: &Path, cache_dir: &Path) -> Option<String> {
+    /// Extract and save artwork as thumbnail to cache directory
+    /// Returns path to saved thumbnail or None
+    /// Note: cache_dir parameter is kept for API compatibility but thumbnails go to thumbnails dir
+    pub fn extract_artwork(file_path: &Path, _cache_dir: &Path) -> Option<String> {
         let tagged_file = Probe::open(file_path).ok()?.read().ok()?;
         let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag())?;
 
         let picture = tag.pictures().first()?;
 
-        // Generate filename from hash of file path
-        let hash = Self::simple_hash(&file_path.to_string_lossy());
-        let ext = match picture.mime_type() {
-            Some(MimeType::Png) => "png",
-            Some(MimeType::Jpeg) => "jpg",
-            Some(MimeType::Gif) => "gif",
-            Some(MimeType::Bmp) => "bmp",
-            _ => "jpg",
-        };
+        // Use file path as cache key for consistent thumbnail naming
+        let cache_key = file_path.to_string_lossy().to_string();
 
-        let artwork_filename = format!("{:x}.{}", hash, ext);
-        let artwork_path = cache_dir.join(&artwork_filename);
-
-        // Skip if already exists
-        if artwork_path.exists() {
-            return Some(artwork_path.to_string_lossy().to_string());
+        // Generate thumbnail from embedded artwork bytes (resized to 500px)
+        match generate_thumbnail_from_bytes(picture.data(), &cache_key) {
+            Ok(thumbnail_path) => Some(thumbnail_path.to_string_lossy().to_string()),
+            Err(e) => {
+                log::warn!("Failed to generate thumbnail for {:?}: {}", file_path, e);
+                None
+            }
         }
-
-        // Ensure cache dir exists
-        fs::create_dir_all(cache_dir).ok()?;
-
-        // Write artwork
-        fs::write(&artwork_path, picture.data()).ok()?;
-
-        Some(artwork_path.to_string_lossy().to_string())
     }
 
-    /// Copy an existing artwork file into the cache directory
-    /// Returns path to cached artwork or None
-    pub fn cache_artwork_file(artwork_path: &Path, cache_dir: &Path) -> Option<String> {
+    /// Generate thumbnail from an existing artwork file (e.g., cover.jpg, folder.jpg)
+    /// Returns path to thumbnail or None
+    /// Note: cache_dir parameter is kept for API compatibility but thumbnails go to thumbnails dir
+    pub fn cache_artwork_file(artwork_path: &Path, _cache_dir: &Path) -> Option<String> {
         if !artwork_path.is_file() {
             return None;
         }
 
-        let ext = artwork_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|s| s.to_lowercase())
-            .unwrap_or_else(|| "jpg".to_string());
-
-        let normalized_ext = match ext.as_str() {
-            "jpeg" => "jpg",
-            "png" | "jpg" | "gif" | "bmp" | "webp" => ext.as_str(),
-            _ => "jpg",
-        };
-
-        let hash = Self::simple_hash(&artwork_path.to_string_lossy());
-        let cached_name = format!("local_{:x}.{}", hash, normalized_ext);
-        let cached_path = cache_dir.join(cached_name);
-
-        if cached_path.exists() {
-            return Some(cached_path.to_string_lossy().to_string());
+        // Generate thumbnail (resized to 500px) instead of copying full-size file
+        match generate_thumbnail(artwork_path) {
+            Ok(thumbnail_path) => Some(thumbnail_path.to_string_lossy().to_string()),
+            Err(e) => {
+                log::warn!("Failed to generate thumbnail for {:?}: {}", artwork_path, e);
+                None
+            }
         }
-
-        fs::create_dir_all(cache_dir).ok()?;
-        fs::copy(artwork_path, &cached_path).ok()?;
-
-        Some(cached_path.to_string_lossy().to_string())
     }
 
     /// Simple hash function for generating filenames

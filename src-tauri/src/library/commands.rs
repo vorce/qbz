@@ -147,6 +147,104 @@ pub async fn library_cleanup_missing_files(
     })
 }
 
+/// Result of cache stats query
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CacheStats {
+    /// Size of old artwork cache in bytes (to be cleaned)
+    pub artwork_cache_bytes: u64,
+    /// Size of thumbnails cache in bytes
+    pub thumbnails_cache_bytes: u64,
+    /// Number of files in artwork cache
+    pub artwork_file_count: usize,
+    /// Number of files in thumbnails cache
+    pub thumbnail_file_count: usize,
+}
+
+/// Get cache statistics
+#[tauri::command]
+pub async fn library_get_cache_stats() -> Result<CacheStats, String> {
+    log::info!("Command: library_get_cache_stats");
+
+    // Old artwork cache
+    let artwork_dir = get_artwork_cache_dir();
+    let (artwork_bytes, artwork_count) = if artwork_dir.exists() {
+        let mut size = 0u64;
+        let mut count = 0usize;
+        if let Ok(entries) = fs::read_dir(&artwork_dir) {
+            for entry in entries.flatten() {
+                if let Ok(meta) = entry.metadata() {
+                    if meta.is_file() {
+                        size += meta.len();
+                        count += 1;
+                    }
+                }
+            }
+        }
+        (size, count)
+    } else {
+        (0, 0)
+    };
+
+    // Thumbnails cache
+    let thumbnails_bytes = thumbnails::get_cache_size().unwrap_or(0);
+    let thumbnail_count = if let Ok(dir) = thumbnails::get_thumbnails_dir() {
+        fs::read_dir(&dir).map(|e| e.count()).unwrap_or(0)
+    } else {
+        0
+    };
+
+    Ok(CacheStats {
+        artwork_cache_bytes: artwork_bytes,
+        thumbnails_cache_bytes: thumbnails_bytes,
+        artwork_file_count: artwork_count,
+        thumbnail_file_count: thumbnail_count,
+    })
+}
+
+/// Clear the old artwork cache (full-size images that are no longer needed)
+#[tauri::command]
+pub async fn library_clear_artwork_cache() -> Result<u64, String> {
+    log::info!("Command: library_clear_artwork_cache");
+
+    let artwork_dir = get_artwork_cache_dir();
+
+    if !artwork_dir.exists() {
+        return Ok(0);
+    }
+
+    let mut cleared_bytes = 0u64;
+
+    if let Ok(entries) = fs::read_dir(&artwork_dir) {
+        for entry in entries.flatten() {
+            if let Ok(meta) = entry.metadata() {
+                if meta.is_file() {
+                    cleared_bytes += meta.len();
+                    if let Err(e) = fs::remove_file(entry.path()) {
+                        log::warn!("Failed to remove cache file {:?}: {}", entry.path(), e);
+                    }
+                }
+            }
+        }
+    }
+
+    log::info!("Cleared {} bytes from artwork cache", cleared_bytes);
+    Ok(cleared_bytes)
+}
+
+/// Clear the thumbnails cache
+#[tauri::command]
+pub async fn library_clear_thumbnails_cache() -> Result<u64, String> {
+    log::info!("Command: library_clear_thumbnails_cache");
+
+    let size_before = thumbnails::get_cache_size().unwrap_or(0);
+
+    thumbnails::clear_thumbnails().map_err(|e| e.to_string())?;
+
+    log::info!("Cleared {} bytes from thumbnails cache", size_before);
+    Ok(size_before)
+}
+
 #[tauri::command]
 pub async fn library_get_folders(state: State<'_, LibraryState>) -> Result<Vec<String>, String> {
     log::info!("Command: library_get_folders");
