@@ -340,11 +340,6 @@
       <div class="header-left">
         <Sparkles size={18} class="sparkle-icon" />
         <h3>Suggested songs</h3>
-        {#if result && !loading}
-          <span class="stats">
-            Based on {result.playlist_artists_count} artists
-          </span>
-        {/if}
       </div>
       <button
         class="refresh-btn"
@@ -512,12 +507,6 @@
 
   .header-left :global(.sparkle-icon) {
     color: var(--accent-primary);
-  }
-
-  .stats {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-left: 8px;
   }
 
   .refresh-btn {
