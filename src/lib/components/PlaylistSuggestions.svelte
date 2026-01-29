@@ -1,6 +1,8 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { RefreshCw, Plus, X, Info, Sparkles, Play } from 'lucide-svelte';
+  import { RefreshCw, Plus, X, Info, Sparkles, Play, Check } from 'lucide-svelte';
+  import { fade, slide } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
   import {
     type SuggestedTrack,
     type SuggestionResult,
@@ -18,7 +20,8 @@
     excludeTrackIds: number[];
     /** Existing tracks in playlist for title+artist deduplication */
     existingTracks?: Array<{ title: string; artist?: string }>;
-    onAddTrack?: (trackId: number) => Promise<void>;
+    /** Callback when track is added - receives full track data for local state update */
+    onAddTrack?: (track: SuggestedTrack) => Promise<void>;
     onGoToAlbum?: (albumId: string) => void;
     onGoToArtist?: (artistId: number) => void;
     onPreviewTrack?: (track: SuggestedTrack) => void;
@@ -283,25 +286,42 @@
     }
   }
 
+  // Track which tracks are being added (for success animation)
+  let addingTrackIds = $state<Set<number>>(new Set());
+  let addedTrackIds = $state<Set<number>>(new Set());
+
   async function handleAddTrack(track: SuggestedTrack) {
-    if (!onAddTrack) return;
+    if (!onAddTrack || addingTrackIds.has(track.track_id)) return;
+
+    // Mark as adding
+    addingTrackIds = new Set([...addingTrackIds, track.track_id]);
 
     try {
-      await onAddTrack(track.track_id);
-      // Remove from pool locally (will be excluded on next load anyway)
-      pool = pool.filter(t => t.track_id !== track.track_id);
+      await onAddTrack(track);
+
+      // Show success state briefly
+      addedTrackIds = new Set([...addedTrackIds, track.track_id]);
+      addingTrackIds = new Set([...addingTrackIds].filter(id => id !== track.track_id));
+
+      // After a short delay, remove from pool (triggers exit animation)
+      setTimeout(() => {
+        pool = pool.filter(t => t.track_id !== track.track_id);
+        addedTrackIds = new Set([...addedTrackIds].filter(id => id !== track.track_id));
+      }, 600);
+
       // Reset cycle counter - user found something they liked
       completedCycles = 0;
       lastAddedAt = pool.length;
     } catch (err) {
       console.error('Failed to add track:', err);
+      addingTrackIds = new Set([...addingTrackIds].filter(id => id !== track.track_id));
     }
   }
 
   function handleDismiss(track: SuggestedTrack) {
     dismissTrack(playlistId, track.track_id);
-    // Force reactivity by reassigning pool
-    pool = [...pool];
+    // Remove from pool immediately (triggers exit animation)
+    pool = pool.filter(t => t.track_id !== track.track_id);
   }
 
 </script>
@@ -350,7 +370,16 @@
     {:else}
       <div class="suggestions-list">
         {#each visibleTracks as track (track.track_id)}
-          <div class="suggestion-row">
+          {@const isAdding = addingTrackIds.has(track.track_id)}
+          {@const isAdded = addedTrackIds.has(track.track_id)}
+          <div
+            class="suggestion-row"
+            class:adding={isAdding}
+            class:added={isAdded}
+            in:fade={{ duration: 200, delay: 50 }}
+            out:slide={{ duration: 250 }}
+            animate:flip={{ duration: 200 }}
+          >
             <div class="album-art">
               {#if track.album_image_url}
                 <img
@@ -417,15 +446,25 @@
               </button>
               <button
                 class="action-btn add"
+                class:adding={isAdding}
+                class:added={isAdded}
                 onclick={() => handleAddTrack(track)}
-                title="Add to playlist"
+                disabled={isAdding || isAdded}
+                title={isAdded ? 'Added!' : isAdding ? 'Adding...' : 'Add to playlist'}
               >
-                <Plus size={16} />
+                {#if isAdded}
+                  <Check size={16} />
+                {:else if isAdding}
+                  <div class="btn-spinner"></div>
+                {:else}
+                  <Plus size={16} />
+                {/if}
               </button>
               <button
                 class="action-btn dismiss"
                 onclick={() => handleDismiss(track)}
                 title="Not interested"
+                disabled={isAdding || isAdded}
               >
                 <X size={16} />
               </button>
@@ -722,5 +761,38 @@
     border-top-color: var(--accent-primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
+  }
+
+  /* Adding/Added states */
+  .suggestion-row.adding {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .suggestion-row.added {
+    background: linear-gradient(90deg, rgba(34, 197, 94, 0.15) 0%, transparent 100%);
+  }
+
+  .suggestion-row.added .actions {
+    opacity: 1;
+  }
+
+  .action-btn.add.adding,
+  .action-btn.add.added {
+    pointer-events: none;
+  }
+
+  .action-btn.add.added {
+    background: var(--accent-primary);
+    color: white;
+  }
+
+  .btn-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
   }
 </style>

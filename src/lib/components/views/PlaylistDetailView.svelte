@@ -1188,14 +1188,39 @@
   }
 
   // Add a suggested track to the playlist
-  async function handleAddSuggestedTrack(trackId: number) {
+  async function handleAddSuggestedTrack(suggestedTrack: import('$lib/services/playlistSuggestionsService').SuggestedTrack) {
     try {
+      // Add to Qobuz playlist
       await invoke('add_tracks_to_playlist', {
         playlistId,
-        trackIds: [trackId]
+        trackIds: [suggestedTrack.track_id]
       });
-      // Reload to show the new track
-      await loadPlaylist();
+
+      // Add to local tracks array immediately (no reload needed)
+      const newTrack: DisplayTrack = {
+        id: suggestedTrack.track_id,
+        number: tracks.length + 1,
+        title: suggestedTrack.title,
+        artist: suggestedTrack.artist_name,
+        artistId: suggestedTrack.artist_id,
+        album: suggestedTrack.album_title,
+        albumId: suggestedTrack.album_id,
+        albumArt: suggestedTrack.album_image_url,
+        duration: formatDuration(suggestedTrack.duration),
+        durationSeconds: suggestedTrack.duration,
+        addedIndex: tracks.length, // Latest added
+      };
+
+      // Append to tracks array
+      tracks = [...tracks, newTrack];
+
+      // Update playlist count
+      if (playlist) {
+        playlist.tracks_count = (playlist.tracks_count || 0) + 1;
+        playlist.duration = (playlist.duration || 0) + suggestedTrack.duration;
+      }
+
+      // Notify parent (sidebar count update, etc.)
       notifyParentOfCounts();
       onPlaylistUpdated?.();
     } catch (err) {
