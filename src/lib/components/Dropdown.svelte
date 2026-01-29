@@ -39,105 +39,109 @@
       : options.filter(opt => opt.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Menu positioning state
-  let menuPosition = $state<{ top?: string; bottom?: string; left?: string; right?: string }>({});
+  // Fixed position in pixels (for position: fixed)
+  let fixedPosition = $state<{ top: number; left: number; width: number } | null>(null);
 
   // Item height depends on compact mode
   const ITEM_HEIGHT_NORMAL = 40;
   const ITEM_HEIGHT_COMPACT = 36;
   const itemHeight = $derived(compact ? ITEM_HEIGHT_COMPACT : ITEM_HEIGHT_NORMAL);
-  const SEARCH_HEIGHT = 48; // search input height including margin
-  const MENU_PADDING = 8; // 4px top + 4px bottom
+  const SEARCH_HEIGHT = 48;
+  const MENU_PADDING = 8;
   const MAX_VISIBLE_ITEMS = 4;
-  const MIN_SPACE_MARGIN = 80; // minimum margin from viewport edges
+  const MENU_GAP = 4; // gap between trigger and menu
+
+  // Calculate expected menu height before render
+  const expectedMenuHeight = $derived(
+    showSearch
+      ? SEARCH_HEIGHT + (MAX_VISIBLE_ITEMS * itemHeight) + MENU_PADDING
+      : Math.min(options.length, 8) * itemHeight + MENU_PADDING
+  );
 
   function calculatePosition() {
-    if (!dropdownRef || !menuRef) return;
+    if (!dropdownRef) return;
 
     const triggerRect = dropdownRef.getBoundingClientRect();
-    const menuHeight = menuRef.offsetHeight;
-    const menuWidth = menuRef.offsetWidth;
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
 
-    // Player height estimation (bottom bar)
+    // Player height (bottom bar)
     const playerHeight = 104;
-    const availableBottom = viewportHeight - triggerRect.bottom - playerHeight - MIN_SPACE_MARGIN;
-    const availableTop = triggerRect.top - MIN_SPACE_MARGIN;
+    const safeBottom = viewportHeight - playerHeight;
+
+    // Get actual menu dimensions if available, otherwise use expected
+    const menuHeight = menuRef?.offsetHeight || expectedMenuHeight;
+    const menuWidth = menuRef?.offsetWidth || (wide ? 280 : 170);
+
+    // Calculate available space
+    const spaceBelow = safeBottom - triggerRect.bottom - MENU_GAP;
+    const spaceAbove = triggerRect.top - MENU_GAP;
 
     // Determine vertical position
-    const newPosition: typeof menuPosition = {};
-
-    if (availableBottom >= menuHeight) {
+    let top: number;
+    if (spaceBelow >= menuHeight) {
       // Fits below
-      newPosition.top = '100%';
-      newPosition.bottom = undefined;
-    } else if (availableTop >= menuHeight) {
+      top = triggerRect.bottom + MENU_GAP;
+    } else if (spaceAbove >= menuHeight) {
       // Fits above
-      newPosition.bottom = '100%';
-      newPosition.top = undefined;
+      top = triggerRect.top - menuHeight - MENU_GAP;
     } else {
-      // Not enough space either way, prefer direction with more space
-      if (availableBottom >= availableTop) {
-        newPosition.top = '100%';
-        newPosition.bottom = undefined;
+      // Not enough space, pick best option
+      if (spaceBelow >= spaceAbove) {
+        top = triggerRect.bottom + MENU_GAP;
       } else {
-        newPosition.bottom = '100%';
-        newPosition.top = undefined;
+        top = triggerRect.top - menuHeight - MENU_GAP;
       }
     }
 
     // Determine horizontal position
-    const triggerLeft = triggerRect.left;
-    const triggerRight = viewportWidth - triggerRect.right;
-
-    if (expandLeft || triggerRight < menuWidth + MIN_SPACE_MARGIN) {
-      // Expand to the left if requested or if not enough space on the right
-      if (triggerLeft >= menuWidth + MIN_SPACE_MARGIN) {
-        newPosition.left = undefined;
-        newPosition.right = '0';
-      } else {
-        // Not enough space on left either, center it
-        newPosition.left = '50%';
-        newPosition.right = undefined;
-      }
+    let left: number;
+    if (expandLeft) {
+      // Align right edge of menu with right edge of trigger
+      left = triggerRect.right - menuWidth;
+      // Clamp to viewport
+      if (left < 8) left = 8;
     } else {
-      newPosition.left = '0';
-      newPosition.right = undefined;
+      // Align left edge of menu with left edge of trigger
+      left = triggerRect.left;
+      // Clamp to viewport
+      if (left + menuWidth > viewportWidth - 8) {
+        left = viewportWidth - menuWidth - 8;
+      }
     }
 
-    menuPosition = newPosition;
+    fixedPosition = { top, left, width: triggerRect.width };
   }
 
   function handleClickOutside(event: MouseEvent) {
-    if (dropdownRef && !dropdownRef.contains(event.target as Node)) {
+    if (dropdownRef && !dropdownRef.contains(event.target as Node) &&
+        menuRef && !menuRef.contains(event.target as Node)) {
       closeDropdown();
     }
   }
 
   function openDropdown() {
+    // Calculate position BEFORE opening to prevent any layout shift
+    calculatePosition();
+
     openGlobalMenu(menuId);
     isOpen = true;
     searchQuery = '';
 
-    // Focus search input after menu opens
-    if (showSearch) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          searchInputRef?.focus();
-          calculatePosition();
-        });
-      });
-    } else {
-      requestAnimationFrame(() => {
-        calculatePosition();
-      });
-    }
+    // Focus search input and recalculate after render
+    requestAnimationFrame(() => {
+      if (showSearch) {
+        searchInputRef?.focus();
+      }
+      // Recalculate with actual menu dimensions
+      calculatePosition();
+    });
   }
 
   function closeDropdown() {
     isOpen = false;
     searchQuery = '';
+    fixedPosition = null;
     closeGlobalMenu(menuId);
   }
 
@@ -161,6 +165,7 @@
       if (activeId !== null && activeId !== menuId && isOpen) {
         isOpen = false;
         searchQuery = '';
+        fixedPosition = null;
       }
     });
     return unsubscribe;
@@ -203,12 +208,8 @@
     }
   });
 
-  // Calculate menu max-height based on whether search is shown
-  const menuMaxHeight = $derived(
-    showSearch
-      ? `${SEARCH_HEIGHT + (MAX_VISIBLE_ITEMS * itemHeight) + MENU_PADDING}px`
-      : `${Math.min(options.length, 8) * itemHeight + MENU_PADDING}px`
-  );
+  // Menu max-height
+  const menuMaxHeight = $derived(`${expectedMenuHeight}px`);
 </script>
 
 <div class="dropdown" class:wide bind:this={dropdownRef}>
@@ -216,57 +217,54 @@
     <span class="value-text">{value}</span>
     <ChevronDown size={16} class="chevron" />
   </button>
-
-  {#if isOpen}
-    <div
-      class="menu"
-      class:expand-left={menuPosition.right === '0'}
-      class:compact
-      class:searchable={showSearch}
-      bind:this={menuRef}
-      onmouseenter={() => isHovering = true}
-      onmouseleave={() => isHovering = false}
-      style:top={menuPosition.top}
-      style:bottom={menuPosition.bottom}
-      style:left={menuPosition.left}
-      style:right={menuPosition.right}
-      style:max-height={menuMaxHeight}
-      style:transform={menuPosition.left === '50%' ? 'translateX(-50%)' : undefined}
-    >
-      {#if showSearch}
-        <div class="search-container">
-          <Search size={14} class="search-icon" />
-          <input
-            bind:this={searchInputRef}
-            type="text"
-            class="search-input"
-            placeholder="Search..."
-            bind:value={searchQuery}
-            onkeydown={handleKeyDown}
-          />
-        </div>
-      {/if}
-      <div
-        class="options-container"
-        class:with-search={showSearch}
-        style:max-height={showSearch ? `${MAX_VISIBLE_ITEMS * itemHeight}px` : undefined}
-      >
-        {#each filteredOptions as option}
-          <button
-            class="option"
-            class:selected={option === value}
-            onclick={() => handleOptionClick(option)}
-            title={option}
-          >
-            {option}
-          </button>
-        {:else}
-          <div class="no-results">No matches found</div>
-        {/each}
-      </div>
-    </div>
-  {/if}
 </div>
+
+{#if isOpen && fixedPosition}
+  <div
+    class="menu"
+    class:compact
+    class:searchable={showSearch}
+    bind:this={menuRef}
+    onmouseenter={() => isHovering = true}
+    onmouseleave={() => isHovering = false}
+    style:top="{fixedPosition.top}px"
+    style:left="{fixedPosition.left}px"
+    style:min-width="{fixedPosition.width}px"
+    style:max-height={menuMaxHeight}
+  >
+    {#if showSearch}
+      <div class="search-container">
+        <Search size={14} class="search-icon" />
+        <input
+          bind:this={searchInputRef}
+          type="text"
+          class="search-input"
+          placeholder="Search..."
+          bind:value={searchQuery}
+          onkeydown={handleKeyDown}
+        />
+      </div>
+    {/if}
+    <div
+      class="options-container"
+      class:with-search={showSearch}
+      style:max-height={showSearch ? `${MAX_VISIBLE_ITEMS * itemHeight}px` : undefined}
+    >
+      {#each filteredOptions as option}
+        <button
+          class="option"
+          class:selected={option === value}
+          onclick={() => handleOptionClick(option)}
+          title={option}
+        >
+          {option}
+        </button>
+      {:else}
+        <div class="no-results">No matches found</div>
+      {/each}
+    </div>
+  </div>
+{/if}
 
 <style>
   .dropdown {
@@ -316,10 +314,7 @@
   }
 
   .menu {
-    position: absolute;
-    margin-top: 4px;
-    margin-bottom: 4px;
-    min-width: 170px;
+    position: fixed;
     width: max-content;
     background-color: var(--bg-tertiary);
     border-radius: 8px;
@@ -329,11 +324,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-  }
-
-  .menu.expand-left {
-    left: auto;
-    right: 0;
   }
 
   .search-container {
@@ -374,8 +364,6 @@
     flex: 1;
     min-height: 0;
   }
-
-  /* max-height for .with-search is set via inline style for compact mode support */
 
   .options-container::-webkit-scrollbar {
     width: 6px;
