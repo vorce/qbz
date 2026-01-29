@@ -292,6 +292,9 @@
     'Dark': '',
     'Light': 'light',
     'OLED Black': 'oled',
+    'Rumi': 'rumi',
+    'Zoey': 'zoey',
+    'Mira': 'mira',
     'Warm': 'warm',
     'Nord': 'nord',
     'Dracula': 'dracula',
@@ -302,15 +305,16 @@
     'Breeze Light': 'breeze-light',
     'Adwaita Dark': 'adwaita-dark',
     'Adwaita Light': 'adwaita-light',
-    'Zoey': 'zoey',
-    'Duotone Snow': 'duotone-snow',
-    'Rumi': 'rumi'
+    'Duotone Snow': 'duotone-snow'
   };
 
   const themeReverseMap: Record<string, string> = {
     '': 'Dark',
     'light': 'Light',
     'oled': 'OLED Black',
+    'rumi': 'Rumi',
+    'zoey': 'Zoey',
+    'mira': 'Mira',
     'warm': 'Warm',
     'nord': 'Nord',
     'dracula': 'Dracula',
@@ -321,9 +325,7 @@
     'breeze-light': 'Breeze Light',
     'adwaita-dark': 'Adwaita Dark',
     'adwaita-light': 'Adwaita Light',
-    'zoey': 'Zoey',
-    'duotone-snow': 'Duotone Snow',
-    'rumi': 'Rumi'
+    'duotone-snow': 'Duotone Snow'
   };
 
   // Language mapping: display name -> locale code
@@ -2085,6 +2087,9 @@
           'Dark',
           'Light',
           'OLED Black',
+          'Rumi',
+          'Zoey',
+          'Mira',
           'Warm',
           'Nord',
           'Dracula',
@@ -2095,9 +2100,7 @@
           'Breeze Light',
           'Adwaita Dark',
           'Adwaita Light',
-          'Zoey',
-          'Duotone Snow',
-          'Rumi'
+          'Duotone Snow'
         ]}
         onchange={handleThemeChange}
       />

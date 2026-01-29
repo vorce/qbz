@@ -376,9 +376,10 @@
         "light": "Claro",
         "oled": "OLED Negro",
         "warm": "Cálido",
+        "rumi": "Rumi",
         "zoey": "Zoey",
-        "duotone-snow": "Duotono Nieve",
-        "rumi": "Rumi"
+        "mira": "Mira",
+        "duotone-snow": "Duotono Nieve"
       },
       "accentColor": "Color de Acento",
       "language": "Idioma",
