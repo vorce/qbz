@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import { onMount, tick } from 'svelte';
-  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library } from 'lucide-svelte';
+  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library, CloudDownload } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import QualityBadge from '../QualityBadge.svelte';
@@ -799,6 +799,7 @@
   const getFavoriteTrackArtist = (t: FavoriteTrack) => t.performer?.name;
   const getFavoriteTrackDuration = (t: FavoriteTrack) => t.duration;
   const getFavoriteTrackAlbumKey = (t: FavoriteTrack) => t.album?.id;
+  const getFavoriteTrackAlbum = (t: FavoriteTrack) => t.album?.title;
   const getFavoriteArtistId = (t: FavoriteTrack) => t.performer?.id;
   const getFavoriteAlbumId = (t: FavoriteTrack) => t.album?.id;
 
@@ -1210,6 +1211,20 @@
 
         <!-- Always use virtualization for tracks - handles any favorites size efficiently -->
         <div class="track-sections virtualized">
+          <!-- Track list header -->
+          <div class="track-list-header">
+            <div class="col-number">#</div>
+            <div class="col-title">Title</div>
+            {#if !trackGroupingEnabled || trackGroupMode !== 'album'}
+              <div class="col-album">Album</div>
+            {/if}
+            <div class="col-duration">Duration</div>
+            <div class="col-quality">Quality</div>
+            <div class="col-icon"><Heart size={14} /></div>
+            <div class="col-icon"><CloudDownload size={14} /></div>
+            <div class="col-spacer"></div>
+          </div>
+
           <div class="virtualized-container">
             <VirtualizedTrackList
               groups={groupedTracks}
@@ -1230,6 +1245,8 @@
               getTrackArtist={getFavoriteTrackArtist}
               getTrackDuration={getFavoriteTrackDuration}
               getTrackAlbumKey={getFavoriteTrackAlbumKey}
+              getTrackAlbum={getFavoriteTrackAlbum}
+              showAlbum={!trackGroupingEnabled || trackGroupMode !== 'album'}
               getArtistId={getFavoriteArtistId}
               getAlbumId={getFavoriteAlbumId}
               isLocal={false}
@@ -2001,12 +2018,69 @@
     flex: 1;
     min-height: 0;
     height: 100%;
+    flex-direction: column;
   }
 
   .virtualized-container {
     flex: 1;
     height: 100%;
     min-height: 400px;
+  }
+
+  /* Track list header - matches PlaylistDetailView style */
+  .track-list-header {
+    width: 100%;
+    height: 40px;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #666666;
+    font-weight: 400;
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--bg-tertiary);
+    margin-bottom: 8px;
+  }
+
+  .track-list-header .col-number {
+    width: 48px;
+    text-align: center;
+  }
+
+  .track-list-header .col-title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .track-list-header .col-album {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .track-list-header .col-duration {
+    width: 80px;
+    text-align: center;
+  }
+
+  .track-list-header .col-quality {
+    width: 80px;
+    text-align: center;
+  }
+
+  .track-list-header .col-icon {
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .track-list-header .col-spacer {
+    width: 28px;
   }
 
   .track-group-list {
