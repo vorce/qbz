@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronDown } from 'lucide-svelte';
+  import { ChevronDown, Search } from 'lucide-svelte';
   import {
     openMenu as openGlobalMenu,
     closeMenu as closeGlobalMenu,
@@ -22,9 +22,90 @@
   let isOpen = $state(false);
   let isHovering = $state(false);
   let dropdownRef: HTMLDivElement;
+  let menuRef: HTMLDivElement;
+  let searchInputRef: HTMLInputElement;
+  let searchQuery = $state('');
 
   // Unique ID for this dropdown instance
   const menuId = `dropdown-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+  // Show search only when >5 options
+  const showSearch = $derived(options.length > 5);
+
+  // Filtered options based on search query
+  const filteredOptions = $derived(
+    searchQuery.trim() === ''
+      ? options
+      : options.filter(opt => opt.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  // Menu positioning state
+  let menuPosition = $state<{ top?: string; bottom?: string; left?: string; right?: string }>({});
+
+  // Item height for calculations (40px option + 0px padding = 40px)
+  const ITEM_HEIGHT = 40;
+  const SEARCH_HEIGHT = 48; // search input height including margin
+  const MENU_PADDING = 8; // 4px top + 4px bottom
+  const MAX_VISIBLE_ITEMS = 4;
+  const MIN_SPACE_MARGIN = 80; // minimum margin from viewport edges
+
+  function calculatePosition() {
+    if (!dropdownRef || !menuRef) return;
+
+    const triggerRect = dropdownRef.getBoundingClientRect();
+    const menuHeight = menuRef.offsetHeight;
+    const menuWidth = menuRef.offsetWidth;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    // Player height estimation (bottom bar)
+    const playerHeight = 104;
+    const availableBottom = viewportHeight - triggerRect.bottom - playerHeight - MIN_SPACE_MARGIN;
+    const availableTop = triggerRect.top - MIN_SPACE_MARGIN;
+
+    // Determine vertical position
+    const newPosition: typeof menuPosition = {};
+
+    if (availableBottom >= menuHeight) {
+      // Fits below
+      newPosition.top = '100%';
+      newPosition.bottom = undefined;
+    } else if (availableTop >= menuHeight) {
+      // Fits above
+      newPosition.bottom = '100%';
+      newPosition.top = undefined;
+    } else {
+      // Not enough space either way, prefer direction with more space
+      if (availableBottom >= availableTop) {
+        newPosition.top = '100%';
+        newPosition.bottom = undefined;
+      } else {
+        newPosition.bottom = '100%';
+        newPosition.top = undefined;
+      }
+    }
+
+    // Determine horizontal position
+    const triggerLeft = triggerRect.left;
+    const triggerRight = viewportWidth - triggerRect.right;
+
+    if (expandLeft || triggerRight < menuWidth + MIN_SPACE_MARGIN) {
+      // Expand to the left if requested or if not enough space on the right
+      if (triggerLeft >= menuWidth + MIN_SPACE_MARGIN) {
+        newPosition.left = undefined;
+        newPosition.right = '0';
+      } else {
+        // Not enough space on left either, center it
+        newPosition.left = '50%';
+        newPosition.right = undefined;
+      }
+    } else {
+      newPosition.left = '0';
+      newPosition.right = undefined;
+    }
+
+    menuPosition = newPosition;
+  }
 
   function handleClickOutside(event: MouseEvent) {
     if (dropdownRef && !dropdownRef.contains(event.target as Node)) {
@@ -35,11 +116,40 @@
   function openDropdown() {
     openGlobalMenu(menuId);
     isOpen = true;
+    searchQuery = '';
+
+    // Focus search input after menu opens
+    if (showSearch) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          searchInputRef?.focus();
+          calculatePosition();
+        });
+      });
+    } else {
+      requestAnimationFrame(() => {
+        calculatePosition();
+      });
+    }
   }
 
   function closeDropdown() {
     isOpen = false;
+    searchQuery = '';
     closeGlobalMenu(menuId);
+  }
+
+  function handleOptionClick(option: string) {
+    onchange(option);
+    closeDropdown();
+  }
+
+  function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      closeDropdown();
+    } else if (event.key === 'Enter' && filteredOptions.length === 1) {
+      handleOptionClick(filteredOptions[0]);
+    }
   }
 
   // Subscribe to global floating menu store
@@ -48,6 +158,7 @@
       const activeId = getActiveMenuId();
       if (activeId !== null && activeId !== menuId && isOpen) {
         isOpen = false;
+        searchQuery = '';
       }
     });
     return unsubscribe;
@@ -56,6 +167,11 @@
   $effect(() => {
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+
+      // Recalculate position on scroll/resize
+      const recalc = () => calculatePosition();
+      window.addEventListener('scroll', recalc, true);
+      window.addEventListener('resize', recalc);
 
       // Inactivity timeout
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -77,11 +193,20 @@
 
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener('scroll', recalc, true);
+        window.removeEventListener('resize', recalc);
         window.removeEventListener('pointermove', onActivity, true);
         if (idleTimer) clearTimeout(idleTimer);
       };
     }
   });
+
+  // Calculate menu max-height based on whether search is shown
+  const menuMaxHeight = $derived(
+    showSearch
+      ? `${SEARCH_HEIGHT + (MAX_VISIBLE_ITEMS * ITEM_HEIGHT) + MENU_PADDING}px`
+      : `${Math.min(options.length, 8) * ITEM_HEIGHT + MENU_PADDING}px`
+  );
 </script>
 
 <div class="dropdown" class:wide bind:this={dropdownRef}>
@@ -93,24 +218,46 @@
   {#if isOpen}
     <div
       class="menu"
-      class:expand-left={expandLeft}
+      class:expand-left={menuPosition.right === '0'}
       class:compact
+      class:searchable={showSearch}
+      bind:this={menuRef}
       onmouseenter={() => isHovering = true}
       onmouseleave={() => isHovering = false}
+      style:top={menuPosition.top}
+      style:bottom={menuPosition.bottom}
+      style:left={menuPosition.left}
+      style:right={menuPosition.right}
+      style:max-height={menuMaxHeight}
+      style:transform={menuPosition.left === '50%' ? 'translateX(-50%)' : undefined}
     >
-      {#each options as option}
-        <button
-          class="option"
-          class:selected={option === value}
-          onclick={() => {
-            onchange(option);
-            closeDropdown();
-          }}
-          title={option}
-        >
-          {option}
-        </button>
-      {/each}
+      {#if showSearch}
+        <div class="search-container">
+          <Search size={14} class="search-icon" />
+          <input
+            bind:this={searchInputRef}
+            type="text"
+            class="search-input"
+            placeholder="Search..."
+            bind:value={searchQuery}
+            onkeydown={handleKeyDown}
+          />
+        </div>
+      {/if}
+      <div class="options-container" class:with-search={showSearch}>
+        {#each filteredOptions as option}
+          <button
+            class="option"
+            class:selected={option === value}
+            onclick={() => handleOptionClick(option)}
+            title={option}
+          >
+            {option}
+          </button>
+        {:else}
+          <div class="no-results">No matches found</div>
+        {/each}
+      </div>
     </div>
   {/if}
 </div>
@@ -164,9 +311,8 @@
 
   .menu {
     position: absolute;
-    top: 100%;
-    left: 0;
     margin-top: 4px;
+    margin-bottom: 4px;
     min-width: 170px;
     width: max-content;
     background-color: var(--bg-tertiary);
@@ -174,27 +320,9 @@
     padding: 4px 0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     z-index: 10000;
-    max-height: 300px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--text-muted) transparent;
-  }
-
-  .menu::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .menu::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .menu::-webkit-scrollbar-thumb {
-    background: var(--text-muted);
-    border-radius: 9999px;
-  }
-
-  .menu::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .menu.expand-left {
@@ -202,9 +330,73 @@
     right: 0;
   }
 
+  .search-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    flex-shrink: 0;
+  }
+
+  .search-container :global(.search-icon) {
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .search-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .options-container {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .options-container.with-search {
+    /* Fixed height for 4 items when search is shown */
+    max-height: calc(4 * 40px);
+  }
+
+  .options-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .options-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .options-container::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 9999px;
+  }
+
+  .options-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+  }
+
   .option {
     width: 100%;
-    padding: 10px 16px;
+    height: 40px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
     text-align: left;
     font-size: 13px;
     color: var(--text-secondary);
@@ -213,10 +405,13 @@
     cursor: pointer;
     transition: background-color 150ms ease, color 150ms ease;
     white-space: nowrap;
+    scroll-snap-align: start;
+    flex-shrink: 0;
   }
 
   .menu.compact .option {
-    padding: 8px 12px;
+    height: 36px;
+    padding: 0 12px;
     font-size: 12px;
   }
 
@@ -234,5 +429,12 @@
   [data-theme="warm"] .option.selected {
     background-color: rgba(var(--accent-primary), 0.15);
     color: var(--accent-primary);
+  }
+
+  .no-results {
+    padding: 12px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
   }
 </style>
