@@ -338,7 +338,7 @@
 }
 
 /* Zoey Theme */
-[data-theme="panic-mode"] {
+[data-theme="zoey"] {
   --bg-primary: #151e2d;
   --bg-secondary: #0e141e;
   --bg-tertiary: #101a2a;
@@ -440,7 +440,7 @@
 }
 
 /* Rumi Theme */
-[data-theme="dieci"] {
+[data-theme="rumi"] {
   --bg-primary: #000000;
   --bg-secondary: #0d0d0d;
   --bg-tertiary: #1a1a1a;

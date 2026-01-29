@@ -376,9 +376,9 @@
         "light": "Claro",
         "oled": "OLED Negro",
         "warm": "Cálido",
-        "panic-mode": "Zoey",
+        "zoey": "Zoey",
         "duotone-snow": "Duotono Nieve",
-        "dieci": "Rumi"
+        "rumi": "Rumi"
       },
       "accentColor": "Color de Acento",
       "language": "Idioma",

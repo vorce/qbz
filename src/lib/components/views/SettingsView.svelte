@@ -302,9 +302,9 @@
     'Breeze Light': 'breeze-light',
     'Adwaita Dark': 'adwaita-dark',
     'Adwaita Light': 'adwaita-light',
-    'Zoey': 'panic-mode',
+    'Zoey': 'zoey',
     'Duotone Snow': 'duotone-snow',
-    'Rumi': 'dieci'
+    'Rumi': 'rumi'
   };
 
   const themeReverseMap: Record<string, string> = {
@@ -321,9 +321,9 @@
     'breeze-light': 'Breeze Light',
     'adwaita-dark': 'Adwaita Dark',
     'adwaita-light': 'Adwaita Light',
-    'panic-mode': 'Zoey',
+    'zoey': 'Zoey',
     'duotone-snow': 'Duotone Snow',
-    'dieci': 'Rumi'
+    'rumi': 'Rumi'
   };
 
   // Language mapping: display name -> locale code
