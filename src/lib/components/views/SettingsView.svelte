@@ -3,7 +3,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { writeText as copyToClipboard } from '@tauri-apps/plugin-clipboard-manager';
-  import { ArrowLeft, ChevronDown, ChevronRight, Loader2 } from 'lucide-svelte';
+  import { ArrowLeft, ChevronRight, Loader2 } from 'lucide-svelte';
   import Toggle from '../Toggle.svelte';
   import Dropdown from '../Dropdown.svelte';
   import VolumeSlider from '../VolumeSlider.svelte';
@@ -305,7 +305,15 @@
     'Breeze Light': 'breeze-light',
     'Adwaita Dark': 'adwaita-dark',
     'Adwaita Light': 'adwaita-light',
-    'Duotone Snow': 'duotone-snow'
+    'Duotone Snow': 'duotone-snow',
+    'Alucard': 'alucard',
+    'Snow Storm': 'snow-storm',
+    'Frost': 'frost',
+    'Aurora': 'aurora',
+    'Ikari': 'ikari',
+    'Langley': 'langley',
+    'Ayanami': 'ayanami',
+    'Iscariot': 'iscariot'
   };
 
   const themeReverseMap: Record<string, string> = {
@@ -325,7 +333,15 @@
     'breeze-light': 'Breeze Light',
     'adwaita-dark': 'Adwaita Dark',
     'adwaita-light': 'Adwaita Light',
-    'duotone-snow': 'Duotone Snow'
+    'duotone-snow': 'Duotone Snow',
+    'alucard': 'Alucard',
+    'snow-storm': 'Snow Storm',
+    'frost': 'Frost',
+    'aurora': 'Aurora',
+    'ikari': 'Ikari',
+    'langley': 'Langley',
+    'ayanami': 'Ayanami',
+    'iscariot': 'Iscariot'
   };
 
   // Language mapping: display name -> locale code
@@ -2083,25 +2099,7 @@
       <span class="setting-label">{$t('settings.appearance.theme')}</span>
       <Dropdown
         value={theme}
-        options={[
-          'Dark',
-          'Light',
-          'OLED Black',
-          'Rumi',
-          'Zoey',
-          'Mira',
-          'Warm',
-          'Nord',
-          'Dracula',
-          'Tokyo Night',
-          'Catppuccin Mocha',
-          'Rose Pine Dawn',
-          'Breeze Dark',
-          'Breeze Light',
-          'Adwaita Dark',
-          'Adwaita Light',
-          'Duotone Snow'
-        ]}
+        options={Object.keys(themeMap)}
         onchange={handleThemeChange}
       />
     </div>
@@ -3485,6 +3483,7 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
   .copy-btn:hover {
     background: var(--accent-secondary);
   }
+
 </style>
 
 <MigrationModal
