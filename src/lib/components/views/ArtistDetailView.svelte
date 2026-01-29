@@ -3437,16 +3437,21 @@
 
   .track-quality .quality-badge {
     font-size: 11px;
+    font-weight: 600;
     padding: 3px 8px;
-    border-radius: 4px;
-    background-color: var(--bg-tertiary);
-    color: var(--text-muted);
+    border-radius: 6px;
+    background: var(--alpha-10);
+    color: var(--alpha-85);
+    border: 1px solid var(--alpha-15);
     white-space: nowrap;
+    min-width: 72px;
+    text-align: center;
   }
 
   .track-quality .quality-badge.hires {
-    background-color: rgba(168, 85, 247, 0.15);
-    color: #a855f7;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border-color: transparent;
   }
 
   .track-duration {
@@ -3460,12 +3465,6 @@
     align-items: center;
     gap: 4px;
     margin-left: 8px;
-    opacity: 0.7;
-    transition: opacity 150ms ease;
-  }
-
-  .track-row:hover .track-actions {
-    opacity: 1;
   }
 
   .favorite-btn {
@@ -3479,12 +3478,21 @@
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
-    transition: all 150ms ease;
+    opacity: 0.3;
+    transition: opacity 150ms ease, background-color 150ms ease;
   }
 
   .favorite-btn:hover {
+    opacity: 1;
     background-color: var(--bg-tertiary);
-    color: var(--accent-primary);
+  }
+
+  .track-row:hover .favorite-btn {
+    opacity: 0.6;
+  }
+
+  .track-row:hover .favorite-btn:hover {
+    opacity: 1;
   }
 
   /* Responsive */
