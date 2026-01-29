@@ -1209,22 +1209,22 @@
             ? new Set(trackIndexTargets.keys())
             : new Set<string>()}
 
-        <!-- Always use virtualization for tracks - handles any favorites size efficiently -->
-        <div class="track-sections virtualized">
-          <!-- Track list header -->
-          <div class="track-list-header">
-            <div class="col-number">#</div>
-            <div class="col-title">Title</div>
-            {#if !trackGroupingEnabled || trackGroupMode !== 'album'}
-              <div class="col-album">Album</div>
-            {/if}
-            <div class="col-duration">Duration</div>
-            <div class="col-quality">Quality</div>
-            <div class="col-icon"><Heart size={14} /></div>
-            <div class="col-icon"><CloudDownload size={14} /></div>
-            <div class="col-spacer"></div>
-          </div>
+        <!-- Track list header - outside virtualized container -->
+        <div class="track-list-header">
+          <div class="col-number">#</div>
+          <div class="col-title">Title</div>
+          {#if !trackGroupingEnabled || trackGroupMode !== 'album'}
+            <div class="col-album">Album</div>
+          {/if}
+          <div class="col-duration">Duration</div>
+          <div class="col-quality">Quality</div>
+          <div class="col-icon"><Heart size={14} /></div>
+          <div class="col-icon"><CloudDownload size={14} /></div>
+          <div class="col-spacer"></div>
+        </div>
 
+        <!-- Virtualized track list -->
+        <div class="track-sections virtualized">
           <div class="virtualized-container">
             <VirtualizedTrackList
               groups={groupedTracks}
@@ -2016,26 +2016,16 @@
 
   .track-sections.virtualized {
     flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
+    height: calc(100vh - 380px);
+    min-height: 400px;
     overflow: hidden;
   }
 
   .virtualized-container {
     flex: 1;
-    min-height: 0;
+    height: 100%;
+    min-width: 0;
     overflow: hidden;
-    position: relative;
-  }
-
-  /* Ensure VirtualizedTrackList fills its container */
-  .virtualized-container :global(.virtual-container) {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
   }
 
   /* Track list header - matches PlaylistDetailView style */
@@ -2054,7 +2044,6 @@
     box-sizing: border-box;
     border-bottom: 1px solid var(--bg-tertiary);
     margin-bottom: 8px;
-    flex-shrink: 0;
   }
 
   .track-list-header .col-number {
