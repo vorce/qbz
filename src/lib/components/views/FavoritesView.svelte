@@ -1774,6 +1774,7 @@
 
   .dropdown-container {
     position: relative;
+    z-index: 1000;
   }
 
   .control-btn {
@@ -1813,7 +1814,7 @@
   .dropdown-menu {
     position: absolute;
     top: calc(100% + 6px);
-    right: 0;
+    left: 0;
     min-width: 170px;
     background: var(--bg-secondary);
     border: 1px solid var(--bg-tertiary);
