@@ -2017,6 +2017,7 @@
   .track-sections.virtualized {
     flex: 1;
     min-height: 0;
+    display: flex;
     flex-direction: column;
     overflow: hidden;
   }
@@ -2025,6 +2026,16 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    position: relative;
+  }
+
+  /* Ensure VirtualizedTrackList fills its container */
+  .virtualized-container :global(.virtual-container) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
 
   /* Track list header - matches PlaylistDetailView style */
