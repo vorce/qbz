@@ -301,7 +301,10 @@
     'Breeze Dark': 'breeze-dark',
     'Breeze Light': 'breeze-light',
     'Adwaita Dark': 'adwaita-dark',
-    'Adwaita Light': 'adwaita-light'
+    'Adwaita Light': 'adwaita-light',
+    'Zoey': 'panic-mode',
+    'Duotone Snow': 'duotone-snow',
+    'Rumi': 'dieci'
   };
 
   const themeReverseMap: Record<string, string> = {
@@ -317,7 +320,10 @@
     'breeze-dark': 'Breeze Dark',
     'breeze-light': 'Breeze Light',
     'adwaita-dark': 'Adwaita Dark',
-    'adwaita-light': 'Adwaita Light'
+    'adwaita-light': 'Adwaita Light',
+    'panic-mode': 'Zoey',
+    'duotone-snow': 'Duotone Snow',
+    'dieci': 'Rumi'
   };
 
   // Language mapping: display name -> locale code
@@ -2088,7 +2094,10 @@
           'Breeze Dark',
           'Breeze Light',
           'Adwaita Dark',
-          'Adwaita Light'
+          'Adwaita Light',
+          'Zoey',
+          'Duotone Snow',
+          'Rumi'
         ]}
         onchange={handleThemeChange}
       />

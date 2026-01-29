@@ -337,6 +337,159 @@
   --border-strong: #deddda;
 }
 
+/* Zoey Theme */
+[data-theme="panic-mode"] {
+  --bg-primary: #151e2d;
+  --bg-secondary: #0e141e;
+  --bg-tertiary: #101a2a;
+  --bg-hover: #1b293e;
+
+  --text-primary: #e0e2d5;
+  --text-secondary: #b5b7aa;
+  --text-muted: #8e9080;
+  --text-disabled: #606354;
+
+  --accent-primary: #46b4d3;
+  --accent-hover: #5cc0d9;
+  --accent-active: #3a97b6;
+  --btn-primary-text: #151e2d;
+
+  --danger: #bf616a;
+  --danger-bg: rgba(191, 97, 106, 0.1);
+  --danger-border: rgba(191, 97, 106, 0.3);
+  --danger-hover: rgba(191, 97, 106, 0.2);
+  --warning: #d08770;
+  --warning-bg: rgba(208, 135, 112, 0.1);
+  --warning-border: rgba(208, 135, 112, 0.3);
+  --warning-hover: rgba(208, 135, 112, 0.2);
+
+  --border-subtle: #0e141e;
+  --border-strong: #1b293e;
+
+  --alpha-4: rgba(255, 255, 255, 0.04);
+  --alpha-5: rgba(255, 255, 255, 0.05);
+  --alpha-6: rgba(255, 255, 255, 0.06);
+  --alpha-8: rgba(255, 255, 255, 0.08);
+  --alpha-10: rgba(255, 255, 255, 0.1);
+  --alpha-15: rgba(255, 255, 255, 0.15);
+  --alpha-18: rgba(255, 255, 255, 0.18);
+  --alpha-20: rgba(255, 255, 255, 0.2);
+  --alpha-25: rgba(255, 255, 255, 0.25);
+  --alpha-30: rgba(255, 255, 255, 0.3);
+  --alpha-35: rgba(255, 255, 255, 0.35);
+  --alpha-40: rgba(255, 255, 255, 0.4);
+  --alpha-45: rgba(255, 255, 255, 0.45);
+  --alpha-50: rgba(255, 255, 255, 0.5);
+  --alpha-60: rgba(255, 255, 255, 0.6);
+  --alpha-70: rgba(255, 255, 255, 0.7);
+  --alpha-80: rgba(255, 255, 255, 0.8);
+  --alpha-85: rgba(255, 255, 255, 0.85);
+  --alpha-90: rgba(255, 255, 255, 0.9);
+  --alpha-95: rgba(255, 255, 255, 0.95);
+}
+
+/* Duotone Snow Theme */
+[data-theme="duotone-snow"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #eff1f5;
+  --bg-hover: #e6e8ec;
+
+  --text-primary: #4a596e;
+  --text-secondary: #6b738a;
+  --text-muted: #8c95a8;
+  --text-disabled: #b0b4c1;
+
+  --accent-primary: #4a82d8;
+  --accent-hover: #6b9be0;
+  --accent-active: #3a6fc2;
+  --btn-primary-text: #ffffff;
+
+  --danger: #d37e7e;
+  --danger-bg: rgba(211, 126, 126, 0.1);
+  --danger-border: rgba(211, 126, 126, 0.3);
+  --danger-hover: rgba(211, 126, 126, 0.2);
+  --warning: #c09c4a;
+  --warning-bg: rgba(192, 156, 74, 0.1);
+  --warning-border: rgba(192, 156, 74, 0.3);
+  --warning-hover: rgba(192, 156, 74, 0.2);
+
+  --border-subtle: #dfe3e8;
+  --border-strong: #c9ced4;
+
+  --alpha-4: rgba(0, 0, 0, 0.04);
+  --alpha-5: rgba(0, 0, 0, 0.05);
+  --alpha-6: rgba(0, 0, 0, 0.06);
+  --alpha-8: rgba(0, 0, 0, 0.08);
+  --alpha-10: rgba(0, 0, 0, 0.1);
+  --alpha-15: rgba(0, 0, 0, 0.15);
+  --alpha-18: rgba(0, 0, 0, 0.18);
+  --alpha-20: rgba(0, 0, 0, 0.2);
+  --alpha-25: rgba(0, 0, 0, 0.25);
+  --alpha-30: rgba(0, 0, 0, 0.3);
+  --alpha-35: rgba(0, 0, 0, 0.35);
+  --alpha-40: rgba(0, 0, 0, 0.4);
+  --alpha-45: rgba(0, 0, 0, 0.45);
+  --alpha-50: rgba(0, 0, 0, 0.5);
+  --alpha-60: rgba(0, 0, 0, 0.6);
+  --alpha-70: rgba(0, 0, 0, 0.7);
+  --alpha-80: rgba(0, 0, 0, 0.8);
+  --alpha-85: rgba(0, 0, 0, 0.85);
+  --alpha-90: rgba(0, 0, 0, 0.9);
+  --alpha-95: rgba(0, 0, 0, 0.95);
+}
+
+/* Rumi Theme */
+[data-theme="dieci"] {
+  --bg-primary: #000000;
+  --bg-secondary: #0d0d0d;
+  --bg-tertiary: #1a1a1a;
+  --bg-hover: #333333;
+
+  --text-primary: #f0f0f0;
+  --text-secondary: #b2b2b2;
+  --text-muted: #808080;
+  --text-disabled: #5a5a5a;
+
+  --accent-primary: #e58f24;
+  --accent-hover: #f0a53c;
+  --accent-active: #cc7a12;
+  --btn-primary-text: #000000;
+
+  --danger: #e74c3c;
+  --danger-bg: rgba(231, 76, 60, 0.1);
+  --danger-border: rgba(231, 76, 60, 0.3);
+  --danger-hover: rgba(231, 76, 60, 0.2);
+  --warning: #f39c12;
+  --warning-bg: rgba(243, 156, 18, 0.1);
+  --warning-border: rgba(243, 156, 18, 0.3);
+  --warning-hover: rgba(243, 156, 18, 0.2);
+
+  --border-subtle: #1a1a1a;
+  --border-strong: #333333;
+
+  --alpha-4: rgba(255, 255, 255, 0.04);
+  --alpha-5: rgba(255, 255, 255, 0.05);
+  --alpha-6: rgba(255, 255, 255, 0.06);
+  --alpha-8: rgba(255, 255, 255, 0.08);
+  --alpha-10: rgba(255, 255, 255, 0.1);
+  --alpha-15: rgba(255, 255, 255, 0.15);
+  --alpha-18: rgba(255, 255, 255, 0.18);
+  --alpha-20: rgba(255, 255, 255, 0.2);
+  --alpha-25: rgba(255, 255, 255, 0.25);
+  --alpha-30: rgba(255, 255, 255, 0.3);
+  --alpha-35: rgba(255, 255, 255, 0.35);
+  --alpha-40: rgba(255, 255, 255, 0.4);
+  --alpha-45: rgba(255, 255, 255, 0.45);
+  --alpha-50: rgba(255, 255, 255, 0.5);
+  --alpha-60: rgba(255, 255, 255, 0.6);
+  --alpha-70: rgba(255, 255, 255, 0.7);
+  --alpha-80: rgba(255, 255, 255, 0.8);
+  --alpha-85: rgba(255, 255, 255, 0.85);
+  --alpha-90: rgba(255, 255, 255, 0.9);
+  --alpha-95: rgba(255, 255, 255, 0.95);
+}
+
 * {
   margin: 0;
   padding: 0;

@@ -375,7 +375,10 @@
         "dark": "Oscuro",
         "light": "Claro",
         "oled": "OLED Negro",
-        "warm": "Cálido"
+        "warm": "Cálido",
+        "panic-mode": "Zoey",
+        "duotone-snow": "Duotono Nieve",
+        "dieci": "Rumi"
       },
       "accentColor": "Color de Acento",
       "language": "Idioma",
