@@ -112,7 +112,7 @@
 </script>
 
 {#if compact}
-  <span class="quality-badge-compact" class:hires={isHiRes} title="{tierLabel}: {displayText}">
+  <span class="quality-badge-compact" title="{tierLabel}: {displayText}">
     {compactText}
   </span>
 {:else}
@@ -134,26 +134,14 @@
 {/if}
 
 <style>
-  /* Compact mode styles */
+  /* Compact mode styles - simple text like TrackRow */
   .quality-badge-compact {
     display: inline-block;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: var(--alpha-10);
-    color: var(--alpha-85);
-    border: 1px solid var(--alpha-15);
-    min-width: 90px;
+    font-size: 12px;
+    color: #666666;
+    width: 80px;
     text-align: center;
-    box-sizing: border-box;
     white-space: nowrap;
-  }
-
-  .quality-badge-compact.hires {
-    background: linear-gradient(135deg, #fbbf24 0%, #b8860b 100%);
-    color: #1a1a1a;
-    border-color: transparent;
   }
 
   /* Full mode styles */

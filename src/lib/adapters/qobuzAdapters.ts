@@ -340,7 +340,7 @@ export function convertQobuzAlbum(album: QobuzAlbum): AlbumDetail {
       artist: track.performer?.name,
       duration: formatDuration(track.duration),
       durationSeconds: track.duration,
-      quality: track.hires_streamable ? 'Hi-Res' : 'CD',
+      quality: formatQuality(track.hires_streamable, track.maximum_bit_depth, track.maximum_sampling_rate),
       hires: track.hires_streamable,
       bitDepth: track.maximum_bit_depth,
       samplingRate: track.maximum_sampling_rate,
