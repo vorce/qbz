@@ -277,7 +277,7 @@
     border: 1px solid var(--border-subtle);
     border-radius: 12px;
     width: 100%;
-    max-width: 560px;
+    max-width: 728px;
     max-height: 80vh;
     display: flex;
     flex-direction: column;

@@ -1985,14 +1985,14 @@
       </div>
       <Toggle enabled={autoplayMode === 'continue'} onchange={(enabled) => handleAutoplayModeChange(enabled ? 'continue' : 'track_only')} />
     </div>
-    <div class="setting-row">
+    <div class="setting-row last">
       <div class="setting-info">
         <span class="setting-label">{$t('settings.playback.showContextIcon')}</span>
         <span class="setting-desc">{$t('settings.playback.showContextIconTooltip')}</span>
       </div>
       <Toggle enabled={showContextIcon} onchange={handleShowContextIconChange} />
     </div>
-    <!-- Gapless playback hidden until properly implemented (see issue #29) -->
+    <!-- Gapless, Crossfade, Normalize Volume hidden until properly implemented (see issue #29) -->
     <!-- <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{$t('settings.playback.gapless')}</span>
@@ -2001,7 +2001,7 @@
         {/if}
       </div>
       <Toggle enabled={gaplessPlayback} onchange={handleGaplessPlaybackChange} disabled={gaplessDisabled} />
-    </div> -->
+    </div>
     <div class="setting-row">
       <span class="setting-label">{$t('settings.playback.crossfade')}</span>
       <div class="slider-container">
@@ -2011,7 +2011,7 @@
     <div class="setting-row last">
       <span class="setting-label">{$t('settings.playback.normalizeVolume')}</span>
       <Toggle enabled={normalizeVolume} onchange={(v) => (normalizeVolume = v)} />
-    </div>
+    </div> -->
   </section>
 
   <!-- Offline Mode Section -->
