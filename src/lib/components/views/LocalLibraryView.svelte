@@ -3196,7 +3196,22 @@
               {/if}
             </button>
 
-            <span class="album-count">{filteredAlbums.length} albums</span>
+            {#if albumGroupingEnabled && albumGroupMode === 'alpha'}
+              <div class="alpha-index-inline">
+                {#each alphaIndexLetters as letter}
+                  <button
+                    class="alpha-letter"
+                    class:disabled={!alphaGroups.has(letter)}
+                    onclick={() => {
+                      const groupId = groupIdForKey('album-alpha', letter);
+                      virtualizedScrollTarget = alphaGroups.has(letter) ? groupId : undefined;
+                    }}
+                  >
+                    {letter}
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
 
           {#if filteredAlbums.length === 0}
@@ -3225,23 +3240,6 @@
                   showSourceBadge={true}
                 />
               </div>
-
-              {#if albumGroupingEnabled && albumGroupMode === 'alpha'}
-                <div class="alpha-index">
-                  {#each alphaIndexLetters as letter}
-                    <button
-                      class="alpha-letter"
-                      class:disabled={!alphaGroups.has(letter)}
-                      onclick={() => {
-                        const groupId = groupIdForKey('album-alpha', letter);
-                        virtualizedScrollTarget = alphaGroups.has(letter) ? groupId : undefined;
-                      }}
-                    >
-                      {letter}
-                    </button>
-                  {/each}
-                </div>
-              {/if}
             </div>
           {/if}
         {/if}
@@ -3376,6 +3374,7 @@
             <p>No tracks in library</p>
           </div>
         {:else}
+          {@const { grouped: groupedTracks, alphaGroups: trackAlphaGroups, indexTargets: trackIndexTargets } = groupedTracksMemo}
           <div class="track-controls">
             <div class="dropdown-container">
               <button
@@ -3427,10 +3426,28 @@
               {/if}
             </div>
 
-            <span class="album-count">{tracks.length} tracks</span>
+            {#if trackGroupingEnabled && (trackGroupMode === 'name' || trackGroupMode === 'artist')}
+              <div class="alpha-index-inline">
+                {#each alphaIndexLetters as letter}
+                  <button
+                    class="alpha-letter"
+                    class:disabled={!trackAlphaGroups.has(letter)}
+                    onclick={() => {
+                      if (!trackAlphaGroups.has(letter)) return;
+                      const groupId = trackGroupMode === 'artist'
+                        ? trackIndexTargets.get(letter)
+                        : groupIdForKey(`track-${trackGroupMode}`, letter);
+                      if (groupId) {
+                        virtualizedTrackListRef?.scrollToGroup(groupId);
+                      }
+                    }}
+                  >
+                    {letter}
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
-
-          {@const { grouped: groupedTracks, alphaGroups: trackAlphaGroups, indexTargets: trackIndexTargets } = groupedTracksMemo}
 
           <!-- Always use virtualization for tracks - handles any library size efficiently -->
           <div class="track-sections virtualized">
@@ -3453,28 +3470,6 @@
                 onTrackAddToPlaylist={onTrackAddToPlaylist}
               />
             </div>
-
-            {#if trackGroupingEnabled && (trackGroupMode === 'name' || trackGroupMode === 'artist')}
-              <div class="alpha-index">
-                {#each alphaIndexLetters as letter}
-                  <button
-                    class="alpha-letter"
-                    class:disabled={!trackAlphaGroups.has(letter)}
-                    onclick={() => {
-                      if (!trackAlphaGroups.has(letter)) return;
-                      const groupId = trackGroupMode === 'artist'
-                        ? trackIndexTargets.get(letter)
-                        : groupIdForKey(`track-${trackGroupMode}`, letter);
-                      if (groupId) {
-                        virtualizedTrackListRef?.scrollToGroup(groupId);
-                      }
-                    }}
-                  >
-                    {letter}
-                  </button>
-                {/each}
-              </div>
-            {/if}
           </div>
         {/if}
         </ViewTransition>
@@ -4933,6 +4928,20 @@
     padding: 6px 4px;
     border-radius: 10px;
     background: rgba(0, 0, 0, 0.2);
+  }
+
+  .alpha-index-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .alpha-index-inline .alpha-letter {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
   }
 
   .alpha-letter {
