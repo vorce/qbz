@@ -1246,20 +1246,6 @@
             ? new Set(trackIndexTargets.keys())
             : new Set<string>()}
 
-        <!-- Track list header - outside virtualized container -->
-        <div class="track-list-header">
-          <div class="col-number">#</div>
-          <div class="col-title">Title</div>
-          {#if !trackGroupingEnabled || trackGroupMode !== 'album'}
-            <div class="col-album">Album</div>
-          {/if}
-          <div class="col-duration">Duration</div>
-          <div class="col-quality">Quality</div>
-          <div class="col-icon"><Heart size={14} /></div>
-          <div class="col-icon"><CloudDownload size={14} /></div>
-          <div class="col-spacer"></div>
-        </div>
-
         <!-- Virtualized track list -->
         <div class="track-sections virtualized">
           <div class="virtualized-container">
@@ -2086,62 +2072,6 @@
     height: 100%;
     min-width: 0;
     overflow: hidden;
-  }
-
-  /* Track list header - matches PlaylistDetailView style */
-  .track-list-header {
-    width: 100%;
-    height: 40px;
-    padding: 0 16px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 16px;
-    font-size: 12px;
-    text-transform: uppercase;
-    color: #666666;
-    font-weight: 400;
-    box-sizing: border-box;
-    border-bottom: 1px solid var(--bg-tertiary);
-    margin-bottom: 8px;
-  }
-
-  .track-list-header .col-number {
-    width: 48px;
-    text-align: center;
-  }
-
-  .track-list-header .col-title {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .track-list-header .col-album {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .track-list-header .col-duration {
-    width: 80px;
-    text-align: center;
-  }
-
-  .track-list-header .col-quality {
-    width: 80px;
-    text-align: center;
-  }
-
-  .track-list-header .col-icon {
-    width: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    opacity: 0.5;
-  }
-
-  .track-list-header .col-spacer {
-    width: 28px;
   }
 
   .track-group-list {
