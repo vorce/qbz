@@ -53,7 +53,6 @@
     onToggleShuffle: () => void;
     onToggleRepeat: () => void;
     onToggleFavorite: () => void;
-    onOpenQueue?: () => void;
     // Lyrics
     lyricsLines?: LyricsLine[];
     lyricsActiveIndex?: number;
@@ -99,7 +98,6 @@
     onToggleShuffle,
     onToggleRepeat,
     onToggleFavorite,
-    onOpenQueue,
     lyricsLines = [],
     lyricsActiveIndex = -1,
     lyricsActiveProgress = 0,
@@ -289,7 +287,6 @@
       {onToggleRepeat}
       {onToggleFavorite}
       {onVolumeChange}
-      {onOpenQueue}
     />
   </div>
 {/if}

@@ -2,8 +2,8 @@
  * Optimized Image Blur Utility
  *
  * Pre-computes blurred background images for the immersive player.
- * Uses a tiny canvas (64x64) which, when scaled up, produces the same
- * visual effect as CSS blur(100px) but with near-zero GPU cost.
+ * Uses a small canvas (256x256) with blur which, when scaled up, produces
+ * a smooth background effect with minimal GPU cost.
  *
  * Performance comparison:
  * - CSS blur(100px) on 600x600 image: ~15-30% GPU, constant
@@ -19,14 +19,14 @@ const MAX_CACHE_SIZE = 20;
  * Returns a data URL that can be used as background-image.
  *
  * @param artworkUrl - The original artwork URL
- * @param size - Output canvas size (default 64, higher = sharper blur edges)
- * @param blurRadius - Canvas blur radius (default 8, effective ~100px at fullscreen)
+ * @param size - Output canvas size (default 256, higher = smoother result)
+ * @param blurRadius - Canvas blur radius (default 20, effective ~80px at fullscreen)
  * @returns Promise<string> - Data URL of blurred image
  */
 export async function generateBlurredBackground(
   artworkUrl: string,
-  size: number = 64,
-  blurRadius: number = 8
+  size: number = 256,
+  blurRadius: number = 20
 ): Promise<string> {
   // Check cache first
   const cacheKey = `${artworkUrl}-${size}-${blurRadius}`;

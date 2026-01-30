@@ -2587,6 +2587,15 @@
     }
   });
 
+  // Sync queue state when immersive player is open and track changes
+  $effect(() => {
+    const trackId = currentTrack?.id;
+    const immersiveOpen = isFullScreenOpen || isFocusModeOpen;
+    if (immersiveOpen && trackId !== undefined) {
+      syncQueueState();
+    }
+  });
+
   // Helper function to fetch and update queue counts and history
   async function updateQueueCounts() {
     const state = await getBackendQueueState();
@@ -3095,11 +3104,6 @@
         onToggleRepeat={toggleRepeat}
         {isFavorite}
         onToggleFavorite={toggleFavorite}
-        onOpenQueue={() => {
-          closeFullScreen();
-          closeFocusMode();
-          toggleQueue();
-        }}
         lyricsLines={lyricsLines.map(l => ({ text: l.text }))}
         lyricsActiveIndex={lyricsActiveIndex}
         lyricsActiveProgress={lyricsActiveProgress}

@@ -134,6 +134,7 @@
     gap: 16px;
     padding: 16px 20px;
     overflow-y: auto;
+    overflow-x: hidden;
     height: 100%;
     scrollbar-width: thin;
     scrollbar-color: var(--bg-tertiary) transparent;
@@ -213,6 +214,9 @@
       font-size 150ms ease-out,
       color 250ms ease-out;
     transform-origin: left center;
+    /* Prevent horizontal overflow with long lyrics */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
     /* will-change removed from all lines - only active line gets GPU layer */
   }
 

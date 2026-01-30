@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Heart, List } from 'lucide-svelte';
+  import { Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Heart } from 'lucide-svelte';
   import ProgressBar from './shared/ProgressBar.svelte';
   import VolumeSlider from './shared/VolumeSlider.svelte';
   import QualityBadge from '../QualityBadge.svelte';
@@ -32,7 +32,6 @@
     onToggleRepeat: () => void;
     onToggleFavorite: () => void;
     onVolumeChange: (volume: number) => void;
-    onOpenQueue?: () => void;
     // Compact mode (hide some elements)
     compact?: boolean;
   }
@@ -60,7 +59,6 @@
     onToggleRepeat,
     onToggleFavorite,
     onVolumeChange,
-    onOpenQueue,
     compact = false
   }: Props = $props();
 </script>
@@ -151,12 +149,6 @@
           fill={isFavorite ? 'currentColor' : 'none'}
         />
       </button>
-
-      {#if onOpenQueue}
-        <button class="action-btn" onclick={onOpenQueue} title="Queue">
-          <List size={18} />
-        </button>
-      {/if}
 
       <div class="volume-wrapper">
         <VolumeSlider {volume} {onVolumeChange} />
