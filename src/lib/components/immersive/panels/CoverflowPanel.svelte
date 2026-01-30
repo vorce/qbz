@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { BarChart2 } from 'lucide-svelte';
-
   interface Props {
     artwork: string;
     trackTitle: string;
@@ -32,7 +30,12 @@
   <div class="track-info">
     {#if isPlaying}
       <div class="now-playing-indicator">
-        <BarChart2 size={16} />
+        <div class="equalizer">
+          <span class="bar"></span>
+          <span class="bar"></span>
+          <span class="bar"></span>
+          <span class="bar"></span>
+        </div>
         <span>Now Playing</span>
       </div>
     {/if}
@@ -52,8 +55,12 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 24px;
-    padding: 80px 40px 140px;
+    gap: 20px;
+    /* Offset for header (70px) and controls (120px) to achieve true visual center */
+    padding-top: 70px;
+    padding-bottom: 120px;
+    padding-left: 40px;
+    padding-right: 40px;
     z-index: 5;
   }
 
@@ -122,13 +129,37 @@
   .now-playing-indicator {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     color: var(--accent-primary, #7c3aed);
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
+  }
+
+  .equalizer {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+  }
+
+  .equalizer .bar {
+    width: 3px;
+    background: var(--accent-primary, #7c3aed);
+    border-radius: 1px;
+    animation: equalize 0.8s ease-in-out infinite;
+  }
+
+  .equalizer .bar:nth-child(1) { animation-delay: 0s; height: 60%; }
+  .equalizer .bar:nth-child(2) { animation-delay: 0.2s; height: 100%; }
+  .equalizer .bar:nth-child(3) { animation-delay: 0.1s; height: 40%; }
+  .equalizer .bar:nth-child(4) { animation-delay: 0.3s; height: 80%; }
+
+  @keyframes equalize {
+    0%, 100% { transform: scaleY(0.3); }
+    50% { transform: scaleY(1); }
   }
 
   .track-title {
