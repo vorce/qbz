@@ -970,7 +970,6 @@
     </div>
     <div class="header-content">
       <h1>Favorites</h1>
-      <p class="subtitle">Your liked tracks, albums, and artists</p>
     </div>
     <button class="edit-btn" onclick={() => editModalOpen = true} title="Edit Favorites settings">
       <Edit3 size={16} />
@@ -1254,6 +1253,37 @@
     </span>
   </div>
 
+  <!-- Horizontal Alpha Index (for tracks when grouping by name or artist) -->
+  {#if activeTab === 'tracks' && !loading && trackGroupingEnabled && (trackGroupMode === 'name' || trackGroupMode === 'artist')}
+    {@const groupedTracks = groupTracks(filteredTracks, trackGroupMode)}
+    {@const trackIndexTargets = trackGroupMode === 'artist'
+      ? (() => {
+          const map = new Map<string, string>();
+          for (const group of groupedTracks) {
+            const letter = alphaGroupKey(group.title);
+            if (!map.has(letter)) {
+              map.set(letter, group.id);
+            }
+          }
+          return map;
+        })()
+      : new Map<string, string>()}
+    {@const trackAlphaGroups = trackGroupMode === 'name'
+      ? new Set(groupedTracks.map(group => group.key))
+      : new Set(trackIndexTargets.keys())}
+    <div class="alpha-index-horizontal">
+      {#each alphaIndexLetters as letter}
+        <button
+          class="alpha-letter"
+          class:disabled={!trackAlphaGroups.has(letter)}
+          onclick={() => scrollToGroup(trackGroupMode === 'name' ? 'track-name' : 'track-artist', letter, trackAlphaGroups)}
+        >
+          {letter}
+        </button>
+      {/each}
+    </div>
+  {/if}
+
   <!-- Content -->
   <div class="content">
     {#if loading}
@@ -1288,23 +1318,6 @@
         {@const groupedTracks = trackGroupingEnabled
           ? groupTracks(filteredTracks, trackGroupMode)
           : [{ key: '', id: 'ungrouped', title: '', tracks: filteredTracks }]}
-        {@const trackIndexTargets = trackGroupMode === 'artist' && trackGroupingEnabled
-          ? (() => {
-              const map = new Map<string, string>();
-              for (const group of groupedTracks) {
-                const letter = alphaGroupKey(group.title);
-                if (!map.has(letter)) {
-                  map.set(letter, group.id);
-                }
-              }
-              return map;
-            })()
-          : new Map<string, string>()}
-        {@const trackAlphaGroups = trackGroupingEnabled && trackGroupMode === 'name'
-          ? new Set(groupedTracks.map(group => group.key))
-          : trackGroupingEnabled && trackGroupMode === 'artist'
-            ? new Set(trackIndexTargets.keys())
-            : new Set<string>()}
 
         <!-- Virtualized track list -->
         <div class="track-sections virtualized">
@@ -1347,20 +1360,6 @@
               onReDownload={onTrackReDownload ? (t) => onTrackReDownload(buildDisplayTrackFromFavorite(t)) : undefined}
             />
           </div>
-
-          {#if trackGroupingEnabled && (trackGroupMode === 'name' || trackGroupMode === 'artist')}
-            <div class="alpha-index">
-              {#each alphaIndexLetters as letter}
-                <button
-                  class="alpha-letter"
-                  class:disabled={!trackAlphaGroups.has(letter)}
-                  onclick={() => scrollToGroup(trackGroupMode === 'name' ? 'track-name' : 'track-artist', letter, trackAlphaGroups)}
-                >
-                  {letter}
-                </button>
-              {/each}
-            </div>
-          {/if}
         </div>
       {/if}
       </ViewTransition>
@@ -1694,7 +1693,7 @@
     display: flex;
     align-items: center;
     gap: 20px;
-    margin-bottom: 32px;
+    margin-bottom: 16px;
     position: relative;
   }
 
@@ -1723,12 +1722,6 @@
     font-size: 24px;
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0 0 4px 0;
-  }
-
-  .subtitle {
-    font-size: 14px;
-    color: var(--text-muted);
     margin: 0;
   }
 
@@ -1760,8 +1753,8 @@
     justify-content: space-between;
     align-items: center;
     gap: 10px;
-    padding: 12px 24px;
-    margin: 0 -8px 16px -24px;
+    padding: 10px 24px;
+    margin: 0 -8px 12px -24px;
     width: calc(100% + 32px);
     background: var(--bg-primary);
     border-bottom: 1px solid var(--alpha-6);
@@ -2411,6 +2404,19 @@
     padding: 6px 4px;
     border-radius: 10px;
     background: rgba(0, 0, 0, 0.2);
+  }
+
+  .alpha-index-horizontal {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 0;
+    margin-bottom: 12px;
+  }
+
+  .alpha-index-horizontal .alpha-letter {
+    width: 24px;
+    height: 24px;
   }
 
   .alpha-letter {
