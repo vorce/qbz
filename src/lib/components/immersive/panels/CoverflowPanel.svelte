@@ -21,10 +21,6 @@
     <div class="artwork-container" class:playing={isPlaying}>
       <img src={artwork} alt={trackTitle} class="artwork" />
     </div>
-    <!-- Reflection effect -->
-    <div class="artwork-reflection">
-      <img src={artwork} alt="" class="reflection-img" aria-hidden="true" />
-    </div>
   </div>
 
   <div class="track-info">
@@ -93,27 +89,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-  }
-
-  /* Reflection effect */
-  .artwork-reflection {
-    width: min(45vh, 360px);
-    height: 80px;
-    overflow: hidden;
-    margin-top: -2px;
-    opacity: 0.3;
-    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 100%);
-    pointer-events: none;
-  }
-
-  .reflection-img {
-    width: 100%;
-    height: min(45vh, 360px);
-    object-fit: cover;
-    object-position: bottom;
-    transform: scaleY(-1);
-    filter: blur(2px);
   }
 
   .track-info {
@@ -190,36 +165,16 @@
       gap: 16px;
     }
 
-    .artwork-container,
-    .artwork-reflection {
-      width: min(55vw, 280px);
-    }
-
     .artwork-container {
-      height: min(55vw, 280px);
-    }
-
-    .artwork-reflection {
-      height: 60px;
-    }
-
-    .reflection-img {
+      width: min(55vw, 280px);
       height: min(55vw, 280px);
     }
   }
 
   @media (max-height: 600px) {
-    .artwork-container,
-    .artwork-reflection {
-      width: min(32vh, 220px);
-    }
-
     .artwork-container {
+      width: min(32vh, 220px);
       height: min(32vh, 220px);
-    }
-
-    .artwork-reflection {
-      display: none;
     }
 
     .track-info {
