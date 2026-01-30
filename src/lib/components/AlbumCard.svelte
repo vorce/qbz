@@ -5,6 +5,7 @@
   import {
     subscribe as subscribeAlbumFavorites,
     isAlbumFavorite,
+    isAlbumToggling,
     loadAlbumFavorites,
     toggleAlbumFavorite
   } from '$lib/stores/albumFavoritesStore';
@@ -86,6 +87,7 @@
   const artistDuration = $derived(artistOverflow > 0 ? `${(artistOverflow + 16) / tickerSpeed}s` : '0s');
 
   let favoriteFromStore = $state(false);
+  let isToggling = $state(false);
   const isFavorite = $derived(albumId ? favoriteFromStore : false);
   const hasMenu = $derived(!!(onPlayNext || onPlayLater || onShareQobuz || onShareSonglink || onDownload));
   const showFavoriteButton = $derived(showFavorite ?? !!albumId);
@@ -158,8 +160,10 @@
     if (albumId) {
       void loadAlbumFavorites();
       favoriteFromStore = isAlbumFavorite(albumId);
+      isToggling = isAlbumToggling(albumId);
       const unsubscribe = subscribeAlbumFavorites(() => {
         favoriteFromStore = isAlbumFavorite(albumId);
+        isToggling = isAlbumToggling(albumId);
       });
       return () => unsubscribe();
     }
@@ -217,10 +221,11 @@
             <button
               class="overlay-btn overlay-btn--minor"
               class:is-active={isFavorite}
+              class:is-toggling={isToggling}
               class:disabled={!favoriteAvailable}
               type="button"
-              aria-disabled={!favoriteAvailable}
-              disabled={!favoriteAvailable}
+              aria-disabled={!favoriteAvailable || isToggling}
+              disabled={!favoriteAvailable || isToggling}
               onclick={handleToggleFavorite}
               title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             >
@@ -464,6 +469,20 @@
     opacity: 0.5;
     cursor: default;
     transform: none;
+  }
+
+  .overlay-btn.is-toggling {
+    cursor: wait;
+    animation: favorite-pulse 0.8s ease-in-out infinite;
+  }
+
+  @keyframes favorite-pulse {
+    0%, 100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
   }
 
   .overlay-menu {

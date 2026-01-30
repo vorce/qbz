@@ -92,6 +92,7 @@
 
   // Favorites state management
   import { loadFavorites } from '$lib/stores/favoritesStore';
+  import { loadAlbumFavorites } from '$lib/stores/albumFavoritesStore';
   import { getDefaultFavoritesTab } from '$lib/utils/favorites';
   import type { FavoritesPreferences, ResolvedMusician } from '$lib/types';
 
@@ -1935,8 +1936,9 @@
     setLoggedIn(info);
     showToast(`Welcome, ${info.userName}!`, 'success');
 
-    // Load favorites now that login is confirmed
-    loadFavorites();
+    // Load favorites now that login is confirmed (sync with Qobuz)
+    loadFavorites();       // Track favorites
+    loadAlbumFavorites();  // Album favorites
 
     // Refresh offline status now that we're logged in
     await refreshOfflineStatus();

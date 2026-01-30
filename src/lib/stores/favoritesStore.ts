@@ -10,6 +10,7 @@ import { logRecoEvent } from '$lib/services/recoService';
 
 // State
 let favoriteTrackIds = new Set<number>();
+let togglingTrackIds = new Set<number>(); // Track IDs currently being toggled (API in progress)
 let isLoaded = false;
 let isLoading = false;
 const listeners = new Set<() => void>();
@@ -35,6 +36,13 @@ export function subscribe(listener: () => void): () => void {
  */
 export function isTrackFavorite(trackId: number): boolean {
   return favoriteTrackIds.has(trackId);
+}
+
+/**
+ * Check if a track favorite is currently being toggled (API call in progress)
+ */
+export function isTrackToggling(trackId: number): boolean {
+  return togglingTrackIds.has(trackId);
 }
 
 /**
@@ -88,15 +96,21 @@ export async function loadFavorites(): Promise<void> {
  * Returns the new favorite state
  */
 export async function toggleTrackFavorite(trackId: number): Promise<boolean> {
+  // Prevent double-toggling while API call is in progress
+  if (togglingTrackIds.has(trackId)) {
+    return favoriteTrackIds.has(trackId);
+  }
+
   const wasFavorite = favoriteTrackIds.has(trackId);
   const newState = !wasFavorite;
 
-  // Optimistic update
+  // Optimistic update + mark as toggling
   if (newState) {
     favoriteTrackIds.add(trackId);
   } else {
     favoriteTrackIds.delete(trackId);
   }
+  togglingTrackIds.add(trackId);
   notifyListeners();
 
   try {
@@ -118,9 +132,12 @@ export async function toggleTrackFavorite(trackId: number): Promise<boolean> {
     } else {
       favoriteTrackIds.add(trackId);
     }
-    notifyListeners();
     console.error('Failed to toggle favorite:', err);
     return wasFavorite;
+  } finally {
+    // Always clear toggling state
+    togglingTrackIds.delete(trackId);
+    notifyListeners();
   }
 }
 
@@ -166,6 +183,7 @@ export function unmarkAsFavorite(trackId: number): void {
  */
 export function reset(): void {
   favoriteTrackIds = new Set();
+  togglingTrackIds = new Set();
   isLoaded = false;
   isLoading = false;
   notifyListeners();

@@ -41,6 +41,10 @@ import {
   markScrobblesSent,
   cleanupSentScrobbles
 } from '$lib/stores/offlineStore';
+import {
+  toggleTrackFavorite as storeToggleTrackFavorite,
+  addTrackFavorite as storeAddTrackFavorite
+} from '$lib/stores/favoritesStore';
 
 // ============ Types ============
 
@@ -661,26 +665,17 @@ export async function checkTrackFavorite(trackId: number): Promise<boolean> {
 
 /**
  * Toggle favorite status for a track
+ * Uses the centralized favorites store to ensure UI stays in sync
  */
 export async function toggleTrackFavorite(
   trackId: number,
   currentlyFavorite: boolean
 ): Promise<{ success: boolean; isFavorite: boolean }> {
-  const newFavoriteState = !currentlyFavorite;
-
   try {
-    if (newFavoriteState) {
-      await invoke('add_favorite', { favType: 'track', itemId: String(trackId) });
-      // Log favorite event for recommendations
-      void logRecoEvent({
-        eventType: 'favorite',
-        itemType: 'track',
-        trackId
-      });
-    } else {
-      await invoke('remove_favorite', { favType: 'track', itemId: String(trackId) });
-    }
-    return { success: true, isFavorite: newFavoriteState };
+    // Use the store's toggle function - it handles API calls, optimistic updates,
+    // loading states, and notifies all subscribed components
+    const newState = await storeToggleTrackFavorite(trackId);
+    return { success: true, isFavorite: newState };
   } catch (err) {
     console.error('Failed to toggle favorite:', err);
     return { success: false, isFavorite: currentlyFavorite };
@@ -689,17 +684,12 @@ export async function toggleTrackFavorite(
 
 /**
  * Add a track to favorites
+ * Uses the centralized favorites store to ensure UI stays in sync
  */
 export async function addTrackToFavorites(trackId: number): Promise<boolean> {
   try {
-    await invoke('add_favorite', { favType: 'track', itemId: String(trackId) });
-    // Log favorite event for recommendations
-    void logRecoEvent({
-      eventType: 'favorite',
-      itemType: 'track',
-      trackId
-    });
-    return true;
+    // Use the store's add function - it handles API calls and UI sync
+    return await storeAddTrackFavorite(trackId);
   } catch (err) {
     console.error('Failed to add to favorites:', err);
     return false;

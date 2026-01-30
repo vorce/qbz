@@ -6,6 +6,7 @@
   import {
     subscribe as subscribeFavorites,
     isTrackFavorite,
+    isTrackToggling,
     toggleTrackFavorite
   } from '$lib/stores/favoritesStore';
   import { togglePlay } from '$lib/stores/playerStore';
@@ -82,6 +83,7 @@
 
   let isHovered = $state(false);
   let favoriteFromStore = $state(false);
+  let isToggling = $state(false);
 
   // Use override if provided, otherwise use store
   const isFavorite = $derived(isFavoriteOverride ?? favoriteFromStore);
@@ -93,8 +95,10 @@
   onMount(() => {
     if (trackId !== undefined) {
       favoriteFromStore = isTrackFavorite(trackId);
+      isToggling = isTrackToggling(trackId);
       const unsubscribe = subscribeFavorites(() => {
         favoriteFromStore = isTrackFavorite(trackId);
+        isToggling = isTrackToggling(trackId);
       });
       return unsubscribe;
     }
@@ -208,8 +212,10 @@
       type="button"
       class="favorite-btn"
       class:is-favorite={isFavorite}
+      class:is-toggling={isToggling}
       onclick={handleToggleFavorite}
       title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      disabled={isToggling}
     >
       {#if isFavorite}
         <Heart size={14} fill="var(--accent-primary)" color="var(--accent-primary)" />
@@ -492,6 +498,21 @@
   .track-row:hover .favorite-btn.is-favorite,
   .track-row:hover .favorite-btn:hover {
     opacity: 1;
+  }
+
+  .favorite-btn.is-toggling {
+    opacity: 1;
+    cursor: wait;
+    animation: favorite-pulse 0.8s ease-in-out infinite;
+  }
+
+  @keyframes favorite-pulse {
+    0%, 100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
   }
 
   .download-indicator {

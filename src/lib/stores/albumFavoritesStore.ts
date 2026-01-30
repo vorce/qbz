@@ -8,6 +8,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { logRecoEvent } from '$lib/services/recoService';
 
 let favoriteAlbumIds = new Set<string>();
+let togglingAlbumIds = new Set<string>(); // Album IDs currently being toggled (API in progress)
 let isLoaded = false;
 let isLoading = false;
 const listeners = new Set<() => void>();
@@ -25,6 +26,10 @@ export function subscribe(listener: () => void): () => void {
 
 export function isAlbumFavorite(albumId: string): boolean {
   return favoriteAlbumIds.has(albumId);
+}
+
+export function isAlbumToggling(albumId: string): boolean {
+  return togglingAlbumIds.has(albumId);
 }
 
 export function getFavoriteAlbumIds(): string[] {
@@ -72,14 +77,21 @@ export async function loadAlbumFavorites(): Promise<void> {
 }
 
 export async function toggleAlbumFavorite(albumId: string): Promise<boolean> {
+  // Prevent double-toggling while API call is in progress
+  if (togglingAlbumIds.has(albumId)) {
+    return favoriteAlbumIds.has(albumId);
+  }
+
   const wasFavorite = favoriteAlbumIds.has(albumId);
   const newState = !wasFavorite;
 
+  // Optimistic update + mark as toggling
   if (newState) {
     favoriteAlbumIds.add(albumId);
   } else {
     favoriteAlbumIds.delete(albumId);
   }
+  togglingAlbumIds.add(albumId);
   notifyListeners();
 
   try {
@@ -100,9 +112,12 @@ export async function toggleAlbumFavorite(albumId: string): Promise<boolean> {
     } else {
       favoriteAlbumIds.add(albumId);
     }
-    notifyListeners();
     console.error('Failed to toggle album favorite:', err);
     return wasFavorite;
+  } finally {
+    // Always clear toggling state
+    togglingAlbumIds.delete(albumId);
+    notifyListeners();
   }
 }
 
