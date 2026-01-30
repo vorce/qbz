@@ -10,6 +10,7 @@
   } from 'lucide-svelte';
   import FolderSettingsModal from '../FolderSettingsModal.svelte';
   import LocalLibraryTagEditorModal from '../LocalLibraryTagEditorModal.svelte';
+  import ViewTransition from '../ViewTransition.svelte';
   import { t } from '$lib/i18n';
   import { downloadSettingsVersion } from '$lib/stores/downloadSettingsStore';
   import { showToast } from '$lib/stores/toastStore';
@@ -2575,6 +2576,7 @@
   }
 </script>
 
+<ViewTransition duration={200} distance={12} direction="down">
 <div class="library-view" class:virtualized-active={!selectedAlbum && ((activeTab === 'albums' && !showHiddenAlbums && albums.length > 0) || (activeTab === 'artists' && artists.length > 0) || (activeTab === 'tracks' && tracks.length > 0))}>
   {#if selectedAlbum}
     {@const albumSections = buildAlbumSections(albumTracks)}
@@ -2938,6 +2940,8 @@
           <button class="retry-btn" onclick={loadLibraryData}>Retry</button>
         </div>
       {:else if activeTab === 'albums'}
+        {#key activeTab}
+        <ViewTransition duration={200} distance={12} direction="up">
         {#if showHiddenAlbums}
           <!-- Hidden Albums View -->
           <div class="albums-section">
@@ -3242,7 +3246,11 @@
           {/if}
         {/if}
         {/if}
+        </ViewTransition>
+        {/key}
       {:else if activeTab === 'artists'}
+        {#key activeTab}
+        <ViewTransition duration={200} distance={12} direction="up">
         {#if artists.length === 0}
           <div class="empty">
             <Mic2 size={48} />
@@ -3357,7 +3365,11 @@
           </div>
           </div>
         {/if}
+        </ViewTransition>
+        {/key}
       {:else if activeTab === 'tracks'}
+        {#key activeTab}
+        <ViewTransition duration={200} distance={12} direction="up">
         {#if tracks.length === 0}
           <div class="empty">
             <Music size={48} />
@@ -3465,10 +3477,13 @@
             {/if}
           </div>
         {/if}
+        </ViewTransition>
+        {/key}
       {/if}
     </div>
   {/if}
 </div>
+</ViewTransition>
 
 <!-- Album Settings Modal -->
 {#if showAlbumEditModal && selectedAlbum}
