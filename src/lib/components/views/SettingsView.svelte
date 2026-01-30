@@ -1992,7 +1992,8 @@
       </div>
       <Toggle enabled={showContextIcon} onchange={handleShowContextIconChange} />
     </div>
-    <div class="setting-row">
+    <!-- Gapless playback hidden until properly implemented (see issue #29) -->
+    <!-- <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{$t('settings.playback.gapless')}</span>
         {#if gaplessTooltipOverride}
@@ -2000,7 +2001,7 @@
         {/if}
       </div>
       <Toggle enabled={gaplessPlayback} onchange={handleGaplessPlaybackChange} disabled={gaplessDisabled} />
-    </div>
+    </div> -->
     <div class="setting-row">
       <span class="setting-label">{$t('settings.playback.crossfade')}</span>
       <div class="slider-container">
