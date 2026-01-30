@@ -8,7 +8,8 @@
 
   let { artwork, mode = 'blur' }: Props = $props();
 
-  let backgroundStyle = $state('');
+  let backgroundUrl = $state('');
+  let useCanvasBlur = $state(false);
   let isLoading = $state(true);
   let currentArtwork = $state('');
 
@@ -18,23 +19,27 @@
 
     currentArtwork = artwork;
     isLoading = true;
+    useCanvasBlur = false;
 
     if (mode === 'blur') {
+      // Try canvas blur first (most efficient)
       generateBlurredBackground(artwork)
         .then((dataUrl) => {
-          backgroundStyle = `url(${dataUrl})`;
+          backgroundUrl = dataUrl;
+          useCanvasBlur = true;
           isLoading = false;
         })
         .catch((err) => {
-          console.error('[ImmersiveBackground] Blur generation failed:', err);
-          // Fallback to gradient mode
-          fallbackToGradient();
+          // CORS error - fallback to CSS blur (works but uses more GPU)
+          console.warn('[ImmersiveBackground] Canvas blur failed (CORS), using CSS blur fallback');
+          backgroundUrl = artwork;
+          useCanvasBlur = false;
+          isLoading = false;
         });
     } else if (mode === 'gradient') {
       fallbackToGradient();
     } else {
-      // Solid dark background
-      backgroundStyle = 'var(--bg-primary)';
+      backgroundUrl = '';
       isLoading = false;
     }
   });
@@ -42,20 +47,33 @@
   async function fallbackToGradient() {
     try {
       const colors = await extractDominantColors(artwork);
-      backgroundStyle = createGradientFromColors(colors);
+      backgroundUrl = createGradientFromColors(colors);
+      useCanvasBlur = true; // Gradient doesn't need CSS blur
     } catch {
-      backgroundStyle = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
+      backgroundUrl = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
+      useCanvasBlur = true;
     }
     isLoading = false;
   }
 </script>
 
 <div class="immersive-background" class:loading={isLoading}>
-  <!-- Pre-computed blur image or gradient -->
-  <div
-    class="background-image"
-    style="background: {backgroundStyle};"
-  ></div>
+  <!-- Background: either pre-blurred canvas or CSS blur fallback -->
+  {#if useCanvasBlur}
+    <!-- Pre-computed blur (efficient) -->
+    <div
+      class="background-image canvas-blur"
+      style="background-image: url({backgroundUrl});"
+    ></div>
+  {:else if backgroundUrl}
+    <!-- CSS blur fallback (works with CORS-restricted images) -->
+    <img
+      src={backgroundUrl}
+      alt=""
+      class="background-image css-blur"
+      aria-hidden="true"
+    />
+  {/if}
 
   <!-- Overlay for consistent darkness and vignette -->
   <div class="background-overlay"></div>
@@ -71,14 +89,25 @@
 
   .background-image {
     position: absolute;
-    inset: -20px; /* Slight overflow to avoid edge artifacts */
+    inset: -40px; /* Overflow to avoid blur edge artifacts */
+    transition: opacity 300ms ease-out;
+  }
+
+  /* Canvas pre-blurred version (efficient - no GPU filter) */
+  .background-image.canvas-blur {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    transition: background 300ms ease-out;
-
-    /* Scale up the tiny blurred image */
     transform: scale(1.1);
+  }
+
+  /* CSS blur fallback for CORS-restricted images */
+  .background-image.css-blur {
+    width: calc(100% + 80px);
+    height: calc(100% + 80px);
+    object-fit: cover;
+    filter: blur(60px) saturate(1.2) brightness(0.5);
+    transform: scale(1.2);
   }
 
   .loading .background-image {
@@ -94,7 +123,4 @@
       radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%),
       linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 0%, transparent 30%, transparent 70%, rgba(0, 0, 0, 0.4) 100%);
   }
-
-  /* No blur filter here - the image is pre-blurred! */
-  /* This is the key performance optimization */
 </style>
