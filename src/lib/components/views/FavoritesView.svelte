@@ -8,6 +8,7 @@
   import VirtualizedTrackList from '../VirtualizedTrackList.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import FavoritesEditModal from '../FavoritesEditModal.svelte';
+  import ViewTransition from '../ViewTransition.svelte';
   import { type OfflineCacheStatus } from '$lib/stores/offlineCacheState';
   import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { normalizeFavoritesTabOrder } from '$lib/utils/favorites';
@@ -160,6 +161,8 @@
 
   let loading = $state(false);
   let loadingPlaylists = $state(false);
+  let spinnerFading = $state(false);  // For spinner fadeout animation
+  let contentVisible = $state(false); // For content entrance animation
   let editModalOpen = $state(false);
   let scrollContainer: HTMLDivElement | null = $state(null);
   let favoritesPreferences = $state<FavoritesPreferences>({
@@ -487,6 +490,8 @@
 
   async function loadFavorites(type: TabType) {
     loading = true;
+    contentVisible = false;
+    spinnerFading = false;
     error = null;
     try {
       const items = await fetchAllFavorites(type);
@@ -512,12 +517,20 @@
       console.error(`Failed to load ${type} favorites:`, err);
       error = String(err);
     } finally {
-      loading = false;
+      // Trigger spinner fadeout, then show content
+      spinnerFading = true;
+      setTimeout(() => {
+        loading = false;
+        spinnerFading = false;
+        contentVisible = true;
+      }, 200); // Match fadeout duration
     }
   }
 
   async function loadFavoritePlaylists() {
     loadingPlaylists = true;
+    contentVisible = false;
+    spinnerFading = false;
     error = null;
     try {
       // Get IDs of favorited playlists from local DB
@@ -541,7 +554,13 @@
       console.error('Failed to load favorite playlists:', err);
       error = String(err);
     } finally {
-      loadingPlaylists = false;
+      // Trigger spinner fadeout, then show content
+      spinnerFading = true;
+      setTimeout(() => {
+        loadingPlaylists = false;
+        spinnerFading = false;
+        contentVisible = true;
+      }, 200); // Match fadeout duration
     }
   }
 
@@ -1177,7 +1196,7 @@
   <!-- Content -->
   <div class="content">
     {#if loading}
-      <div class="loading">
+      <div class="loading" class:fading={spinnerFading}>
         <div class="spinner"></div>
         <p>Loading favorites...</p>
       </div>
@@ -1188,6 +1207,7 @@
         <button class="retry-btn" onclick={() => loadTabIfNeeded(activeTab)}>Retry</button>
       </div>
     {:else if activeTab === 'tracks'}
+      <ViewTransition duration={200} distance={12} direction="up">
       {#if favoriteTracks.length === 0}
         <div class="empty">
           <Music size={48} />
@@ -1292,7 +1312,9 @@
           {/if}
         </div>
       {/if}
+      </ViewTransition>
     {:else if activeTab === 'albums'}
+      <ViewTransition duration={200} distance={12} direction="up">
       {#if favoriteAlbums.length === 0}
         <div class="empty">
           <Disc3 size={48} />
@@ -1452,7 +1474,9 @@
           </div>
         {/if}
       {/if}
+      </ViewTransition>
     {:else if activeTab === 'artists'}
+      <ViewTransition duration={200} distance={12} direction="up">
       {#if favoriteArtists.length === 0}
         <div class="empty">
           <Mic2 size={48} />
@@ -1532,35 +1556,40 @@
           {/each}
         </div>
       {/if}
+      </ViewTransition>
     {:else if activeTab === 'playlists'}
       {#if loadingPlaylists}
-        <div class="loading">
+        <div class="loading" class:fading={spinnerFading}>
           <div class="spinner"></div>
           <p>Loading playlists...</p>
         </div>
-      {:else if favoritePlaylists.length === 0}
-        <div class="empty">
-          <ListMusic size={48} />
-          <p>No favorite playlists yet</p>
-          <p class="empty-hint">Click the heart icon on playlists to add them here</p>
-        </div>
-      {:else if filteredPlaylists.length === 0}
-        <div class="empty">
-          <Search size={48} />
-          <p>No playlists match "{playlistSearch}"</p>
-        </div>
       {:else}
-        <div class="playlist-grid">
-          {#each filteredPlaylists as playlist (playlist.id)}
-            <button class="playlist-card" onclick={() => onPlaylistSelect?.(playlist.id)}>
-              <div class="playlist-artwork">
-                <PlaylistCollage artworks={playlist.images ?? []} size={140} />
-              </div>
-              <div class="playlist-name">{playlist.name}</div>
-              <div class="playlist-meta">{playlist.tracks_count} tracks</div>
-            </button>
-          {/each}
-        </div>
+        <ViewTransition duration={200} distance={12} direction="up">
+        {#if favoritePlaylists.length === 0}
+          <div class="empty">
+            <ListMusic size={48} />
+            <p>No favorite playlists yet</p>
+            <p class="empty-hint">Click the heart icon on playlists to add them here</p>
+          </div>
+        {:else if filteredPlaylists.length === 0}
+          <div class="empty">
+            <Search size={48} />
+            <p>No playlists match "{playlistSearch}"</p>
+          </div>
+        {:else}
+          <div class="playlist-grid">
+            {#each filteredPlaylists as playlist (playlist.id)}
+              <button class="playlist-card" onclick={() => onPlaylistSelect?.(playlist.id)}>
+                <div class="playlist-artwork">
+                  <PlaylistCollage artworks={playlist.images ?? []} size={140} />
+                </div>
+                <div class="playlist-name">{playlist.name}</div>
+                <div class="playlist-meta">{playlist.tracks_count} tracks</div>
+              </button>
+            {/each}
+          </div>
+        {/if}
+        </ViewTransition>
       {/if}
     {/if}
   </div>
@@ -1980,6 +2009,15 @@
     justify-content: center;
     padding: 64px;
     color: var(--text-muted);
+  }
+
+  .loading {
+    opacity: 1;
+    transition: opacity 200ms ease-out;
+  }
+
+  .loading.fading {
+    opacity: 0;
   }
 
   .spinner {

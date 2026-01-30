@@ -4,6 +4,7 @@
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import AlbumMenu from '../AlbumMenu.svelte';
+  import ViewTransition from '../ViewTransition.svelte';
   import { getOfflineCacheState, type OfflineCacheStatus, isAlbumFullyCached } from '$lib/stores/offlineCacheState';
   import { consumeContextTrackFocus } from '$lib/stores/playbackContextStore';
   import {
@@ -299,6 +300,7 @@
   }
 </script>
 
+<ViewTransition duration={200} distance={12} direction="up">
 <div class="album-detail" bind:this={scrollContainer}>
   <!-- Back Navigation -->
   <button class="back-btn" onclick={onBack}>
@@ -520,6 +522,7 @@
     </div>
   {/if}
 </div>
+</ViewTransition>
 
 <style>
   .album-detail {
