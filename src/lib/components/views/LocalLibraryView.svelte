@@ -3258,16 +3258,18 @@
 
           <div class="artists-tab-container">
           <!-- Horizontal alphabetical index at the top -->
-          <div class="artist-alpha-index-horizontal">
-            {#each alphaIndexLetters as letter}
-              <button
-                class="alpha-letter-horizontal"
-                class:disabled={!artistAlphaGroups.has(letter)}
-                onclick={() => scrollToArtistGroup(letter, artistAlphaGroups)}
-              >
-                {letter}
-              </button>
-            {/each}
+          <div class="artist-alpha-index-row">
+            <div class="alpha-index-inline">
+              {#each alphaIndexLetters as letter}
+                <button
+                  class="alpha-letter"
+                  class:disabled={!artistAlphaGroups.has(letter)}
+                  onclick={() => scrollToArtistGroup(letter, artistAlphaGroups)}
+                >
+                  {letter}
+                </button>
+              {/each}
+            </div>
           </div>
 
           <!-- Two-column layout: Artists | Albums -->
@@ -4500,7 +4502,7 @@
   }
 
   .filter-panel-header span {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
   }
@@ -4599,7 +4601,7 @@
   }
 
   .filter-checkbox .label-text {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-primary);
   }
 
@@ -5803,40 +5805,10 @@
   }
 
   /* Artist View - Two Column Layout */
-  .artist-alpha-index-horizontal {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 8px 0 16px;
+  .artist-alpha-index-row {
+    padding: 8px 0 12px;
     border-bottom: 1px solid var(--bg-tertiary);
-    margin-bottom: 16px;
-  }
-
-  .alpha-letter-horizontal {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    background: var(--bg-secondary);
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .alpha-letter-horizontal:hover:not(.disabled) {
-    background: var(--accent-primary);
-    color: white;
-  }
-
-  .alpha-letter-horizontal.disabled {
-    opacity: 0.3;
-    cursor: default;
-    pointer-events: none;
+    margin-bottom: 12px;
   }
 
   .artists-tab-container {
