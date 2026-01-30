@@ -1251,7 +1251,7 @@
       <div class="toolbar-controls">
         <!-- Single toggle button: Grid <-> Browse (sidepanel) -->
         <button
-          class="view-btn"
+          class="control-btn icon-only"
           onclick={() => {
             if (artistViewMode === 'grid') {
               artistViewMode = 'sidepanel';
@@ -2085,7 +2085,15 @@
   }
 
   .control-btn:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .control-btn.icon-only {
+    width: 36px;
+    height: 36px;
+    justify-content: center;
+    padding: 0;
   }
 
   .icon-btn {
@@ -2689,22 +2697,31 @@
     gap: 0;
     flex: 1;
     min-height: 0;
-    height: 100%;
+    margin: 0 -32px; /* Negative margins to extend to edges */
+    padding: 0;
   }
 
   .artist-column {
     width: 280px;
     flex-shrink: 0;
-    border-right: 1px solid var(--bg-tertiary);
-    overflow: hidden;
     display: flex;
     flex-direction: column;
+    background: transparent;
+    border-right: 1px solid var(--bg-tertiary);
+    overflow: hidden;
+    padding-left: 32px;
   }
 
   .artist-list-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: 8px;
+    padding: 8px 16px 8px 0;
+    /* Smooth scrolling optimizations */
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    will-change: scroll-position;
+    contain: strict;
   }
 
   .artist-list-group {
@@ -2796,18 +2813,21 @@
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
+    padding: 0 32px 0 24px;
   }
 
   .artist-albums-header {
     display: flex;
     align-items: baseline;
     gap: 12px;
-    padding: 16px 24px;
+    padding: 0 0 16px;
     border-bottom: 1px solid var(--bg-tertiary);
+    margin-bottom: 16px;
   }
 
   .artist-albums-title {
-    font-size: 18px;
+    margin: 0;
+    font-size: 20px;
     font-weight: 600;
     color: var(--text-primary);
   }
@@ -2820,11 +2840,15 @@
   .artist-albums-grid {
     flex: 1;
     overflow-y: auto;
-    padding: 16px 24px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 16px;
     align-content: start;
+    padding-right: 8px;
+    /* Smooth scrolling optimizations */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    contain: strict;
   }
 
   .artist-albums-empty,
@@ -2858,9 +2882,10 @@
   }
 
   .artist-albums-footer {
-    padding: 16px 24px 24px;
+    padding: 16px 0 8px;
     text-align: center;
     border-top: 1px solid var(--border);
+    margin-top: auto;
   }
 
   .artist-albums-footer .footer-hint {
