@@ -214,7 +214,7 @@
     tabindex="-1"
   >
     <!-- Background -->
-    <ImmersiveBackground {artwork} mode="blur" />
+    <ImmersiveBackground {artwork} />
 
     <!-- Header with tabs -->
     <ImmersiveHeader

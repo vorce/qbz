@@ -1,82 +1,42 @@
 <script lang="ts">
-  import { generateBlurredBackground, extractDominantColors, createGradientFromColors } from '$lib/utils/imageBlur';
-
   interface Props {
     artwork: string;
-    mode?: 'blur' | 'gradient' | 'solid';
   }
 
-  let { artwork, mode = 'blur' }: Props = $props();
+  let { artwork }: Props = $props();
 
-  let backgroundUrl = $state('');
-  let useCanvasBlur = $state(false);
   let isLoading = $state(true);
   let currentArtwork = $state('');
 
-  // Generate background when artwork changes
+  // Track artwork changes for fade transition
   $effect(() => {
     if (!artwork || artwork === currentArtwork) return;
-
     currentArtwork = artwork;
     isLoading = true;
-    useCanvasBlur = false;
-
-    if (mode === 'blur') {
-      // Try canvas blur first (most efficient)
-      generateBlurredBackground(artwork)
-        .then((dataUrl) => {
-          backgroundUrl = dataUrl;
-          useCanvasBlur = true;
-          isLoading = false;
-        })
-        .catch((err) => {
-          // CORS error - fallback to CSS blur (works but uses more GPU)
-          console.warn('[ImmersiveBackground] Canvas blur failed (CORS), using CSS blur fallback');
-          backgroundUrl = artwork;
-          useCanvasBlur = false;
-          isLoading = false;
-        });
-    } else if (mode === 'gradient') {
-      fallbackToGradient();
-    } else {
-      backgroundUrl = '';
-      isLoading = false;
-    }
   });
 
-  async function fallbackToGradient() {
-    try {
-      const colors = await extractDominantColors(artwork);
-      backgroundUrl = createGradientFromColors(colors);
-      useCanvasBlur = true; // Gradient doesn't need CSS blur
-    } catch {
-      backgroundUrl = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
-      useCanvasBlur = true;
-    }
+  function handleImageLoad() {
     isLoading = false;
   }
 </script>
 
 <div class="immersive-background" class:loading={isLoading}>
-  <!-- Background: either pre-blurred canvas or CSS blur fallback -->
-  {#if useCanvasBlur}
-    <!-- Pre-computed blur (efficient) -->
-    <div
-      class="background-image canvas-blur"
-      style="background-image: url({backgroundUrl});"
-    ></div>
-  {:else if backgroundUrl}
-    <!-- CSS blur fallback (works with CORS-restricted images) -->
+  <!-- Full artwork as background -->
+  {#if artwork}
     <img
-      src={backgroundUrl}
+      src={artwork}
       alt=""
-      class="background-image css-blur"
+      class="background-image"
       aria-hidden="true"
+      onload={handleImageLoad}
     />
   {/if}
 
-  <!-- Overlay for consistent darkness and vignette -->
-  <div class="background-overlay"></div>
+  <!-- Vignette overlay - strong fade to black at edges -->
+  <div class="vignette-overlay"></div>
+
+  <!-- Gradient overlay for text readability -->
+  <div class="gradient-overlay"></div>
 </div>
 
 <style>
@@ -85,42 +45,55 @@
     inset: 0;
     overflow: hidden;
     z-index: 0;
+    background-color: #0a0a0b;
   }
 
   .background-image {
     position: absolute;
-    inset: -40px; /* Overflow to avoid blur edge artifacts */
-    transition: opacity 300ms ease-out;
-  }
-
-  /* Canvas pre-blurred version (efficient - no GPU filter) */
-  .background-image.canvas-blur {
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    transform: scale(1.1);
-  }
-
-  /* CSS blur fallback for CORS-restricted images */
-  .background-image.css-blur {
-    width: calc(100% + 80px);
-    height: calc(100% + 80px);
+    /* Scale larger than viewport to hide edges */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1.15);
+    min-width: 115%;
+    min-height: 115%;
+    width: auto;
+    height: auto;
     object-fit: cover;
-    filter: blur(60px) saturate(1.2) brightness(0.5);
-    transform: scale(1.2);
+    object-position: center;
+    transition: opacity 400ms ease-out;
+    /* Slight desaturation for better text contrast */
+    filter: saturate(0.85) brightness(0.9);
   }
 
   .loading .background-image {
     opacity: 0;
   }
 
-  .background-overlay {
+  /* Strong vignette - fades to black at edges */
+  .vignette-overlay {
     position: absolute;
     inset: 0;
+    background: radial-gradient(
+      ellipse 80% 80% at 50% 45%,
+      transparent 0%,
+      transparent 30%,
+      rgba(0, 0, 0, 0.4) 60%,
+      rgba(0, 0, 0, 0.85) 100%
+    );
+    pointer-events: none;
+  }
 
-    /* Vignette effect + ensure readability */
+  /* Gradient for text areas - darker where text appears */
+  .gradient-overlay {
+    position: absolute;
+    inset: 0;
     background:
-      radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%),
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 0%, transparent 30%, transparent 70%, rgba(0, 0, 0, 0.4) 100%);
+      /* Top gradient for header */
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, transparent 15%),
+      /* Bottom gradient for controls */
+      linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 25%),
+      /* Right side gradient for lyrics panel */
+      linear-gradient(to left, rgba(0, 0, 0, 0.4) 0%, transparent 40%);
+    pointer-events: none;
   }
 </style>
