@@ -40,7 +40,7 @@
     }}
     title="Settings"
   >
-    <Settings size={14} />
+    <Settings size={18} />
   </button>
 </div>
 
@@ -88,10 +88,9 @@
   }
 
   .logo-img {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    object-fit: cover;
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
     position: relative;
     z-index: 1;
   }
