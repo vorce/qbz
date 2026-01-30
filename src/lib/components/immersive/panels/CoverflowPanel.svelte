@@ -19,14 +19,21 @@
 </script>
 
 <div class="coverflow-panel">
-  <div class="artwork-container" class:playing={isPlaying}>
-    <img src={artwork} alt={trackTitle} class="artwork" />
+  <div class="artwork-wrapper">
+    <div class="artwork-container" class:playing={isPlaying}>
+      <img src={artwork} alt={trackTitle} class="artwork" />
+    </div>
+    <!-- Reflection effect -->
+    <div class="artwork-reflection">
+      <img src={artwork} alt="" class="reflection-img" aria-hidden="true" />
+    </div>
   </div>
 
   <div class="track-info">
     {#if isPlaying}
       <div class="now-playing-indicator">
         <BarChart2 size={16} />
+        <span>Now Playing</span>
       </div>
     {/if}
     <h1 class="track-title">{trackTitle}</h1>
@@ -50,26 +57,56 @@
     z-index: 5;
   }
 
+  .artwork-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
   .artwork-container {
     position: relative;
-    width: min(50vh, 400px);
-    height: min(50vh, 400px);
+    width: min(45vh, 360px);
+    height: min(45vh, 360px);
     border-radius: 8px;
     overflow: hidden;
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.4),
-      0 16px 64px rgba(0, 0, 0, 0.2);
-    transition: transform 300ms ease;
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      0 20px 60px rgba(0, 0, 0, 0.3);
+    transition: transform 300ms ease, box-shadow 300ms ease;
   }
 
   .artwork-container:hover {
-    transform: scale(1.02);
+    transform: scale(1.02) translateY(-4px);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.5),
+      0 28px 80px rgba(0, 0, 0, 0.3);
   }
 
   .artwork {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  /* Reflection effect */
+  .artwork-reflection {
+    width: min(45vh, 360px);
+    height: 80px;
+    overflow: hidden;
+    margin-top: -2px;
+    opacity: 0.3;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 100%);
+    pointer-events: none;
+  }
+
+  .reflection-img {
+    width: 100%;
+    height: min(45vh, 360px);
+    object-fit: cover;
+    object-position: bottom;
+    transform: scaleY(-1);
+    filter: blur(2px);
   }
 
   .track-info {
@@ -79,6 +116,7 @@
     text-align: center;
     gap: 6px;
     max-width: 600px;
+    margin-top: 8px;
   }
 
   .now-playing-indicator {
@@ -86,6 +124,10 @@
     align-items: center;
     gap: 6px;
     color: var(--accent-primary, #7c3aed);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     margin-bottom: 4px;
   }
 
@@ -114,19 +156,39 @@
   @media (max-width: 768px) {
     .coverflow-panel {
       padding: 70px 24px 130px;
-      gap: 20px;
+      gap: 16px;
+    }
+
+    .artwork-container,
+    .artwork-reflection {
+      width: min(55vw, 280px);
     }
 
     .artwork-container {
-      width: min(60vw, 300px);
-      height: min(60vw, 300px);
+      height: min(55vw, 280px);
+    }
+
+    .artwork-reflection {
+      height: 60px;
+    }
+
+    .reflection-img {
+      height: min(55vw, 280px);
     }
   }
 
   @media (max-height: 600px) {
+    .artwork-container,
+    .artwork-reflection {
+      width: min(32vh, 220px);
+    }
+
     .artwork-container {
-      width: min(35vh, 250px);
-      height: min(35vh, 250px);
+      height: min(32vh, 220px);
+    }
+
+    .artwork-reflection {
+      display: none;
     }
 
     .track-info {
