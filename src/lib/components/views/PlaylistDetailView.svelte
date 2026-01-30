@@ -588,9 +588,19 @@
     }
   }
 
-  async function saveSort(field: SortField, order: SortOrder) {
-    sortBy = field;
-    sortOrder = order;
+  async function selectSort(field: SortField) {
+    // Default and custom don't have direction toggles
+    if (field === 'default' || field === 'custom') {
+      sortBy = field;
+      sortOrder = 'asc';
+    } else if (sortBy === field) {
+      // Toggle direction if same field
+      sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+      // New field, set default direction
+      sortBy = field;
+      sortOrder = field === 'added' ? 'desc' : 'asc'; // Added defaults to newest first
+    }
     showSortMenu = false;
 
     // When switching to custom mode, load or initialize custom order
@@ -599,7 +609,7 @@
     }
 
     try {
-      await invoke('playlist_set_sort', { playlistId, sortBy: field, sortOrder: order });
+      await invoke('playlist_set_sort', { playlistId, sortBy, sortOrder });
     } catch (err) {
       console.error('Failed to save sort settings:', err);
     }
@@ -1564,26 +1574,14 @@
               <button
                 class="sort-option"
                 class:active={sortBy === option.field}
-                onclick={() => saveSort(option.field, sortOrder)}
+                onclick={() => selectSort(option.field)}
               >
-                {option.label}
+                <span>{option.label}</span>
+                {#if sortBy === option.field && option.field !== 'default' && option.field !== 'custom'}
+                  <span class="sort-indicator">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                {/if}
               </button>
             {/each}
-            <div class="sort-divider"></div>
-            <button
-              class="sort-option"
-              class:active={sortOrder === 'asc'}
-              onclick={() => saveSort(sortBy, 'asc')}
-            >
-              Ascending
-            </button>
-            <button
-              class="sort-option"
-              class:active={sortOrder === 'desc'}
-              onclick={() => saveSort(sortBy, 'desc')}
-            >
-              Descending
-            </button>
           </div>
         {/if}
       </div>
@@ -2246,7 +2244,9 @@
   }
 
   .sort-option {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
     padding: 8px 12px;
     background: none;
@@ -2269,10 +2269,10 @@
     color: var(--accent-primary);
   }
 
-  .sort-divider {
-    height: 1px;
-    background-color: var(--bg-tertiary);
-    margin: 4px 0;
+  .sort-indicator {
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
   }
 
   .no-results {

@@ -213,9 +213,29 @@
   let albumGroupingEnabled = $state(false);
 
   // Album sorting
-  type AlbumSortMode = 'default' | 'newest' | 'oldest' | 'title-asc' | 'title-desc' | 'artist';
-  let albumSortMode = $state<AlbumSortMode>('default');
+  type AlbumSortBy = 'default' | 'date' | 'title' | 'artist';
+  type SortDirection = 'asc' | 'desc';
+  let albumSortBy = $state<AlbumSortBy>('default');
+  let albumSortDirection = $state<SortDirection>('desc'); // desc = newest first for date
   let showAlbumSortMenu = $state(false);
+
+  const albumSortOptions: { value: AlbumSortBy; label: string }[] = [
+    { value: 'default', label: 'Default' },
+    { value: 'date', label: 'Recently Added' },
+    { value: 'title', label: 'Title' },
+    { value: 'artist', label: 'Artist' }
+  ];
+
+  function selectAlbumSort(value: AlbumSortBy) {
+    if (albumSortBy === value && value !== 'default') {
+      albumSortDirection = albumSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      albumSortBy = value;
+      // Default directions
+      albumSortDirection = value === 'date' ? 'desc' : 'asc';
+    }
+    showAlbumSortMenu = false;
+  }
 
   type TrackGroupMode = 'album' | 'artist' | 'name';
   let trackGroupMode = $state<TrackGroupMode>('album');
@@ -272,28 +292,24 @@
     }
 
     // Sort albums
-    if (albumSortMode !== 'default') {
+    if (albumSortBy !== 'default') {
       albums = [...albums].sort((a, b) => {
-        switch (albumSortMode) {
-          case 'newest': {
+        let cmp = 0;
+        switch (albumSortBy) {
+          case 'date': {
             const dateA = a.release_date_original || '0000';
             const dateB = b.release_date_original || '0000';
-            return dateB.localeCompare(dateA);
+            cmp = dateA.localeCompare(dateB);
+            break;
           }
-          case 'oldest': {
-            const dateA = a.release_date_original || '9999';
-            const dateB = b.release_date_original || '9999';
-            return dateA.localeCompare(dateB);
-          }
-          case 'title-asc':
-            return a.title.localeCompare(b.title);
-          case 'title-desc':
-            return b.title.localeCompare(a.title);
+          case 'title':
+            cmp = a.title.localeCompare(b.title);
+            break;
           case 'artist':
-            return a.artist.name.localeCompare(b.artist.name);
-          default:
-            return 0;
+            cmp = a.artist.name.localeCompare(b.artist.name);
+            break;
         }
+        return albumSortDirection === 'desc' ? -cmp : cmp;
       });
     }
 
@@ -379,7 +395,8 @@
   onMount(() => {
     albumViewMode = loadStoredString('qbz-favorites-album-view', 'grid', ['grid', 'list']);
     albumGroupMode = loadStoredString('qbz-favorites-album-group', 'alpha', ['alpha', 'artist']);
-    albumSortMode = loadStoredString('qbz-favorites-album-sort', 'default', ['default', 'newest', 'oldest', 'title-asc', 'title-desc', 'artist']);
+    albumSortBy = loadStoredString('qbz-favorites-album-sort-by', 'default', ['default', 'date', 'title', 'artist']);
+    albumSortDirection = loadStoredString('qbz-favorites-album-sort-dir', 'desc', ['asc', 'desc']);
     trackGroupMode = loadStoredString('qbz-favorites-track-group', 'album', ['album', 'artist', 'name']);
     albumGroupingEnabled = loadStoredBool('qbz-favorites-album-group-enabled', false);
     trackGroupingEnabled = loadStoredBool('qbz-favorites-track-group-enabled', false);
@@ -423,7 +440,8 @@
     try {
       localStorage.setItem('qbz-favorites-album-view', albumViewMode);
       localStorage.setItem('qbz-favorites-album-group', albumGroupMode);
-      localStorage.setItem('qbz-favorites-album-sort', albumSortMode);
+      localStorage.setItem('qbz-favorites-album-sort-by', albumSortBy);
+      localStorage.setItem('qbz-favorites-album-sort-dir', albumSortDirection);
       localStorage.setItem('qbz-favorites-track-group', trackGroupMode);
       localStorage.setItem('qbz-favorites-album-group-enabled', String(albumGroupingEnabled));
       localStorage.setItem('qbz-favorites-track-group-enabled', String(trackGroupingEnabled));
@@ -1106,61 +1124,23 @@
         </div>
         <div class="dropdown-container">
           <button class="control-btn" onclick={() => (showAlbumSortMenu = !showAlbumSortMenu)}>
-            <span>
-              {#if albumSortMode === 'default'}Sort: Default
-              {:else if albumSortMode === 'newest'}Sort: Newest
-              {:else if albumSortMode === 'oldest'}Sort: Oldest
-              {:else if albumSortMode === 'title-asc'}Sort: A-Z
-              {:else if albumSortMode === 'title-desc'}Sort: Z-A
-              {:else if albumSortMode === 'artist'}Sort: Artist
-              {/if}
-            </span>
+            <span>Sort: {albumSortOptions.find(o => o.value === albumSortBy)?.label}</span>
             <ChevronDown size={14} />
           </button>
           {#if showAlbumSortMenu}
             <div class="dropdown-menu">
-              <button
-                class="dropdown-item"
-                class:selected={albumSortMode === 'default'}
-                onclick={() => { albumSortMode = 'default'; showAlbumSortMenu = false; }}
-              >
-                Default
-              </button>
-              <button
-                class="dropdown-item"
-                class:selected={albumSortMode === 'newest'}
-                onclick={() => { albumSortMode = 'newest'; showAlbumSortMenu = false; }}
-              >
-                Newest First
-              </button>
-              <button
-                class="dropdown-item"
-                class:selected={albumSortMode === 'oldest'}
-                onclick={() => { albumSortMode = 'oldest'; showAlbumSortMenu = false; }}
-              >
-                Oldest First
-              </button>
-              <button
-                class="dropdown-item"
-                class:selected={albumSortMode === 'title-asc'}
-                onclick={() => { albumSortMode = 'title-asc'; showAlbumSortMenu = false; }}
-              >
-                Title (A-Z)
-              </button>
-              <button
-                class="dropdown-item"
-                class:selected={albumSortMode === 'title-desc'}
-                onclick={() => { albumSortMode = 'title-desc'; showAlbumSortMenu = false; }}
-              >
-                Title (Z-A)
-              </button>
-              <button
-                class="dropdown-item"
-                class:selected={albumSortMode === 'artist'}
-                onclick={() => { albumSortMode = 'artist'; showAlbumSortMenu = false; }}
-              >
-                Artist
-              </button>
+              {#each albumSortOptions as option}
+                <button
+                  class="dropdown-item"
+                  class:selected={albumSortBy === option.value}
+                  onclick={() => selectAlbumSort(option.value)}
+                >
+                  <span>{option.label}</span>
+                  {#if albumSortBy === option.value && option.value !== 'default'}
+                    <span class="sort-indicator">{albumSortDirection === 'asc' ? '↑' : '↓'}</span>
+                  {/if}
+                </button>
+              {/each}
             </div>
           {/if}
         </div>
@@ -1980,6 +1960,9 @@
   }
 
   .dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
     text-align: left;
     padding: 8px 10px;
@@ -1995,6 +1978,12 @@
   .dropdown-item.selected {
     background: var(--bg-tertiary);
     color: var(--text-primary);
+  }
+
+  .sort-indicator {
+    font-size: 11px;
+    color: var(--accent-primary);
+    font-weight: 600;
   }
 
   .search-container {
