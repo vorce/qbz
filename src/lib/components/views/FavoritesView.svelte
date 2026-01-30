@@ -1620,34 +1620,35 @@
         <div class="artist-two-column-layout">
           <!-- Left column: Artists list grouped A-Z -->
           <div class="artist-column">
+            <div class="artist-column-header">
+              <span class="artist-column-count">{filteredArtists.length} artists</span>
+            </div>
             <div class="artist-list-scroll">
               {#each groupedArtistsSidepanel as group (group.id)}
-                <div class="artist-list-group" id={group.id}>
-                  <div class="artist-list-group-header">{group.key}</div>
-                  {#each group.artists as artist (artist.id)}
-                    <button
-                      class="artist-list-item"
-                      class:selected={selectedFavoriteArtist?.id === artist.id}
-                      onclick={() => handleArtistSelect(artist)}
-                    >
-                      <div class="artist-list-image">
-                        {#if artist.image?.thumbnail || artist.image?.small}
-                          <img src={artist.image?.thumbnail || artist.image?.small} alt={artist.name} />
-                        {:else}
-                          <div class="artist-list-placeholder">
-                            <Mic2 size={20} />
-                          </div>
-                        {/if}
-                      </div>
-                      <div class="artist-list-info">
-                        <div class="artist-list-name">{artist.name}</div>
-                        {#if artist.albums_count}
-                          <div class="artist-list-meta">{artist.albums_count} albums</div>
-                        {/if}
-                      </div>
-                    </button>
-                  {/each}
-                </div>
+                <div class="artist-list-group-header" id={group.id}>{group.key}</div>
+                {#each group.artists as artist (artist.id)}
+                  <button
+                    class="artist-list-item"
+                    class:selected={selectedFavoriteArtist?.id === artist.id}
+                    onclick={() => handleArtistSelect(artist)}
+                  >
+                    <div class="artist-list-image">
+                      {#if artist.image?.thumbnail || artist.image?.small}
+                        <img src={artist.image?.thumbnail || artist.image?.small} alt={artist.name} />
+                      {:else}
+                        <div class="artist-list-placeholder">
+                          <Mic2 size={20} />
+                        </div>
+                      {/if}
+                    </div>
+                    <div class="artist-list-info">
+                      <div class="artist-list-name">{artist.name}</div>
+                      {#if artist.albums_count}
+                        <div class="artist-list-meta">{artist.albums_count} albums</div>
+                      {/if}
+                    </div>
+                  </button>
+                {/each}
               {/each}
             </div>
           </div>
@@ -1680,33 +1681,35 @@
                   <p>No studio albums found</p>
                 </div>
               {:else}
-                <div class="artist-albums-grid">
-                  {#each discographyAlbums as album (album.id)}
-                    <AlbumCard
-                      albumId={album.id}
-                      artwork={getQobuzImage(album.image)}
-                      title={album.title}
-                      artist={album.artist.name}
-                      genre={album.genre?.name}
-                      releaseDate={album.release_date_original}
-                      quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
-                      onclick={() => onAlbumClick?.(album.id)}
-                      onPlay={() => onAlbumPlay?.(album.id)}
-                      onPlayNext={() => onAlbumPlayNext?.(album.id)}
-                      onPlayLater={() => onAlbumPlayLater?.(album.id)}
-                      onShareQobuz={() => onAlbumShareQobuz?.(album.id)}
-                      onShareSonglink={() => onAlbumShareSonglink?.(album.id)}
-                      onDownload={() => onAlbumDownload?.(album.id)}
-                    />
-                  {/each}
-                </div>
-                <div class="artist-albums-footer">
-                  <p class="footer-hint">
-                    To view EPs, Singles, and Live albums,
-                    <button class="link-btn" onclick={() => onArtistClick?.(selectedFavoriteArtist!.id)}>
-                      go to {selectedFavoriteArtist.name}'s page
-                    </button>
-                  </p>
+                <div class="artist-albums-scroll">
+                  <div class="artist-albums-grid">
+                    {#each discographyAlbums as album (album.id)}
+                      <AlbumCard
+                        albumId={album.id}
+                        artwork={getQobuzImage(album.image)}
+                        title={album.title}
+                        artist={album.artist.name}
+                        genre={album.genre?.name}
+                        releaseDate={album.release_date_original}
+                        quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
+                        onclick={() => onAlbumClick?.(album.id)}
+                        onPlay={() => onAlbumPlay?.(album.id)}
+                        onPlayNext={() => onAlbumPlayNext?.(album.id)}
+                        onPlayLater={() => onAlbumPlayLater?.(album.id)}
+                        onShareQobuz={() => onAlbumShareQobuz?.(album.id)}
+                        onShareSonglink={() => onAlbumShareSonglink?.(album.id)}
+                        onDownload={() => onAlbumDownload?.(album.id)}
+                      />
+                    {/each}
+                  </div>
+                  <div class="artist-albums-footer">
+                    <p class="footer-hint">
+                      To view EPs, Singles, and Live albums,
+                      <button class="link-btn" onclick={() => onArtistClick?.(selectedFavoriteArtist!.id)}>
+                        go to {selectedFavoriteArtist.name}'s page
+                      </button>
+                    </p>
+                  </div>
                 </div>
               {/if}
             {/if}
@@ -2712,10 +2715,19 @@
     padding-left: 32px;
   }
 
+  .artist-column-header {
+    padding: 8px 16px 8px 0;
+  }
+
+  .artist-column-count {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
   .artist-list-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: 8px 16px 8px 0;
+    padding: 4px 12px 4px 0;
     /* Smooth scrolling optimizations */
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
@@ -2724,21 +2736,13 @@
     contain: strict;
   }
 
-  .artist-list-group {
-    margin-bottom: 8px;
-  }
-
   .artist-list-group-header {
     font-size: 11px;
     font-weight: 600;
     color: var(--text-muted);
+    padding: 12px 8px 4px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 8px 8px 4px;
-    position: sticky;
-    top: 0;
-    background: var(--bg-secondary);
-    z-index: 1;
+    letter-spacing: 0.5px;
   }
 
   .artist-list-item {
@@ -2820,7 +2824,7 @@
     display: flex;
     align-items: baseline;
     gap: 12px;
-    padding: 0 0 16px;
+    padding-bottom: 16px;
     border-bottom: 1px solid var(--bg-tertiary);
     margin-bottom: 16px;
   }
@@ -2837,18 +2841,21 @@
     color: var(--text-muted);
   }
 
-  .artist-albums-grid {
+  .artist-albums-scroll {
     flex: 1;
     overflow-y: auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 16px;
-    align-content: start;
     padding-right: 8px;
     /* Smooth scrolling optimizations */
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     contain: strict;
+  }
+
+  .artist-albums-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    align-content: start;
   }
 
   .artist-albums-empty,
@@ -2882,10 +2889,8 @@
   }
 
   .artist-albums-footer {
-    padding: 16px 0 8px;
+    padding: 24px 0 16px;
     text-align: center;
-    border-top: 1px solid var(--border);
-    margin-top: auto;
   }
 
   .artist-albums-footer .footer-hint {
