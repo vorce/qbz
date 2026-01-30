@@ -254,13 +254,41 @@
   let loadingArtistAlbums = $state(false);
   let artistAlbumsError = $state<string | null>(null);
 
-  // Filtered to show only Discography albums (not EPs, Singles, Live, etc.)
-  const discographyAlbums = $derived.by(() => {
-    if (!selectedFavoriteArtist || selectedArtistAlbums.length === 0) return [];
-    return selectedArtistAlbums.filter(album =>
-      categorizeAlbum(album, selectedFavoriteArtist!.id) === 'albums'
-    );
+  // Group albums by category: Discography, EPs & Singles, Live Albums
+  // Excludes: tributes, others (compilations, unofficial)
+  const groupedArtistAlbumsByCategory = $derived.by(() => {
+    if (!selectedFavoriteArtist || selectedArtistAlbums.length === 0) {
+      return { discography: [], epsSingles: [], liveAlbums: [] };
+    }
+
+    const discography: QobuzAlbum[] = [];
+    const epsSingles: QobuzAlbum[] = [];
+    const liveAlbums: QobuzAlbum[] = [];
+
+    for (const album of selectedArtistAlbums) {
+      const category = categorizeAlbum(album, selectedFavoriteArtist!.id);
+      switch (category) {
+        case 'albums':
+          discography.push(album);
+          break;
+        case 'eps':
+          epsSingles.push(album);
+          break;
+        case 'live':
+          liveAlbums.push(album);
+          break;
+        // 'tributes' and 'others' are excluded
+      }
+    }
+
+    return { discography, epsSingles, liveAlbums };
   });
+
+  const totalDisplayedAlbums = $derived(
+    groupedArtistAlbumsByCategory.discography.length +
+    groupedArtistAlbumsByCategory.epsSingles.length +
+    groupedArtistAlbumsByCategory.liveAlbums.length
+  );
 
   let showTracksContextMenu = $state(false);
   function resolveCustomIconSrc(path: string | null): string | null {
@@ -1667,48 +1695,113 @@
                 <p>Failed to load albums</p>
                 <p class="error-detail">{artistAlbumsError}</p>
               </div>
-            {:else}
-              <div class="artist-albums-header">
-                <span class="artist-albums-title">Discography</span>
-                <span class="artist-albums-count">{discographyAlbums.length} albums</span>
+            {:else if totalDisplayedAlbums === 0}
+              <div class="artist-albums-empty">
+                <Disc3 size={48} />
+                <p>No albums found</p>
               </div>
-              {#if discographyAlbums.length === 0}
-                <div class="artist-albums-empty">
-                  <Disc3 size={32} />
-                  <p>No studio albums found</p>
-                </div>
-              {:else}
-                <div class="artist-albums-scroll">
-                  <div class="artist-albums-grid">
-                    {#each discographyAlbums as album (album.id)}
-                      <AlbumCard
-                        albumId={album.id}
-                        artwork={getQobuzImage(album.image)}
-                        title={album.title}
-                        artist={album.artist.name}
-                        genre={album.genre?.name}
-                        releaseDate={album.release_date_original}
-                        quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
-                        onclick={() => onAlbumClick?.(album.id)}
-                        onPlay={() => onAlbumPlay?.(album.id)}
-                        onPlayNext={() => onAlbumPlayNext?.(album.id)}
-                        onPlayLater={() => onAlbumPlayLater?.(album.id)}
-                        onShareQobuz={() => onAlbumShareQobuz?.(album.id)}
-                        onShareSonglink={() => onAlbumShareSonglink?.(album.id)}
-                        onDownload={() => onAlbumDownload?.(album.id)}
-                      />
-                    {/each}
+            {:else}
+              <div class="artist-albums-scroll">
+                <!-- Discography Section -->
+                {#if groupedArtistAlbumsByCategory.discography.length > 0}
+                  <div class="artist-albums-section">
+                    <div class="artist-albums-section-header">
+                      <span class="section-title">Discography</span>
+                      <span class="section-count">{groupedArtistAlbumsByCategory.discography.length} albums</span>
+                    </div>
+                    <div class="artist-albums-grid">
+                      {#each groupedArtistAlbumsByCategory.discography as album (album.id)}
+                        <AlbumCard
+                          albumId={album.id}
+                          artwork={getQobuzImage(album.image)}
+                          title={album.title}
+                          artist={album.artist.name}
+                          genre={album.genre?.name}
+                          releaseDate={album.release_date_original}
+                          quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
+                          onclick={() => onAlbumClick?.(album.id)}
+                          onPlay={() => onAlbumPlay?.(album.id)}
+                          onPlayNext={() => onAlbumPlayNext?.(album.id)}
+                          onPlayLater={() => onAlbumPlayLater?.(album.id)}
+                          onShareQobuz={() => onAlbumShareQobuz?.(album.id)}
+                          onShareSonglink={() => onAlbumShareSonglink?.(album.id)}
+                          onDownload={() => onAlbumDownload?.(album.id)}
+                        />
+                      {/each}
+                    </div>
                   </div>
-                  <div class="artist-albums-footer">
-                    <p class="footer-hint">
-                      To view EPs, Singles, and Live albums,
-                      <button class="link-btn" onclick={() => onArtistClick?.(selectedFavoriteArtist!.id)}>
-                        go to {selectedFavoriteArtist.name}'s page
-                      </button>
-                    </p>
+                {/if}
+
+                <!-- EPs & Singles Section -->
+                {#if groupedArtistAlbumsByCategory.epsSingles.length > 0}
+                  <div class="artist-albums-section">
+                    <div class="artist-albums-section-header">
+                      <span class="section-title">EPs & Singles</span>
+                      <span class="section-count">{groupedArtistAlbumsByCategory.epsSingles.length}</span>
+                    </div>
+                    <div class="artist-albums-grid">
+                      {#each groupedArtistAlbumsByCategory.epsSingles as album (album.id)}
+                        <AlbumCard
+                          albumId={album.id}
+                          artwork={getQobuzImage(album.image)}
+                          title={album.title}
+                          artist={album.artist.name}
+                          genre={album.genre?.name}
+                          releaseDate={album.release_date_original}
+                          quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
+                          onclick={() => onAlbumClick?.(album.id)}
+                          onPlay={() => onAlbumPlay?.(album.id)}
+                          onPlayNext={() => onAlbumPlayNext?.(album.id)}
+                          onPlayLater={() => onAlbumPlayLater?.(album.id)}
+                          onShareQobuz={() => onAlbumShareQobuz?.(album.id)}
+                          onShareSonglink={() => onAlbumShareSonglink?.(album.id)}
+                          onDownload={() => onAlbumDownload?.(album.id)}
+                        />
+                      {/each}
+                    </div>
                   </div>
+                {/if}
+
+                <!-- Live Albums Section -->
+                {#if groupedArtistAlbumsByCategory.liveAlbums.length > 0}
+                  <div class="artist-albums-section">
+                    <div class="artist-albums-section-header">
+                      <span class="section-title">Live Albums</span>
+                      <span class="section-count">{groupedArtistAlbumsByCategory.liveAlbums.length}</span>
+                    </div>
+                    <div class="artist-albums-grid">
+                      {#each groupedArtistAlbumsByCategory.liveAlbums as album (album.id)}
+                        <AlbumCard
+                          albumId={album.id}
+                          artwork={getQobuzImage(album.image)}
+                          title={album.title}
+                          artist={album.artist.name}
+                          genre={album.genre?.name}
+                          releaseDate={album.release_date_original}
+                          quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
+                          onclick={() => onAlbumClick?.(album.id)}
+                          onPlay={() => onAlbumPlay?.(album.id)}
+                          onPlayNext={() => onAlbumPlayNext?.(album.id)}
+                          onPlayLater={() => onAlbumPlayLater?.(album.id)}
+                          onShareQobuz={() => onAlbumShareQobuz?.(album.id)}
+                          onShareSonglink={() => onAlbumShareSonglink?.(album.id)}
+                          onDownload={() => onAlbumDownload?.(album.id)}
+                        />
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Footer -->
+                <div class="artist-albums-footer">
+                  <p class="footer-hint">
+                    To view compilations and other content,
+                    <button class="link-btn" onclick={() => onArtistClick?.(selectedFavoriteArtist!.id)}>
+                      go to {selectedFavoriteArtist.name}'s page
+                    </button>
+                  </p>
                 </div>
-              {/if}
+              </div>
             {/if}
           </div>
         </div>
@@ -2825,27 +2918,6 @@
     padding: 0 8px 0 24px;
   }
 
-  .artist-albums-header {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--bg-tertiary);
-    margin-bottom: 16px;
-  }
-
-  .artist-albums-title {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .artist-albums-count {
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-
   .artist-albums-scroll {
     flex: 1;
     overflow-y: auto;
@@ -2854,6 +2926,35 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     contain: strict;
+  }
+
+  .artist-albums-section {
+    margin-bottom: 32px;
+  }
+
+  .artist-albums-section:last-of-type {
+    margin-bottom: 16px;
+  }
+
+  .artist-albums-section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--bg-tertiary);
+    margin-bottom: 16px;
+  }
+
+  .artist-albums-section-header .section-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .artist-albums-section-header .section-count {
+    font-size: 13px;
+    color: var(--text-muted);
   }
 
   .artist-albums-grid {
