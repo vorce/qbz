@@ -12,6 +12,7 @@
     value: string;        // Display name
     id: string;           // Device ID (for categorization)
     isDefault?: boolean;
+    sampleRates?: number[]; // Supported sample rates in Hz (e.g., 44100, 48000, 96000, 192000)
   }
 
   interface DeviceGroup {
@@ -93,6 +94,17 @@
 
     return groups;
   });
+
+  // Format sample rates for display (e.g., "44.1, 48, 96, 192 kHz")
+  function formatSampleRates(rates: number[] | undefined): string | null {
+    if (!rates || rates.length === 0) return null;
+    const formatted = rates.map(r => {
+      const kHz = r / 1000;
+      // Show decimal only for 44.1, 88.2, 176.4, 352.8
+      return kHz % 1 !== 0 ? kHz.toFixed(1) : kHz.toString();
+    });
+    return formatted.join(', ') + ' kHz';
+  }
 
   // Filtered groups based on search
   const filteredGroups = $derived.by(() => {
@@ -298,13 +310,20 @@
         <div class="group">
           <div class="group-header">{group.label}</div>
           {#each group.devices as device (device.value)}
+            {@const sampleRatesText = formatSampleRates(device.sampleRates)}
             <button
               class="option"
               class:selected={device.value === value}
+              class:has-subtitle={!!sampleRatesText}
               onclick={() => handleOptionClick(device)}
               title={device.id !== device.value ? `${device.value}\n${device.id}` : device.value}
             >
-              <span class="option-text">{device.value}</span>
+              <div class="option-content">
+                <span class="option-text">{device.value}</span>
+                {#if sampleRatesText}
+                  <span class="option-sample-rates">{sampleRatesText}</span>
+                {/if}
+              </div>
               {#if group.key === 'bitperfect'}
                 <span class="badge bit-perfect">BP</span>
               {/if}
@@ -451,8 +470,8 @@
 
   .option {
     width: 100%;
-    height: 36px;
-    padding: 0 12px;
+    min-height: 36px;
+    padding: 6px 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -464,14 +483,34 @@
     border: none;
     cursor: pointer;
     transition: background-color 150ms ease, color 150ms ease;
-    white-space: nowrap;
     flex-shrink: 0;
+  }
+
+  .option.has-subtitle {
+    min-height: 44px;
+    padding: 4px 12px;
+  }
+
+  .option-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
   }
 
   .option-text {
     overflow: hidden;
     text-overflow: ellipsis;
-    flex: 1;
+    white-space: nowrap;
+  }
+
+  .option-sample-rates {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .option:hover {

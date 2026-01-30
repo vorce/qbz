@@ -73,6 +73,7 @@ impl PipeWireBackend {
                         description: None,
                         is_default,
                         max_sample_rate: current_max_rate.take(),
+                        supported_sample_rates: None, // PipeWire handles sample rate conversion
                     });
                 }
                 current_max_rate = None;
@@ -102,6 +103,7 @@ impl PipeWireBackend {
                 description: None,
                 is_default,
                 max_sample_rate: current_max_rate,
+                supported_sample_rates: None, // PipeWire handles sample rate conversion
             });
         }
 

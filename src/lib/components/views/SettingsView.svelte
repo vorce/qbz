@@ -465,7 +465,7 @@
   // Device options for grouped dropdown (ALSA Direct only)
   let groupedDeviceOptions = $derived.by(() => {
     // System Default is always first
-    const options: { value: string; id: string; isDefault?: boolean }[] = [
+    const options: { value: string; id: string; isDefault?: boolean; sampleRates?: number[] }[] = [
       { value: 'System Default', id: 'system-default', isDefault: true }
     ];
 
@@ -488,7 +488,8 @@
       options.push({
         value: displayName,
         id: device.id,
-        isDefault: device.is_default
+        isDefault: device.is_default,
+        sampleRates: device.supported_sample_rates ?? undefined
       });
     });
 
@@ -1082,6 +1083,7 @@
     description: string | null;
     is_default: boolean;
     max_sample_rate: number | null;
+    supported_sample_rates: number[] | null;
   }
 
   interface AlsaPluginInfo {

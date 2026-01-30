@@ -80,6 +80,10 @@ pub struct AudioDevice {
 
     /// Maximum supported sample rate (if known)
     pub max_sample_rate: Option<u32>,
+
+    /// Supported sample rates (common audio rates that the device supports)
+    /// Contains values like 44100, 48000, 88200, 96000, 176400, 192000, etc.
+    pub supported_sample_rates: Option<Vec<u32>>,
 }
 
 /// Audio backend configuration

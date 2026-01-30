@@ -17,6 +17,49 @@ use rodio::{
 };
 use std::process::Command;
 
+/// Common audio sample rates to check for device support
+const COMMON_SAMPLE_RATES: &[u32] = &[
+    44100,  // CD quality
+    48000,  // DVD/DAT quality
+    88200,  // 2x CD
+    96000,  // DVD-Audio
+    176400, // 4x CD
+    192000, // High-res audio
+    352800, // DSD64 equivalent
+    384000, // Ultra high-res
+];
+
+/// Extract supported sample rates from a CPAL device
+fn get_supported_sample_rates(device: &rodio::cpal::Device) -> Option<Vec<u32>> {
+    use rodio::cpal::traits::DeviceTrait;
+
+    let configs = device.supported_output_configs().ok()?;
+    let configs_vec: Vec<_> = configs.collect();
+
+    if configs_vec.is_empty() {
+        return None;
+    }
+
+    let mut supported = Vec::new();
+
+    for rate in COMMON_SAMPLE_RATES {
+        let sample_rate = rodio::cpal::SampleRate(*rate);
+        // Check if any config supports this rate
+        let is_supported = configs_vec.iter().any(|config| {
+            sample_rate >= config.min_sample_rate() && sample_rate <= config.max_sample_rate()
+        });
+        if is_supported {
+            supported.push(*rate);
+        }
+    }
+
+    if supported.is_empty() {
+        None
+    } else {
+        Some(supported)
+    }
+}
+
 pub struct AlsaBackend {
     host: rodio::cpal::Host,
 }
@@ -151,7 +194,7 @@ impl AlsaBackend {
             if !can_open {
                 // Try to get supported configs to validate device exists
                 // Create a test device to check if it's valid
-                if let Ok(test_devices) = self.host.output_devices() {
+                if let Ok(_test_devices) = self.host.output_devices() {
                     // CPAL may not enumerate hw: devices but can still open them
                     // We'll add them anyway and let the backend handle errors
                     devices.push(AudioDevice {
@@ -160,26 +203,30 @@ impl AlsaBackend {
                         description: Some(format!("{} (Direct Hardware - Bit-perfect)", card_desc)),
                         is_default: false,
                         max_sample_rate: Some(384000), // Assume high sample rate capability
+                        supported_sample_rates: None, // Can't detect without CPAL access
                     });
                 }
             } else {
-                // CPAL found it, get real max sample rate
-                let max_sample_rate = self.host
+                // CPAL found it, get real sample rate info
+                let cpal_device = self.host
                     .output_devices()
                     .ok()
                     .and_then(|mut devs| {
                         devs.find(|d| d.name().ok().as_deref() == Some(&hw_device_id))
-                    })
-                    .and_then(|device| {
-                        device
-                            .supported_output_configs()
-                            .ok()
-                            .and_then(|mut configs| {
-                                configs
-                                    .max_by_key(|c| c.max_sample_rate().0)
-                                    .map(|c| c.max_sample_rate().0)
-                            })
                     });
+
+                let max_sample_rate = cpal_device.as_ref().and_then(|device| {
+                    device
+                        .supported_output_configs()
+                        .ok()
+                        .and_then(|mut configs| {
+                            configs
+                                .max_by_key(|c| c.max_sample_rate().0)
+                                .map(|c| c.max_sample_rate().0)
+                        })
+                });
+
+                let supported_sample_rates = cpal_device.as_ref().and_then(get_supported_sample_rates);
 
                 devices.push(AudioDevice {
                     id: hw_device_id.clone(),
@@ -187,6 +234,7 @@ impl AlsaBackend {
                     description: Some(format!("{} (Direct Hardware - Bit-perfect)", card_desc)),
                     is_default: false,
                     max_sample_rate,
+                    supported_sample_rates,
                 });
             }
 
@@ -198,6 +246,7 @@ impl AlsaBackend {
                 description: Some(format!("{} (Plugin Hardware)", card_desc)),
                 is_default: false,
                 max_sample_rate: Some(384000),
+                supported_sample_rates: None, // plughw can convert, so all rates are "supported"
             });
         }
 
@@ -267,12 +316,16 @@ impl AlsaBackend {
                         .map(|c| c.max_sample_rate().0)
                 });
 
+            // Get supported sample rates
+            let supported_sample_rates = get_supported_sample_rates(&device);
+
             devices.push(AudioDevice {
                 id: id.clone(),
                 name: name.clone(),
                 description: None,  // CPAL doesn't provide descriptions
                 is_default,
                 max_sample_rate,
+                supported_sample_rates,
             });
         }
 
