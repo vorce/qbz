@@ -3,6 +3,7 @@
   import AlbumMenu from '../AlbumMenu.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
+  import ViewTransition from '../ViewTransition.svelte';
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
   import { invoke } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
@@ -205,6 +206,7 @@
   );
 
   let loading = $state(true);
+  let spinnerFading = $state(false);
   let error = $state<string | null>(null);
   let scrollContainer: HTMLDivElement | null = $state(null);
 
@@ -499,7 +501,11 @@
       console.error('Failed to load playlist:', err);
       error = String(err);
     } finally {
-      loading = false;
+      spinnerFading = true;
+      setTimeout(() => {
+        loading = false;
+        spinnerFading = false;
+      }, 200);
     }
   }
 
@@ -1402,6 +1408,7 @@
   }
 </script>
 
+<ViewTransition duration={200} distance={12} direction="down">
 <div class="playlist-detail" bind:this={scrollContainer}>
   <!-- Navigation Row -->
   <div class="nav-row">
@@ -1417,7 +1424,7 @@
   </div>
 
   {#if loading}
-    <div class="loading">
+    <div class="loading" class:fading={spinnerFading}>
       <div class="spinner"></div>
       <p>Loading playlist...</p>
     </div>
@@ -1428,6 +1435,7 @@
       <button class="retry-btn" onclick={loadPlaylist}>Retry</button>
     </div>
   {:else if playlist}
+    <ViewTransition duration={200} distance={12} direction="up">
     <!-- Playlist Header -->
     <div class="playlist-header">
       <!-- Playlist Artwork - Collage or Custom -->
@@ -1736,9 +1744,10 @@
         showReasons={false}
       />
     {/if}
-
+    </ViewTransition>
   {/if}
 </div>
+</ViewTransition>
 
 <!-- Edit Playlist Modal -->
 {#if playlist}
@@ -1833,6 +1842,15 @@
     justify-content: center;
     padding: 64px;
     color: var(--text-muted);
+  }
+
+  .loading {
+    opacity: 1;
+    transition: opacity 200ms ease-out;
+  }
+
+  .loading.fading {
+    opacity: 0;
   }
 
   .spinner {

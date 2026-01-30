@@ -4,6 +4,7 @@
   import { ArrowLeft, Filter, ArrowUpDown, LayoutGrid, List, GripVertical, EyeOff, Eye, BarChart2, Play, Pencil, Search, X, Cloud, CloudOff, Wifi, Heart, Folder, FolderPlus, ChevronRight, ChevronDown, ChevronUp, Trash2, Star, Music, Disc, Library, Info } from 'lucide-svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
+  import ViewTransition from '../ViewTransition.svelte';
   import FolderEditModal from '../FolderEditModal.svelte';
   import { t } from '$lib/i18n';
   import {
@@ -76,6 +77,7 @@
   let localTrackCounts = $state<Map<number, number>>(new Map());
   let pendingPlaylistsMap = $state<Map<number, import('$lib/stores/offlineStore').PendingPlaylist>>(new Map());
   let loading = $state(true);
+  let spinnerFading = $state(false);
 
   // Offline state
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
@@ -447,7 +449,11 @@
     } catch (err) {
       console.error('Failed to load playlists:', err);
     } finally {
-      loading = false;
+      spinnerFading = true;
+      setTimeout(() => {
+        loading = false;
+        spinnerFading = false;
+      }, 200);
     }
   }
 
@@ -750,6 +756,7 @@
   }
 </script>
 
+<ViewTransition duration={200} distance={12} direction="down">
 <div class="playlist-manager">
   <!-- Header -->
   <div class="header">
@@ -920,11 +927,12 @@
 
   <!-- Content -->
   {#if loading}
-    <div class="loading">
+    <div class="loading" class:fading={spinnerFading}>
       <div class="spinner"></div>
       <p>Loading playlists...</p>
     </div>
   {:else}
+    <ViewTransition duration={200} distance={12} direction="up">
     <!-- Folders Section (only at root level) -->
     {#if !currentFolderId && folders.length > 0}
       <div class="folders-section">
@@ -1288,8 +1296,10 @@
     </div>
       {/if}
     {/if}
+    </ViewTransition>
   {/if}
 </div>
+</ViewTransition>
 
 <!-- Folder Modal -->
 <FolderEditModal
@@ -1899,6 +1909,15 @@
     justify-content: center;
     padding: 48px;
     color: var(--text-muted);
+  }
+
+  .loading {
+    opacity: 1;
+    transition: opacity 200ms ease-out;
+  }
+
+  .loading.fading {
+    opacity: 0;
   }
 
   .spinner {
