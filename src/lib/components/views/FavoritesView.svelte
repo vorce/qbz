@@ -290,6 +290,78 @@
     groupedArtistAlbumsByCategory.liveAlbums.length
   );
 
+  // Sorting for album sections in browse view
+  type AlbumSortMode = 'default' | 'newest' | 'oldest' | 'title-asc' | 'title-desc';
+  let discographySortMode = $state<AlbumSortMode>('default');
+  let epsSinglesSortMode = $state<AlbumSortMode>('default');
+  let liveAlbumsSortMode = $state<AlbumSortMode>('default');
+  let showDiscographySortMenu = $state(false);
+  let showEpsSinglesSortMenu = $state(false);
+  let showLiveAlbumsSortMenu = $state(false);
+
+  function sortQobuzAlbums(albums: QobuzAlbum[], mode: AlbumSortMode): QobuzAlbum[] {
+    if (mode === 'default') return albums;
+    return [...albums].sort((a, b) => {
+      switch (mode) {
+        case 'newest': {
+          const dateA = a.release_date_original || '0000';
+          const dateB = b.release_date_original || '0000';
+          return dateB.localeCompare(dateA);
+        }
+        case 'oldest': {
+          const dateA = a.release_date_original || '9999';
+          const dateB = b.release_date_original || '9999';
+          return dateA.localeCompare(dateB);
+        }
+        case 'title-asc':
+          return a.title.localeCompare(b.title);
+        case 'title-desc':
+          return b.title.localeCompare(a.title);
+        default:
+          return 0;
+      }
+    });
+  }
+
+  const sortedDiscography = $derived(sortQobuzAlbums(groupedArtistAlbumsByCategory.discography, discographySortMode));
+  const sortedEpsSingles = $derived(sortQobuzAlbums(groupedArtistAlbumsByCategory.epsSingles, epsSinglesSortMode));
+  const sortedLiveAlbums = $derived(sortQobuzAlbums(groupedArtistAlbumsByCategory.liveAlbums, liveAlbumsSortMode));
+
+  function getSortLabel(mode: AlbumSortMode): string {
+    switch (mode) {
+      case 'default': return 'Default';
+      case 'newest': return 'Newest';
+      case 'oldest': return 'Oldest';
+      case 'title-asc': return 'A-Z';
+      case 'title-desc': return 'Z-A';
+    }
+  }
+
+  // Ticker animation for long artist names in sidepanel
+  let hoveredArtistId = $state<number | null>(null);
+  let artistNameOverflows = $state<Map<number, number>>(new Map());
+  const tickerSpeed = 40; // px per second
+
+  function measureArtistNameOverflow(artistId: number, element: HTMLElement | null) {
+    if (!element) return;
+    const textSpan = element.querySelector('.artist-name-text') as HTMLElement | null;
+    if (!textSpan) return;
+    const overflow = textSpan.scrollWidth - element.clientWidth;
+    if (overflow > 0) {
+      artistNameOverflows.set(artistId, overflow);
+    } else {
+      artistNameOverflows.delete(artistId);
+    }
+  }
+
+  function getArtistNameTickerStyle(artistId: number): string {
+    if (hoveredArtistId !== artistId) return '';
+    const overflow = artistNameOverflows.get(artistId);
+    if (!overflow || overflow <= 0) return '';
+    const duration = (overflow + 16) / tickerSpeed;
+    return `--ticker-offset: -${overflow + 16}px; --ticker-duration: ${duration}s;`;
+  }
+
   let showTracksContextMenu = $state(false);
   function resolveCustomIconSrc(path: string | null): string | null {
     if (!path) return null;
@@ -1652,10 +1724,18 @@
               {#each groupedArtistsSidepanel as group (group.id)}
                 <div class="artist-list-group-header" id={group.id}>{group.key}</div>
                 {#each group.artists as artist (artist.id)}
+                  {@const hasOverflow = artistNameOverflows.has(artist.id)}
+                  {@const isHovered = hoveredArtistId === artist.id}
                   <button
                     class="artist-list-item"
                     class:selected={selectedFavoriteArtist?.id === artist.id}
                     onclick={() => handleArtistSelect(artist)}
+                    onmouseenter={(e) => {
+                      hoveredArtistId = artist.id;
+                      const info = (e.currentTarget as HTMLElement).querySelector('.artist-list-name');
+                      measureArtistNameOverflow(artist.id, info as HTMLElement);
+                    }}
+                    onmouseleave={() => { hoveredArtistId = null; }}
                   >
                     <div class="artist-list-image">
                       {#if artist.image?.thumbnail || artist.image?.small}
@@ -1667,7 +1747,13 @@
                       {/if}
                     </div>
                     <div class="artist-list-info">
-                      <div class="artist-list-name">{artist.name}</div>
+                      <div
+                        class="artist-list-name"
+                        class:scrollable={hasOverflow}
+                        style={getArtistNameTickerStyle(artist.id)}
+                      >
+                        <span class="artist-name-text" class:animating={isHovered && hasOverflow}>{artist.name}</span>
+                      </div>
                       {#if artist.albums_count}
                         <div class="artist-list-meta">{artist.albums_count} albums</div>
                       {/if}
@@ -1703,14 +1789,36 @@
             {:else}
               <div class="artist-albums-scroll">
                 <!-- Discography Section -->
-                {#if groupedArtistAlbumsByCategory.discography.length > 0}
+                {#if sortedDiscography.length > 0}
                   <div class="artist-albums-section">
                     <div class="artist-albums-section-header">
                       <span class="section-title">Discography</span>
-                      <span class="section-count">{groupedArtistAlbumsByCategory.discography.length} albums</span>
+                      <span class="section-count">{sortedDiscography.length} albums</span>
+                      <div class="section-sort-wrapper">
+                        <button
+                          class="section-sort-btn"
+                          onclick={() => { showDiscographySortMenu = !showDiscographySortMenu; }}
+                        >
+                          {getSortLabel(discographySortMode)}
+                          <ChevronDown size={14} />
+                        </button>
+                        {#if showDiscographySortMenu}
+                          <div class="section-sort-menu" role="menu">
+                            {#each (['default', 'newest', 'oldest', 'title-asc', 'title-desc'] as const) as mode}
+                              <button
+                                class="section-sort-option"
+                                class:selected={discographySortMode === mode}
+                                onclick={() => { discographySortMode = mode; showDiscographySortMenu = false; }}
+                              >
+                                {getSortLabel(mode)}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
                     </div>
                     <div class="artist-albums-grid">
-                      {#each groupedArtistAlbumsByCategory.discography as album (album.id)}
+                      {#each sortedDiscography as album (album.id)}
                         <AlbumCard
                           albumId={album.id}
                           artwork={getQobuzImage(album.image)}
@@ -1733,14 +1841,36 @@
                 {/if}
 
                 <!-- EPs & Singles Section -->
-                {#if groupedArtistAlbumsByCategory.epsSingles.length > 0}
+                {#if sortedEpsSingles.length > 0}
                   <div class="artist-albums-section">
                     <div class="artist-albums-section-header">
                       <span class="section-title">EPs & Singles</span>
-                      <span class="section-count">{groupedArtistAlbumsByCategory.epsSingles.length}</span>
+                      <span class="section-count">{sortedEpsSingles.length}</span>
+                      <div class="section-sort-wrapper">
+                        <button
+                          class="section-sort-btn"
+                          onclick={() => { showEpsSinglesSortMenu = !showEpsSinglesSortMenu; }}
+                        >
+                          {getSortLabel(epsSinglesSortMode)}
+                          <ChevronDown size={14} />
+                        </button>
+                        {#if showEpsSinglesSortMenu}
+                          <div class="section-sort-menu" role="menu">
+                            {#each (['default', 'newest', 'oldest', 'title-asc', 'title-desc'] as const) as mode}
+                              <button
+                                class="section-sort-option"
+                                class:selected={epsSinglesSortMode === mode}
+                                onclick={() => { epsSinglesSortMode = mode; showEpsSinglesSortMenu = false; }}
+                              >
+                                {getSortLabel(mode)}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
                     </div>
                     <div class="artist-albums-grid">
-                      {#each groupedArtistAlbumsByCategory.epsSingles as album (album.id)}
+                      {#each sortedEpsSingles as album (album.id)}
                         <AlbumCard
                           albumId={album.id}
                           artwork={getQobuzImage(album.image)}
@@ -1763,14 +1893,36 @@
                 {/if}
 
                 <!-- Live Albums Section -->
-                {#if groupedArtistAlbumsByCategory.liveAlbums.length > 0}
+                {#if sortedLiveAlbums.length > 0}
                   <div class="artist-albums-section">
                     <div class="artist-albums-section-header">
                       <span class="section-title">Live Albums</span>
-                      <span class="section-count">{groupedArtistAlbumsByCategory.liveAlbums.length}</span>
+                      <span class="section-count">{sortedLiveAlbums.length}</span>
+                      <div class="section-sort-wrapper">
+                        <button
+                          class="section-sort-btn"
+                          onclick={() => { showLiveAlbumsSortMenu = !showLiveAlbumsSortMenu; }}
+                        >
+                          {getSortLabel(liveAlbumsSortMode)}
+                          <ChevronDown size={14} />
+                        </button>
+                        {#if showLiveAlbumsSortMenu}
+                          <div class="section-sort-menu" role="menu">
+                            {#each (['default', 'newest', 'oldest', 'title-asc', 'title-desc'] as const) as mode}
+                              <button
+                                class="section-sort-option"
+                                class:selected={liveAlbumsSortMode === mode}
+                                onclick={() => { liveAlbumsSortMode = mode; showLiveAlbumsSortMenu = false; }}
+                              >
+                                {getSortLabel(mode)}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
                     </div>
                     <div class="artist-albums-grid">
-                      {#each groupedArtistAlbumsByCategory.liveAlbums as album (album.id)}
+                      {#each sortedLiveAlbums as album (album.id)}
                         <AlbumCard
                           albumId={album.id}
                           artwork={getQobuzImage(album.image)}
@@ -2903,6 +3055,24 @@
     white-space: nowrap;
   }
 
+  .artist-list-name.scrollable {
+    text-overflow: clip;
+  }
+
+  .artist-list-name .artist-name-text {
+    display: inline-block;
+  }
+
+  .artist-list-name .artist-name-text.animating {
+    animation: artist-name-ticker var(--ticker-duration, 0s) linear infinite;
+  }
+
+  @keyframes artist-name-ticker {
+    0%, 20% { transform: translateX(0); }
+    70%, 80% { transform: translateX(var(--ticker-offset, 0)); }
+    90%, 100% { transform: translateX(0); }
+  }
+
   .artist-list-meta {
     font-size: 12px;
     color: var(--text-muted);
@@ -2955,6 +3125,68 @@
   .artist-albums-section-header .section-count {
     font-size: 13px;
     color: var(--text-muted);
+  }
+
+  .section-sort-wrapper {
+    position: relative;
+    margin-left: auto;
+  }
+
+  .section-sort-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .section-sort-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .section-sort-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    min-width: 120px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 4px;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .section-sort-option {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .section-sort-option:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .section-sort-option.selected {
+    color: var(--accent);
+    font-weight: 500;
   }
 
   .artist-albums-grid {
