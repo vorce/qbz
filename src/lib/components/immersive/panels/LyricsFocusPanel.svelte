@@ -51,7 +51,7 @@
     {/key}
   {:else if hasLyrics}
     <div class="lyrics-state">
-      <span class="waiting-text">{$t('player.waitingForLyrics') || '♪'}</span>
+      <span class="waiting-text">♪</span>
     </div>
   {:else}
     <div class="lyrics-state">
