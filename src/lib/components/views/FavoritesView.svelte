@@ -1014,7 +1014,7 @@
 </script>
 
 <ViewTransition duration={200} distance={12} direction="down">
-<div class="favorites-view" class:no-outer-scroll={activeTab === 'tracks' && !loading && filteredTracks.length > 0} bind:this={scrollContainer}>
+<div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'artists' && artistViewMode === 'sidepanel')} bind:this={scrollContainer}>
   <!-- Header -->
   <div class="header">
     <div
@@ -1866,6 +1866,23 @@
 
   .favorites-view.no-outer-scroll {
     overflow: hidden;
+    padding-bottom: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .favorites-view.no-outer-scroll .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .favorites-view.no-outer-scroll .content > :global(.view-transition) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
   .header {
@@ -2700,19 +2717,19 @@
     gap: 0;
     flex: 1;
     min-height: 0;
-    margin: 0 -32px; /* Negative margins to extend to edges */
+    margin: 0 -8px 0 -18px; /* Negative margins to extend to edges (match parent padding) */
     padding: 0;
   }
 
   .artist-column {
-    width: 280px;
+    width: 240px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     background: transparent;
     border-right: 1px solid var(--bg-tertiary);
     overflow: hidden;
-    padding-left: 32px;
+    padding-left: 18px;
   }
 
   .artist-column-header {
@@ -2817,7 +2834,7 @@
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
-    padding: 0 32px 0 24px;
+    padding: 0 8px 0 24px;
   }
 
   .artist-albums-header {
