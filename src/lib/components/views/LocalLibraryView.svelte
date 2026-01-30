@@ -3044,13 +3044,14 @@
             <!-- Quality/Format Filter -->
             <div class="dropdown-container" bind:this={filterPanelRef}>
               <button
-                class="control-btn"
+                class="control-btn icon-only"
                 class:active={hasActiveFilters}
                 onclick={() => (showFilterPanel = !showFilterPanel)}
                 title="Filter by quality/format"
               >
-                <SlidersHorizontal size={14} />
-                <span>Filter</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M4.22657 2C2.50087 2 1.58526 4.03892 2.73175 5.32873L8.99972 12.3802V19C8.99972 19.3788 9.21373 19.725 9.55251 19.8944L13.5525 21.8944C13.8625 22.0494 14.2306 22.0329 14.5255 21.8507C14.8203 21.6684 14.9997 21.3466 14.9997 21V12.3802L21.2677 5.32873C22.4142 4.03893 21.4986 2 19.7729 2H4.22657Z"/>
+                </svg>
                 {#if activeFilterCount > 0}
                   <span class="filter-badge">{activeFilterCount}</span>
                 {/if}
@@ -3135,7 +3136,7 @@
 
                   <div class="filter-section">
                     <div class="filter-section-label">Source</div>
-                    <div class="filter-checkboxes">
+                    <div class="filter-checkboxes source-row">
                       <label class="filter-checkbox">
                         <input type="checkbox" bind:checked={filterLocalFiles} />
                         <span class="checkmark"></span>
@@ -3157,14 +3158,11 @@
             <!-- Sort dropdown -->
             <div class="dropdown-container">
               <button
-                class="control-btn sort-btn"
+                class="control-btn icon-only"
                 onclick={() => (showSortMenu = !showSortMenu)}
                 title="Sort albums"
               >
                 <ArrowUpDown size={14} />
-                <span>{getSortLabel()}</span>
-                <span class="sort-direction">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                <ChevronDown size={12} class="chevron" />
               </button>
               {#if showSortMenu}
                 <div class="sort-menu">
@@ -4483,16 +4481,20 @@
     border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: 12px;
-    min-width: 240px;
+    min-width: 420px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     z-index: 20;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
   }
 
   .filter-panel-header {
+    grid-column: 1 / -1;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 12px;
+    margin-bottom: 4px;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--border-subtle);
   }
@@ -4519,11 +4521,11 @@
   }
 
   .filter-section {
-    margin-bottom: 12px;
+    margin-bottom: 0;
   }
 
   .filter-section:last-child {
-    margin-bottom: 0;
+    grid-column: 1 / -1;
   }
 
   .filter-section-label {
@@ -4545,6 +4547,11 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 6px 12px;
+  }
+
+  .filter-checkboxes.source-row {
+    flex-direction: row;
+    gap: 12px;
   }
 
   .filter-checkbox {
