@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ChevronRight, ChevronUp, ImagePlus, Edit3, BarChart2, Heart, CloudDownload, ListPlus, GripVertical, AlertCircle } from 'lucide-svelte';
+  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ChevronRight, ChevronUp, ImagePlus, Edit3, BarChart2, Heart, CloudDownload, ListPlus, GripVertical } from 'lucide-svelte';
   import AlbumMenu from '../AlbumMenu.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
@@ -17,6 +17,7 @@
     type OfflineStatus
   } from '$lib/stores/offlineStore';
   import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
+  import { isTrackUnavailable, subscribe as subscribeUnavailable } from '$lib/stores/unavailableTracksStore';
   import { t } from '$lib/i18n';
   import { onMount, tick } from 'svelte';
 
@@ -216,6 +217,9 @@
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
   let tracksWithLocalCopies = $state<Set<number>>(new Set());
 
+  // Track unavailable state version (increments to force re-render)
+  let unavailableVersion = $state(0);
+
   // Local settings state
   let searchQuery = $state('');
   let sortBy = $state<SortField>('default');
@@ -287,14 +291,23 @@
       console.warn('Failed to get current user ID:', err);
     });
 
-    const unsubscribe = subscribeOffline(() => {
+    const unsubscribeOffline = subscribeOffline(() => {
       offlineStatus = getOfflineStatus();
       // Re-check local copies when offline status changes
       if (offlineStatus.isOffline && tracks.length > 0) {
         checkTracksLocalStatus();
       }
     });
-    return unsubscribe;
+
+    // Subscribe to unavailable tracks store
+    const unsubscribeUnavailable = subscribeUnavailable(() => {
+      unavailableVersion++;
+    });
+
+    return () => {
+      unsubscribeOffline();
+      unsubscribeUnavailable();
+    };
   });
 
   // Check if this playlist was already copied when playlistId changes
@@ -310,10 +323,15 @@
     }
   });
 
-  // Check if a track was removed from Qobuz (streamable: false)
+  // Check if a track was removed from Qobuz (streamable: false or marked in unavailable store)
   function isTrackRemovedFromQobuz(track: DisplayTrack): boolean {
     if (track.isLocal) return false;
-    return track.streamable === false;
+    // Check API streamable flag
+    if (track.streamable === false) return true;
+    // Check local unavailable store (marked during playback errors)
+    // Reference unavailableVersion to trigger reactivity
+    void unavailableVersion;
+    return isTrackUnavailable(track.id);
   }
 
   // Check if a track is available (has local copy when offline, always available when online, unless removed from Qobuz)
@@ -1665,18 +1683,6 @@
           ondragend={handleDragEnd}
           ondrop={(e) => handleDrop(e, idx)}
         >
-          {#if removedFromQobuz}
-            <button
-              class="unavailable-indicator"
-              title={$t('player.trackUnavailable')}
-              onclick={(e) => {
-                e.stopPropagation();
-                // Show a simple alert or tooltip - for now just prevent propagation
-              }}
-            >
-              <AlertCircle size={16} />
-            </button>
-          {/if}
           {#if isCustomOrderMode}
             {@const trackKey = getTrackKey(track)}
             <label class="track-checkbox" onclick={(e) => e.stopPropagation()}>
@@ -1722,6 +1728,8 @@
                 : '-'}
             isPlaying={isTrackPlaying}
             isLocal={track.isLocal}
+            isUnavailable={removedFromQobuz && isOwnPlaylist}
+            unavailableTooltip={removedFromQobuz ? $t('player.trackUnavailable') : undefined}
             hideFavorite={track.isLocal || removedFromQobuz}
             hideDownload={track.isLocal || removedFromQobuz}
             downloadStatus={downloadInfo.status}
@@ -1729,10 +1737,10 @@
             onPlay={available ? () => handleTrackClick(track, idx) : undefined}
             onDownload={available && !track.isLocal && onTrackDownload ? () => onTrackDownload(track) : undefined}
             onRemoveDownload={available && !track.isLocal && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
-            menuActions={removedFromQobuz ? {
-              // Only allow remove from playlist for tracks removed from Qobuz
+            menuActions={removedFromQobuz ? (isOwnPlaylist ? {
+              // Only allow remove from playlist for tracks removed from Qobuz (owned playlists only)
               onRemoveFromPlaylist: () => removeTrackFromPlaylist(track)
-            } : available ? {
+            } : {}) : available ? {
               onPlayNow: () => handleTrackClick(track, idx),
               onPlayNext: track.isLocal ? () => handleTrackPlayNext(track) : (onTrackPlayNext ? () => onTrackPlayNext(track) : undefined),
               onPlayLater: track.isLocal ? () => handleTrackPlayLater(track) : (onTrackPlayLater ? () => onTrackPlayLater(track) : undefined),
@@ -2358,27 +2366,6 @@
   .track-row-wrapper.removed-from-qobuz :global(.track-row .track-number),
   .track-row-wrapper.removed-from-qobuz :global(.track-row .play-button) {
     pointer-events: none;
-  }
-
-  /* Red info indicator for unavailable tracks */
-  .unavailable-indicator {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin-right: 8px;
-    background: none;
-    border: none;
-    color: var(--error-color, #ef4444);
-    cursor: help;
-    flex-shrink: 0;
-    border-radius: 4px;
-    transition: background 0.15s ease;
-  }
-
-  .unavailable-indicator:hover {
-    background: var(--bg-hover, rgba(255, 255, 255, 0.1));
   }
 
   /* Custom order mode */

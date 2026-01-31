@@ -26,6 +26,7 @@ import {
   type PlayingTrack
 } from '$lib/stores/playerStore';
 import { syncQueueState, nextTrack } from '$lib/stores/queueStore';
+import { markTrackUnavailable } from '$lib/stores/unavailableTracksStore';
 import { logRecoEvent } from '$lib/services/recoService';
 import {
   isCasting,
@@ -203,6 +204,8 @@ export async function playTrack(
     // Check if track is unavailable on Qobuz
     const errorStr = String(err);
     if (errorStr.includes('no longer available') || errorStr.includes('TrackUnavailable')) {
+      // Mark track as unavailable for future reference
+      markTrackUnavailable(track.id);
       showToast(`"${track.title}" is no longer available`, 'error');
 
       // Auto-skip to next track

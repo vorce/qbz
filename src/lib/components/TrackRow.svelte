@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Play, Pause, Heart, HardDrive } from 'lucide-svelte';
+  import { Play, Pause, Heart, HardDrive, AlertCircle } from 'lucide-svelte';
   import TrackMenu from './TrackMenu.svelte';
   import DownloadButton from './DownloadButton.svelte';
   import {
@@ -24,6 +24,8 @@
     quality?: string;
     isPlaying?: boolean;
     isLocal?: boolean; // Whether this is a local library track
+    isUnavailable?: boolean; // Track removed from Qobuz or otherwise unavailable
+    unavailableTooltip?: string; // Tooltip for unavailable indicator
     isFavoriteOverride?: boolean; // Optional override for favorite state
     downloadStatus?: OfflineCacheStatus;
     downloadProgress?: number;
@@ -67,6 +69,8 @@
     quality,
     isPlaying = false,
     isLocal = false,
+    isUnavailable = false,
+    unavailableTooltip,
     isFavoriteOverride,
     downloadStatus = 'none',
     downloadProgress = 0,
@@ -141,9 +145,13 @@
   tabindex="0"
   onkeydown={(e) => e.key === 'Enter' && onPlay?.()}
 >
-  <!-- Track Number / Play Button -->
-  <div class="track-number">
-    {#if isPlaying}
+  <!-- Track Number / Play Button / Unavailable Indicator -->
+  <div class="track-number" class:unavailable={isUnavailable}>
+    {#if isUnavailable}
+      <span class="unavailable-icon" title={unavailableTooltip}>
+        <AlertCircle size={16} />
+      </span>
+    {:else if isPlaying}
       {#if isHovered}
         <button class="pause-btn" type="button" onclick={handlePauseClick} aria-label="Pause">
           <Pause size={16} class="pause-icon" />
@@ -308,6 +316,18 @@
   .track-number span {
     font-size: 14px;
     color: #666666;
+  }
+
+  .track-number.unavailable {
+    color: var(--error-color, #ef4444);
+  }
+
+  .unavailable-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--error-color, #ef4444);
+    cursor: help;
   }
 
   .track-number :global(.play-icon) {
