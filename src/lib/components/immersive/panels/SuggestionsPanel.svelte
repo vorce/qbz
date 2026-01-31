@@ -128,7 +128,7 @@
   }
 
   // Get unique artwork URLs for radio collage (from recommended tracks)
-  const radioCollageImages = $derived(() => {
+  const radioCollageImages = $derived.by(() => {
     const images: string[] = [];
     if (currentArtwork) images.push(currentArtwork);
     for (const track of recommendedTracks) {
@@ -223,6 +223,9 @@
             disabled={loadingRadio}
             title={$t('player.radioExperimental') || 'Song Radio - Experimental QBZ feature'}
           >
+            <div class="card-info" title={$t('player.radioExperimentalTooltip') || 'Radio is an experimental QBZ feature that generates a playlist based on the current track.'}>
+              <AlertCircle size={14} />
+            </div>
             <div class="card-badge qbz">
               <img src="/qbz-logo.svg" alt="QBZ" class="badge-icon qbz-icon" />
             </div>
@@ -232,17 +235,16 @@
                   <Loader2 size={32} class="spinner" />
                 </div>
               {:else}
-                {@const images = radioCollageImages()}
-                {#if images.length >= 4}
+                {#if radioCollageImages.length >= 4}
                   <!-- Diamond/rotated collage layout -->
                   <div class="collage-diamond">
-                    <img src={images[0]} alt="" class="diamond-img top" />
-                    <img src={images[1]} alt="" class="diamond-img left" />
-                    <img src={images[2]} alt="" class="diamond-img right" />
-                    <img src={images[3]} alt="" class="diamond-img bottom" />
+                    <img src={radioCollageImages[0]} alt="" class="diamond-img top" />
+                    <img src={radioCollageImages[1]} alt="" class="diamond-img left" />
+                    <img src={radioCollageImages[2]} alt="" class="diamond-img right" />
+                    <img src={radioCollageImages[3]} alt="" class="diamond-img bottom" />
                   </div>
-                {:else if images.length > 0}
-                  <img src={images[0]} alt="" class="collage-single" />
+                {:else if radioCollageImages.length > 0}
+                  <img src={radioCollageImages[0]} alt="" class="collage-single" />
                   <div class="collage-radio-overlay">
                     <Radio size={24} />
                   </div>
@@ -260,8 +262,8 @@
                 {$t('player.basedOnTrack') || 'Based on this track'}
               </span>
             </div>
-            <div class="card-info" title={$t('player.radioExperimentalTooltip') || 'Radio is an experimental QBZ feature that generates a playlist based on the current track.'}>
-              <AlertCircle size={14} />
+            <div class="card-play">
+              <Play size={16} fill="currentColor" />
             </div>
           </button>
         {/if}
@@ -402,24 +404,17 @@
     justify-content: center;
     font-size: 10px;
     font-weight: 700;
-  }
-
-  .card-badge.qobuz {
-    background: #1a1a2e;
-  }
-
-  .card-badge.qbz {
-    background: var(--accent-primary, #7c3aed);
+    z-index: 2;
   }
 
   .badge-icon {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
   }
 
-  .qbz-logo {
-    color: white;
-    font-weight: 800;
+  .qbz-icon {
+    width: 20px;
+    height: 20px;
   }
 
   .card-image {
@@ -488,21 +483,15 @@
 
   .card-info {
     position: absolute;
-    bottom: 12px;
-    right: 12px;
-    color: var(--alpha-40, rgba(255, 255, 255, 0.4));
+    top: 8px;
+    left: 8px;
+    color: var(--alpha-50, rgba(255, 255, 255, 0.5));
     cursor: help;
+    z-index: 2;
   }
 
   .card-info:hover {
-    color: var(--alpha-70, rgba(255, 255, 255, 0.7));
-  }
-
-  /* QBZ Badge Icon */
-  .qbz-icon {
-    width: 16px;
-    height: 16px;
-    border-radius: 2px;
+    color: var(--alpha-80, rgba(255, 255, 255, 0.8));
   }
 
   /* Radio Collage */
