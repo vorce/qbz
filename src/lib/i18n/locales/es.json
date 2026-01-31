@@ -203,7 +203,11 @@
     "replaceTrack": "Reemplazar Pista",
     "lookForAvailableVersion": "Buscar versión disponible",
     "trackReplaced": "Pista reemplazada exitosamente",
-    "trackReplaceFailed": "Error al reemplazar pista"
+    "trackReplaceFailed": "Error al reemplazar pista",
+    "searchButton": "Buscar",
+    "cancel": "Cancelar",
+    "loading": "Buscando...",
+    "preview": "Vista previa"
   },
   "sort": {
     "nameAZ": "Nombre (A-Z)",

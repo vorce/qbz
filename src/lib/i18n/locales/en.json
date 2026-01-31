@@ -203,7 +203,11 @@
     "replaceTrack": "Replace Track",
     "lookForAvailableVersion": "Look for available version",
     "trackReplaced": "Track replaced successfully",
-    "trackReplaceFailed": "Failed to replace track"
+    "trackReplaceFailed": "Failed to replace track",
+    "searchButton": "Search",
+    "cancel": "Cancel",
+    "loading": "Searching...",
+    "preview": "Preview"
   },
   "sort": {
     "nameAZ": "Name (A-Z)",

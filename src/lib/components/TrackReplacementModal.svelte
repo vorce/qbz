@@ -151,7 +151,7 @@
             {#if loading}
               <Loader2 size={16} class="spinner" />
             {:else}
-              {$t('search.search')}
+              {$t('playlist.searchButton')}
             {/if}
           </button>
         </div>
@@ -161,7 +161,7 @@
         {#if loading}
           <div class="loading-state">
             <Loader2 size={24} class="spinner" />
-            <span>{$t('common.loading')}</span>
+            <span>{$t('playlist.loading')}</span>
           </div>
         {:else if searched && results.length === 0}
           <div class="empty-state">
@@ -201,7 +201,7 @@
                   <button
                     class="preview-btn"
                     onclick={(e) => handlePreview(e, track)}
-                    title={$t('common.preview')}
+                    title={$t('playlist.preview')}
                   >
                     <Play size={14} fill="currentColor" />
                   </button>
@@ -224,7 +224,7 @@
 
       <div class="modal-footer">
         <button class="cancel-btn" onclick={onClose}>
-          {$t('common.cancel')}
+          {$t('playlist.cancel')}
         </button>
         <button
           class="confirm-btn"
