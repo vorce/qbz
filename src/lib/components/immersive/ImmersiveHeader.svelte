@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X, Disc3, LayoutGrid, MessageSquareText, ListMusic, Music2, Info, Radio } from 'lucide-svelte';
+  import { X, Disc3, LayoutGrid, Mic, ListMusic, Music2, Info, Radio } from 'lucide-svelte';
   import { t } from '$lib/i18n';
 
   export type ImmersiveTab = 'lyrics' | 'credits' | 'suggestions' | 'queue';
@@ -39,7 +39,7 @@
   const displayModes: { id: DisplayMode; icon: typeof Disc3; title: string }[] = [
     { id: 'coverflow', icon: Disc3, title: 'Coverflow (1)' },
     { id: 'split', icon: LayoutGrid, title: 'Split View (2)' },
-    { id: 'lyrics-focus', icon: MessageSquareText, title: 'Lyrics Focus (3)' },
+    { id: 'lyrics-focus', icon: Mic, title: 'Lyrics Focus (3)' },
     { id: 'queue-focus', icon: ListMusic, title: 'Queue Focus (4)' },
   ];
 

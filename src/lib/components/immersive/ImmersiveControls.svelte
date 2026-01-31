@@ -6,10 +6,6 @@
 
   interface Props {
     visible?: boolean;
-    // Track info
-    artwork: string;
-    trackTitle: string;
-    artist: string;
     // Playback state
     isPlaying: boolean;
     currentTime: number;
@@ -32,15 +28,10 @@
     onToggleRepeat: () => void;
     onToggleFavorite: () => void;
     onVolumeChange: (volume: number) => void;
-    // Compact mode (hide some elements)
-    compact?: boolean;
   }
 
   let {
     visible = true,
-    artwork,
-    trackTitle,
-    artist,
     isPlaying,
     currentTime,
     duration,
@@ -58,23 +49,11 @@
     onToggleShuffle,
     onToggleRepeat,
     onToggleFavorite,
-    onVolumeChange,
-    compact = false
+    onVolumeChange
   }: Props = $props();
 </script>
 
-<div class="immersive-controls" class:visible class:compact>
-  <!-- Left: Track Info -->
-  {#if !compact}
-    <div class="track-info">
-      <img src={artwork} alt="" class="mini-artwork" />
-      <div class="track-meta">
-        <div class="track-title">{trackTitle}</div>
-        <div class="track-artist">{artist}</div>
-      </div>
-    </div>
-  {/if}
-
+<div class="immersive-controls" class:visible>
   <!-- Center: Playback Controls + Progress -->
   <div class="playback-section">
     <div class="controls">
@@ -136,31 +115,29 @@
   </div>
 
   <!-- Right: Volume + Actions -->
-  {#if !compact}
-    <div class="right-section">
-      <button
-        class="action-btn"
-        class:active={isFavorite}
-        onclick={onToggleFavorite}
-        title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
-      >
-        <Heart
-          size={18}
-          fill={isFavorite ? 'currentColor' : 'none'}
-        />
-      </button>
+  <div class="right-section">
+    <button
+      class="action-btn"
+      class:active={isFavorite}
+      onclick={onToggleFavorite}
+      title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+    >
+      <Heart
+        size={18}
+        fill={isFavorite ? 'currentColor' : 'none'}
+      />
+    </button>
 
-      <div class="volume-wrapper">
-        <VolumeSlider {volume} {onVolumeChange} />
-      </div>
-
-      {#if quality}
-        <div class="quality-wrapper">
-          <QualityBadge {quality} {bitDepth} {samplingRate} />
-        </div>
-      {/if}
+    <div class="volume-wrapper">
+      <VolumeSlider {volume} {onVolumeChange} />
     </div>
-  {/if}
+
+    {#if quality}
+      <div class="quality-wrapper">
+        <QualityBadge {quality} {bitDepth} {samplingRate} />
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -191,46 +168,6 @@
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
-  }
-
-  /* Track Info (Left) */
-  .track-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 200px;
-    max-width: 280px;
-  }
-
-  .mini-artwork {
-    width: 48px;
-    height: 48px;
-    border-radius: 6px;
-    object-fit: cover;
-    flex-shrink: 0;
-  }
-
-  .track-meta {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .track-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary, white);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .track-artist {
-    font-size: 12px;
-    color: var(--alpha-60, rgba(255, 255, 255, 0.6));
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-top: 2px;
   }
 
   /* Playback Section (Center) */
@@ -351,14 +288,8 @@
     margin-left: 8px;
   }
 
-  /* Compact mode */
-  .immersive-controls.compact .playback-section {
-    max-width: 100%;
-  }
-
   /* Responsive */
   @media (max-width: 900px) {
-    .track-info,
     .right-section {
       display: none;
     }

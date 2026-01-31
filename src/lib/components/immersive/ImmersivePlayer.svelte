@@ -271,10 +271,14 @@
       </div>
     {:else}
       <!-- Split: Artwork + Panel side by side -->
-      <div class="main-content">
-        <!-- Left: Artwork -->
+      <div class="immersive-main">
+        <!-- Left: Artwork + Track Info -->
         <div class="artwork-section">
           <ImmersiveArtwork {artwork} {trackTitle} variant="floating" />
+          <div class="split-track-info">
+            <h2 class="split-track-title">{trackTitle}</h2>
+            <p class="split-track-artist">{artist}</p>
+          </div>
         </div>
 
         <!-- Right: Active Panel -->
@@ -307,9 +311,6 @@
     <!-- Bottom Controls -->
     <ImmersiveControls
       visible={showUI}
-      {artwork}
-      {trackTitle}
-      {artist}
       {isPlaying}
       {currentTime}
       {duration}
@@ -354,7 +355,7 @@
   }
 
   /* Split mode layout */
-  .main-content {
+  .immersive-main {
     position: absolute;
     top: 0;
     left: 50%;
@@ -373,8 +374,36 @@
   .artwork-section {
     flex: 0 0 auto;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 20px;
+  }
+
+  .split-track-info {
+    text-align: center;
+    max-width: 380px;
+  }
+
+  .split-track-title {
+    font-size: clamp(18px, 2.5vw, 24px);
+    font-weight: 700;
+    color: var(--text-primary, white);
+    margin: 0 0 6px 0;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    /* Truncate long titles */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .split-track-artist {
+    font-size: clamp(14px, 1.8vw, 16px);
+    color: var(--alpha-70, rgba(255, 255, 255, 0.7));
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .panel-section {
@@ -412,7 +441,7 @@
 
   /* Responsive */
   @media (max-width: 1200px) {
-    .main-content {
+    .immersive-main {
       padding: 70px 32px 130px;
       gap: 40px;
     }
@@ -427,7 +456,7 @@
   }
 
   @media (max-width: 900px) {
-    .main-content {
+    .immersive-main {
       flex-direction: column;
       padding: 70px 24px 140px;
       gap: 24px;
@@ -454,7 +483,7 @@
   }
 
   @media (max-width: 600px) {
-    .main-content {
+    .immersive-main {
       padding: 60px 16px 130px;
       gap: 20px;
     }
