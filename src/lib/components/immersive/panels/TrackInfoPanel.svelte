@@ -15,6 +15,7 @@
   let loading = $state(false);
   let error = $state<string | null>(null);
   let trackInfo = $state<TrackInfo | null>(null);
+  let loadedTrackId = $state<number | null>(null);
 
   // Format duration from seconds to M:SS
   function formatDuration(seconds: number): string {
@@ -81,13 +82,15 @@
     return entries.map(([role, names]) => ({ role, names }));
   }
 
-  // Load track info when trackId changes
+  // Load track info only when trackId actually changes
   $effect(() => {
-    if (trackId) {
+    if (trackId && trackId !== loadedTrackId) {
       loadTrackInfo(trackId);
-    } else {
+    } else if (!trackId && loadedTrackId) {
+      // Track ended/cleared
       trackInfo = null;
       error = null;
+      loadedTrackId = null;
     }
   });
 
@@ -96,9 +99,11 @@
     error = null;
     try {
       trackInfo = await invoke<TrackInfo>('get_track_info', { trackId: id });
+      loadedTrackId = id;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
       trackInfo = null;
+      loadedTrackId = null;
     } finally {
       loading = false;
     }
@@ -113,7 +118,6 @@
   {#if loading}
     <div class="loading-state">
       <Loader2 size={28} class="spinner" />
-      <span>{$t('common.loading') || 'Loading...'}</span>
     </div>
   {:else if error}
     <div class="error-state">
