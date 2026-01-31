@@ -12,8 +12,8 @@ const OUTPUT_BINS: usize = 32;
 /// FFT window size (power of 2 for efficiency)
 const FFT_SIZE: usize = 1024;
 
-/// How often to compute FFT (in samples) - roughly 20-30fps at 44.1kHz
-const FFT_INTERVAL: usize = 2048;
+/// How often to compute FFT (in samples) - ~60fps at 44.1kHz
+const FFT_INTERVAL: usize = 735;
 
 /// Visualizer state shared between audio thread and emitter
 pub struct VisualizerState {
@@ -133,34 +133,33 @@ impl VisualizerState {
 
             let avg = if count > 0 { sum / count as f32 } else { 0.0 };
 
-            // Scale to 0-1 range (with some headroom)
-            // The scaling factor is empirical - adjust for visual effect
-            let scaled = (avg * 4.0 / FFT_SIZE as f32).min(1.0);
+            // Scale to 0-1 range - higher multiplier for more visible response
+            let scaled = (avg * 50.0 / FFT_SIZE as f32).min(1.0);
 
             self.frequency_bins[i] = scaled;
         }
 
-        // Apply smoothing (fast attack, slow decay)
+        // Apply smoothing (fast attack, fast decay for responsive feel)
         for i in 0..OUTPUT_BINS {
             let current = self.frequency_bins[i];
             let smoothed = self.smoothed_bins[i];
 
             if current > smoothed {
-                // Fast attack
-                self.smoothed_bins[i] = smoothed + (current - smoothed) * 0.7;
+                // Very fast attack
+                self.smoothed_bins[i] = smoothed + (current - smoothed) * 0.85;
             } else {
-                // Slow decay
-                self.smoothed_bins[i] = smoothed + (current - smoothed) * 0.15;
+                // Fast decay for snappy response
+                self.smoothed_bins[i] = smoothed + (current - smoothed) * 0.5;
             }
         }
     }
 
     /// Logarithmic bin mapping for perceptual frequency distribution
     fn log_bin_start(&self, bin: usize, total_bins: usize) -> usize {
-        // Map 0..OUTPUT_BINS to 0..total_bins logarithmically
-        // This gives more resolution to lower frequencies
+        // Map 0..OUTPUT_BINS to 0..total_bins with mild log curve
+        // Less aggressive = more even distribution across all bars
         let ratio = bin as f32 / OUTPUT_BINS as f32;
-        let log_ratio = ratio.powf(2.0); // Quadratic gives good distribution
+        let log_ratio = ratio.powf(1.4); // Gentler curve for better spread
         (log_ratio * total_bins as f32) as usize
     }
 

@@ -187,13 +187,12 @@
     flex: 1;
     max-width: 20px;
     height: var(--height);
-    background: linear-gradient(to top, var(--color), transparent);
+    background: var(--color);
     border-radius: 4px 4px 0 0;
-    /* GPU accelerated - only transform, no layout */
-    transform: scaleY(1);
     transform-origin: bottom;
-    transition: height 80ms ease-out;
+    transition: height 35ms linear;
     will-change: height;
+    opacity: 0.9;
   }
 
   /* Wave mode */
@@ -209,7 +208,7 @@
   }
 
   .wave-svg path {
-    transition: d 80ms ease-out;
+    transition: d 35ms linear;
   }
 
   /* Mirror mode - bars going up and down from center */
@@ -238,9 +237,9 @@
     width: 100%;
     height: var(--height);
     max-height: 48%;
-    background: linear-gradient(to top, var(--color), transparent);
+    background: var(--color);
     border-radius: 3px;
-    transition: height 80ms ease-out;
+    transition: height 35ms linear;
     will-change: height;
   }
 
