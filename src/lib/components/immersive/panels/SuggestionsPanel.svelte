@@ -205,13 +205,12 @@
       <div class="cards-section">
         <!-- Artist Playlists from Qobuz -->
         {#each artistPlaylists as playlist (playlist.id)}
+          {@const playlistImage = playlist.images?.[playlist.images.length - 1] || playlist.images?.[0]}
           <div class="card playlist-card">
             <div class="card-badge qobuz">
               <img src="/qobuz-logo-filled.svg" alt="Qobuz" class="badge-icon badge-qobuz" />
             </div>
             <div class="card-image-wrapper">
-              <!-- Use largest available image (last in array, or fallback to first) -->
-              {@const playlistImage = playlist.images?.[playlist.images.length - 1] || playlist.images?.[0]}
               {#if playlistImage}
                 <img src={playlistImage} alt="" class="card-image" />
               {:else}
