@@ -153,7 +153,7 @@
               title={playlist.description || playlist.name}
             >
               <div class="card-badge qobuz">
-                <img src="/qobuz-icon.svg" alt="Qobuz" class="badge-icon" onerror={(e) => e.currentTarget.style.display='none'} />
+                <img src="/qobuz-logo-filled.svg" alt="Qobuz" class="badge-icon" />
               </div>
               {#if playlist.images?.[0]}
                 <img src={playlist.images[0]} alt="" class="card-image" />
