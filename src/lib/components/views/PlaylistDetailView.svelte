@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ChevronRight, ChevronUp, ImagePlus, Edit3, BarChart2, Heart, CloudDownload, ListPlus, GripVertical } from 'lucide-svelte';
+  import { ArrowLeft, Play, Shuffle, ListMusic, Search, X, ChevronDown, ChevronRight, ChevronUp, ImagePlus, Edit3, BarChart2, Heart, CloudDownload, ListPlus, GripVertical, AlertCircle } from 'lucide-svelte';
   import AlbumMenu from '../AlbumMenu.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
@@ -37,6 +37,7 @@
     maximum_sampling_rate?: number;
     isrc?: string;
     playlist_track_id?: number; // Qobuz playlist-specific ID for removal
+    streamable?: boolean; // Whether track is available on Qobuz (false = removed)
   }
 
   interface Playlist {
@@ -73,6 +74,7 @@
     label?: string;           // Record label name from Qobuz
     addedIndex?: number;      // Original position in playlist (proxy for date added)
     customPosition?: number;  // User-defined position for custom arrange mode
+    streamable?: boolean;     // Whether track is available on Qobuz (false = removed)
   }
 
   // Local library track from backend
@@ -308,10 +310,21 @@
     }
   });
 
-  // Check if a track is available (has local copy when offline, always available when online)
+  // Check if a track was removed from Qobuz (streamable: false)
+  function isTrackRemovedFromQobuz(track: DisplayTrack): boolean {
+    if (track.isLocal) return false;
+    return track.streamable === false;
+  }
+
+  // Check if a track is available (has local copy when offline, always available when online, unless removed from Qobuz)
   function isTrackAvailable(track: DisplayTrack): boolean {
+    // Tracks removed from Qobuz are never available
+    if (isTrackRemovedFromQobuz(track)) return false;
+    // When online, Qobuz tracks are available
     if (!offlineStatus.isOffline) return true;
-    if (track.isLocal) return true; // Local tracks are always available
+    // Local tracks are always available
+    if (track.isLocal) return true;
+    // When offline, check if we have a local copy
     return tracksWithLocalCopies.has(track.id);
   }
 
@@ -494,6 +507,7 @@
             playlistTrackId: t.playlist_track_id,
             label: t.album?.label?.name,
             addedIndex: idx,
+            streamable: t.streamable,
           }));
         }
       }
@@ -1635,20 +1649,34 @@
         )}
         {@const isTrackPlaying = isActiveTrack && isPlaybackActive}
         {@const available = isTrackAvailable(track)}
+        {@const removedFromQobuz = isTrackRemovedFromQobuz(track)}
         <div
           class="track-row-wrapper"
           class:unavailable={!available}
+          class:removed-from-qobuz={removedFromQobuz}
           class:custom-order-mode={isCustomOrderMode}
           class:dragging={draggedTrackIdx === idx}
           class:drag-over={dragOverIdx === idx && draggedTrackIdx !== idx}
-          title={!available ? $t('offline.trackNotAvailable') : undefined}
-          draggable={isCustomOrderMode}
+          title={removedFromQobuz ? $t('player.trackUnavailable') : (!available ? $t('offline.trackNotAvailable') : undefined)}
+          draggable={isCustomOrderMode && !removedFromQobuz}
           ondragstart={(e) => handleDragStart(e, idx)}
           ondragover={(e) => handleDragOver(e, idx)}
           ondragleave={handleDragLeave}
           ondragend={handleDragEnd}
           ondrop={(e) => handleDrop(e, idx)}
         >
+          {#if removedFromQobuz}
+            <button
+              class="unavailable-indicator"
+              title={$t('player.trackUnavailable')}
+              onclick={(e) => {
+                e.stopPropagation();
+                // Show a simple alert or tooltip - for now just prevent propagation
+              }}
+            >
+              <AlertCircle size={16} />
+            </button>
+          {/if}
           {#if isCustomOrderMode}
             {@const trackKey = getTrackKey(track)}
             <label class="track-checkbox" onclick={(e) => e.stopPropagation()}>
@@ -1694,14 +1722,17 @@
                 : '-'}
             isPlaying={isTrackPlaying}
             isLocal={track.isLocal}
-            hideFavorite={track.isLocal}
-            hideDownload={track.isLocal}
+            hideFavorite={track.isLocal || removedFromQobuz}
+            hideDownload={track.isLocal || removedFromQobuz}
             downloadStatus={downloadInfo.status}
             downloadProgress={downloadInfo.progress}
             onPlay={available ? () => handleTrackClick(track, idx) : undefined}
             onDownload={available && !track.isLocal && onTrackDownload ? () => onTrackDownload(track) : undefined}
             onRemoveDownload={available && !track.isLocal && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
-            menuActions={available ? {
+            menuActions={removedFromQobuz ? {
+              // Only allow remove from playlist for tracks removed from Qobuz
+              onRemoveFromPlaylist: () => removeTrackFromPlaylist(track)
+            } : available ? {
               onPlayNow: () => handleTrackClick(track, idx),
               onPlayNext: track.isLocal ? () => handleTrackPlayNext(track) : (onTrackPlayNext ? () => onTrackPlayNext(track) : undefined),
               onPlayLater: track.isLocal ? () => handleTrackPlayLater(track) : (onTrackPlayLater ? () => onTrackPlayLater(track) : undefined),
@@ -2310,6 +2341,44 @@
 
   .track-row-wrapper.unavailable :global(.track-row) {
     filter: grayscale(100%);
+  }
+
+  /* Track removed from Qobuz - allow limited interactions (remove from playlist) */
+  .track-row-wrapper.removed-from-qobuz {
+    opacity: 0.5;
+    /* Keep wrapper interactive for context menu */
+    pointer-events: auto;
+  }
+
+  .track-row-wrapper.removed-from-qobuz :global(.track-row) {
+    filter: grayscale(100%);
+  }
+
+  /* Disable play hover effect for removed tracks */
+  .track-row-wrapper.removed-from-qobuz :global(.track-row .track-number),
+  .track-row-wrapper.removed-from-qobuz :global(.track-row .play-button) {
+    pointer-events: none;
+  }
+
+  /* Red info indicator for unavailable tracks */
+  .unavailable-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-right: 8px;
+    background: none;
+    border: none;
+    color: var(--error-color, #ef4444);
+    cursor: help;
+    flex-shrink: 0;
+    border-radius: 4px;
+    transition: background 0.15s ease;
+  }
+
+  .unavailable-indicator:hover {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.1));
   }
 
   /* Custom order mode */
