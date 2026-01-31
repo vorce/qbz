@@ -55,27 +55,16 @@
   }
 
   /**
-   * Normalize track title to detect duplicates (different remasters, editions, etc.)
-   * "Song Title (2023 Remaster)" -> "song title"
-   * "Song Title [Deluxe Edition]" -> "song title"
+   * Dedupe tracks by exact lowercase title, keeping the first occurrence.
+   * This removes exact duplicates but keeps different versions (Remaster, Live, etc.)
+   * to give users variety to choose from.
    */
-  function normalizeTitle(title: string): string {
-    return title
-      .toLowerCase()
-      .replace(/\s*[\(\[][^\)\]]*(?:remaster|edition|version|mix|remix|live|mono|stereo|deluxe|bonus|anniversary).*?[\)\]]/gi, '')
-      .replace(/\s*-\s*(?:remaster|edition|version|mix|remix|live|mono|stereo|deluxe|bonus|anniversary).*$/gi, '')
-      .trim();
-  }
-
-  /**
-   * Dedupe tracks by normalized title, keeping the first occurrence
-   */
-  function dedupeByTitle(tracks: Track[]): Track[] {
+  function dedupeByExactTitle(tracks: Track[]): Track[] {
     const seen = new Set<string>();
     return tracks.filter(track => {
-      const normalized = normalizeTitle(track.title);
-      if (seen.has(normalized)) return false;
-      seen.add(normalized);
+      const key = track.title.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
   }
@@ -109,11 +98,16 @@
 
       // Extract tracks for recommendations
       if (artist.tracks_appears_on?.items) {
-        // Filter current track, dedupe by title, shuffle, and take 10
+        // Filter current track, dedupe exact titles, shuffle, and take 10
         const filtered = artist.tracks_appears_on.items.filter(t => t.id !== trackId);
-        const deduped = dedupeByTitle(filtered);
+        const deduped = dedupeByExactTitle(filtered);
         const shuffled = deduped.sort(() => Math.random() - 0.5);
         recommendedTracks = shuffled.slice(0, 10);
+
+        // Log for debugging sparse recommendations
+        if (deduped.length < 3) {
+          console.log(`[Suggestions] Sparse data for artist ${id}: ${artist.tracks_appears_on.items.length} tracks → ${filtered.length} after filter → ${deduped.length} after dedupe`);
+        }
       } else {
         recommendedTracks = [];
       }
