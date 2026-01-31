@@ -253,6 +253,7 @@
     "lyrics": "Letras",
     "noLyrics": "No hay letras disponibles",
     "fetchingLyrics": "Buscando letras...",
+    "trackUnavailable": "ya no está disponible",
     "shuffle": "Aleatorio",
     "repeat": "Repetir",
     "repeatAll": "Repetir Todo",
