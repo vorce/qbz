@@ -28,6 +28,9 @@ pub enum ApiError {
     #[error("No valid quality available for this track")]
     NoQualityAvailable,
 
+    #[error("Track {0} is no longer available on Qobuz")]
+    TrackUnavailable(u64),
+
     #[error("Network error: {0}")]
     NetworkError(#[from] reqwest::Error),
 

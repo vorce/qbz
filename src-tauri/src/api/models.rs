@@ -67,9 +67,11 @@ pub struct StreamUrl {
 }
 
 impl StreamUrl {
+    /// Check if the stream has restrictions that prevent playback
     pub fn has_restrictions(&self) -> bool {
         self.restrictions.iter().any(|r| {
             r.code == "FormatRestrictedByFormatAvailability"
+                || r.code == "SampleRestrictedByRightHolders"
         })
     }
 }

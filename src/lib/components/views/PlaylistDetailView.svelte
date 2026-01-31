@@ -3,6 +3,7 @@
   import AlbumMenu from '../AlbumMenu.svelte';
   import PlaylistCollage from '../PlaylistCollage.svelte';
   import PlaylistModal from '../PlaylistModal.svelte';
+  import TrackReplacementModal from '../TrackReplacementModal.svelte';
   import ViewTransition from '../ViewTransition.svelte';
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
   import { invoke } from '@tauri-apps/api/core';
@@ -17,6 +18,8 @@
     type OfflineStatus
   } from '$lib/stores/offlineStore';
   import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
+  import { isTrackUnavailable, clearTrackUnavailable, subscribe as subscribeUnavailable } from '$lib/stores/unavailableTracksStore';
+  import { showToast } from '$lib/stores/toastStore';
   import { t } from '$lib/i18n';
   import { onMount, tick } from 'svelte';
 
@@ -37,6 +40,7 @@
     maximum_sampling_rate?: number;
     isrc?: string;
     playlist_track_id?: number; // Qobuz playlist-specific ID for removal
+    streamable?: boolean; // Whether track is available on Qobuz (false = removed)
   }
 
   interface Playlist {
@@ -73,6 +77,7 @@
     label?: string;           // Record label name from Qobuz
     addedIndex?: number;      // Original position in playlist (proxy for date added)
     customPosition?: number;  // User-defined position for custom arrange mode
+    streamable?: boolean;     // Whether track is available on Qobuz (false = removed)
   }
 
   // Local library track from backend
@@ -214,6 +219,9 @@
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
   let tracksWithLocalCopies = $state<Set<number>>(new Set());
 
+  // Track unavailable state version (increments to force re-render)
+  let unavailableVersion = $state(0);
+
   // Local settings state
   let searchQuery = $state('');
   let sortBy = $state<SortField>('default');
@@ -243,6 +251,10 @@
   let isOwnPlaylist = $derived(playlist !== null && currentUserId !== null && playlist.owner.id === currentUserId);
   let isCopying = $state(false);
   let isCopied = $state(false);
+
+  // Track replacement modal state
+  let replacementModalOpen = $state(false);
+  let trackToReplace = $state<DisplayTrack | null>(null);
 
   // Track copied playlists in localStorage
   const COPIED_PLAYLISTS_KEY = 'qbz_copied_playlists';
@@ -285,14 +297,23 @@
       console.warn('Failed to get current user ID:', err);
     });
 
-    const unsubscribe = subscribeOffline(() => {
+    const unsubscribeOffline = subscribeOffline(() => {
       offlineStatus = getOfflineStatus();
       // Re-check local copies when offline status changes
       if (offlineStatus.isOffline && tracks.length > 0) {
         checkTracksLocalStatus();
       }
     });
-    return unsubscribe;
+
+    // Subscribe to unavailable tracks store
+    const unsubscribeUnavailable = subscribeUnavailable(() => {
+      unavailableVersion++;
+    });
+
+    return () => {
+      unsubscribeOffline();
+      unsubscribeUnavailable();
+    };
   });
 
   // Check if this playlist was already copied when playlistId changes
@@ -308,10 +329,26 @@
     }
   });
 
-  // Check if a track is available (has local copy when offline, always available when online)
+  // Check if a track was removed from Qobuz (streamable: false or marked in unavailable store)
+  function isTrackRemovedFromQobuz(track: DisplayTrack): boolean {
+    if (track.isLocal) return false;
+    // Check API streamable flag
+    if (track.streamable === false) return true;
+    // Check local unavailable store (marked during playback errors)
+    // Reference unavailableVersion to trigger reactivity
+    void unavailableVersion;
+    return isTrackUnavailable(track.id);
+  }
+
+  // Check if a track is available (has local copy when offline, always available when online, unless removed from Qobuz)
   function isTrackAvailable(track: DisplayTrack): boolean {
+    // Tracks removed from Qobuz are never available
+    if (isTrackRemovedFromQobuz(track)) return false;
+    // When online, Qobuz tracks are available
     if (!offlineStatus.isOffline) return true;
-    if (track.isLocal) return true; // Local tracks are always available
+    // Local tracks are always available
+    if (track.isLocal) return true;
+    // When offline, check if we have a local copy
     return tracksWithLocalCopies.has(track.id);
   }
 
@@ -494,6 +531,7 @@
             playlistTrackId: t.playlist_track_id,
             label: t.album?.label?.name,
             addedIndex: idx,
+            streamable: t.streamable,
           }));
         }
       }
@@ -1203,6 +1241,95 @@
     }
   }
 
+  // Open replacement modal for an unavailable track
+  function openReplacementModal(track: DisplayTrack) {
+    trackToReplace = track;
+    replacementModalOpen = true;
+  }
+
+  // Handle track replacement selection
+  interface ReplacementTrack {
+    id: number;
+    title: string;
+    duration: number;
+    performer?: { id?: number; name: string };
+    album?: {
+      id: string;
+      title: string;
+      image?: { small?: string; thumbnail?: string; large?: string };
+    };
+    hires: boolean;
+    maximum_bit_depth?: number;
+    maximum_sampling_rate?: number;
+  }
+
+  async function handleTrackReplacement(newTrack: ReplacementTrack) {
+    if (!trackToReplace || !trackToReplace.playlistTrackId) {
+      console.error('No track to replace or missing playlist_track_id');
+      return;
+    }
+
+    try {
+      // Get the current position of the track being replaced
+      const currentIndex = displayTracks.findIndex(t => t.id === trackToReplace!.id);
+
+      // Remove the old track
+      await invoke('remove_tracks_from_playlist', {
+        playlistId,
+        playlistTrackIds: [trackToReplace.playlistTrackId]
+      });
+
+      // Add the new track
+      await invoke('add_tracks_to_playlist', {
+        playlistId,
+        trackIds: [newTrack.id]
+      });
+
+      // Clear the unavailable status for the old track (if it was in the store)
+      clearTrackUnavailable(trackToReplace.id);
+
+      // Reload the playlist to get updated data
+      await loadPlaylist();
+      notifyParentOfCounts();
+      onPlaylistUpdated?.();
+
+      // Show success message
+      showToast($t('playlist.trackReplaced'), 'success');
+
+      // Close modal
+      replacementModalOpen = false;
+      trackToReplace = null;
+
+      console.log(`[Playlist] Track replaced: ${trackToReplace?.title} -> ${newTrack.title} at position ${currentIndex}`);
+    } catch (err) {
+      console.error('Failed to replace track:', err);
+      showToast($t('playlist.trackReplaceFailed'), 'error');
+    }
+  }
+
+  // Preview a replacement track
+  function handlePreviewReplacement(track: ReplacementTrack) {
+    if (!onTrackPlay) return;
+
+    const displayTrack: DisplayTrack = {
+      id: track.id,
+      number: 0,
+      title: track.title,
+      artist: track.performer?.name,
+      album: track.album?.title,
+      albumArt: track.album?.image?.large || track.album?.image?.thumbnail,
+      albumId: track.album?.id,
+      artistId: track.performer?.id,
+      duration: formatDuration(track.duration),
+      durationSeconds: track.duration,
+      hires: track.hires,
+      bitDepth: track.maximum_bit_depth,
+      samplingRate: track.maximum_sampling_rate
+    };
+
+    onTrackPlay(displayTrack);
+  }
+
   // Add a suggested track to the playlist
   async function handleAddSuggestedTrack(suggestedTrack: import('$lib/services/playlistSuggestionsService').SuggestedTrack) {
     try {
@@ -1635,14 +1762,16 @@
         )}
         {@const isTrackPlaying = isActiveTrack && isPlaybackActive}
         {@const available = isTrackAvailable(track)}
+        {@const removedFromQobuz = isTrackRemovedFromQobuz(track)}
         <div
           class="track-row-wrapper"
           class:unavailable={!available}
+          class:removed-from-qobuz={removedFromQobuz}
           class:custom-order-mode={isCustomOrderMode}
           class:dragging={draggedTrackIdx === idx}
           class:drag-over={dragOverIdx === idx && draggedTrackIdx !== idx}
-          title={!available ? $t('offline.trackNotAvailable') : undefined}
-          draggable={isCustomOrderMode}
+          title={removedFromQobuz ? $t('player.trackUnavailable') : (!available ? $t('offline.trackNotAvailable') : undefined)}
+          draggable={isCustomOrderMode && !removedFromQobuz}
           ondragstart={(e) => handleDragStart(e, idx)}
           ondragover={(e) => handleDragOver(e, idx)}
           ondragleave={handleDragLeave}
@@ -1694,14 +1823,20 @@
                 : '-'}
             isPlaying={isTrackPlaying}
             isLocal={track.isLocal}
-            hideFavorite={track.isLocal}
-            hideDownload={track.isLocal}
+            isUnavailable={removedFromQobuz && isOwnPlaylist}
+            unavailableTooltip={removedFromQobuz ? $t('player.trackUnavailable') : undefined}
+            hideFavorite={track.isLocal || removedFromQobuz}
+            hideDownload={track.isLocal || removedFromQobuz}
             downloadStatus={downloadInfo.status}
             downloadProgress={downloadInfo.progress}
             onPlay={available ? () => handleTrackClick(track, idx) : undefined}
             onDownload={available && !track.isLocal && onTrackDownload ? () => onTrackDownload(track) : undefined}
             onRemoveDownload={available && !track.isLocal && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
-            menuActions={available ? {
+            menuActions={removedFromQobuz ? (isOwnPlaylist ? {
+              // Only allow remove from playlist and find replacement for tracks removed from Qobuz (owned playlists only)
+              onRemoveFromPlaylist: () => removeTrackFromPlaylist(track),
+              onFindReplacement: () => openReplacementModal(track)
+            } : {}) : available ? {
               onPlayNow: () => handleTrackClick(track, idx),
               onPlayNext: track.isLocal ? () => handleTrackPlayNext(track) : (onTrackPlayNext ? () => onTrackPlayNext(track) : undefined),
               onPlayLater: track.isLocal ? () => handleTrackPlayLater(track) : (onTrackPlayLater ? () => onTrackPlayLater(track) : undefined),
@@ -1760,6 +1895,16 @@
     onDelete={handleDelete}
   />
 {/if}
+
+<!-- Track Replacement Modal -->
+<TrackReplacementModal
+  isOpen={replacementModalOpen}
+  trackTitle={trackToReplace?.title ?? ''}
+  trackArtist={trackToReplace?.artist}
+  onClose={() => { replacementModalOpen = false; trackToReplace = null; }}
+  onSelect={handleTrackReplacement}
+  onPreview={handlePreviewReplacement}
+/>
 
 <style>
   .playlist-detail {
@@ -2310,6 +2455,23 @@
 
   .track-row-wrapper.unavailable :global(.track-row) {
     filter: grayscale(100%);
+  }
+
+  /* Track removed from Qobuz - allow limited interactions (remove from playlist) */
+  .track-row-wrapper.removed-from-qobuz {
+    opacity: 0.5;
+    /* Keep wrapper interactive for context menu */
+    pointer-events: auto;
+  }
+
+  .track-row-wrapper.removed-from-qobuz :global(.track-row) {
+    filter: grayscale(100%);
+  }
+
+  /* Disable play hover effect for removed tracks */
+  .track-row-wrapper.removed-from-qobuz :global(.track-row .track-number),
+  .track-row-wrapper.removed-from-qobuz :global(.track-row .play-button) {
+    pointer-events: none;
   }
 
   /* Custom order mode */

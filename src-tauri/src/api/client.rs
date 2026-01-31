@@ -590,11 +590,13 @@ impl QobuzClient {
                     .and_then(|v| serde_json::from_value(v.clone()).ok())
                     .unwrap_or_default();
 
-                // Validate that we got an actual URL
+// Validate that we got an actual URL (track may be unavailable)
                 let url = json["url"].as_str().unwrap_or("").to_string();
                 if url.is_empty() {
-                    log::error!("Stream URL response missing 'url' field. Response: {:?}", json);
-                    return Err(ApiError::ApiResponse("Stream URL response missing 'url' field".to_string()));
+                    // Log the restriction codes for debugging
+                    let restriction_codes: Vec<&str> = restrictions.iter().map(|r| r.code.as_str()).collect();
+                    log::warn!("Stream URL missing for track {} - restrictions: {:?}", track_id, restriction_codes);
+                    return Err(ApiError::TrackUnavailable(track_id));
                 }
 
                 Ok(StreamUrl {
@@ -622,6 +624,8 @@ impl QobuzClient {
         let qualities = Quality::fallback_order();
         let start_idx = qualities.iter().position(|q| *q == preferred).unwrap_or(0);
 
+        let mut track_unavailable = false;
+
         for quality in &qualities[start_idx..] {
             log::info!("Trying quality: {:?}", quality);
             match self.get_stream_url(track_id, *quality).await {
@@ -637,11 +641,22 @@ impl QobuzClient {
                     log::error!("Invalid app secret");
                     return Err(ApiError::InvalidAppSecret);
                 },
+                Err(ApiError::TrackUnavailable(_)) => {
+                    // Track is completely unavailable on Qobuz
+                    track_unavailable = true;
+                    continue;
+                },
                 Err(e) => {
                     log::warn!("Quality {:?} failed: {}, trying next", quality, e);
                     continue;
                 },
             }
+        }
+
+        // If all quality levels reported track unavailable, return that specific error
+        if track_unavailable {
+            log::error!("Track {} is no longer available on Qobuz", track_id);
+            return Err(ApiError::TrackUnavailable(track_id));
         }
 
         log::error!("No quality available for track {}", track_id);

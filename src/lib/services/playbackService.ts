@@ -25,7 +25,8 @@ import {
   setIsFavorite,
   type PlayingTrack
 } from '$lib/stores/playerStore';
-import { syncQueueState } from '$lib/stores/queueStore';
+import { syncQueueState, nextTrack } from '$lib/stores/queueStore';
+import { markTrackUnavailable } from '$lib/stores/unavailableTracksStore';
 import { logRecoEvent } from '$lib/services/recoService';
 import {
   isCasting,
@@ -199,6 +200,39 @@ export async function playTrack(
   } catch (err) {
     console.error('Failed to play track:', err);
     dismissBuffering();
+
+    // Check if track is unavailable on Qobuz
+    const errorStr = String(err);
+    if (errorStr.includes('no longer available') || errorStr.includes('TrackUnavailable')) {
+      // Mark track as unavailable for future reference
+      markTrackUnavailable(track.id);
+      showToast(`"${track.title}" is no longer available`, 'error');
+
+      // Auto-skip to next track
+      const next = await nextTrack();
+      if (next) {
+        console.log('Auto-skipping to next track:', next.title);
+        // Small delay to let the toast be visible
+        setTimeout(() => {
+          playTrack({
+            id: next.id,
+            title: next.title,
+            artist: next.artist,
+            album: next.album,
+            duration: next.duration_secs,
+            artwork: next.artwork_url || undefined,
+            albumId: next.album_id || undefined,
+            artistId: next.artist_id || undefined,
+            bitDepth: next.bit_depth || undefined,
+            samplingRate: next.sample_rate || undefined
+          }, { showLoadingToast: true, showSuccessToast: true });
+        }, 500);
+      } else {
+        setIsPlaying(false);
+      }
+      return false;
+    }
+
     showToast(`Playback error: ${err}`, 'error');
     setIsPlaying(false);
     return false;

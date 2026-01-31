@@ -11,6 +11,7 @@ import { goBack, goForward } from '$lib/stores/navigationStore';
 import { loadToastsPreference } from '$lib/stores/toastStore';
 import { loadSystemNotificationsPreference, flushScrobbleQueue } from '$lib/services/playbackService';
 import { initOfflineStore, cleanupOfflineStore, onOnlineTransition, syncPendingPlaylists } from '$lib/stores/offlineStore';
+import { loadUnavailableTracks } from '$lib/stores/unavailableTracksStore';
 import { getNextZoomLevel } from '$lib/utils/zoom';
 import { getZoom, setZoom } from '$lib/stores/zoomStore';
 
@@ -140,6 +141,9 @@ export function bootstrapApp(): BootstrapResult {
 
   // Initialize offline store (async, fire-and-forget)
   initOfflineStore();
+
+  // Load unavailable tracks from localStorage
+  loadUnavailableTracks();
 
   // Register callback to flush scrobble queue and sync playlists when transitioning to online
   onOnlineTransition(() => {
