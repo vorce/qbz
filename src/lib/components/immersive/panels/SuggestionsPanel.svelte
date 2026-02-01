@@ -503,6 +503,7 @@
     background: rgba(0, 0, 0, 0.4);
     color: white;
     transition: opacity 150ms ease;
+    z-index: 5;
   }
 
   /* Playlist SVG: 20x20 viewBox but content only fills ~77% - needs larger size to match Lucide Radio */
@@ -528,6 +529,7 @@
     background: rgba(0, 0, 0, 0.6);
     opacity: 0;
     transition: opacity 150ms ease;
+    z-index: 6;
   }
 
   .card:hover .card-overlay {
