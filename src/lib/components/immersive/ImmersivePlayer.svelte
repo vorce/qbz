@@ -10,6 +10,7 @@
   import SuggestionsPanel from './panels/SuggestionsPanel.svelte';
   import QueuePanel from './panels/QueuePanel.svelte';
   import CoverflowPanel from './panels/CoverflowPanel.svelte';
+  import StaticPanel from './panels/StaticPanel.svelte';
   import LyricsFocusPanel from './panels/LyricsFocusPanel.svelte';
   import QualityBadge from '$lib/components/QualityBadge.svelte';
 
@@ -239,9 +240,12 @@
         if (viewMode === 'focus') activeFocusTab = 'coverflow';
         break;
       case '2':
-        if (viewMode === 'focus') activeFocusTab = 'lyrics-focus';
+        if (viewMode === 'focus') activeFocusTab = 'static';
         break;
       case '3':
+        if (viewMode === 'focus') activeFocusTab = 'lyrics-focus';
+        break;
+      case '4':
         if (viewMode === 'focus') activeFocusTab = 'queue-focus';
         break;
     }
@@ -306,8 +310,23 @@
     {#if viewMode === 'focus'}
       <!-- Focus Mode Views -->
       {#if activeFocusTab === 'coverflow'}
-        <!-- Coverflow: Centered artwork -->
+        <!-- Coverflow: Animated carousel of album covers -->
         <CoverflowPanel
+          {artwork}
+          {trackTitle}
+          {artist}
+          {album}
+          {isPlaying}
+          {quality}
+          {bitDepth}
+          {samplingRate}
+          {queueTracks}
+          {queueCurrentIndex}
+          onNavigate={(index) => onQueuePlayTrack?.(index)}
+        />
+      {:else if activeFocusTab === 'static'}
+        <!-- Static: Single centered artwork -->
+        <StaticPanel
           {artwork}
           {trackTitle}
           {artist}

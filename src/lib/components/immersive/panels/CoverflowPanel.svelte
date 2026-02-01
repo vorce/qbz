@@ -1,6 +1,13 @@
 <script lang="ts">
   import QualityBadge from '$lib/components/QualityBadge.svelte';
 
+  interface QueueTrack {
+    id: string | number;
+    title: string;
+    artist: string;
+    artwork: string;
+  }
+
   interface Props {
     artwork: string;
     trackTitle: string;
@@ -10,6 +17,10 @@
     quality?: string;
     bitDepth?: number;
     samplingRate?: number;
+    // Queue for coverflow
+    queueTracks?: QueueTrack[];
+    queueCurrentIndex?: number;
+    onNavigate?: (index: number) => void;
   }
 
   let {
@@ -20,15 +31,87 @@
     isPlaying = false,
     quality,
     bitDepth,
-    samplingRate
+    samplingRate,
+    queueTracks = [],
+    queueCurrentIndex = 0,
+    onNavigate
   }: Props = $props();
+
+  // Build coverflow items: 2 prev + current + 2 next
+  const coverflowItems = $derived.by(() => {
+    const items: { index: number; artwork: string; title: string; artist: string; position: number }[] = [];
+
+    // Position: -2, -1, 0 (center), 1, 2
+    for (let offset = -2; offset <= 2; offset++) {
+      const queueIndex = queueCurrentIndex + offset;
+
+      if (queueIndex >= 0 && queueIndex < queueTracks.length) {
+        const track = queueTracks[queueIndex];
+        items.push({
+          index: queueIndex,
+          artwork: track.artwork,
+          title: track.title,
+          artist: track.artist,
+          position: offset
+        });
+      } else if (offset === 0) {
+        // Always show current even if queue is empty
+        items.push({
+          index: queueCurrentIndex,
+          artwork,
+          title: trackTitle,
+          artist,
+          position: 0
+        });
+      }
+    }
+
+    return items;
+  });
+
+  // Track previous index for animation direction
+  let previousIndex = $state(queueCurrentIndex);
+  let animationDirection = $state<'left' | 'right' | null>(null);
+
+  $effect(() => {
+    if (queueCurrentIndex !== previousIndex) {
+      animationDirection = queueCurrentIndex > previousIndex ? 'left' : 'right';
+      previousIndex = queueCurrentIndex;
+
+      // Reset animation direction after animation completes
+      setTimeout(() => {
+        animationDirection = null;
+      }, 500);
+    }
+  });
+
+  function handleCoverClick(index: number) {
+    if (index !== queueCurrentIndex && onNavigate) {
+      onNavigate(index);
+    }
+  }
 </script>
 
 <div class="coverflow-panel">
-  <div class="artwork-wrapper">
-    <div class="artwork-container" class:playing={isPlaying}>
-      <img src={artwork} alt={trackTitle} class="artwork" />
-    </div>
+  <div class="coverflow-container" class:animate-left={animationDirection === 'left'} class:animate-right={animationDirection === 'right'}>
+    {#each coverflowItems as item (item.index)}
+      <button
+        class="coverflow-item"
+        class:center={item.position === 0}
+        class:left-1={item.position === -1}
+        class:left-2={item.position === -2}
+        class:right-1={item.position === 1}
+        class:right-2={item.position === 2}
+        onclick={() => handleCoverClick(item.index)}
+        disabled={item.position === 0}
+        title={item.position === 0 ? undefined : `${item.title} - ${item.artist}`}
+      >
+        <div class="cover-wrapper">
+          <img src={item.artwork} alt={item.title} class="cover-image" />
+          <div class="cover-reflection"></div>
+        </div>
+      </button>
+    {/each}
   </div>
 
   <div class="track-info">
@@ -62,46 +145,150 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 20px;
-    /* Offset for header (70px) and controls (120px) to achieve true visual center */
+    gap: 24px;
     padding-top: 70px;
     padding-bottom: 120px;
     padding-left: 40px;
     padding-right: 40px;
     z-index: 5;
+    perspective: 1000px;
   }
 
-  .artwork-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .artwork-container {
+  .coverflow-container {
     position: relative;
-    width: min(45vh, 360px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 900px;
     height: min(45vh, 360px);
+    perspective: 1200px;
+    transform-style: preserve-3d;
+  }
+
+  .coverflow-item {
+    position: absolute;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: all 500ms cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+
+  .coverflow-item:disabled {
+    cursor: default;
+  }
+
+  .coverflow-item:not(:disabled):hover {
+    transform: translateX(var(--hover-x, 0)) rotateY(var(--hover-rotate, 0)) scale(1.05);
+  }
+
+  .cover-wrapper {
+    position: relative;
+    width: min(38vh, 300px);
+    height: min(38vh, 300px);
     border-radius: 8px;
-    overflow: hidden;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.5),
-      0 20px 60px rgba(0, 0, 0, 0.3);
-    transition: transform 300ms ease, box-shadow 300ms ease;
+    overflow: visible;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    transition: box-shadow 300ms ease;
   }
 
-  .artwork-container:hover {
-    transform: scale(1.02) translateY(-4px);
-    box-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.5),
-      0 28px 80px rgba(0, 0, 0, 0.3);
+  .coverflow-item:not(:disabled):hover .cover-wrapper {
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   }
 
-  .artwork {
+  .cover-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 8px;
   }
 
+  .cover-reflection {
+    position: absolute;
+    bottom: -60%;
+    left: 0;
+    right: 0;
+    height: 60%;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.1) 0%,
+      transparent 100%
+    );
+    transform: scaleY(-1);
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 50%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 50%);
+    pointer-events: none;
+    border-radius: 8px;
+  }
+
+  /* Center item */
+  .coverflow-item.center {
+    z-index: 5;
+    transform: translateX(0) rotateY(0deg) scale(1);
+  }
+
+  .coverflow-item.center .cover-wrapper {
+    width: min(45vh, 360px);
+    height: min(45vh, 360px);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Left items */
+  .coverflow-item.left-1 {
+    z-index: 4;
+    transform: translateX(-180px) rotateY(45deg) scale(0.85);
+    --hover-x: -170px;
+    --hover-rotate: 40deg;
+    opacity: 0.9;
+  }
+
+  .coverflow-item.left-2 {
+    z-index: 3;
+    transform: translateX(-300px) rotateY(55deg) scale(0.7);
+    --hover-x: -290px;
+    --hover-rotate: 50deg;
+    opacity: 0.6;
+  }
+
+  /* Right items */
+  .coverflow-item.right-1 {
+    z-index: 4;
+    transform: translateX(180px) rotateY(-45deg) scale(0.85);
+    --hover-x: 170px;
+    --hover-rotate: -40deg;
+    opacity: 0.9;
+  }
+
+  .coverflow-item.right-2 {
+    z-index: 3;
+    transform: translateX(300px) rotateY(-55deg) scale(0.7);
+    --hover-x: 290px;
+    --hover-rotate: -50deg;
+    opacity: 0.6;
+  }
+
+  /* Animation classes */
+  .coverflow-container.animate-left .coverflow-item {
+    animation: slideLeft 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .coverflow-container.animate-right .coverflow-item {
+    animation: slideRight 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideLeft {
+    0% { transform: translateX(calc(var(--translate-x, 0px) + 100px)); }
+  }
+
+  @keyframes slideRight {
+    0% { transform: translateX(calc(var(--translate-x, 0px) - 100px)); }
+  }
+
+  /* Track info */
   .track-info {
     display: flex;
     flex-direction: column;
@@ -174,20 +361,68 @@
   }
 
   /* Responsive */
+  @media (max-width: 900px) {
+    .coverflow-item.left-1 {
+      transform: translateX(-140px) rotateY(45deg) scale(0.8);
+      --hover-x: -130px;
+    }
+
+    .coverflow-item.left-2 {
+      transform: translateX(-230px) rotateY(55deg) scale(0.65);
+      --hover-x: -220px;
+    }
+
+    .coverflow-item.right-1 {
+      transform: translateX(140px) rotateY(-45deg) scale(0.8);
+      --hover-x: 130px;
+    }
+
+    .coverflow-item.right-2 {
+      transform: translateX(230px) rotateY(-55deg) scale(0.65);
+      --hover-x: 220px;
+    }
+  }
+
   @media (max-width: 768px) {
     .coverflow-panel {
-      padding: 70px 24px 130px;
+      padding: 70px 16px 130px;
       gap: 16px;
     }
 
-    .artwork-container {
-      width: min(55vw, 280px);
-      height: min(55vw, 280px);
+    .cover-wrapper {
+      width: min(30vh, 200px);
+      height: min(30vh, 200px);
+    }
+
+    .coverflow-item.center .cover-wrapper {
+      width: min(38vh, 260px);
+      height: min(38vh, 260px);
+    }
+
+    .coverflow-item.left-1 {
+      transform: translateX(-100px) rotateY(45deg) scale(0.75);
+    }
+
+    .coverflow-item.left-2 {
+      display: none;
+    }
+
+    .coverflow-item.right-1 {
+      transform: translateX(100px) rotateY(-45deg) scale(0.75);
+    }
+
+    .coverflow-item.right-2 {
+      display: none;
     }
   }
 
   @media (max-height: 600px) {
-    .artwork-container {
+    .cover-wrapper {
+      width: min(28vh, 180px);
+      height: min(28vh, 180px);
+    }
+
+    .coverflow-item.center .cover-wrapper {
       width: min(32vh, 220px);
       height: min(32vh, 220px);
     }
