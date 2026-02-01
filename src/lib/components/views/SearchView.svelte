@@ -220,55 +220,8 @@
   let hasMoreTracks = $derived(trackResults ? trackResults.offset + trackResults.items.length < trackResults.total : false);
   let hasMoreArtists = $derived(artistResults ? artistResults.offset + artistResults.items.length < artistResults.total : false);
 
-  // Determine the "Most Popular" result based on query matching
-  // Priority: exact match > starts with > contains > default to first artist
-  type MostPopularType = 'artist' | 'album' | 'track';
-  interface MostPopularResult {
-    type: MostPopularType;
-    artist?: Artist;
-    album?: Album;
-    track?: Track;
-  }
-
-  let mostPopularResult = $derived.by((): MostPopularResult | null => {
-    if (!allResults) return null;
-
-    const q = query.toLowerCase().trim();
-    if (!q) return null;
-
-    const firstArtist = allResults.artists.items[0];
-    const firstAlbum = allResults.albums.items[0];
-    const firstTrack = allResults.tracks.items[0];
-
-    // Check for exact matches first
-    if (firstArtist && firstArtist.name.toLowerCase() === q) {
-      return { type: 'artist', artist: firstArtist };
-    }
-    if (firstAlbum && firstAlbum.title.toLowerCase() === q) {
-      return { type: 'album', album: firstAlbum };
-    }
-    if (firstTrack && firstTrack.title.toLowerCase() === q) {
-      return { type: 'track', track: firstTrack };
-    }
-
-    // Check for "starts with" matches
-    if (firstArtist && firstArtist.name.toLowerCase().startsWith(q)) {
-      return { type: 'artist', artist: firstArtist };
-    }
-    if (firstAlbum && firstAlbum.title.toLowerCase().startsWith(q)) {
-      return { type: 'album', album: firstAlbum };
-    }
-    if (firstTrack && firstTrack.title.toLowerCase().startsWith(q)) {
-      return { type: 'track', track: firstTrack };
-    }
-
-    // Default: return artist if available, then album, then track
-    if (firstArtist) return { type: 'artist', artist: firstArtist };
-    if (firstAlbum) return { type: 'album', album: firstAlbum };
-    if (firstTrack) return { type: 'track', track: firstTrack };
-
-    return null;
-  });
+  // Most popular result comes directly from Qobuz's catalog/search API
+  // No heuristics needed - Qobuz determines the most relevant result
 
   function debounceSearch() {
     if (searchTimeout) clearTimeout(searchTimeout);
@@ -783,8 +736,8 @@
               <h3><Crown size={18} color="gold" /> Most Popular</h3>
             </div>
             <div class="most-popular-wrapper">
-              {#if mostPopularResult?.type === 'artist' && mostPopularResult.artist}
-                {@const artist = mostPopularResult.artist}
+              {#if allResults.most_popular?.type === 'artists'}
+                {@const artist = allResults.most_popular.content}
                 <button class="artist-card most-popular-card" onclick={() => onArtistClick?.(artist.id)}>
                   <div class="artist-image-wrapper">
                     <div class="artist-image-placeholder">
@@ -806,8 +759,8 @@
                     <div class="artist-albums">{$t('library.albumCount', { values: { count: artist.albums_count } })}</div>
                   {/if}
                 </button>
-              {:else if mostPopularResult?.type === 'album' && mostPopularResult.album}
-                {@const album = mostPopularResult.album}
+              {:else if allResults.most_popular?.type === 'albums'}
+                {@const album = allResults.most_popular.content}
                 <AlbumCard
                   albumId={album.id}
                   artwork={getAlbumArtwork(album)}
@@ -830,8 +783,8 @@
                   {downloadStateVersion}
                   onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
                 />
-              {:else if mostPopularResult?.type === 'track' && mostPopularResult.track}
-                {@const track = mostPopularResult.track}
+              {:else if allResults.most_popular?.type === 'tracks'}
+                {@const track = allResults.most_popular.content}
                 <button class="track-card most-popular-card" onclick={() => handleSearchTrackPlay(track, 0)}>
                   <div class="track-card-artwork">
                     {#if track.album?.image?.large || track.album?.image?.small}

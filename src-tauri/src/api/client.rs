@@ -73,14 +73,19 @@ impl QobuzClient {
         self.locale.read().await.clone()
     }
 
-    /// Get app ID
-    async fn app_id(&self) -> Result<String> {
+    /// Get app ID (public for catalog search)
+    pub async fn app_id(&self) -> Result<String> {
         self.tokens
             .read()
             .await
             .as_ref()
             .map(|t| t.app_id.clone())
             .ok_or_else(|| ApiError::BundleExtractionError("Client not initialized".to_string()))
+    }
+
+    /// Get HTTP client reference (public for catalog search)
+    pub fn get_http(&self) -> &Client {
+        &self.http
     }
 
     /// Get validated secret (validates on first use)

@@ -2,16 +2,27 @@
 
 use tauri::State;
 
-use crate::api::{Album, Artist, ArtistAlbums, LabelDetail, SearchResultsPage, Track};
+use crate::api::{endpoints, endpoints::paths, Album, Artist, ArtistAlbums, LabelDetail, SearchResultsPage, Track};
 use crate::api_cache::ApiCacheState;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+/// Most popular item from catalog search - can be a track, album, or artist
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "content", rename_all = "lowercase")]
+pub enum MostPopularItem {
+    Tracks(Track),
+    Albums(Album),
+    Artists(Artist),
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchAllResults {
     pub albums: SearchResultsPage<Album>,
     pub tracks: SearchResultsPage<Track>,
     pub artists: SearchResultsPage<Artist>,
+    pub most_popular: Option<MostPopularItem>,
 }
 
 #[tauri::command]
@@ -62,22 +73,59 @@ pub async fn search_artists(
 #[tauri::command]
 pub async fn search_all(
     query: String,
-    search_type: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<SearchAllResults, String> {
     let client = state.client.lock().await;
-    let st = search_type.as_deref();
 
-    let (albums_result, tracks_result, artists_result) = tokio::join!(
-        client.search_albums(&query, 30, 0, st),
-        client.search_tracks(&query, 8, 0, st),
-        client.search_artists(&query, 12, 0, st)
-    );
+    // Use catalog/search endpoint which returns everything including most_popular
+    let url = endpoints::build_url(paths::CATALOG_SEARCH);
+    let response: Value = client
+        .get_http()
+        .get(&url)
+        .header("X-App-Id", client.app_id().await.map_err(|e| e.to_string())?)
+        .query(&[
+            ("query", query.as_str()),
+            ("limit", "30"),
+            ("offset", "0"),
+        ])
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?
+        .json()
+        .await
+        .map_err(|e| format!("JSON parse failed: {}", e))?;
+
+    // Parse albums
+    let albums: SearchResultsPage<Album> = response
+        .get("albums")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(|| SearchResultsPage { items: vec![], total: 0, offset: 0, limit: 30 });
+
+    // Parse tracks
+    let tracks: SearchResultsPage<Track> = response
+        .get("tracks")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(|| SearchResultsPage { items: vec![], total: 0, offset: 0, limit: 30 });
+
+    // Parse artists
+    let artists: SearchResultsPage<Artist> = response
+        .get("artists")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(|| SearchResultsPage { items: vec![], total: 0, offset: 0, limit: 30 });
+
+    // Parse most_popular - get the first item
+    let most_popular: Option<MostPopularItem> = response
+        .get("most_popular")
+        .and_then(|mp| mp.get("items"))
+        .and_then(|items| items.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|item| serde_json::from_value(item.clone()).ok());
 
     Ok(SearchAllResults {
-        albums: albums_result.map_err(|e| e.to_string())?,
-        tracks: tracks_result.map_err(|e| e.to_string())?,
-        artists: artists_result.map_err(|e| e.to_string())?,
+        albums,
+        tracks,
+        artists,
+        most_popular,
     })
 }
 

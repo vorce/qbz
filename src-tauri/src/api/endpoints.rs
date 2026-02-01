@@ -39,6 +39,9 @@ pub mod paths {
 
     // Label
     pub const LABEL_GET: &str = "/label/get";
+
+    // Catalog (combined search)
+    pub const CATALOG_SEARCH: &str = "/catalog/search";
 }
 
 /// Build full URL for an endpoint

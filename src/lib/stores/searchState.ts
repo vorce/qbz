@@ -10,10 +10,17 @@ export interface SearchResults<T> {
   limit: number;
 }
 
+// Most popular item from Qobuz catalog search
+export type MostPopularItem<Album, Track, Artist> =
+  | { type: 'albums'; content: Album }
+  | { type: 'tracks'; content: Track }
+  | { type: 'artists'; content: Artist };
+
 export interface SearchAllResults<Album, Track, Artist> {
   albums: SearchResults<Album>;
   tracks: SearchResults<Track>;
   artists: SearchResults<Artist>;
+  most_popular: MostPopularItem<Album, Track, Artist> | null;
 }
 
 export interface SearchState<Album, Track, Artist> {
