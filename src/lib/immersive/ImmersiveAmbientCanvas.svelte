@@ -253,8 +253,9 @@
     if (isAnimating || !isInitialized) return;
     isAnimating = true;
     lastFrameTime = performance.now();
+    startTime = performance.now(); // Reset time for animation
     animationFrameId = requestAnimationFrame(animationLoop);
-    console.log('[ImmersiveCanvas] Animation started');
+    console.log('[ImmersiveCanvas] Animation started, intensity:', intensity ?? getConfig().ambientIntensity);
   }
 
   /**
@@ -311,6 +312,11 @@
     const motionIntensity = enableMotion
       ? (intensity ?? getConfig().ambientIntensity)
       : 0;
+
+    // Debug: log every 60 frames (~4 sec at 15fps)
+    if (Math.floor(currentTime) % 4 === 0 && Math.floor(currentTime * 15) % 15 === 0) {
+      console.log(`[ImmersiveCanvas] time=${currentTime.toFixed(1)}s, intensity=${motionIntensity}`);
+    }
 
     gl.uniform1f(u_time, currentTime);
     gl.uniform1f(u_intensity, motionIntensity);

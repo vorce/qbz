@@ -24,16 +24,16 @@ uniform sampler2D u_texture;
 uniform float u_time;          // Time in seconds
 uniform float u_intensity;     // Motion intensity (0.0 - 1.0)
 
-// Constants for motion parameters
-const float DRIFT_SPEED_X = 0.08;
-const float DRIFT_SPEED_Y = 0.06;
-const float DRIFT_AMOUNT = 0.03;
+// Constants for motion parameters - made MORE visible
+const float DRIFT_SPEED_X = 0.15;
+const float DRIFT_SPEED_Y = 0.12;
+const float DRIFT_AMOUNT = 0.08;  // 8% UV drift
 
-const float ZOOM_SPEED = 0.05;
-const float ZOOM_AMOUNT = 0.02;
+const float ZOOM_SPEED = 0.1;
+const float ZOOM_AMOUNT = 0.05;   // 5% zoom oscillation
 
-const float BREATH_SPEED = 0.12;
-const float BREATH_AMOUNT = 0.06;
+const float BREATH_SPEED = 0.2;
+const float BREATH_AMOUNT = 0.12; // 12% brightness pulse
 
 void main() {
     vec2 uv = v_texCoord;

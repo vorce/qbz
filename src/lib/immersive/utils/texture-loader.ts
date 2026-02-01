@@ -203,11 +203,12 @@ export async function loadBlurredTexture(
 
   try {
     // Generate blurred image
-    // Very small canvas (16x16) + heavy blur = smooth gradients when scaled
+    // Extremely small canvas (8x8) = each pixel becomes ~240px when scaled
+    // This creates very smooth color gradients
     const blurredDataUrl = await generateBlurredImage(
       artworkUrl,
-      16,   // Tiny canvas - each pixel becomes ~120px when scaled to 1920
-      8,    // Blur radius (applied twice)
+      8,    // 8x8 canvas - maximum blur through scaling
+      4,    // Small blur radius (image is already tiny)
       controller.signal
     );
 
