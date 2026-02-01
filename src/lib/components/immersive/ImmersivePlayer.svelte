@@ -495,6 +495,7 @@
     min-width: 0;
     min-height: 0;
     max-width: 560px;
+    height: 100%;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
