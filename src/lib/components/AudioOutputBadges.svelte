@@ -31,6 +31,17 @@
     is_active: boolean;
   }
 
+  interface AlsaDevice {
+    id: string;
+    name: string;
+    description: string | null;
+    is_default: boolean;
+    max_sample_rate: number | null;
+    supported_sample_rates: number[] | null;
+    device_bus: string | null;
+    is_hardware: boolean;
+  }
+
   // Props
   interface Props {
     showTooltips?: boolean;
@@ -43,6 +54,7 @@
   let settings = $state<AudioSettings | null>(null);
   let outputStatus = $state<AudioOutputStatus | null>(null);
   let pipewireSinks = $state<PipewireSink[]>([]);
+  let alsaDevices = $state<AlsaDevice[]>([]);
   let hardwareStatus = $state<HardwareAudioStatus | null>(null);
   let isHovering = $state(false);
   
@@ -69,6 +81,13 @@
     return sink?.description ?? null;
   });
 
+  // Get ALSA description for current device (fancy name from aplay -L)
+  const alsaDescription = $derived.by(() => {
+    if (!currentDevice) return null;
+    const device = alsaDevices.find(d => d.id === currentDevice || d.name === currentDevice);
+    return device?.description ?? null;
+  });
+
   // Get volume for current device from PipeWire
   const currentVolume = $derived.by(() => {
     if (!currentDevice) return null;
@@ -76,9 +95,9 @@
     return sink?.volume ?? null;
   });
 
-  // Use PipeWire description if available, otherwise fall back to heuristic
+  // Use PipeWire/ALSA description if available, otherwise fall back to heuristic
   const prettyDeviceName = $derived(
-    pipewireDescription ?? (currentDevice ? getDevicePrettyName(currentDevice) : 'No device')
+    pipewireDescription ?? alsaDescription ?? (currentDevice ? getDevicePrettyName(currentDevice) : 'No device')
   );
 
   const isExternal = $derived(currentDevice ? isExternalDevice(currentDevice) : false);
@@ -146,15 +165,17 @@
 
   async function loadStatus() {
     try {
-      const [settingsResult, statusResult, sinksResult, hwStatus] = await Promise.all([
+      const [settingsResult, statusResult, sinksResult, alsaResult, hwStatus] = await Promise.all([
         invoke<AudioSettings>('get_audio_settings'),
         invoke<AudioOutputStatus>('get_audio_output_status'),
         invoke<PipewireSink[]>('get_pipewire_sinks').catch(() => [] as PipewireSink[]),
+        invoke<AlsaDevice[]>('get_alsa_devices').catch(() => [] as AlsaDevice[]),
         invoke<HardwareAudioStatus>('get_hardware_audio_status').catch(() => null)
       ]);
       settings = settingsResult;
       outputStatus = statusResult;
       pipewireSinks = sinksResult;
+      alsaDevices = alsaResult;
       hardwareStatus = hwStatus;
     } catch (err) {
       console.error('Failed to load audio status:', err);
