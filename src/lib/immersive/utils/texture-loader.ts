@@ -1,13 +1,19 @@
 /**
  * Texture Loader
  *
- * Handles async loading of artwork textures with pre-blur processing.
- * Supports request cancellation for rapid track changes.
+ * Creates a high-quality pre-blurred texture that matches CSS blur(40px) quality.
+ * The blur is computed ONCE at load time - no per-frame processing.
+ *
+ * Strategy:
+ * 1. Load image at reasonable size (256x256)
+ * 2. Apply heavy Gaussian-like blur via multiple canvas filter passes
+ * 3. Apply color adjustments (saturation, brightness)
+ * 4. Upload to GPU texture ONCE
  */
 
 import { createTextureFromImage } from './webgl-utils';
 
-// Cache of loaded blurred images (data URLs)
+// Cache of loaded blurred images
 const blurCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 20;
 
@@ -15,23 +21,44 @@ const MAX_CACHE_SIZE = 20;
 const activeLoads = new Map<string, AbortController>();
 
 /**
- * Generate a pre-blurred version of an image.
- * Uses canvas 2D for blur (one-time CPU cost, then GPU texture).
- *
- * @param imageUrl - Source image URL
- * @param size - Output size (smaller = more blur when scaled)
- * @param blurRadius - Canvas filter blur radius
- * @param signal - AbortSignal for cancellation
+ * Apply multiple blur passes to achieve CSS blur(40px) equivalent.
+ * Uses OffscreenCanvas if available for better performance.
+ */
+function applyHeavyBlur(
+  sourceCanvas: HTMLCanvasElement,
+  passes: number = 4,
+  blurPerPass: number = 12
+): HTMLCanvasElement {
+  let current = sourceCanvas;
+  const size = sourceCanvas.width;
+
+  for (let i = 0; i < passes; i++) {
+    const next = document.createElement('canvas');
+    next.width = size;
+    next.height = size;
+    const ctx = next.getContext('2d');
+    if (!ctx) return current;
+
+    // Each pass applies blur
+    ctx.filter = `blur(${blurPerPass}px)`;
+    ctx.drawImage(current, 0, 0);
+
+    current = next;
+  }
+
+  return current;
+}
+
+/**
+ * Generate a pre-blurred background image.
+ * This creates a texture that looks like CSS filter: blur(40px).
  */
 async function generateBlurredImage(
   imageUrl: string,
-  size: number = 64,
-  blurRadius: number = 20,
   signal?: AbortSignal
 ): Promise<string> {
   // Check cache first
-  const cacheKey = `${imageUrl}-${size}-${blurRadius}`;
-  const cached = blurCache.get(cacheKey);
+  const cached = blurCache.get(imageUrl);
   if (cached) return cached;
 
   return new Promise((resolve, reject) => {
@@ -59,88 +86,50 @@ async function generateBlurredImage(
       }
 
       try {
-        // Multi-pass blur to match CSS blur(40px) quality
-        // Use larger canvases to allow proper blur spreading
+        // Step 1: Draw image to initial canvas at target size
+        // 256x256 provides good quality while keeping processing fast
+        const SIZE = 256;
+        const BLUR_PASSES = 4;
+        const BLUR_PER_PASS = 15; // 4 passes * 15px ≈ CSS blur(40-50px)
 
-        // Step 1: Draw image to source canvas
         const sourceCanvas = document.createElement('canvas');
-        sourceCanvas.width = size;
-        sourceCanvas.height = size;
+        sourceCanvas.width = SIZE;
+        sourceCanvas.height = SIZE;
         const sourceCtx = sourceCanvas.getContext('2d');
         if (!sourceCtx) {
-          reject(new Error('Could not get source canvas context'));
-          return;
-        }
-        sourceCtx.drawImage(img, 0, 0, size, size);
-
-        // Step 2: First blur pass (large canvas to capture blur overflow)
-        const blurCanvas1 = document.createElement('canvas');
-        const expandedSize = size + blurRadius * 4;
-        blurCanvas1.width = expandedSize;
-        blurCanvas1.height = expandedSize;
-        const blurCtx1 = blurCanvas1.getContext('2d');
-        if (!blurCtx1) {
-          reject(new Error('Could not get blur canvas context'));
+          reject(new Error('Could not get canvas context'));
           return;
         }
 
-        // Apply first blur pass with color adjustments
-        blurCtx1.filter = `blur(${blurRadius}px) saturate(1.3) brightness(0.55)`;
-        blurCtx1.drawImage(sourceCanvas, blurRadius * 2, blurRadius * 2);
+        // Draw image scaled to fit canvas
+        sourceCtx.drawImage(img, 0, 0, SIZE, SIZE);
 
-        // Step 3: Second blur pass
-        const blurCanvas2 = document.createElement('canvas');
-        blurCanvas2.width = expandedSize;
-        blurCanvas2.height = expandedSize;
-        const blurCtx2 = blurCanvas2.getContext('2d');
-        if (!blurCtx2) {
-          reject(new Error('Could not get blur canvas 2 context'));
-          return;
-        }
+        // Step 2: Apply heavy blur (multiple passes)
+        const blurredCanvas = applyHeavyBlur(sourceCanvas, BLUR_PASSES, BLUR_PER_PASS);
 
-        blurCtx2.filter = `blur(${blurRadius}px)`;
-        blurCtx2.drawImage(blurCanvas1, 0, 0);
-
-        // Step 4: Third blur pass for maximum smoothness
-        const blurCanvas3 = document.createElement('canvas');
-        blurCanvas3.width = expandedSize;
-        blurCanvas3.height = expandedSize;
-        const blurCtx3 = blurCanvas3.getContext('2d');
-        if (!blurCtx3) {
-          reject(new Error('Could not get blur canvas 3 context'));
-          return;
-        }
-
-        blurCtx3.filter = `blur(${Math.floor(blurRadius / 2)}px)`;
-        blurCtx3.drawImage(blurCanvas2, 0, 0);
-
-        // Step 5: Crop to final size
+        // Step 3: Apply color adjustments
         const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = size;
-        finalCanvas.height = size;
+        finalCanvas.width = SIZE;
+        finalCanvas.height = SIZE;
         const finalCtx = finalCanvas.getContext('2d');
         if (!finalCtx) {
           reject(new Error('Could not get final canvas context'));
           return;
         }
 
-        // Extract center portion
-        const offset = blurRadius * 2;
-        finalCtx.drawImage(
-          blurCanvas3,
-          offset, offset, size, size,
-          0, 0, size, size
-        );
+        // Saturation boost + brightness reduction for background use
+        finalCtx.filter = 'saturate(1.3) brightness(0.55)';
+        finalCtx.drawImage(blurredCanvas, 0, 0);
 
-        // Convert to data URL
-        const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.7);
+        // Step 4: Convert to data URL
+        const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.85);
 
         // Cache the result
         if (blurCache.size >= MAX_CACHE_SIZE) {
           const firstKey = blurCache.keys().next().value;
           if (firstKey) blurCache.delete(firstKey);
         }
-        blurCache.set(cacheKey, dataUrl);
+        blurCache.set(imageUrl, dataUrl);
 
         resolve(dataUrl);
       } catch (err) {
@@ -158,7 +147,7 @@ async function generateBlurredImage(
 }
 
 /**
- * Load an image from a URL or data URL.
+ * Load image from URL or data URL.
  */
 function loadImage(src: string, signal?: AbortSignal): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -198,18 +187,10 @@ export interface LoadTextureResult {
 }
 
 /**
- * Load a blurred texture from artwork URL.
+ * Load a pre-blurred texture from artwork URL.
  *
- * Process:
- * 1. Generate pre-blurred image (cached)
- * 2. Load as HTMLImageElement
- * 3. Upload to WebGL texture
- *
- * Cancels any previous load for the same request ID.
- *
- * @param gl - WebGL2 context
- * @param artworkUrl - URL of the artwork
- * @param requestId - Unique ID for this load request (for cancellation)
+ * The texture is blurred ONCE at load time.
+ * No per-frame blur processing needed.
  */
 export async function loadBlurredTexture(
   gl: WebGL2RenderingContext,
@@ -222,30 +203,25 @@ export async function loadBlurredTexture(
     existingController.abort();
   }
 
-  // Create new abort controller
   const controller = new AbortController();
   activeLoads.set(requestId, controller);
 
   try {
-    // Generate pre-processed image
-    // Use 256x256 for good quality - GPU shader will handle the blur
+    // Generate pre-blurred image (cached)
     const blurredDataUrl = await generateBlurredImage(
       artworkUrl,
-      256,  // Higher quality source for GPU blur
-      8,    // Light pre-blur, GPU shader does the heavy lifting
       controller.signal
     );
 
     // Load as image element
     const img = await loadImage(blurredDataUrl, controller.signal);
 
-    // Create texture
+    // Create texture (uploaded ONCE)
     const texture = createTextureFromImage(gl, img);
     if (!texture) {
       throw new Error('Failed to create texture');
     }
 
-    // Clean up active load
     activeLoads.delete(requestId);
 
     return {
@@ -256,7 +232,6 @@ export async function loadBlurredTexture(
   } catch (err) {
     activeLoads.delete(requestId);
 
-    // Don't log abort errors - they're expected during rapid track changes
     if (err instanceof DOMException && err.name === 'AbortError') {
       return null;
     }
@@ -284,7 +259,7 @@ export function clearBlurCache(): void {
 }
 
 /**
- * Get cache statistics for debugging.
+ * Get cache statistics.
  */
 export function getBlurCacheStats(): { size: number; maxSize: number } {
   return {
