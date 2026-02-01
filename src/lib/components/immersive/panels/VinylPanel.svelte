@@ -23,67 +23,86 @@
     samplingRate
   }: Props = $props();
 
-  // Generate groove rings (40 rings like Figma design)
+  // Mouse position for parallax effect
+  let mouseX = $state(0.5);
+  let mouseY = $state(0.5);
+  let containerRef: HTMLDivElement | null = $state(null);
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!containerRef) return;
+    const rect = containerRef.getBoundingClientRect();
+    mouseX = (e.clientX - rect.left) / rect.width;
+    mouseY = (e.clientY - rect.top) / rect.height;
+  }
+
+  function handleMouseLeave() {
+    mouseX = 0.5;
+    mouseY = 0.5;
+  }
+
+  // Parallax offset calculations
+  const coverOffsetX = $derived((mouseX - 0.5) * 15);
+  const coverOffsetY = $derived((mouseY - 0.5) * 10);
+  const discOffsetX = $derived((mouseX - 0.5) * -8);
+  const discOffsetY = $derived((mouseY - 0.5) * -5);
+
+  // Generate groove rings (40 rings)
   const grooveCount = 40;
   const grooves = Array.from({ length: grooveCount }, (_, i) => i);
 </script>
 
-<div class="vinyl-panel">
-  <div class="vinyl-content">
-    <!-- Album Cover (left side) -->
-    <div class="album-cover" class:playing={isPlaying}>
-      <img src={artwork} alt={trackTitle} />
-    </div>
-
-    <!-- Spinning Vinyl Disc -->
-    <div class="vinyl-disc-container">
+<div
+  class="vinyl-panel"
+  bind:this={containerRef}
+  onmousemove={handleMouseMove}
+  onmouseleave={handleMouseLeave}
+>
+  <div class="vinyl-container" class:playing={isPlaying}>
+    <!-- Vinyl Disc (BEHIND the cover) -->
+    <div
+      class="vinyl-disc-wrapper"
+      style="transform: translate({discOffsetX}px, {discOffsetY}px)"
+    >
       <div class="vinyl-disc" class:spinning={isPlaying}>
         <!-- Grooves -->
         {#each grooves as i}
           <div
             class="groove"
-            style="transform: scale({0.3 + i * 0.015})"
+            style="transform: scale({0.28 + i * 0.017})"
           ></div>
         {/each}
 
         <!-- Center Label -->
         <div class="center-label">
-          <div class="spindle"></div>
+          <div class="label-inner">
+            <div class="spindle"></div>
+          </div>
         </div>
 
-        <!-- Reflection -->
+        <!-- Light reflection -->
         <div class="reflection"></div>
       </div>
     </div>
 
-    <!-- Track Info (right side) -->
-    <div class="track-info" class:playing={isPlaying}>
-      <!-- Vintage Badge -->
-      <div class="vintage-badge">
-        <span>33&#8531; RPM &bull; Stereo</span>
-      </div>
+    <!-- Album Cover (IN FRONT, slides to reveal disc) -->
+    <div
+      class="album-cover"
+      class:revealed={isPlaying}
+      style="transform: translate({coverOffsetX}px, {coverOffsetY}px)"
+    >
+      <img src={artwork} alt={trackTitle} />
+    </div>
+  </div>
 
-      <h1 class="track-title">{trackTitle}</h1>
-      <p class="track-artist">{artist}</p>
-      {#if album}
-        <p class="track-album">{album}</p>
-      {/if}
-
-      <!-- Vintage Details -->
-      <div class="vintage-details">
-        <div class="detail-row">
-          <span class="label">Side</span>
-          <span class="value">A</span>
-        </div>
-        <div class="detail-row">
-          <span class="label">Format</span>
-          <span class="value">12" Vinyl LP</span>
-        </div>
-      </div>
-
-      <div class="quality-badge-wrapper">
-        <QualityBadge {quality} {bitDepth} {samplingRate} />
-      </div>
+  <!-- Track Info (below) -->
+  <div class="track-info">
+    <h1 class="track-title">{trackTitle}</h1>
+    <p class="track-artist">{artist}</p>
+    {#if album}
+      <p class="track-album">{album}</p>
+    {/if}
+    <div class="quality-badge-wrapper">
+      <QualityBadge {quality} {bitDepth} {samplingRate} />
     </div>
   </div>
 </div>
@@ -93,6 +112,7 @@
     position: absolute;
     inset: 0;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     padding-top: 70px;
@@ -100,83 +120,80 @@
     padding-left: 40px;
     padding-right: 40px;
     z-index: 5;
+    gap: 24px;
   }
 
-  .vinyl-content {
+  .vinyl-container {
+    position: relative;
+    width: min(500px, 55vh);
+    height: min(500px, 55vh);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0;
-    position: relative;
-    width: min(900px, 90vw);
-    height: min(450px, 50vh);
   }
 
-  /* Album Cover */
-  .album-cover {
+  /* Vinyl Disc - positioned behind cover */
+  .vinyl-disc-wrapper {
     position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%) translateX(80px);
-    width: min(340px, 38vh);
-    height: min(340px, 38vh);
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.6),
-      0 20px 60px rgba(0, 0, 0, 0.4);
-    z-index: 10;
-    transition: transform 500ms cubic-bezier(0.23, 1, 0.32, 1);
-  }
-
-  .album-cover.playing {
-    transform: translateY(-50%) translateX(0);
-  }
-
-  .album-cover img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-  }
-
-  /* Vinyl Disc Container */
-  .vinyl-disc-container {
-    position: absolute;
-    right: 60px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: min(400px, 45vh);
-    height: min(400px, 45vh);
+    transition: transform 150ms ease-out;
   }
 
   .vinyl-disc {
-    position: relative;
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 95%;
+    height: 95%;
     border-radius: 50%;
-    background: linear-gradient(135deg, #1a1a1a 0%, #000 50%, #1a1a1a 100%);
+    background: radial-gradient(
+      circle at 30% 30%,
+      #2a2a2a 0%,
+      #0a0a0a 40%,
+      #1a1a1a 70%,
+      #0a0a0a 100%
+    );
     box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.5),
-      0 20px 60px rgba(0, 0, 0, 0.3),
-      inset 0 0 60px rgba(0, 0, 0, 0.8);
+      0 10px 40px rgba(0, 0, 0, 0.6),
+      0 20px 60px rgba(0, 0, 0, 0.4),
+      inset 0 0 80px rgba(0, 0, 0, 0.9);
   }
 
   .vinyl-disc.spinning {
-    animation: spin 3s linear infinite;
+    animation: spin 2.5s linear infinite;
   }
 
   @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
   }
 
-  /* Grooves */
+  /* Grooves - more visible */
   .groove {
     position: absolute;
-    inset: 0;
+    top: 50%;
+    left: 50%;
+    transform-origin: center center;
+    width: 100%;
+    height: 100%;
+    margin-left: -50%;
+    margin-top: -50%;
     border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     pointer-events: none;
+  }
+
+  /* Alternating groove brightness for more realism */
+  .groove:nth-child(odd) {
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+  .groove:nth-child(even) {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .groove:nth-child(3n) {
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
   /* Center Label */
@@ -185,26 +202,38 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 100px;
-    height: 100px;
+    width: 28%;
+    height: 28%;
     border-radius: 50%;
-    background: linear-gradient(135deg, #b45309 0%, #78350f 100%);
-    border: 4px solid #92400e;
+    background: linear-gradient(135deg, #3a3a3a 0%, #1a1a1a 100%);
+    border: 3px solid #2a2a2a;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+    box-shadow:
+      inset 0 2px 10px rgba(0, 0, 0, 0.5),
+      0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+
+  .label-inner {
+    width: 70%;
+    height: 70%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4a4a4a 0%, #2a2a2a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .spindle {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background: #000;
-    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.1);
+    background: #0a0a0a;
+    box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.1);
   }
 
-  /* Reflection */
+  /* Light Reflection */
   .reflection {
     position: absolute;
     inset: 0;
@@ -212,164 +241,102 @@
     background: linear-gradient(
       135deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.03) 30%,
-      transparent 60%
+      rgba(255, 255, 255, 0.04) 20%,
+      transparent 40%,
+      rgba(255, 255, 255, 0.02) 60%,
+      transparent 80%
     );
     pointer-events: none;
   }
 
+  /* Album Cover - in front of disc */
+  .album-cover {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 80%;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow:
+      0 10px 40px rgba(0, 0, 0, 0.5),
+      0 20px 60px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    transition: transform 600ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  /* When playing, slide cover to reveal disc */
+  .album-cover.revealed {
+    transform: translate(-70%, -50%);
+  }
+
+  .album-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
   /* Track Info */
   .track-info {
-    position: absolute;
-    right: -60px;
-    top: 50%;
-    transform: translateY(-50%);
-    max-width: 300px;
-    opacity: 0.5;
-    transition: opacity 300ms ease, transform 300ms ease;
-  }
-
-  .track-info.playing {
-    opacity: 1;
-    transform: translateY(-50%) translateX(-20px);
-  }
-
-  .vintage-badge {
-    display: inline-block;
-    padding: 6px 14px;
-    border-radius: 20px;
-    background: rgba(245, 158, 11, 0.15);
-    border: 1px solid rgba(245, 158, 11, 0.3);
-    margin-bottom: 16px;
-  }
-
-  .vintage-badge span {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #fcd34d;
-    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    max-width: 500px;
   }
 
   .track-title {
-    font-family: 'Oswald', var(--font-sans), serif;
-    font-size: clamp(24px, 4vw, 36px);
-    font-weight: 600;
-    color: #fffbeb;
-    margin: 0 0 8px 0;
-    letter-spacing: 0.01em;
+    font-size: clamp(20px, 3vw, 28px);
+    font-weight: 700;
+    color: var(--text-primary, white);
+    margin: 0;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   }
 
   .track-artist {
-    font-family: 'Oswald', var(--font-sans), serif;
-    font-size: clamp(16px, 2.5vw, 20px);
-    color: rgba(254, 243, 199, 0.8);
-    margin: 0 0 4px 0;
+    font-size: clamp(14px, 2vw, 18px);
+    color: var(--alpha-70, rgba(255, 255, 255, 0.7));
+    margin: 0;
   }
 
   .track-album {
-    font-family: 'Oswald', var(--font-sans), serif;
-    font-size: clamp(14px, 2vw, 16px);
-    color: rgba(254, 243, 199, 0.6);
+    font-size: clamp(12px, 1.5vw, 14px);
+    color: var(--alpha-50, rgba(255, 255, 255, 0.5));
+    margin: 0;
     font-style: italic;
-    margin: 0 0 20px 0;
-  }
-
-  .vintage-details {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 20px;
-    font-family: monospace;
-    font-size: 12px;
-  }
-
-  .detail-row {
-    display: flex;
-    gap: 12px;
-  }
-
-  .detail-row .label {
-    color: rgba(252, 211, 77, 0.7);
-    min-width: 50px;
-  }
-
-  .detail-row .value {
-    color: rgba(254, 243, 199, 0.5);
   }
 
   .quality-badge-wrapper {
-    margin-top: 16px;
+    margin-top: 12px;
   }
 
   /* Responsive */
-  @media (max-width: 1000px) {
-    .vinyl-content {
-      flex-direction: column;
-      height: auto;
+  @media (max-width: 768px) {
+    .vinyl-panel {
+      padding: 70px 24px 130px;
       gap: 20px;
     }
 
-    .album-cover {
-      position: relative;
-      left: auto;
-      top: auto;
-      transform: none;
-      width: min(280px, 40vw);
-      height: min(280px, 40vw);
+    .vinyl-container {
+      width: min(350px, 50vw);
+      height: min(350px, 50vw);
     }
 
-    .album-cover.playing {
-      transform: none;
-    }
-
-    .vinyl-disc-container {
-      display: none;
-    }
-
-    .track-info {
-      position: relative;
-      right: auto;
-      top: auto;
-      transform: none;
-      text-align: center;
-      opacity: 1;
-    }
-
-    .track-info.playing {
-      transform: none;
-    }
-
-    .vintage-details {
-      align-items: center;
-    }
-
-    .quality-badge-wrapper {
-      display: flex;
-      justify-content: center;
+    .album-cover.revealed {
+      transform: translate(-60%, -50%);
     }
   }
 
   @media (max-height: 600px) {
-    .album-cover {
-      width: min(200px, 30vh);
-      height: min(200px, 30vh);
+    .vinyl-container {
+      width: min(280px, 40vh);
+      height: min(280px, 40vh);
     }
 
-    .vinyl-disc-container {
-      width: min(280px, 35vh);
-      height: min(280px, 35vh);
-    }
-
-    .center-label {
-      width: 70px;
-      height: 70px;
-    }
-
-    .spindle {
-      width: 14px;
-      height: 14px;
+    .track-info {
+      gap: 4px;
     }
   }
 </style>
