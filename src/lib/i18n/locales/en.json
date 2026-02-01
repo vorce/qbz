@@ -360,8 +360,8 @@
     "audio": {
       "title": "Audio",
       "streamingQuality": "Streaming Quality",
-      "preferHighest": "Prefer Highest Available",
-      "preferHighestDesc": "Automatically select highest quality for your subscription",
+      "streamingQualityDesc": "Maximum quality for streaming and playback cache",
+      "qualityChangedCacheCleared": "Quality changed. Playback cache cleared.",
       "outputDevice": "Output Device",
       "audioDevice": "Audio Device",
       "exclusiveMode": "Exclusive Mode",

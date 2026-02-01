@@ -379,8 +379,7 @@
   const availableLanguages = ['Auto', 'English', 'Español'];
 
   // Audio settings
-  let streamingQuality = $state('Hi-Res');
-  let preferHighest = $state(true);
+  let streamingQuality = $state('Hi-Res+');
   let outputDevice = $state('System Default');
   let exclusiveMode = $state(false);
   let dacPassthrough = $state(false);
@@ -602,12 +601,6 @@
     const savedQuality = localStorage.getItem('qbz-streaming-quality');
     if (savedQuality) {
       streamingQuality = savedQuality;
-    }
-
-    // Load prefer highest setting
-    const savedPreferHighest = localStorage.getItem('qbz-prefer-highest');
-    if (savedPreferHighest !== null) {
-      preferHighest = savedPreferHighest === 'true';
     }
 
     // Load language setting from i18n locale
@@ -954,14 +947,23 @@
     }
   }
 
-  function handleQualityChange(quality: string) {
+  async function handleQualityChange(quality: string) {
+    const previousQuality = streamingQuality;
     streamingQuality = quality;
     localStorage.setItem('qbz-streaming-quality', quality);
-  }
 
-  function handlePreferHighestChange(enabled: boolean) {
-    preferHighest = enabled;
-    localStorage.setItem('qbz-prefer-highest', String(enabled));
+    // Clear playback cache when quality changes (issue #34)
+    // This ensures cached tracks don't play at wrong quality
+    // Important for users with hardware sample rate limitations
+    if (previousQuality !== quality) {
+      try {
+        await invoke('clear_cache');
+        await loadCacheStats();
+        showToast($t('settings.audio.qualityChangedCacheCleared'), 'success');
+      } catch (err) {
+        console.error('Failed to clear cache after quality change:', err);
+      }
+    }
   }
 
   // Offline mode handlers
@@ -1902,16 +1904,15 @@
   <section class="section" bind:this={audioSection}>
     <h3 class="section-title">{$t('settings.audio.title')}</h3>
     <div class="setting-row">
-      <span class="setting-label">{$t('settings.audio.streamingQuality')}</span>
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.audio.streamingQuality')}</span>
+        <span class="setting-desc">{$t('settings.audio.streamingQualityDesc')}</span>
+      </div>
       <Dropdown
         value={streamingQuality}
         options={['MP3', 'CD Quality', 'Hi-Res', 'Hi-Res+']}
         onchange={handleQualityChange}
       />
-    </div>
-    <div class="setting-row">
-      <span class="setting-label">{$t('settings.audio.preferHighest')}</span>
-      <Toggle enabled={preferHighest} onchange={handlePreferHighestChange} />
     </div>
     <div class="setting-row">
       <div class="setting-info">
