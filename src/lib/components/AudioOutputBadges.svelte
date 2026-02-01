@@ -161,14 +161,6 @@
     }
   }
 
-  // Always refresh status when hovering to get fresh device name
-  // The device name is only set when playback starts, so we need to re-fetch
-  $effect(() => {
-    if (isHovering) {
-      loadStatus();
-    }
-  });
-
   // Calculate overflow for ticker animation when tooltip is visible
   $effect(() => {
     if (isHovering && deviceNameRef && deviceNameTextRef) {
@@ -212,7 +204,7 @@
   class="audio-badges"
   role="group"
   aria-label="Audio output indicators"
-  onmouseenter={() => isHovering = true}
+  onmouseenter={() => { isHovering = true; loadStatus(); }}
   onmouseleave={() => isHovering = false}
 >
   <!-- Casting Badge (shown when casting to external device) -->
