@@ -85,36 +85,34 @@
     );
   }
 
-  /* Scrollbar styles for internal LyricsLines component - show on hover */
-  .lyrics-container :global(.lyrics-lines::-webkit-scrollbar) {
-    width: 6px;
-  }
-
-  .lyrics-container :global(.lyrics-lines::-webkit-scrollbar-track) {
-    background: transparent;
-  }
-
-  .lyrics-container :global(.lyrics-lines::-webkit-scrollbar-thumb) {
-    background: transparent;
-    border-radius: 3px;
-    transition: background 200ms ease;
-  }
-
-  .lyrics-container:hover :global(.lyrics-lines::-webkit-scrollbar-thumb) {
-    background: rgba(255, 255, 255, 0.3);
-  }
-
-  .lyrics-container:hover :global(.lyrics-lines::-webkit-scrollbar-thumb:hover) {
-    background: rgba(255, 255, 255, 0.5);
-  }
-
   .lyrics-container :global(.lyrics-lines) {
     --text-primary: var(--alpha-95, rgba(255, 255, 255, 0.95));
     --text-secondary: var(--alpha-50, rgba(255, 255, 255, 0.5));
     --text-muted: var(--alpha-25, rgba(255, 255, 255, 0.25));
-    --bg-tertiary: var(--alpha-8, rgba(255, 255, 255, 0.08));
+    --bg-tertiary: transparent;
     padding: 0;
     height: 100%;
+    /* Firefox - hide scrollbar by default */
+    scrollbar-color: transparent transparent;
+  }
+
+  /* Show scrollbar on hover - Firefox */
+  .lyrics-container:hover :global(.lyrics-lines) {
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  }
+
+  /* WebKit - hide scrollbar thumb by default */
+  .lyrics-container :global(.lyrics-lines::-webkit-scrollbar-thumb) {
+    background: transparent !important;
+  }
+
+  /* Show scrollbar on hover - WebKit */
+  .lyrics-container:hover :global(.lyrics-lines::-webkit-scrollbar-thumb) {
+    background: rgba(255, 255, 255, 0.3) !important;
+  }
+
+  .lyrics-container:hover :global(.lyrics-lines::-webkit-scrollbar-thumb:hover) {
+    background: rgba(255, 255, 255, 0.5) !important;
   }
 
   .lyrics-state {
