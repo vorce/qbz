@@ -388,6 +388,7 @@
   let alsaHardwareVolume = $state(false);
   let streamFirstTrack = $state(false);
   let streamBufferSeconds = $state(3);
+  let streamingOnly = $state(false);
 
   // Backend system state
   let availableBackends = $state<BackendInfo[]>([]);
@@ -1083,6 +1084,7 @@
     alsa_hardware_volume: boolean;
     stream_first_track: boolean;
     stream_buffer_seconds: number;
+    streaming_only: boolean;
   }
 
   interface BackendInfo {
@@ -1233,6 +1235,7 @@
       alsaHardwareVolume = settings.alsa_hardware_volume ?? false;
       streamFirstTrack = settings.stream_first_track ?? false;
       streamBufferSeconds = settings.stream_buffer_seconds ?? 3;
+      streamingOnly = settings.streaming_only ?? false;
 
       // Validate mutual exclusion: DAC Passthrough disables Gapless + Crossfade
       if (dacPassthrough) {
@@ -1418,6 +1421,16 @@
       console.log('[Audio] Stream buffer seconds changed:', clamped);
     } catch (err) {
       console.error('[Audio] Failed to change stream buffer seconds:', err);
+    }
+  }
+
+  async function handleStreamingOnlyChange(enabled: boolean) {
+    streamingOnly = enabled;
+    try {
+      await invoke('set_audio_streaming_only', { enabled });
+      console.log('[Audio] Streaming-only mode changed:', enabled);
+    } catch (err) {
+      console.error('[Audio] Failed to change streaming-only mode:', err);
     }
   }
 
@@ -2046,6 +2059,13 @@
       />
     </div>
     {/if}
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">Streaming Only</span>
+        <span class="setting-desc">Skip L1/L2 cache - each play streams fresh. Offline cache still works for downloaded tracks.</span>
+      </div>
+      <Toggle enabled={streamingOnly} onchange={handleStreamingOnlyChange} />
+    </div>
     <div class="setting-row last">
       <span class="setting-label">{$t('settings.audio.currentSampleRate')}</span>
       <span class="setting-value" class:muted={!hardwareStatus?.is_active}>
