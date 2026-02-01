@@ -282,43 +282,37 @@
   }
 
   /* CSS-only karaoke animation in immersive mode */
-  /* Uses pseudo-element underline sweep - keeps text bright white */
+  /* Metallic shimmer effect - GPU accelerated, single element */
   .lyrics-lines.immersive .lyrics-line.active .line-text {
     --duration: var(--line-duration, 3000ms);
-    position: relative;
-    display: inline-block;
+    /* Base bright white text */
     color: #ffffff;
-  }
-
-  /* Glowing underline that sweeps left to right */
-  .lyrics-lines.immersive .lyrics-line.active .line-text::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    height: 3px;
-    width: 0%;
+    /* Metallic shimmer gradient */
     background: linear-gradient(
       90deg,
-      transparent 0%,
-      #a78bfa 20%,
+      #ffffff 0%,
+      #ffffff 40%,
+      #e9d5ff 45%,
       #c4b5fd 50%,
-      #a78bfa 80%,
-      transparent 100%
+      #e9d5ff 55%,
+      #ffffff 60%,
+      #ffffff 100%
     );
-    border-radius: 2px;
-    box-shadow:
-      0 0 8px #a78bfa,
-      0 0 16px rgba(167, 139, 250, 0.5);
-    animation: karaoke-underline var(--duration) linear forwards;
+    background-size: 300% 100%;
+    background-position: 100% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /* Shimmer moves across during line duration */
+    animation: metallic-shimmer var(--duration) ease-in-out forwards;
   }
 
-  @keyframes karaoke-underline {
+  @keyframes metallic-shimmer {
     0% {
-      width: 0%;
+      background-position: 100% 0;
     }
     100% {
-      width: 100%;
+      background-position: -100% 0;
     }
   }
 
