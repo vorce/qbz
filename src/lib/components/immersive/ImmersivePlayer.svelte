@@ -558,7 +558,7 @@
     flex: 1;
     min-width: 0;
     min-height: 0;
-    max-width: 560px;
+    max-width: 700px;
     height: 100%;
     max-height: 80vh;
     display: flex;
@@ -597,7 +597,7 @@
     }
 
     .panel-section {
-      max-width: 480px;
+      max-width: 620px;
     }
 
     .focus-panel {

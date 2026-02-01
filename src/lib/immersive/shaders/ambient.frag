@@ -3,12 +3,14 @@
  * Ambient Post-Process Shader
  *
  * Displays a PRE-BLURRED texture with subtle ambient motion.
- * NO blur computation here - the texture is already blurred.
+ * Additional GPU-side smoothing via multi-sample.
  *
- * Effects (all UV-based, no per-pixel processing):
+ * Effects:
+ * - Multi-sample blur (4 corners averaged)
+ * - Luminance preservation over saturation
+ * - Gradient tint (cool top, warm bottom)
  * - Slow UV drift
  * - Subtle zoom breathing
- * - Color intensity breathing
  */
 
 precision mediump float;
@@ -36,12 +38,31 @@ void main() {
     // Clamp to valid range
     uv = clamp(uv, 0.0, 1.0);
 
-    // Sample pre-blurred texture (no blur computation needed)
-    vec4 color = texture(u_texture, uv);
+    // Multi-sample blur (4 corners averaged for extra smoothing)
+    float offset = 0.01;
+    vec3 c1 = texture(u_texture, uv + vec2( offset,  offset)).rgb;
+    vec3 c2 = texture(u_texture, uv + vec2(-offset,  offset)).rgb;
+    vec3 c3 = texture(u_texture, uv + vec2( offset, -offset)).rgb;
+    vec3 c4 = texture(u_texture, uv + vec2(-offset, -offset)).rgb;
+    vec3 color = (c1 + c2 + c3 + c4) * 0.25;
+
+    // Preserve luminance over saturation
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    // Avoid division by zero for very dark colors
+    float len = length(color);
+    if (len > 0.001) {
+        color = normalize(color) * luma;
+    }
+
+    // Gradient tint (cool top, warm bottom) - anti-flat
+    vec3 tintTop = vec3(0.95, 0.97, 1.0);    // Cool/blue
+    vec3 tintBottom = vec3(1.0, 0.96, 0.92); // Warm/orange
+    float t = v_texCoord.y; // Use original UV for gradient
+    color *= mix(tintBottom, tintTop, t);
 
     // Subtle brightness breathing
     float breath = 1.0 + sin(u_time * 0.12) * 0.06 * u_intensity;
-    color.rgb *= breath;
+    color *= breath;
 
-    fragColor = color;
+    fragColor = vec4(color, 1.0);
 }
