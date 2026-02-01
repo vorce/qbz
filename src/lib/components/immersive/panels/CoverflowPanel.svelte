@@ -190,12 +190,12 @@
     height: min(38vh, 300px);
     border-radius: 8px;
     overflow: visible;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
     transition: box-shadow 300ms ease;
   }
 
   .coverflow-item:not(:disabled):hover .cover-wrapper {
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
   }
 
   .cover-image {
@@ -207,18 +207,18 @@
 
   .cover-reflection {
     position: absolute;
-    bottom: -60%;
+    bottom: -40%;
     left: 0;
     right: 0;
-    height: 60%;
+    height: 40%;
     background: linear-gradient(
       to bottom,
-      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.05) 0%,
       transparent 100%
     );
     transform: scaleY(-1);
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 50%);
-    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 50%);
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 0%, transparent 40%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.15) 0%, transparent 40%);
     pointer-events: none;
     border-radius: 8px;
   }
@@ -232,9 +232,7 @@
   .coverflow-item.center .cover-wrapper {
     width: min(45vh, 360px);
     height: min(45vh, 360px);
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.5),
-      0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
   }
 
   /* Left items */
