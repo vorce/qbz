@@ -205,14 +205,23 @@
       <div class="cards-section">
         <!-- Artist Playlists from Qobuz -->
         {#each artistPlaylists as playlist (playlist.id)}
-          {@const playlistImage = playlist.images?.[0] || playlist.images?.[playlist.images.length - 1]}
+          {@const playlistImages = playlist.images || []}
+          {@const mediumImage = playlistImages[Math.min(1, playlistImages.length - 1)] || playlistImages[0]}
+          {@const hasMultipleImages = playlistImages.length >= 3}
           <div class="card playlist-card">
             <div class="card-badge qobuz">
               <img src="/qobuz-logo-filled.svg" alt="Qobuz" class="badge-icon badge-qobuz" />
             </div>
             <div class="card-image-wrapper">
-              {#if playlistImage}
-                <img src={playlistImage} alt="" class="card-image" />
+              {#if hasMultipleImages}
+                <!-- Book view: 3 covers stacked like album spines -->
+                <div class="book-collage">
+                  <img src={playlistImages[0]} alt="" class="book-cover left" />
+                  <img src={playlistImages[1]} alt="" class="book-cover center" />
+                  <img src={playlistImages[2]} alt="" class="book-cover right" />
+                </div>
+              {:else if mediumImage}
+                <img src={mediumImage} alt="" class="card-image" />
               {:else}
                 <div class="card-image-placeholder">
                   <img src="/playlist.svg" alt="" class="placeholder-icon" />
@@ -589,6 +598,43 @@
   .card-subtitle {
     font-size: 11px;
     color: var(--alpha-50, rgba(255, 255, 255, 0.5));
+  }
+
+  /* Book Collage - 3 covers like album spines */
+  .book-collage {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--alpha-10, rgba(255, 255, 255, 0.1));
+  }
+
+  .book-cover {
+    position: absolute;
+    height: 100%;
+    width: auto;
+    aspect-ratio: 1;
+    object-fit: cover;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .book-cover.left {
+    left: -15%;
+    z-index: 1;
+  }
+
+  .book-cover.center {
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+  }
+
+  .book-cover.right {
+    right: -15%;
+    z-index: 2;
   }
 
   /* Radio Collage */
