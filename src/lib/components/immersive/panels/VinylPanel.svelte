@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import QualityBadge from '$lib/components/QualityBadge.svelte';
 
   interface Props {
@@ -23,7 +24,16 @@
     samplingRate
   }: Props = $props();
 
-  // Mouse position for parallax effect
+  // WebGL2 refs
+  let canvasRef: HTMLCanvasElement | null = $state(null);
+  let gl: WebGL2RenderingContext | null = null;
+  let program: WebGLProgram | null = null;
+  let vinylTexture: WebGLTexture | null = null;
+  let animationFrame: number | null = null;
+  let startTime = 0;
+  let rotation = 0;
+
+  // Mouse parallax state
   let mouseX = $state(0.5);
   let mouseY = $state(0.5);
   let containerRef: HTMLDivElement | null = $state(null);
@@ -40,18 +50,220 @@
     mouseY = 0.5;
   }
 
-  // Parallax offset calculations (more sensitive)
-  const coverOffsetX = $derived((mouseX - 0.5) * 30);
-  const coverOffsetY = $derived((mouseY - 0.5) * 20);
-  const discOffsetX = $derived((mouseX - 0.5) * -18);
-  const discOffsetY = $derived((mouseY - 0.5) * -12);
+  // Parallax calculations (more sensitive)
+  const coverOffsetX = $derived((mouseX - 0.5) * 40);
+  const coverOffsetY = $derived((mouseY - 0.5) * 25);
+  const revealOffset = $derived(isPlaying ? -12 : 0);
 
-  // Reveal offset when playing (percentage of container)
-  const revealOffset = $derived(isPlaying ? -15 : 0);
+  // Vertex shader
+  const vertexShaderSource = `#version 300 es
+    in vec2 a_position;
+    in vec2 a_texCoord;
+    out vec2 v_texCoord;
 
-  // Generate groove rings (40 rings)
-  const grooveCount = 40;
-  const grooves = Array.from({ length: grooveCount }, (_, i) => i);
+    uniform vec2 u_resolution;
+    uniform vec2 u_offset;
+    uniform float u_scale;
+
+    void main() {
+      vec2 pos = a_position * u_scale + u_offset;
+      vec2 clipSpace = (pos / u_resolution) * 2.0 - 1.0;
+      gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+      v_texCoord = a_texCoord;
+    }
+  `;
+
+  // Fragment shader for vinyl
+  const fragmentShaderSource = `#version 300 es
+    precision mediump float;
+
+    in vec2 v_texCoord;
+    out vec4 fragColor;
+
+    uniform sampler2D u_texture;
+    uniform float u_rotation;
+    uniform vec2 u_parallax;
+
+    void main() {
+      vec2 center = vec2(0.5);
+      vec2 uv = v_texCoord - center;
+
+      // Apply rotation
+      float c = cos(u_rotation);
+      float s = sin(u_rotation);
+      uv = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);
+
+      // Apply subtle parallax offset
+      uv += u_parallax * 0.02;
+
+      uv += center;
+
+      // Sample texture
+      vec4 color = texture(u_texture, uv);
+
+      fragColor = color;
+    }
+  `;
+
+  function createShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader | null {
+    const shader = gl.createShader(type);
+    if (!shader) return null;
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+      gl.deleteShader(shader);
+      return null;
+    }
+    return shader;
+  }
+
+  function createProgram(gl: WebGL2RenderingContext, vs: WebGLShader, fs: WebGLShader): WebGLProgram | null {
+    const prog = gl.createProgram();
+    if (!prog) return null;
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.error('Program link error:', gl.getProgramInfoLog(prog));
+      gl.deleteProgram(prog);
+      return null;
+    }
+    return prog;
+  }
+
+  function loadTexture(gl: WebGL2RenderingContext, url: string): Promise<WebGLTexture | null> {
+    return new Promise((resolve) => {
+      const texture = gl.createTexture();
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        resolve(texture);
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  async function initWebGL() {
+    if (!canvasRef) return;
+
+    gl = canvasRef.getContext('webgl2', { alpha: true, premultipliedAlpha: false });
+    if (!gl) {
+      console.warn('WebGL2 not available for VinylPanel');
+      return;
+    }
+
+    // Create shaders
+    const vs = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fs = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    if (!vs || !fs) return;
+
+    program = createProgram(gl, vs, fs);
+    if (!program) return;
+
+    // Load vinyl texture
+    vinylTexture = await loadTexture(gl, '/qbz-vinyl-v3.svg');
+
+    // Setup geometry (full quad)
+    const positions = new Float32Array([
+      0, 0, 0, 0,
+      1, 0, 1, 0,
+      0, 1, 0, 1,
+      0, 1, 0, 1,
+      1, 0, 1, 0,
+      1, 1, 1, 1,
+    ]);
+
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(program, 'a_position');
+    const texLoc = gl.getAttribLocation(program, 'a_texCoord');
+
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(texLoc);
+    gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 16, 8);
+
+    startTime = performance.now();
+    render();
+  }
+
+  function render() {
+    if (!gl || !program || !vinylTexture || !canvasRef) return;
+
+    const now = performance.now();
+    const elapsed = (now - startTime) / 1000;
+
+    // Update rotation when playing
+    if (isPlaying) {
+      rotation += 0.02; // ~0.3 RPM visual effect
+    }
+
+    // Set canvas size
+    const rect = canvasRef.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvasRef.width = rect.width * dpr;
+    canvasRef.height = rect.height * dpr;
+
+    gl.viewport(0, 0, canvasRef.width, canvasRef.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    gl.useProgram(program);
+
+    // Calculate vinyl size and position (centered)
+    const size = Math.min(rect.width, rect.height) * 0.95;
+    const offsetX = (rect.width - size) / 2 + (mouseX - 0.5) * -25;
+    const offsetY = (rect.height - size) / 2 + (mouseY - 0.5) * -15;
+
+    // Set uniforms
+    gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), rect.width, rect.height);
+    gl.uniform2f(gl.getUniformLocation(program, 'u_offset'), offsetX, offsetY);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_scale'), size);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_rotation'), rotation);
+    gl.uniform2f(gl.getUniformLocation(program, 'u_parallax'), mouseX - 0.5, mouseY - 0.5);
+
+    // Bind texture
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, vinylTexture);
+    gl.uniform1i(gl.getUniformLocation(program, 'u_texture'), 0);
+
+    // Enable blending for transparency
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // Draw
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    animationFrame = requestAnimationFrame(render);
+  }
+
+  function cleanup() {
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+    }
+    if (gl) {
+      if (vinylTexture) gl.deleteTexture(vinylTexture);
+      if (program) gl.deleteProgram(program);
+    }
+  }
+
+  onMount(() => {
+    initWebGL();
+    return cleanup;
+  });
 </script>
 
 <div
@@ -60,34 +272,11 @@
   onmousemove={handleMouseMove}
   onmouseleave={handleMouseLeave}
 >
-  <div class="vinyl-container" class:playing={isPlaying}>
-    <!-- Vinyl Disc (BEHIND the cover) -->
-    <div
-      class="vinyl-disc-wrapper"
-      style="transform: translate({discOffsetX}px, {discOffsetY}px)"
-    >
-      <div class="vinyl-disc" class:spinning={isPlaying}>
-        <!-- Grooves -->
-        {#each grooves as i}
-          <div
-            class="groove"
-            style="transform: scale({0.28 + i * 0.017})"
-          ></div>
-        {/each}
+  <div class="vinyl-container">
+    <!-- WebGL2 Vinyl Canvas (behind) -->
+    <canvas bind:this={canvasRef} class="vinyl-canvas"></canvas>
 
-        <!-- Center Label -->
-        <div class="center-label">
-          <div class="label-inner">
-            <div class="spindle"></div>
-          </div>
-        </div>
-
-        <!-- Light reflection -->
-        <div class="reflection"></div>
-      </div>
-    </div>
-
-    <!-- Album Cover (IN FRONT, slides to reveal disc) -->
+    <!-- Album Cover (in front, slides to reveal) -->
     <div
       class="album-cover"
       style="transform: translate(calc(-50% + {coverOffsetX}px + {revealOffset}%), calc(-50% + {coverOffsetY}px))"
@@ -134,130 +323,20 @@
     justify-content: center;
   }
 
-  /* Vinyl Disc - positioned behind cover */
-  .vinyl-disc-wrapper {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    transition: transform 150ms ease-out;
-  }
-
-  .vinyl-disc {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 95%;
-    height: 95%;
-    border-radius: 50%;
-    background: radial-gradient(
-      circle at 30% 30%,
-      #2a2a2a 0%,
-      #0a0a0a 40%,
-      #1a1a1a 70%,
-      #0a0a0a 100%
-    );
-    box-shadow:
-      0 10px 40px rgba(0, 0, 0, 0.6),
-      0 20px 60px rgba(0, 0, 0, 0.4),
-      inset 0 0 80px rgba(0, 0, 0, 0.9);
-  }
-
-  .vinyl-disc.spinning {
-    animation: spin 2.5s linear infinite;
-  }
-
-  @keyframes spin {
-    from { transform: translate(-50%, -50%) rotate(0deg); }
-    to { transform: translate(-50%, -50%) rotate(360deg); }
-  }
-
-  /* Grooves - more visible */
-  .groove {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform-origin: center center;
-    width: 100%;
-    height: 100%;
-    margin-left: -50%;
-    margin-top: -50%;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    pointer-events: none;
-  }
-
-  /* Alternating groove brightness for more realism */
-  .groove:nth-child(odd) {
-    border-color: rgba(255, 255, 255, 0.05);
-  }
-  .groove:nth-child(even) {
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-  .groove:nth-child(3n) {
-    border-color: rgba(255, 255, 255, 0.12);
-  }
-
-  /* Center Label */
-  .center-label {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 28%;
-    height: 28%;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #3a3a3a 0%, #1a1a1a 100%);
-    border: 3px solid #2a2a2a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow:
-      inset 0 2px 10px rgba(0, 0, 0, 0.5),
-      0 2px 10px rgba(0, 0, 0, 0.3);
-  }
-
-  .label-inner {
-    width: 70%;
-    height: 70%;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #4a4a4a 0%, #2a2a2a 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .spindle {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #0a0a0a;
-    box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.1);
-  }
-
-  /* Light Reflection */
-  .reflection {
+  .vinyl-canvas {
     position: absolute;
     inset: 0;
-    border-radius: 50%;
-    background: linear-gradient(
-      135deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.04) 20%,
-      transparent 40%,
-      rgba(255, 255, 255, 0.02) 60%,
-      transparent 80%
-    );
-    pointer-events: none;
+    width: 100%;
+    height: 100%;
   }
 
-  /* Album Cover - in front of disc, centered */
+  /* Album Cover - in front of vinyl */
   .album-cover {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 75%;
-    height: 75%;
+    width: 70%;
+    height: 70%;
     border-radius: 8px;
     overflow: hidden;
     box-shadow:
@@ -266,8 +345,6 @@
     z-index: 10;
     transition: transform 600ms cubic-bezier(0.23, 1, 0.32, 1);
   }
-
-  /* revealed class handled by inline style for smooth parallax integration */
 
   .album-cover img {
     width: 100%;
