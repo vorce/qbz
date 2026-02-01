@@ -11,6 +11,11 @@ export default defineConfig(async () => ({
     'import.meta.env.VITE_BUILD_DATE': JSON.stringify(
       new Date().toISOString().split('T')[0]
     ),
+    // Immersive rendering feature flag (WebGL2-based effects)
+    // Set QBZ_IMMERSIVE=false to compile out immersive rendering
+    'import.meta.env.VITE_IMMERSIVE_ENABLED': JSON.stringify(
+      process.env.QBZ_IMMERSIVE !== 'false'
+    ),
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
