@@ -75,14 +75,17 @@ pub async fn search_all(
     query: String,
     state: State<'_, AppState>,
 ) -> Result<SearchAllResults, String> {
+    log::debug!("search_all called with query: {}", query);
     let client = state.client.lock().await;
 
     // Use catalog/search endpoint which returns everything including most_popular
     let url = endpoints::build_url(paths::CATALOG_SEARCH);
+
     let response: Value = client
         .get_http()
         .get(&url)
         .header("X-App-Id", client.app_id().await.map_err(|e| e.to_string())?)
+        .header("X-User-Auth-Token", client.auth_token().await.map_err(|e| e.to_string())?)
         .query(&[
             ("query", query.as_str()),
             ("limit", "30"),
@@ -119,7 +122,28 @@ pub async fn search_all(
         .and_then(|mp| mp.get("items"))
         .and_then(|items| items.as_array())
         .and_then(|arr| arr.first())
-        .and_then(|item| serde_json::from_value(item.clone()).ok());
+        .and_then(|item| {
+            let item_type = item.get("type")?.as_str()?;
+            let content = item.get("content")?;
+
+            log::debug!("most_popular type: {}, content keys: {:?}",
+                item_type,
+                content.as_object().map(|o| o.keys().collect::<Vec<_>>())
+            );
+
+            match item_type {
+                "tracks" => serde_json::from_value::<Track>(content.clone())
+                    .ok()
+                    .map(MostPopularItem::Tracks),
+                "albums" => serde_json::from_value::<Album>(content.clone())
+                    .ok()
+                    .map(MostPopularItem::Albums),
+                "artists" => serde_json::from_value::<Artist>(content.clone())
+                    .ok()
+                    .map(MostPopularItem::Artists),
+                _ => None,
+            }
+        });
 
     Ok(SearchAllResults {
         albums,

@@ -187,8 +187,8 @@ impl QobuzClient {
         self.session.read().await.as_ref().map(|s| s.user_id)
     }
 
-    /// Get user auth token header value
-    async fn auth_token(&self) -> Result<String> {
+    /// Get user auth token header value (public for catalog search)
+    pub async fn auth_token(&self) -> Result<String> {
         self.session
             .read()
             .await

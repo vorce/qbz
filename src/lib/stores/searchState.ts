@@ -48,9 +48,12 @@ export function getSearchState<Album, Track, Artist>(): SearchState<Album, Track
 }
 
 export function setSearchState<Album, Track, Artist>(next: SearchState<Album, Track, Artist>): void {
+  const prevQuery = searchState.query;
   searchState = next as SearchState<unknown, unknown, unknown>;
-  // Notify query listeners when query changes
-  queryListeners.forEach(fn => fn(searchState.query));
+  // Only notify query listeners when query actually changes
+  if (prevQuery !== searchState.query) {
+    queryListeners.forEach(fn => fn(searchState.query));
+  }
 }
 
 // Signal to trigger scroll-to-top and focus on search input
@@ -75,6 +78,7 @@ export function getSearchQuery(): string {
 }
 
 export function setSearchQuery(query: string): void {
+  if (searchState.query === query) return; // No change, don't notify
   searchState.query = query;
   queryListeners.forEach(fn => fn(query));
 }

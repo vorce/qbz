@@ -213,6 +213,8 @@
 
   let searchTimeout: ReturnType<typeof setTimeout> | null = null;
   let isLoadingMore = $state(false);
+  let searchVersion = $state(0); // Track search version to ignore stale results
+  let currentSearchQuery = $state(''); // Track current in-flight search
   const PAGE_SIZE = 20;
 
   // Check if there are more results to load
@@ -313,7 +315,19 @@
   });
 
   async function performSearch() {
-    if (!query.trim()) return;
+    const searchQuery = query.trim();
+    if (!searchQuery) return;
+
+    // Prevent duplicate concurrent searches for the same query
+    if (currentSearchQuery === searchQuery && isSearching) {
+      console.log(`Skipping duplicate search for "${searchQuery}"`);
+      return;
+    }
+
+    // Increment version to invalidate any in-flight requests
+    searchVersion++;
+    const thisSearchVersion = searchVersion;
+    currentSearchQuery = searchQuery;
 
     isSearching = true;
     searchError = null;
@@ -321,47 +335,71 @@
     try {
       // Search based on active tab - reset to first page
       if (activeTab === 'all') {
-        allResults = await invoke<SearchAllResults<Album, Track, Artist>>('search_all', {
-          query: query.trim(),
-          searchType: filterType
+        // Use title case for better most_popular results from Qobuz API
+        const results = await invoke<SearchAllResults<Album, Track, Artist>>('search_all', {
+          query: toTitleCase(searchQuery)
         });
-        console.log('All results:', allResults);
+        // Only apply if query hasn't changed while we were fetching
+        const currentQuery = query.trim();
+        if (currentQuery !== searchQuery) {
+          console.log(`[Search] Ignoring stale result for "${searchQuery}"`);
+          return;
+        }
+        // Preserve most_popular if new result doesn't have it but old one does
+        // (API can be inconsistent for the same query)
+        if (!results.most_popular && allResults?.most_popular) {
+          results.most_popular = allResults.most_popular;
+        }
+        allResults = results;
         if (allResults && allResults.albums.items) {
           await loadAllAlbumDownloadStatuses(allResults.albums.items);
         }
       } else if (activeTab === 'albums') {
-        albumResults = await invoke<SearchResults<Album>>('search_albums', {
-          query: query.trim(),
+        const results = await invoke<SearchResults<Album>>('search_albums', {
+          query: searchQuery,
           limit: PAGE_SIZE,
           offset: 0,
           searchType: filterType
         });
+        if (query.trim() !== searchQuery) return;
+        albumResults = results;
         console.log('Album results:', albumResults);
         if (albumResults && albumResults.items) {
           await loadAllAlbumDownloadStatuses(albumResults.items);
         }
       } else if (activeTab === 'tracks') {
-        trackResults = await invoke<SearchResults<Track>>('search_tracks', {
-          query: query.trim(),
+        const results = await invoke<SearchResults<Track>>('search_tracks', {
+          query: searchQuery,
           limit: PAGE_SIZE,
           offset: 0,
           searchType: filterType
         });
+        if (query.trim() !== searchQuery) return;
+        trackResults = results;
         console.log('Track results:', trackResults);
       } else if (activeTab === 'artists') {
-        artistResults = await invoke<SearchResults<Artist>>('search_artists', {
-          query: query.trim(),
+        const results = await invoke<SearchResults<Artist>>('search_artists', {
+          query: searchQuery,
           limit: PAGE_SIZE,
           offset: 0,
           searchType: filterType
         });
+        if (query.trim() !== searchQuery) return;
+        artistResults = results;
         console.log('Artist results:', artistResults);
       }
     } catch (err) {
-      console.error('Search error:', err);
-      searchError = String(err);
+      // Only show error if this is still the latest search
+      if (thisSearchVersion === searchVersion) {
+        console.error('Search error:', err);
+        searchError = String(err);
+      }
     } finally {
-      isSearching = false;
+      // Only update loading state if this is still the latest search
+      if (thisSearchVersion === searchVersion) {
+        isSearching = false;
+        currentSearchQuery = '';
+      }
     }
   }
 
@@ -526,6 +564,11 @@
 
   function getArtistImage(artist: Artist): string {
     return artist.image?.large || artist.image?.thumbnail || artist.image?.small || '';
+  }
+
+  // Title case query for better API results (Qobuz returns most_popular more consistently with proper capitalization)
+  function toTitleCase(str: string): string {
+    return str.replace(/\b\w/g, char => char.toUpperCase());
   }
 
   function scrollAlbumsCarousel(direction: 'left' | 'right') {
