@@ -828,7 +828,11 @@ pub fn set_media_metadata(
 /// Set volume (0.0 - 1.0)
 #[tauri::command]
 pub fn set_volume(volume: f32, state: State<'_, AppState>) -> Result<(), String> {
-    log::info!("Command: set_volume {}", volume);
+    // Skip logging if volume is the same (reduces log spam from MPRIS polling)
+    let current = state.player.state.volume();
+    if (volume - current).abs() >= 0.001 {
+        log::info!("Command: set_volume {}", volume);
+    }
     state.player.set_volume(volume)
 }
 

@@ -1909,6 +1909,13 @@ impl Player {
     /// Set volume (0.0 - 1.0)
     pub fn set_volume(&self, volume: f32) -> Result<(), String> {
         let clamped = volume.clamp(0.0, 1.0);
+
+        // Skip if volume is already at this value (prevents MPRIS/PipeWire feedback loop)
+        let current = self.state.volume();
+        if (clamped - current).abs() < 0.001 {
+            return Ok(());
+        }
+
         self.tx
             .send(AudioCommand::SetVolume(clamped))
             .map_err(|e| format!("Failed to send volume command: {}", e))
