@@ -97,6 +97,34 @@
   let popularMenuEl: HTMLDivElement | null = null;
   let popularMenuStyle = $state('');
 
+  // Most Popular card ticker animation state
+  let popularTitleRef: HTMLDivElement | null = $state(null);
+  let popularTitleTextRef: HTMLSpanElement | null = $state(null);
+  let popularTitleOverflow = $state(0);
+  let popularSubtitleRef: HTMLDivElement | null = $state(null);
+  let popularSubtitleTextRef: HTMLSpanElement | null = $state(null);
+  let popularSubtitleOverflow = $state(0);
+  const tickerSpeed = 40;
+  const popularTitleOffset = $derived(popularTitleOverflow > 0 ? `-${popularTitleOverflow + 16}px` : '0px');
+  const popularTitleDuration = $derived(popularTitleOverflow > 0 ? `${(popularTitleOverflow + 16) / tickerSpeed}s` : '0s');
+  const popularSubtitleOffset = $derived(popularSubtitleOverflow > 0 ? `-${popularSubtitleOverflow + 16}px` : '0px');
+  const popularSubtitleDuration = $derived(popularSubtitleOverflow > 0 ? `${(popularSubtitleOverflow + 16) / tickerSpeed}s` : '0s');
+  let popularOverflowMeasured = false;
+
+  function measurePopularOverflow() {
+    if (!popularOverflowMeasured) {
+      if (popularTitleRef && popularTitleTextRef) {
+        const overflow = popularTitleTextRef.scrollWidth - popularTitleRef.clientWidth;
+        popularTitleOverflow = overflow > 0 ? overflow : 0;
+      }
+      if (popularSubtitleRef && popularSubtitleTextRef) {
+        const overflow = popularSubtitleTextRef.scrollWidth - popularSubtitleRef.clientWidth;
+        popularSubtitleOverflow = overflow > 0 ? overflow : 0;
+      }
+      popularOverflowMeasured = true;
+    }
+  }
+
   // Portal action - moves element to body to escape stacking context
   function portal(node: HTMLElement) {
     document.body.appendChild(node);
@@ -869,7 +897,7 @@
                 </button>
               {:else if allResults.most_popular?.type === 'albums'}
                 {@const album = allResults.most_popular.content}
-                <div class="popular-card most-popular-card" class:menu-open={mostPopularMenuOpen}>
+                <div class="popular-card most-popular-card" class:menu-open={mostPopularMenuOpen} onmouseenter={measurePopularOverflow}>
                   <div class="popular-card-artwork">
                     {#if getAlbumArtwork(album)}
                       <img
@@ -941,8 +969,22 @@
                     </div>
                   </div>
                   <button class="popular-card-info" onclick={() => onAlbumClick?.(album.id)}>
-                    <div class="popular-card-title">{album.title}</div>
-                    <div class="popular-card-subtitle">{album.artist?.name || 'Unknown Artist'}</div>
+                    <div
+                      class="popular-card-title"
+                      class:scrollable={popularTitleOverflow > 0}
+                      style="--ticker-offset: {popularTitleOffset}; --ticker-duration: {popularTitleDuration};"
+                      bind:this={popularTitleRef}
+                    >
+                      <span class="popular-title-text" bind:this={popularTitleTextRef}>{album.title}</span>
+                    </div>
+                    <div
+                      class="popular-card-subtitle"
+                      class:scrollable={popularSubtitleOverflow > 0}
+                      style="--ticker-offset: {popularSubtitleOffset}; --ticker-duration: {popularSubtitleDuration};"
+                      bind:this={popularSubtitleRef}
+                    >
+                      <span class="popular-subtitle-text" bind:this={popularSubtitleTextRef}>{album.artist?.name || 'Unknown Artist'}</span>
+                    </div>
                   </button>
                   {#if album.maximum_bit_depth || album.maximum_sampling_rate}
                     <div class="popular-quality-badge">
@@ -956,7 +998,7 @@
                 </div>
               {:else if allResults.most_popular?.type === 'tracks'}
                 {@const track = allResults.most_popular.content}
-                <div class="popular-card most-popular-card" class:menu-open={mostPopularMenuOpen}>
+                <div class="popular-card most-popular-card" class:menu-open={mostPopularMenuOpen} onmouseenter={measurePopularOverflow}>
                   <div class="popular-card-artwork">
                     {#if track.album?.image?.large || track.album?.image?.small}
                       <img
@@ -1025,8 +1067,22 @@
                     </div>
                   </div>
                   <div class="popular-card-info">
-                    <div class="popular-card-title">{track.title}</div>
-                    <div class="popular-card-subtitle">{track.performer?.name || 'Unknown Artist'}</div>
+                    <div
+                      class="popular-card-title"
+                      class:scrollable={popularTitleOverflow > 0}
+                      style="--ticker-offset: {popularTitleOffset}; --ticker-duration: {popularTitleDuration};"
+                      bind:this={popularTitleRef}
+                    >
+                      <span class="popular-title-text" bind:this={popularTitleTextRef}>{track.title}</span>
+                    </div>
+                    <div
+                      class="popular-card-subtitle"
+                      class:scrollable={popularSubtitleOverflow > 0}
+                      style="--ticker-offset: {popularSubtitleOffset}; --ticker-duration: {popularSubtitleDuration};"
+                      bind:this={popularSubtitleRef}
+                    >
+                      <span class="popular-subtitle-text" bind:this={popularSubtitleTextRef}>{track.performer?.name || 'Unknown Artist'}</span>
+                    </div>
                   </div>
                   {#if track.maximum_bit_depth || track.maximum_sampling_rate}
                     <div class="popular-quality-badge">
@@ -2176,13 +2232,17 @@
 
   .popular-quality-badge {
     margin-top: auto;
-    padding-top: 4px;
+    padding-top: 5px;
   }
 
   .popular-quality-badge :global(.quality-badge-compact) {
     font-size: 10px;
     width: auto;
     color: var(--text-muted);
+    background: var(--alpha-10);
+    border: 1px solid var(--alpha-15);
+    border-radius: 4px;
+    padding: 3px 6px;
   }
 
   .popular-card-overlay {
@@ -2349,6 +2409,21 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    margin-bottom: 1px;
+  }
+
+  .popular-card-title.scrollable {
+    text-overflow: clip;
+  }
+
+  .popular-title-text {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .popular-card:hover .popular-card-title.scrollable .popular-title-text {
+    animation: popular-ticker var(--ticker-duration) linear infinite;
+    will-change: transform;
   }
 
   .popular-card-subtitle {
@@ -2357,6 +2432,26 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .popular-card-subtitle.scrollable {
+    text-overflow: clip;
+  }
+
+  .popular-subtitle-text {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .popular-card:hover .popular-card-subtitle.scrollable .popular-subtitle-text {
+    animation: popular-ticker var(--ticker-duration) linear infinite;
+    will-change: transform;
+  }
+
+  @keyframes popular-ticker {
+    0%, 20% { transform: translateX(0); }
+    70%, 80% { transform: translateX(var(--ticker-offset)); }
+    90%, 100% { transform: translateX(0); }
   }
 
   .artists-section h3, .section-header h3 {
