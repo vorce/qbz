@@ -809,8 +809,7 @@
 
   .audio-badges-row {
     display: flex;
-    flex: 1;
-    min-height: 0;
+    height: 20px;
     min-width: 70px;
   }
 

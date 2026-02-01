@@ -177,6 +177,7 @@
     gap: 6px;
     padding: 5px 10px;
     min-width: 120px;
+    height: 36px;
     border-radius: 4px;
     background: var(--alpha-6);
     border: 1px solid var(--alpha-10);
