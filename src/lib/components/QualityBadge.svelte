@@ -152,9 +152,7 @@
     <div class="badge-text">
       <span class="tier-label">
         {tierLabel}
-        {#if isDowngraded}
-          <span class="downgrade-indicator">↓</span>
-        {/if}
+        <span class="downgrade-indicator" class:visible={isDowngraded}>↓</span>
       </span>
       <span class="quality-info">{displayText}</span>
     </div>
@@ -248,5 +246,10 @@
     color: #eab308;
     font-weight: 600;
     margin-left: 2px;
+    visibility: hidden;
+  }
+
+  .downgrade-indicator.visible {
+    visibility: visible;
   }
 </style>
