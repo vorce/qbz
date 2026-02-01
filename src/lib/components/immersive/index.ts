@@ -4,6 +4,7 @@ export { default as ImmersiveBackground } from './ImmersiveBackground.svelte';
 export { default as ImmersiveArtwork } from './ImmersiveArtwork.svelte';
 export { default as ImmersiveHeader } from './ImmersiveHeader.svelte';
 export { default as ImmersiveControls } from './ImmersiveControls.svelte';
+export { default as PlayerControlsCompact } from './PlayerControlsCompact.svelte';
 
 // Panels
 export { default as LyricsPanel } from './panels/LyricsPanel.svelte';

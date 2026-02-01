@@ -3,7 +3,7 @@
   import ImmersiveBackground from './ImmersiveBackground.svelte';
   import ImmersiveArtwork from './ImmersiveArtwork.svelte';
   import ImmersiveHeader, { type ImmersiveTab, type DisplayMode } from './ImmersiveHeader.svelte';
-  import ImmersiveControls from './ImmersiveControls.svelte';
+  import PlayerControlsCompact from './PlayerControlsCompact.svelte';
   import LyricsPanel from './panels/LyricsPanel.svelte';
   import TrackInfoPanel from './panels/TrackInfoPanel.svelte';
   import SuggestionsPanel from './panels/SuggestionsPanel.svelte';
@@ -315,15 +315,15 @@
     {/if}
 
     <!-- Bottom Controls -->
-    <ImmersiveControls
+    <PlayerControlsCompact
       visible={showUI}
       {isPlaying}
       {currentTime}
       {duration}
+      {volume}
       {isShuffle}
       {repeatMode}
       {isFavorite}
-      {volume}
       {quality}
       {bitDepth}
       {samplingRate}
