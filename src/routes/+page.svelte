@@ -3035,6 +3035,12 @@
         }}
         onContextClick={handleContextNavigation}
         queueOpen={isQueueOpen}
+        onTrackClick={() => {
+          if (currentTrack && !currentTrack.isLocal) {
+            trackInfoTrackId = currentTrack.id;
+            isTrackInfoOpen = true;
+          }
+        }}
       />
     {:else}
       <NowPlayingBar

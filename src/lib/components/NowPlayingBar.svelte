@@ -65,6 +65,7 @@
     isCastConnected?: boolean;
     onArtistClick?: () => void;
     onAlbumClick?: () => void;
+    onTrackClick?: () => void;
     onContextClick?: () => void;
     queueOpen?: boolean;
   }
@@ -106,6 +107,7 @@
     isCastConnected = false,
     onArtistClick,
     onAlbumClick,
+    onTrackClick,
     onContextClick,
     queueOpen = false
   }: Props = $props();
@@ -304,7 +306,7 @@
           </button>
 
           <div class="song-info">
-            <span class="song-title" title={trackTitle}>{trackTitle}</span>
+            <button class="song-title" title={$t('actions.trackInfo')} onclick={onTrackClick}>{trackTitle}</button>
             <div class="song-meta">
               <StackIcon size={12} class="stack-icon" onClick={onContextClick} />
               {#if artist}
@@ -759,6 +761,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: help;
+    text-align: left;
   }
 
   .song-meta {
