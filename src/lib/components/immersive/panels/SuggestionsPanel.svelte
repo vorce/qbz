@@ -276,16 +276,10 @@
               <div class="card-glyph">
                 <Radio size={26} />
               </div>
-              <!-- Hover overlay with actions -->
+              <!-- Hover overlay with play button only (radio replaces queue) -->
               <div class="card-overlay">
-                <button class="overlay-btn secondary" onclick={() => onAddToQueue?.('radio', trackId)} title="Add to queue">
-                  <ListPlus size={16} />
-                </button>
-                <button class="overlay-btn primary" onclick={startSongRadio} disabled={loadingRadio} title="Play">
+                <button class="overlay-btn primary" onclick={startSongRadio} disabled={loadingRadio} title="Play Radio">
                   <Play size={20} fill="currentColor" />
-                </button>
-                <button class="overlay-btn secondary" onclick={() => onPlayNext?.('radio', trackId)} title="Play next">
-                  <ListEnd size={16} />
                 </button>
               </div>
             </div>
@@ -339,6 +333,7 @@
   .suggestions-panel {
     flex: 1;
     min-height: 0;
+    max-height: 80vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
