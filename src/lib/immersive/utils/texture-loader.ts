@@ -147,9 +147,10 @@ function applyExtremeBlur(
 
 /**
  * Apply color adjustments to create atmospheric mood.
- * - Boost saturation (preserve mood)
- * - Moderate brightness reduction (keep whites visible)
+ * - Boost saturation aggressively (preserve vibrant colors)
+ * - Moderate brightness (keep colors visible)
  * - Lift shadows (prevent pure black from dominating)
+ * - Normalize color range (expand to use full spectrum)
  */
 function applyColorAdjustments(
   sourceCanvas: HTMLCanvasElement
@@ -161,23 +162,46 @@ function applyColorAdjustments(
   const ctx = canvas.getContext('2d');
   if (!ctx) return sourceCanvas;
 
-  // First pass: moderate darkening with saturation boost
-  ctx.filter = 'saturate(1.5) brightness(0.7) contrast(0.9)';
+  // First pass: strong saturation boost, moderate brightness
+  ctx.filter = 'saturate(2.5) brightness(0.85) contrast(1.1)';
   ctx.drawImage(sourceCanvas, 0, 0);
 
-  // Second pass: lift shadows by blending with dark gray
-  // This prevents pure black from dominating
+  // Second pass: normalize color range and lift shadows
   const imageData = ctx.getImageData(0, 0, size, size);
   const data = imageData.data;
 
-  // Shadow lift: map 0-255 to 25-255 (black becomes dark gray)
-  const shadowFloor = 25; // Minimum brightness (~10%)
-  const range = 255 - shadowFloor;
+  // Find actual min/max for each channel to normalize
+  let minR = 255, maxR = 0;
+  let minG = 255, maxG = 0;
+  let minB = 255, maxB = 0;
 
   for (let i = 0; i < data.length; i += 4) {
-    data[i] = shadowFloor + (data[i] / 255) * range;     // R
-    data[i + 1] = shadowFloor + (data[i + 1] / 255) * range; // G
-    data[i + 2] = shadowFloor + (data[i + 2] / 255) * range; // B
+    minR = Math.min(minR, data[i]);
+    maxR = Math.max(maxR, data[i]);
+    minG = Math.min(minG, data[i + 1]);
+    maxG = Math.max(maxG, data[i + 1]);
+    minB = Math.min(minB, data[i + 2]);
+    maxB = Math.max(maxB, data[i + 2]);
+  }
+
+  // Target range: 30-240 (preserve some headroom, lift shadows)
+  const targetMin = 30;
+  const targetMax = 240;
+  const targetRange = targetMax - targetMin;
+
+  // Calculate normalization factors per channel
+  const rangeR = maxR - minR || 1;
+  const rangeG = maxG - minG || 1;
+  const rangeB = maxB - minB || 1;
+
+  for (let i = 0; i < data.length; i += 4) {
+    // Normalize each channel to target range
+    data[i] = targetMin + ((data[i] - minR) / rangeR) * targetRange;
+    data[i + 1] = targetMin + ((data[i + 1] - minG) / rangeG) * targetRange;
+    data[i + 2] = targetMin + ((data[i + 2] - minB) / rangeB) * targetRange;
+
+    // Boost reds slightly for warmth
+    data[i] = Math.min(255, data[i] * 1.12);
   }
 
   ctx.putImageData(imageData, 0, 0);

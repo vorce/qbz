@@ -55,7 +55,8 @@ float radialDist(vec2 uv) {
 
 void main() {
     vec2 uv = v_texCoord;
-    float time = u_time;
+    // Speed multiplier for overall animation pace
+    float time = u_time * 1.8;
     float intensity = u_intensity;
 
     // ===========================================
