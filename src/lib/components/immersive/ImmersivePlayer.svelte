@@ -375,6 +375,7 @@
           {artwork}
           {trackTitle}
           {artist}
+          {album}
         />
       {:else if activeFocusTab === 'lyrics-focus'}
         <!-- Lyrics Focus: Single line, large, centered -->

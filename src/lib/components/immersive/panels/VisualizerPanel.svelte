@@ -8,9 +8,10 @@
     artwork?: string;
     trackTitle?: string;
     artist?: string;
+    album?: string;
   }
 
-  let { enabled = true, artwork = '', trackTitle = '', artist = '' }: Props = $props();
+  let { enabled = true, artwork = '', trackTitle = '', artist = '', album = '' }: Props = $props();
 
   let canvasRef: HTMLCanvasElement | null = $state(null);
   let ctx: CanvasRenderingContext2D | null = null;
@@ -190,8 +191,11 @@
 
   <div class="track-info">
     <div class="text">
-      <h1 class="title">{trackTitle}</h1>
       <p class="artist">{artist}</p>
+      {#if album}
+        <p class="album">{album}</p>
+      {/if}
+      <h1 class="title">{trackTitle}</h1>
     </div>
     {#if artwork}
       <img src={artwork} alt={trackTitle} class="artwork" />
@@ -236,8 +240,8 @@
   }
 
   .artwork {
-    width: 90px;
-    height: 90px;
+    width: 108px;
+    height: 108px;
     border-radius: 8px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
     object-fit: cover;
@@ -253,9 +257,9 @@
   }
 
   .title {
-    font-size: 16px;
-    font-weight: 600;
-    color: white;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
     margin: 0;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
     max-width: 200px;
@@ -265,9 +269,18 @@
   }
 
   .artist {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
     margin: 0;
     text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  }
+
+  .album {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+    font-style: italic;
   }
 </style>
