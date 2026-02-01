@@ -281,40 +281,9 @@
     opacity: 1;
   }
 
-  /* CSS-only karaoke animation in immersive mode */
-  /* GPU-accelerated underline using transform instead of width */
+  /* Immersive mode: simple bright white text, no animation */
   .lyrics-lines.immersive .lyrics-line.active .line-text {
-    --duration: var(--line-duration, 3000ms);
-    position: relative;
-    display: inline-block;
     color: #ffffff !important;
-  }
-
-  /* Underline using scaleX transform (GPU accelerated, no layout recalc) */
-  .lyrics-lines.immersive .lyrics-line.active .line-text::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    height: 3px;
-    width: 100%;
-    /* QBZ blue - solid color, no gradient */
-    background: #5281ff;
-    border-radius: 2px;
-    /* GPU accelerated properties only */
-    transform: scaleX(0);
-    transform-origin: left center;
-    will-change: transform;
-    animation: karaoke-underline var(--duration) linear forwards;
-  }
-
-  @keyframes karaoke-underline {
-    0% {
-      transform: scaleX(0);
-    }
-    100% {
-      transform: scaleX(1);
-    }
   }
 
   /* Past lines in immersive should be clearly dimmer than active */
