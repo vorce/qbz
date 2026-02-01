@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown, Heart, Play, MoreHorizontal, ListPlus, SkipForward } from 'lucide-svelte';
+  import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown, Heart, Play, MoreHorizontal, ListPlus } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import ViewTransition from '../ViewTransition.svelte';
   import TrackMenu from '../TrackMenu.svelte';
@@ -93,15 +93,66 @@
 
   // Most Popular card menu state
   let mostPopularMenuOpen = $state(false);
+  let popularMenuTriggerRef: HTMLButtonElement | null = null;
+  let popularMenuEl: HTMLDivElement | null = null;
+  let popularMenuStyle = $state('');
+
+  // Portal action - moves element to body to escape stacking context
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        if (node.parentNode) {
+          node.parentNode.removeChild(node);
+        }
+      }
+    };
+  }
+
+  async function positionPopularMenu() {
+    await tick();
+    if (!popularMenuTriggerRef || !popularMenuEl) return;
+
+    const triggerRect = popularMenuTriggerRef.getBoundingClientRect();
+    const menuRect = popularMenuEl.getBoundingClientRect();
+    const padding = 8;
+
+    // Position below the trigger button
+    let left = triggerRect.right - menuRect.width;
+    let top = triggerRect.bottom + 8;
+
+    // Keep within viewport
+    if (left < padding) left = padding;
+    if (left + menuRect.width > window.innerWidth - padding) {
+      left = window.innerWidth - menuRect.width - padding;
+    }
+    if (top + menuRect.height > window.innerHeight - padding) {
+      top = triggerRect.top - menuRect.height - 8;
+    }
+    if (top < padding) top = padding;
+
+    popularMenuStyle = `left: ${left}px; top: ${top}px;`;
+  }
+
+  function openPopularMenu() {
+    mostPopularMenuOpen = true;
+    positionPopularMenu();
+  }
 
   function handleClickOutsidePopularMenu(event: MouseEvent) {
     if (mostPopularMenuOpen) {
       const target = event.target as HTMLElement;
-      if (!target.closest('.popular-menu-wrapper')) {
+      if (!target.closest('.popular-menu') && !target.closest('.popular-menu-trigger')) {
         mostPopularMenuOpen = false;
       }
     }
   }
+
+  $effect(() => {
+    if (mostPopularMenuOpen) {
+      positionPopularMenu();
+    }
+  });
 
   function handleTrackImageError(trackId: number) {
     failedTrackImages = new Set([...failedTrackImages, trackId]);
@@ -849,34 +900,40 @@
                         >
                           <Play size={18} fill="white" />
                         </button>
-                        <div class="popular-menu-wrapper">
-                          <button
-                            class="popular-overlay-btn"
-                            type="button"
-                            onclick={(e) => { e.stopPropagation(); mostPopularMenuOpen = !mostPopularMenuOpen; }}
-                            title="More options"
+                        <button
+                          class="popular-overlay-btn popular-menu-trigger"
+                          type="button"
+                          bind:this={popularMenuTriggerRef}
+                          onclick={(e) => { e.stopPropagation(); mostPopularMenuOpen ? mostPopularMenuOpen = false : openPopularMenu(); }}
+                          title="More options"
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {#if mostPopularMenuOpen}
+                          <div
+                            class="popular-menu"
+                            bind:this={popularMenuEl}
+                            style={popularMenuStyle}
+                            use:portal
+                            onclick={(e) => e.stopPropagation()}
                           >
-                            <MoreHorizontal size={16} />
-                          </button>
-                          {#if mostPopularMenuOpen}
-                            <div class="popular-dropdown" onclick={(e) => e.stopPropagation()}>
-                              <button class="popular-dropdown-item" onclick={() => { onAlbumPlay?.(album.id); mostPopularMenuOpen = false; }}>
-                                <Play size={14} /> Play now
+                            <button class="menu-item" onclick={() => { onAlbumPlay?.(album.id); mostPopularMenuOpen = false; }}>
+                              <Play size={14} /> <span>Play now</span>
+                            </button>
+                            <button class="menu-item" onclick={() => { onAlbumPlayNext?.(album.id); mostPopularMenuOpen = false; }}>
+                              <ListPlus size={14} /> <span>Play next</span>
+                            </button>
+                            <button class="menu-item" onclick={() => { onAlbumPlayLater?.(album.id); mostPopularMenuOpen = false; }}>
+                              <ListPlus size={14} /> <span>Add to queue</span>
+                            </button>
+                            {#if album.artist?.id}
+                              <div class="separator"></div>
+                              <button class="menu-item" onclick={() => { onArtistClick?.(album.artist.id); mostPopularMenuOpen = false; }}>
+                                <User size={14} /> <span>Go to artist</span>
                               </button>
-                              <button class="popular-dropdown-item" onclick={() => { onAlbumPlayNext?.(album.id); mostPopularMenuOpen = false; }}>
-                                <SkipForward size={14} /> Play next
-                              </button>
-                              <button class="popular-dropdown-item" onclick={() => { onAlbumPlayLater?.(album.id); mostPopularMenuOpen = false; }}>
-                                <ListPlus size={14} /> Add to queue
-                              </button>
-                              {#if album.artist?.id}
-                                <button class="popular-dropdown-item" onclick={() => { onArtistClick?.(album.artist.id); mostPopularMenuOpen = false; }}>
-                                  <User size={14} /> Go to artist
-                                </button>
-                              {/if}
-                            </div>
-                          {/if}
-                        </div>
+                            {/if}
+                          </div>
+                        {/if}
                       </div>
                     </div>
                   </div>
@@ -918,34 +975,40 @@
                         >
                           <Play size={18} fill="white" />
                         </button>
-                        <div class="popular-menu-wrapper">
-                          <button
-                            class="popular-overlay-btn"
-                            type="button"
-                            onclick={(e) => { e.stopPropagation(); mostPopularMenuOpen = !mostPopularMenuOpen; }}
-                            title="More options"
+                        <button
+                          class="popular-overlay-btn popular-menu-trigger"
+                          type="button"
+                          bind:this={popularMenuTriggerRef}
+                          onclick={(e) => { e.stopPropagation(); mostPopularMenuOpen ? mostPopularMenuOpen = false : openPopularMenu(); }}
+                          title="More options"
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {#if mostPopularMenuOpen}
+                          <div
+                            class="popular-menu"
+                            bind:this={popularMenuEl}
+                            style={popularMenuStyle}
+                            use:portal
+                            onclick={(e) => e.stopPropagation()}
                           >
-                            <MoreHorizontal size={16} />
-                          </button>
-                          {#if mostPopularMenuOpen}
-                            <div class="popular-dropdown" onclick={(e) => e.stopPropagation()}>
-                              <button class="popular-dropdown-item" onclick={() => { handleSearchTrackPlay(track, 0); mostPopularMenuOpen = false; }}>
-                                <Play size={14} /> Play now
+                            <button class="menu-item" onclick={() => { handleSearchTrackPlay(track, 0); mostPopularMenuOpen = false; }}>
+                              <Play size={14} /> <span>Play now</span>
+                            </button>
+                            <button class="menu-item" onclick={() => { onTrackPlayNext?.(track); mostPopularMenuOpen = false; }}>
+                              <ListPlus size={14} /> <span>Play next</span>
+                            </button>
+                            <button class="menu-item" onclick={() => { onTrackPlayLater?.(track); mostPopularMenuOpen = false; }}>
+                              <ListPlus size={14} /> <span>Add to queue</span>
+                            </button>
+                            {#if track.album?.id}
+                              <div class="separator"></div>
+                              <button class="menu-item" onclick={() => { onTrackGoToAlbum?.(track.album!.id!); mostPopularMenuOpen = false; }}>
+                                <Disc3 size={14} /> <span>Go to album</span>
                               </button>
-                              <button class="popular-dropdown-item" onclick={() => { onTrackPlayNext?.(track); mostPopularMenuOpen = false; }}>
-                                <SkipForward size={14} /> Play next
-                              </button>
-                              <button class="popular-dropdown-item" onclick={() => { onTrackPlayLater?.(track); mostPopularMenuOpen = false; }}>
-                                <ListPlus size={14} /> Add to queue
-                              </button>
-                              {#if track.album?.id}
-                                <button class="popular-dropdown-item" onclick={() => { onTrackGoToAlbum?.(track.album!.id!); mostPopularMenuOpen = false; }}>
-                                  <Disc3 size={14} /> Go to album
-                                </button>
-                              {/if}
-                            </div>
-                          {/if}
-                        </div>
+                            {/if}
+                          </div>
+                        {/if}
                       </div>
                     </div>
                   </div>
@@ -2140,40 +2203,45 @@
     height: 42px;
   }
 
-  .popular-menu-wrapper {
-    position: relative;
-  }
-
-  .popular-dropdown {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
+  /* Popular menu - uses portal pattern like TrackMenu */
+  .popular-menu {
+    position: fixed;
     min-width: 160px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--bg-tertiary);
+    z-index: 99999;
+    background-color: var(--bg-tertiary);
     border-radius: 8px;
-    padding: 6px 0;
+    padding: 2px 0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    z-index: 100;
   }
 
-  .popular-dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  .popular-menu .menu-item {
     width: 100%;
-    padding: 10px 14px;
+    padding: 8px 12px;
     background: none;
     border: none;
-    color: var(--text-primary);
-    font-size: 13px;
-    cursor: pointer;
+    color: var(--text-secondary);
     text-align: left;
-    transition: background-color 150ms ease;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 150ms ease, color 150ms ease;
   }
 
-  .popular-dropdown-item:hover {
-    background-color: var(--bg-tertiary);
+  .popular-menu .menu-item span {
+    flex: 1;
+  }
+
+  .popular-menu .menu-item:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .popular-menu .separator {
+    height: 1px;
+    background-color: var(--bg-hover);
+    margin: 4px 0;
   }
 
   .popular-card-info {
