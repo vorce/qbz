@@ -1,7 +1,8 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { Loader2, Play, Radio, AlertCircle, ListPlus, ListEnd } from 'lucide-svelte';
+  import { Loader2, Play, Radio, ListPlus, ListEnd } from 'lucide-svelte';
   import { t } from '$lib/i18n';
+  import Tooltip from '$lib/components/Tooltip.svelte';
 
   interface Playlist {
     id: number;
@@ -207,20 +208,12 @@
         {#each artistPlaylists as playlist (playlist.id)}
           {@const playlistImages = playlist.images || []}
           {@const mediumImage = playlistImages[Math.min(1, playlistImages.length - 1)] || playlistImages[0]}
-          {@const hasMultipleImages = playlistImages.length >= 3}
           <div class="card playlist-card">
             <div class="card-badge qobuz">
               <img src="/qobuz-logo-filled.svg" alt="Qobuz" class="badge-icon badge-qobuz" />
             </div>
             <div class="card-image-wrapper">
-              {#if hasMultipleImages}
-                <!-- Book view: 3 covers stacked like album spines -->
-                <div class="book-collage">
-                  <img src={playlistImages[0]} alt="" class="book-cover left" />
-                  <img src={playlistImages[1]} alt="" class="book-cover center" />
-                  <img src={playlistImages[2]} alt="" class="book-cover right" />
-                </div>
-              {:else if mediumImage}
+              {#if mediumImage}
                 <img src={mediumImage} alt="" class="card-image" />
               {:else}
                 <div class="card-image-placeholder">
@@ -254,8 +247,8 @@
         <!-- Song Radio Card -->
         {#if trackId}
           <div class="card radio-card">
-            <div class="card-info" title={$t('player.radioExperimentalTooltip') || 'Radio is an experimental QBZ feature that generates a playlist based on the current track.'}>
-              <AlertCircle size={14} />
+            <div class="card-info">
+              <Tooltip text={$t('player.radioExperimentalTooltip') || 'Radio is an experimental QBZ feature that generates a playlist based on the current track.'} />
             </div>
             <div class="card-badge qbz">
               <img src="/qbz-logo.svg" alt="QBZ" class="badge-icon badge-qbz" />
@@ -422,41 +415,44 @@
     position: absolute;
     top: 8px;
     right: 8px;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 3;
+    z-index: 10; /* Above overlay */
+    pointer-events: none; /* Don't block hover on card */
   }
 
   .badge-icon {
     object-fit: contain;
   }
 
-  /* Qobuz icon: viewBox 1001x1006, Q icon with ~15% whitespace around content */
+  /* Qobuz icon: +2pt */
   .badge-qobuz {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
 
-  /* QBZ icon: viewBox 1083x1083, circular vinyl fills entire box - smaller to match Qobuz visually */
+  /* QBZ icon: +2pt */
   .badge-qbz {
-    width: 17px;
-    height: 17px;
+    width: 19px;
+    height: 19px;
   }
 
   .card-info {
     position: absolute;
     top: 8px;
     left: 8px;
-    color: var(--alpha-50, rgba(255, 255, 255, 0.5));
-    cursor: help;
-    z-index: 3;
+    z-index: 10; /* Above overlay */
   }
 
-  .card-info:hover {
+  .card-info :global(.tooltip-container) {
+    color: var(--alpha-50, rgba(255, 255, 255, 0.5));
+  }
+
+  .card-info:hover :global(.tooltip-container) {
     color: var(--alpha-80, rgba(255, 255, 255, 0.8));
   }
 
@@ -598,43 +594,6 @@
   .card-subtitle {
     font-size: 11px;
     color: var(--alpha-50, rgba(255, 255, 255, 0.5));
-  }
-
-  /* Book Collage - 3 covers like album spines */
-  .book-collage {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    background: var(--alpha-10, rgba(255, 255, 255, 0.1));
-  }
-
-  .book-cover {
-    position: absolute;
-    height: 100%;
-    width: auto;
-    aspect-ratio: 1;
-    object-fit: cover;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.4);
-  }
-
-  .book-cover.left {
-    left: -15%;
-    z-index: 1;
-  }
-
-  .book-cover.center {
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 3;
-  }
-
-  .book-cover.right {
-    right: -15%;
-    z-index: 2;
   }
 
   /* Radio Collage */
