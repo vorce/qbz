@@ -148,8 +148,8 @@ function applyExtremeBlur(
 /**
  * Apply color adjustments to create atmospheric mood.
  * - Boost saturation (preserve mood)
- * - Reduce brightness (background use)
- * - Reduce contrast (smooth gradients)
+ * - Moderate brightness reduction (keep whites visible)
+ * - Lift shadows (prevent pure black from dominating)
  */
 function applyColorAdjustments(
   sourceCanvas: HTMLCanvasElement
@@ -161,9 +161,26 @@ function applyColorAdjustments(
   const ctx = canvas.getContext('2d');
   if (!ctx) return sourceCanvas;
 
-  // Saturation boost + brightness/contrast reduction
-  ctx.filter = 'saturate(1.4) brightness(0.5) contrast(0.85)';
+  // First pass: moderate darkening with saturation boost
+  ctx.filter = 'saturate(1.5) brightness(0.7) contrast(0.9)';
   ctx.drawImage(sourceCanvas, 0, 0);
+
+  // Second pass: lift shadows by blending with dark gray
+  // This prevents pure black from dominating
+  const imageData = ctx.getImageData(0, 0, size, size);
+  const data = imageData.data;
+
+  // Shadow lift: map 0-255 to 25-255 (black becomes dark gray)
+  const shadowFloor = 25; // Minimum brightness (~10%)
+  const range = 255 - shadowFloor;
+
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = shadowFloor + (data[i] / 255) * range;     // R
+    data[i + 1] = shadowFloor + (data[i + 1] / 255) * range; // G
+    data[i + 2] = shadowFloor + (data[i + 2] / 255) * range; // B
+  }
+
+  ctx.putImageData(imageData, 0, 0);
 
   return canvas;
 }
