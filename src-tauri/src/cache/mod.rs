@@ -199,14 +199,20 @@ impl AudioCache {
         );
     }
 
-    /// Clear all cached data
+    /// Clear all cached data (both L1 memory and L2 disk caches)
     pub fn clear(&self) {
         let mut state = self.state.lock().unwrap();
         state.tracks.clear();
         state.access_order.clear();
         state.current_size = 0;
         state.fetching.clear();
-        log::info!("Cache cleared");
+        log::info!("L1 memory cache cleared");
+
+        // Also clear L2 disk cache if present
+        if let Some(ref playback_cache) = self.playback_cache {
+            playback_cache.clear();
+            log::info!("L2 playback cache cleared");
+        }
     }
 
     /// Get cache statistics

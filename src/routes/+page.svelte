@@ -2993,6 +2993,8 @@
         quality={currentTrack.quality}
         bitDepth={currentTrack.bitDepth}
         samplingRate={currentTrack.samplingRate}
+        originalBitDepth={currentTrack.originalBitDepth}
+        originalSamplingRate={currentTrack.originalSamplingRate}
         format={currentTrack.format}
         {isPlaying}
         onTogglePlay={togglePlay}
@@ -3078,6 +3080,8 @@
         qualityLevel={currentTrack.quality.includes('24') ? 5 : 3}
         bitDepth={currentTrack.bitDepth}
         samplingRate={currentTrack.samplingRate}
+        originalBitDepth={currentTrack.originalBitDepth}
+        originalSamplingRate={currentTrack.originalSamplingRate}
         format={currentTrack.format}
         {isPlaying}
         onTogglePlay={togglePlay}

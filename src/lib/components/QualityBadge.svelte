@@ -3,6 +3,8 @@
     quality?: string;
     bitDepth?: number;
     samplingRate?: number;
+    originalBitDepth?: number;
+    originalSamplingRate?: number;
     format?: string;
     compact?: boolean;
   }
@@ -11,9 +13,26 @@
     quality = '',
     bitDepth,
     samplingRate,
+    originalBitDepth,
+    originalSamplingRate,
     format,
     compact = false
   }: Props = $props();
+
+  // Check if quality was downgraded due to settings
+  const isDowngraded = $derived.by(() => {
+    // Need both original and current values to compare
+    if (!originalSamplingRate || !samplingRate) return false;
+    // Significant difference (more than 10% lower)
+    return samplingRate < originalSamplingRate * 0.9;
+  });
+
+  // Format original quality for tooltip
+  const originalQualityText = $derived.by(() => {
+    if (!isDowngraded || !originalSamplingRate) return '';
+    const depth = originalBitDepth || 24;
+    return `${depth}-bit / ${originalSamplingRate} kHz`;
+  });
 
   // Determine quality tier
   const tier = $derived.by(() => {
@@ -116,7 +135,11 @@
     {compactText}
   </span>
 {:else}
-  <div class="quality-badge" title="{tierLabel}: {displayText}">
+  <div
+    class="quality-badge"
+    class:downgraded={isDowngraded}
+    title={isDowngraded ? `Playing at ${displayText} (original: ${originalQualityText})` : `${tierLabel}: ${displayText}`}
+  >
     <!-- Icon -->
     <img
       src={iconPath}
@@ -127,7 +150,12 @@
 
     <!-- Text -->
     <div class="badge-text">
-      <span class="tier-label">{tierLabel}</span>
+      <span class="tier-label">
+        {tierLabel}
+        {#if isDowngraded}
+          <span class="downgrade-indicator">↓</span>
+        {/if}
+      </span>
       <span class="quality-info">{displayText}</span>
     </div>
   </div>
@@ -209,5 +237,16 @@
     font-size: 9px;
     font-weight: 100;
     color: #999999;
+  }
+
+  /* Downgrade indicator styles */
+  .quality-badge.downgraded {
+    border-color: rgba(234, 179, 8, 0.3);
+  }
+
+  .downgrade-indicator {
+    color: #eab308;
+    font-weight: 600;
+    margin-left: 2px;
   }
 </style>

@@ -51,6 +51,9 @@ export interface PlayingTrack {
   artistId?: number;
   // ISRC for MusicBrainz/ListenBrainz enrichment
   isrc?: string;
+  // Original track quality from metadata (for comparison with actual stream)
+  originalBitDepth?: number;
+  originalSamplingRate?: number;
 }
 
 interface BackendPlaybackState {
@@ -192,14 +195,21 @@ export function getPlayerState(): PlayerState {
 
 /**
  * Set the current track (called when starting playback)
+ * Preserves original quality values for comparison with actual stream
  */
 export function setCurrentTrack(track: PlayingTrack | null): void {
-  currentTrack = track;
   if (track) {
+    // Store original quality values before they might be overwritten by stream events
+    currentTrack = {
+      ...track,
+      originalBitDepth: track.bitDepth,
+      originalSamplingRate: track.samplingRate
+    };
     duration = track.duration;
     currentTime = 0;
     queueEnded = false;
   } else {
+    currentTrack = null;
     duration = 0;
     currentTime = 0;
   }

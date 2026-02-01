@@ -161,12 +161,11 @@
     }
   }
 
-  // Update outputStatus when hovering to get fresh device name
+  // Always refresh status when hovering to get fresh device name
+  // The device name is only set when playback starts, so we need to re-fetch
   $effect(() => {
-    if (isHovering && !outputStatus) {
-      invoke<AudioOutputStatus>('get_audio_output_status')
-        .then(status => outputStatus = status)
-        .catch(() => {});
+    if (isHovering) {
+      loadStatus();
     }
   });
 
