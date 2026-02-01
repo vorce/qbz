@@ -3013,7 +3013,7 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
 
   /* Compact Account Section */
   .account-section {
-    padding-bottom: 8px;
+    padding: 16px 24px;
   }
 
   .account-card-compact {
@@ -3021,8 +3021,6 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
-    padding: 8px 0;
-    min-height: 44px;
   }
 
   .avatar-small {
