@@ -27,38 +27,61 @@ Examples:
 - `docs/internal/contributing-process`
 - `feature/external/add-album-to-playlist`
 
-## PR acceptance workflow (no direct merges to main)
+## Branch workflow
 
-We do not merge external PR branches directly into `main`. Instead, we create an internal integration branch to:
+We use a **pre-release integration branch** to keep `main` stable and release-ready at all times.
 
-- re-run checks on top of the latest `main`
-- detect conflicts early
-- keep a clean review trail for the maintainer
+```
+feature/xyz ──┐
+bugfix/abc  ──┼──> pre-release ──> main (tagged release)
+hotfix/123  ──┘
+```
+
+### Branch hierarchy
+
+1. **`main`** - Releases ONLY. Protected branch. Merging here triggers a tagged release.
+2. **`pre-release`** - Integration branch. All features and fixes merge here first.
+3. **`feature/*`, `bugfix/*`, etc.** - Individual work branches.
+
+### For contributors
+
+**All PRs must target `pre-release`, not `main`.**
+
+PRs targeting `main` will be closed and asked to retarget to `pre-release`.
 
 ### Procedure (maintainer)
 
 1. **Triage**
    - Confirm scope and that it does not touch protected areas (audio routing/backends, credential storage, etc.) unless requested.
+   - Verify PR targets `pre-release` (not `main`).
 2. **Check out the PR**
    - `gh pr checkout <PR_NUMBER>`
 3. **Rename the checked-out branch (local)**
    - Use an `external` branch name so it's obvious these commits are third-party authored:
    - `git branch -m <type>/external/<topic>`
-4. **Create an integration branch from upstream main**
-   - `git fetch origin main`
-   - `git checkout -b <type>/internal/pr-<PR_NUMBER>-<topic> origin/main`
-5. **Merge the external branch into the integration branch**
+4. **Merge to pre-release**
+   - `git checkout pre-release`
    - `git merge --no-ff <type>/external/<topic>`
-6. **Run checks**
+5. **Run checks**
    - Frontend: `npm run build`
    - Backend (when Rust changes): `cargo check` (run from `src-tauri/`)
-7. **Push the integration branch (do not merge to main yet)**
-   - `git push -u origin <type>/internal/pr-<PR_NUMBER>-<topic>`
+6. **Push pre-release**
+   - `git push origin pre-release`
+7. **Close the PR with a comment** explaining it was merged to `pre-release`.
 
-After this, you can either:
+### Releasing to main
 
-- open a PR from the integration branch to `main`, or
-- merge the integration branch to `main` locally when you are ready.
+When ready to release:
+
+```bash
+git checkout main
+git merge pre-release
+git push origin main
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+This is done exclusively by maintainers.
 
 ### Merge strategy note (to preserve “external” authorship)
 
