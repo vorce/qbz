@@ -59,28 +59,56 @@ async function generateBlurredImage(
       }
 
       try {
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
+        // Two-canvas approach for proper blur application
+        // Canvas 1: Source image scaled down
+        const sourceCanvas = document.createElement('canvas');
+        sourceCanvas.width = size;
+        sourceCanvas.height = size;
+        const sourceCtx = sourceCanvas.getContext('2d');
+        if (!sourceCtx) {
+          reject(new Error('Could not get source canvas context'));
           return;
         }
 
-        // First pass: draw scaled down (creates initial blur through interpolation)
-        ctx.drawImage(img, 0, 0, size, size);
+        // Draw image scaled down to tiny size
+        sourceCtx.drawImage(img, 0, 0, size, size);
 
-        // Second pass: apply heavy blur filter and redraw on itself
-        ctx.filter = `blur(${blurRadius}px) saturate(1.3) brightness(0.45)`;
-        ctx.drawImage(canvas, 0, 0);
+        // Canvas 2: Apply blur filter when drawing FROM source TO output
+        const outputCanvas = document.createElement('canvas');
+        // Output slightly larger to capture blur overflow
+        const outputSize = size + blurRadius * 2;
+        outputCanvas.width = outputSize;
+        outputCanvas.height = outputSize;
+        const outputCtx = outputCanvas.getContext('2d');
+        if (!outputCtx) {
+          reject(new Error('Could not get output canvas context'));
+          return;
+        }
 
-        // Third pass: extra blur for very smooth result
-        ctx.drawImage(canvas, 0, 0);
+        // Apply blur + color adjustments when drawing
+        outputCtx.filter = `blur(${blurRadius}px) saturate(1.4) brightness(0.4)`;
+        outputCtx.drawImage(sourceCanvas, blurRadius, blurRadius, size, size);
+
+        // Second blur pass for extra smoothness
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = size;
+        finalCanvas.height = size;
+        const finalCtx = finalCanvas.getContext('2d');
+        if (!finalCtx) {
+          reject(new Error('Could not get final canvas context'));
+          return;
+        }
+
+        // Draw center portion (cropping blur edges) with additional blur
+        finalCtx.filter = `blur(${Math.floor(blurRadius / 2)}px)`;
+        finalCtx.drawImage(
+          outputCanvas,
+          blurRadius, blurRadius, size, size,  // Source rect
+          0, 0, size, size                      // Dest rect
+        );
 
         // Convert to data URL
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.6);
 
         // Cache the result
         if (blurCache.size >= MAX_CACHE_SIZE) {
@@ -175,11 +203,11 @@ export async function loadBlurredTexture(
 
   try {
     // Generate blurred image
-    // Small canvas (32x32) + blur = very smooth when scaled to fullscreen
+    // Very small canvas (16x16) + heavy blur = smooth gradients when scaled
     const blurredDataUrl = await generateBlurredImage(
       artworkUrl,
-      32,   // Very small canvas - scaling up creates natural blur
-      12,   // Additional blur radius
+      16,   // Tiny canvas - each pixel becomes ~120px when scaled to 1920
+      8,    // Blur radius (applied twice)
       controller.signal
     );
 
