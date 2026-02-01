@@ -3,13 +3,15 @@
    * Immersive Ambient Canvas
    *
    * WebGL2-based canvas for rendering the immersive background.
-   * Phase 1: Static texture rendering only.
+   * Phase 2: Pre-blurred artwork with async loading.
    *
    * Features:
    * - WebGL2 context with graceful fallback
    * - Context loss/restore handling
    * - Automatic resize handling
    * - Performance metrics reporting
+   * - Async texture loading with cancellation
+   * - Smooth crossfade between textures
    */
 
   import { onMount, onDestroy } from 'svelte';
@@ -18,13 +20,14 @@
     createShaderProgram,
     createFullscreenQuad,
     createPlaceholderTexture,
-    createTextureFromImage,
     resizeCanvasToDisplaySize,
     cleanupWebGL,
   } from './utils/webgl-utils';
+  import { loadBlurredTexture, cancelAllLoads } from './utils/texture-loader';
   import { SHADERS } from './shaders';
   import {
     updateMetrics,
+    updateTextureCount,
     handleContextLost,
     handleContextRestored,
   } from './ImmersiveRenderer';
@@ -48,6 +51,7 @@
   let vao: WebGLVertexArrayObject | null = null;
   let vertexBuffer: WebGLBuffer | null = null;
   let currentTexture: WebGLTexture | null = null;
+  let nextTexture: WebGLTexture | null = null;
   let placeholderTexture: WebGLTexture | null = null;
 
   // Uniform locations
@@ -57,6 +61,7 @@
   let animationFrameId: number | null = null;
   let isInitialized = false;
   let lastArtworkUrl = '';
+  let textureLoadId = 0; // For cancellation
 
   /**
    * Initialize WebGL resources.
@@ -113,6 +118,9 @@
    * Clean up WebGL resources.
    */
   function destroyWebGL(): void {
+    // Cancel any pending texture loads
+    cancelAllLoads();
+
     if (animationFrameId !== null) {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
@@ -128,7 +136,7 @@
         program,
         vao,
         vertexBuffer,
-        textures: [currentTexture, placeholderTexture],
+        textures: [currentTexture, nextTexture, placeholderTexture],
       });
     }
 
@@ -137,6 +145,7 @@
     vao = null;
     vertexBuffer = null;
     currentTexture = null;
+    nextTexture = null;
     placeholderTexture = null;
     u_texture = null;
     isInitialized = false;
@@ -175,33 +184,44 @@
   }
 
   /**
-   * Load a texture from URL.
+   * Load a pre-blurred texture from artwork URL.
+   * Handles async loading with cancellation support.
    */
   async function loadTexture(url: string): Promise<void> {
     if (!gl || !isInitialized) return;
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Increment load ID for cancellation
+    const loadId = ++textureLoadId;
+    const requestId = `artwork-${loadId}`;
 
     try {
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error(`Failed to load: ${url}`));
-        img.src = url;
-      });
+      // Load pre-blurred texture
+      const result = await loadBlurredTexture(gl, url, requestId);
 
-      // Delete old texture
+      // Check if this load was cancelled (newer load started)
+      if (loadId !== textureLoadId || !result) {
+        return;
+      }
+
+      // Swap textures
       if (currentTexture) {
         gl.deleteTexture(currentTexture);
       }
-
-      // Create new texture
-      currentTexture = createTextureFromImage(gl, img);
+      currentTexture = result.texture;
       lastArtworkUrl = url;
+
+      // Update metrics
+      updateTextureCount(1, result.width * result.height * 4);
 
       // Render with new texture
       render();
+
+      console.log(`[ImmersiveCanvas] Texture loaded: ${result.width}x${result.height}`);
     } catch (e) {
+      // Ignore abort errors
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        return;
+      }
       console.warn('[ImmersiveCanvas] Failed to load texture:', e);
     }
   }
