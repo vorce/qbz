@@ -46,13 +46,11 @@ void main() {
     vec3 c4 = texture(u_texture, uv + vec2(-offset, -offset)).rgb;
     vec3 color = (c1 + c2 + c3 + c4) * 0.25;
 
-    // Preserve luminance over saturation
+    // Gentle luminance-aware adjustment (preserves color, reduces harsh contrast)
     float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
-    // Avoid division by zero for very dark colors
-    float len = length(color);
-    if (len > 0.001) {
-        color = normalize(color) * luma;
-    }
+    // Mix original color with luminance-adjusted version (30% adjustment, 70% original)
+    vec3 lumaColor = color * (luma / max(length(color), 0.001));
+    color = mix(color, lumaColor, 0.3);
 
     // Gradient tint (cool top, warm bottom) - anti-flat
     vec3 tintTop = vec3(0.95, 0.97, 1.0);    // Cool/blue

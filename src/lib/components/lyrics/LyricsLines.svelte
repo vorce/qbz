@@ -184,15 +184,17 @@
     font-size: 17px;
   }
 
-  /* Immersive mode - larger text, center aligned */
+  /* Immersive mode - larger text with Oswald font */
   .lyrics-lines.immersive {
     gap: 20px;
     padding: 24px;
   }
 
   .lyrics-lines.immersive .lyrics-line {
-    font-size: 24px;
-    font-weight: 500;
+    font-family: 'Oswald', var(--font-sans), sans-serif;
+    font-size: 26px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
     /* Text shadow for contrast against any background */
     text-shadow:
       0 1px 2px rgba(0, 0, 0, 0.5),
@@ -200,8 +202,10 @@
   }
 
   .lyrics-lines.immersive .lyrics-line.active {
-    font-size: 24px;
-    font-weight: 700;
+    font-size: 28px;
+    font-weight: 600;
+    color: #ffffff;
+    opacity: 1;
   }
 
   .lyrics-line {
