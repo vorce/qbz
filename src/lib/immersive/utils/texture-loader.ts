@@ -1,33 +1,121 @@
 /**
- * Texture Loader
+ * Texture Loader - Atmospheric Background Generator
  *
- * Creates a high-quality pre-blurred texture that matches CSS blur(40px) quality.
- * The blur is computed ONCE at load time - no per-frame processing.
+ * Creates an ATMOSPHERIC COLOR FIELD from album artwork.
+ * The artwork is used ONLY as a color/mood source.
+ * The original image must be COMPLETELY UNRECOGNIZABLE.
  *
- * Strategy:
- * 1. Load image at reasonable size (256x256)
- * 2. Apply heavy Gaussian-like blur via multiple canvas filter passes
- * 3. Apply color adjustments (saturation, brightness)
- * 4. Upload to GPU texture ONCE
+ * Pipeline (NON-NEGOTIABLE):
+ * 1. Crop random NON-CENTERED region (150-300% zoom)
+ * 2. Downscale to TINY size (destroys all detail)
+ * 3. Apply EXTREME blur (destroys remaining structure)
+ * 4. Amplify colors while reducing contrast
+ * 5. Upload to GPU ONCE
+ *
+ * Acceptance Test:
+ * "If I hide the album cover, can I tell which album this is?"
+ * YES = FAIL, NO = PASS
  */
 
 import { createTextureFromImage } from './webgl-utils';
 
-// Cache of loaded blurred images
-const blurCache = new Map<string, string>();
+// Cache of generated atmospheric textures
+const atmosphereCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 20;
 
 // Active load requests (for cancellation)
 const activeLoads = new Map<string, AbortController>();
 
+// Seeded random for consistent crops per image URL
+function seededRandom(seed: string): () => number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return () => {
+    hash = Math.imul(hash ^ (hash >>> 16), 2246822507);
+    hash = Math.imul(hash ^ (hash >>> 13), 3266489909);
+    hash ^= hash >>> 16;
+    return (hash >>> 0) / 4294967296;
+  };
+}
+
 /**
- * Apply multiple blur passes to achieve CSS blur(40px) equivalent.
- * Uses OffscreenCanvas if available for better performance.
+ * Extract a random NON-CENTERED crop from the image.
+ * Zoom: 150-300% (takes a portion, not the whole image)
+ * Position: Random, avoiding center to break symmetry
  */
-function applyHeavyBlur(
+function extractRandomCrop(
+  img: HTMLImageElement,
+  targetSize: number,
+  seed: string
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = targetSize;
+  canvas.height = targetSize;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  const rand = seededRandom(seed);
+
+  // Zoom factor: 1.5x to 3x (we take 33%-66% of the image)
+  const zoomFactor = 1.5 + rand() * 1.5;
+
+  // Source region size (what portion of original image to take)
+  const sourceSize = Math.min(img.width, img.height) / zoomFactor;
+
+  // Available range for crop position (avoid edges)
+  const maxOffset = Math.min(img.width, img.height) - sourceSize;
+
+  // Random position, biased AWAY from center
+  // Generate position, then push away from center if too close
+  let sx = rand() * maxOffset;
+  let sy = rand() * maxOffset;
+
+  // Calculate center of crop
+  const cropCenterX = sx + sourceSize / 2;
+  const cropCenterY = sy + sourceSize / 2;
+  const imageCenterX = img.width / 2;
+  const imageCenterY = img.height / 2;
+
+  // If crop is too centered, push it away
+  const distFromCenter = Math.sqrt(
+    Math.pow(cropCenterX - imageCenterX, 2) +
+    Math.pow(cropCenterY - imageCenterY, 2)
+  );
+  const minDistFromCenter = Math.min(img.width, img.height) * 0.15;
+
+  if (distFromCenter < minDistFromCenter && maxOffset > 0) {
+    // Push towards a random corner
+    const corner = Math.floor(rand() * 4);
+    switch (corner) {
+      case 0: sx = 0; sy = 0; break; // top-left
+      case 1: sx = maxOffset; sy = 0; break; // top-right
+      case 2: sx = 0; sy = maxOffset; break; // bottom-left
+      case 3: sx = maxOffset; sy = maxOffset; break; // bottom-right
+    }
+  }
+
+  // Draw the cropped region scaled to target size
+  ctx.drawImage(
+    img,
+    sx, sy, sourceSize, sourceSize,
+    0, 0, targetSize, targetSize
+  );
+
+  return canvas;
+}
+
+/**
+ * Apply EXTREME blur to completely destroy any remaining structure.
+ * Uses multiple passes and very high blur radius.
+ */
+function applyExtremeBlur(
   sourceCanvas: HTMLCanvasElement,
-  passes: number = 4,
-  blurPerPass: number = 12
+  passes: number,
+  blurRadius: number
 ): HTMLCanvasElement {
   let current = sourceCanvas;
   const size = sourceCanvas.width;
@@ -39,9 +127,16 @@ function applyHeavyBlur(
     const ctx = next.getContext('2d');
     if (!ctx) return current;
 
-    // Each pass applies blur
-    ctx.filter = `blur(${blurPerPass}px)`;
-    ctx.drawImage(current, 0, 0);
+    // Apply blur with overpaint to avoid edge artifacts
+    ctx.filter = `blur(${blurRadius}px)`;
+
+    // Draw larger and offset to eliminate edge darkening
+    const expand = blurRadius * 2;
+    ctx.drawImage(
+      current,
+      -expand, -expand,
+      size + expand * 2, size + expand * 2
+    );
 
     current = next;
   }
@@ -50,15 +145,69 @@ function applyHeavyBlur(
 }
 
 /**
- * Generate a pre-blurred background image.
- * This creates a texture that looks like CSS filter: blur(40px).
+ * Apply color adjustments to create atmospheric mood.
+ * - Boost saturation (preserve mood)
+ * - Reduce brightness (background use)
+ * - Reduce contrast (smooth gradients)
  */
-async function generateBlurredImage(
+function applyColorAdjustments(
+  sourceCanvas: HTMLCanvasElement
+): HTMLCanvasElement {
+  const size = sourceCanvas.width;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return sourceCanvas;
+
+  // Saturation boost + brightness/contrast reduction
+  ctx.filter = 'saturate(1.4) brightness(0.5) contrast(0.85)';
+  ctx.drawImage(sourceCanvas, 0, 0);
+
+  return canvas;
+}
+
+/**
+ * Add subtle vignette to push focus inward.
+ */
+function applyVignette(
+  sourceCanvas: HTMLCanvasElement,
+  intensity: number = 0.3
+): HTMLCanvasElement {
+  const size = sourceCanvas.width;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return sourceCanvas;
+
+  // Draw source
+  ctx.drawImage(sourceCanvas, 0, 0);
+
+  // Create radial gradient for vignette
+  const gradient = ctx.createRadialGradient(
+    size / 2, size / 2, size * 0.2,
+    size / 2, size / 2, size * 0.7
+  );
+  gradient.addColorStop(0, `rgba(0, 0, 0, 0)`);
+  gradient.addColorStop(1, `rgba(0, 0, 0, ${intensity})`);
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+
+  return canvas;
+}
+
+/**
+ * Generate an atmospheric color field from artwork.
+ * The result must be COMPLETELY UNRECOGNIZABLE.
+ */
+async function generateAtmosphere(
   imageUrl: string,
   signal?: AbortSignal
 ): Promise<string> {
   // Check cache first
-  const cached = blurCache.get(imageUrl);
+  const cached = atmosphereCache.get(imageUrl);
   if (cached) return cached;
 
   return new Promise((resolve, reject) => {
@@ -86,50 +235,51 @@ async function generateBlurredImage(
       }
 
       try {
-        // Step 1: Draw image to initial canvas at target size
-        // 256x256 provides good quality while keeping processing fast
-        const SIZE = 256;
-        const BLUR_PASSES = 4;
-        const BLUR_PER_PASS = 15; // 4 passes * 15px ≈ CSS blur(40-50px)
+        // === TRANSFORMATION PIPELINE ===
 
-        const sourceCanvas = document.createElement('canvas');
-        sourceCanvas.width = SIZE;
-        sourceCanvas.height = SIZE;
-        const sourceCtx = sourceCanvas.getContext('2d');
-        if (!sourceCtx) {
+        // Step 1: Extract random NON-CENTERED crop
+        // Use small initial size - we're destroying detail anyway
+        const INITIAL_SIZE = 64;
+        const croppedCanvas = extractRandomCrop(img, INITIAL_SIZE, imageUrl);
+
+        // Step 2: First blur pass at small size (very efficient)
+        // High blur radius relative to size destroys all structure
+        const smallBlurred = applyExtremeBlur(croppedCanvas, 3, 12);
+
+        // Step 3: Scale up to final size
+        const FINAL_SIZE = 256;
+        const scaledCanvas = document.createElement('canvas');
+        scaledCanvas.width = FINAL_SIZE;
+        scaledCanvas.height = FINAL_SIZE;
+        const scaledCtx = scaledCanvas.getContext('2d');
+        if (!scaledCtx) {
           reject(new Error('Could not get canvas context'));
           return;
         }
 
-        // Draw image scaled to fit canvas
-        sourceCtx.drawImage(img, 0, 0, SIZE, SIZE);
+        // Bilinear interpolation during scale-up adds more blur
+        scaledCtx.imageSmoothingEnabled = true;
+        scaledCtx.imageSmoothingQuality = 'high';
+        scaledCtx.drawImage(smallBlurred, 0, 0, FINAL_SIZE, FINAL_SIZE);
 
-        // Step 2: Apply heavy blur (multiple passes)
-        const blurredCanvas = applyHeavyBlur(sourceCanvas, BLUR_PASSES, BLUR_PER_PASS);
+        // Step 4: Additional blur at final size for smoothness
+        const finalBlurred = applyExtremeBlur(scaledCanvas, 2, 20);
 
-        // Step 3: Apply color adjustments
-        const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = SIZE;
-        finalCanvas.height = SIZE;
-        const finalCtx = finalCanvas.getContext('2d');
-        if (!finalCtx) {
-          reject(new Error('Could not get final canvas context'));
-          return;
-        }
+        // Step 5: Apply color adjustments
+        const colorAdjusted = applyColorAdjustments(finalBlurred);
 
-        // Saturation boost + brightness reduction for background use
-        finalCtx.filter = 'saturate(1.3) brightness(0.55)';
-        finalCtx.drawImage(blurredCanvas, 0, 0);
+        // Step 6: Apply subtle vignette
+        const final = applyVignette(colorAdjusted, 0.25);
 
-        // Step 4: Convert to data URL
-        const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.85);
+        // Convert to data URL
+        const dataUrl = final.toDataURL('image/jpeg', 0.9);
 
         // Cache the result
-        if (blurCache.size >= MAX_CACHE_SIZE) {
-          const firstKey = blurCache.keys().next().value;
-          if (firstKey) blurCache.delete(firstKey);
+        if (atmosphereCache.size >= MAX_CACHE_SIZE) {
+          const firstKey = atmosphereCache.keys().next().value;
+          if (firstKey) atmosphereCache.delete(firstKey);
         }
-        blurCache.set(imageUrl, dataUrl);
+        atmosphereCache.set(imageUrl, dataUrl);
 
         resolve(dataUrl);
       } catch (err) {
@@ -187,10 +337,10 @@ export interface LoadTextureResult {
 }
 
 /**
- * Load a pre-blurred texture from artwork URL.
+ * Load an atmospheric texture from artwork URL.
  *
- * The texture is blurred ONCE at load time.
- * No per-frame blur processing needed.
+ * The texture is an UNRECOGNIZABLE color field derived from the artwork.
+ * Computed ONCE at load time - no per-frame processing.
  */
 export async function loadBlurredTexture(
   gl: WebGL2RenderingContext,
@@ -207,14 +357,14 @@ export async function loadBlurredTexture(
   activeLoads.set(requestId, controller);
 
   try {
-    // Generate pre-blurred image (cached)
-    const blurredDataUrl = await generateBlurredImage(
+    // Generate atmospheric color field (cached)
+    const atmosphereDataUrl = await generateAtmosphere(
       artworkUrl,
       controller.signal
     );
 
     // Load as image element
-    const img = await loadImage(blurredDataUrl, controller.signal);
+    const img = await loadImage(atmosphereDataUrl, controller.signal);
 
     // Create texture (uploaded ONCE)
     const texture = createTextureFromImage(gl, img);
@@ -252,10 +402,10 @@ export function cancelAllLoads(): void {
 }
 
 /**
- * Clear the blur cache.
+ * Clear the atmosphere cache.
  */
 export function clearBlurCache(): void {
-  blurCache.clear();
+  atmosphereCache.clear();
 }
 
 /**
@@ -263,7 +413,7 @@ export function clearBlurCache(): void {
  */
 export function getBlurCacheStats(): { size: number; maxSize: number } {
   return {
-    size: blurCache.size,
+    size: atmosphereCache.size,
     maxSize: MAX_CACHE_SIZE,
   };
 }

@@ -62,26 +62,106 @@
   }
 
   // =====================================================
-  // CSS Fallback Implementation (original code)
+  // CSS Fallback Implementation
+  // Uses same atmospheric transformation as WebGL path
   // =====================================================
+
+  // Seeded random for consistent crops per image URL
+  function seededRandom(seed: string): () => number {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      const char = seed.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return () => {
+      hash = Math.imul(hash ^ (hash >>> 16), 2246822507);
+      hash = Math.imul(hash ^ (hash >>> 13), 3266489909);
+      hash ^= hash >>> 16;
+      return (hash >>> 0) / 4294967296;
+    };
+  }
 
   async function generateBlurredBackground(imageUrl: string): Promise<void> {
     if (!canvasRef || !imageUrl) return;
-
-    const ctx = canvasRef.getContext('2d');
-    if (!ctx) return;
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
 
     img.onload = () => {
-      const size = 64;
-      canvasRef!.width = size;
-      canvasRef!.height = size;
+      const rand = seededRandom(imageUrl);
 
-      ctx.drawImage(img, 0, 0, size, size);
+      // Step 1: Extract random NON-CENTERED crop at small size
+      const CROP_SIZE = 32;
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = CROP_SIZE;
+      cropCanvas.height = CROP_SIZE;
+      const cropCtx = cropCanvas.getContext('2d');
+      if (!cropCtx) { isLoading = false; return; }
 
-      const imageData = ctx.getImageData(0, 0, size, size);
+      // Zoom factor: 1.5x to 3x
+      const zoomFactor = 1.5 + rand() * 1.5;
+      const sourceSize = Math.min(img.width, img.height) / zoomFactor;
+      const maxOffset = Math.min(img.width, img.height) - sourceSize;
+
+      // Random position, biased away from center
+      let sx = rand() * maxOffset;
+      let sy = rand() * maxOffset;
+
+      const cropCenterX = sx + sourceSize / 2;
+      const cropCenterY = sy + sourceSize / 2;
+      const imageCenterX = img.width / 2;
+      const imageCenterY = img.height / 2;
+
+      const distFromCenter = Math.sqrt(
+        Math.pow(cropCenterX - imageCenterX, 2) +
+        Math.pow(cropCenterY - imageCenterY, 2)
+      );
+      const minDistFromCenter = Math.min(img.width, img.height) * 0.15;
+
+      if (distFromCenter < minDistFromCenter && maxOffset > 0) {
+        const corner = Math.floor(rand() * 4);
+        switch (corner) {
+          case 0: sx = 0; sy = 0; break;
+          case 1: sx = maxOffset; sy = 0; break;
+          case 2: sx = 0; sy = maxOffset; break;
+          case 3: sx = maxOffset; sy = maxOffset; break;
+        }
+      }
+
+      cropCtx.drawImage(
+        img,
+        sx, sy, sourceSize, sourceSize,
+        0, 0, CROP_SIZE, CROP_SIZE
+      );
+
+      // Step 2: Apply extreme blur at small size (destroys structure)
+      let current = cropCanvas;
+      for (let i = 0; i < 3; i++) {
+        const next = document.createElement('canvas');
+        next.width = CROP_SIZE;
+        next.height = CROP_SIZE;
+        const ctx = next.getContext('2d');
+        if (!ctx) continue;
+        ctx.filter = 'blur(8px)';
+        const expand = 16;
+        ctx.drawImage(current, -expand, -expand, CROP_SIZE + expand * 2, CROP_SIZE + expand * 2);
+        current = next;
+      }
+
+      // Step 3: Scale up to final size with smoothing
+      const FINAL_SIZE = 128;
+      canvasRef!.width = FINAL_SIZE;
+      canvasRef!.height = FINAL_SIZE;
+      const finalCtx = canvasRef!.getContext('2d');
+      if (!finalCtx) { isLoading = false; return; }
+
+      finalCtx.imageSmoothingEnabled = true;
+      finalCtx.imageSmoothingQuality = 'high';
+      finalCtx.drawImage(current, 0, 0, FINAL_SIZE, FINAL_SIZE);
+
+      // Step 4: Apply color adjustments via pixel manipulation
+      const imageData = finalCtx.getImageData(0, 0, FINAL_SIZE, FINAL_SIZE);
       const data = imageData.data;
 
       for (let i = 0; i < data.length; i += 4) {
@@ -90,17 +170,23 @@
         const b = data[i + 2];
         const avg = (r + g + b) / 3;
 
-        const satFactor = 1.3;
+        // Saturation boost (1.4x) + brightness reduction (0.5x) + contrast reduction
+        const satFactor = 1.4;
         let newR = avg + (r - avg) * satFactor;
         let newG = avg + (g - avg) * satFactor;
         let newB = avg + (b - avg) * satFactor;
 
-        data[i] = Math.min(255, Math.max(0, newR * 0.55));
-        data[i + 1] = Math.min(255, Math.max(0, newG * 0.55));
-        data[i + 2] = Math.min(255, Math.max(0, newB * 0.55));
+        // Brightness and contrast
+        newR = newR * 0.5;
+        newG = newG * 0.5;
+        newB = newB * 0.5;
+
+        data[i] = Math.min(255, Math.max(0, newR));
+        data[i + 1] = Math.min(255, Math.max(0, newG));
+        data[i + 2] = Math.min(255, Math.max(0, newB));
       }
 
-      ctx.putImageData(imageData, 0, 0);
+      finalCtx.putImageData(imageData, 0, 0);
       isLoading = false;
     };
 
@@ -165,12 +251,12 @@
 
   .background-canvas {
     position: absolute;
-    inset: -80px;
-    width: calc(100% + 160px);
-    height: calc(100% + 160px);
+    inset: -120px;
+    width: calc(100% + 240px);
+    height: calc(100% + 240px);
     image-rendering: auto;
-    filter: blur(40px);
-    transform: scale(1.15) translateZ(0);
+    filter: blur(60px);
+    transform: scale(1.2) translateZ(0);
     will-change: opacity;
     transition: opacity 500ms ease-out;
   }
