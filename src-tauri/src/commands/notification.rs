@@ -158,9 +158,11 @@ pub fn show_track_notification(
         }
     }
 
-    notification
-        .show()
-        .map_err(|e| format!("Failed to show notification: {}", e))?;
+    // Show notification, but don't fail if notification system is unavailable
+    // This handles systems without a notification daemon (issue #32)
+    if let Err(e) = notification.show() {
+        log::warn!("Could not show notification (notification system may be unavailable): {}", e);
+    }
 
     Ok(())
 }
@@ -180,9 +182,11 @@ pub fn show_notification(
         notification.body(&body_text);
     }
 
-    notification
-        .show()
-        .map_err(|e| format!("Failed to show notification: {}", e))?;
+    // Show notification, but don't fail if notification system is unavailable
+    // This handles systems without a notification daemon (issue #32)
+    if let Err(e) = notification.show() {
+        log::warn!("Could not show notification (notification system may be unavailable): {}", e);
+    }
 
     Ok(())
 }
