@@ -1891,10 +1891,8 @@
       <div class="avatar-small">{userName.charAt(0).toUpperCase()}</div>
       <div class="account-info-compact">
         <span class="username-compact">{userName}</span>
-        <span class="subscription-badge">{subscription}</span>
-        {#if subscriptionValidUntil}
-          <span class="valid-until">({subscriptionValidUntil})</span>
-        {/if}
+        <span class="separator">·</span>
+        <span class="subscription-text">{subscription}</span>
       </div>
       <button class="logout-btn-compact" onclick={onLogout}>{$t('settings.account.logout')}</button>
     </div>
@@ -3054,18 +3052,15 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     color: var(--text-primary);
   }
 
-  .subscription-badge {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--accent-primary);
-    background: var(--alpha-10);
-    padding: 2px 8px;
-    border-radius: 10px;
+  .account-info-compact .separator {
+    color: var(--text-muted);
+    font-size: 14px;
   }
 
-  .valid-until {
-    font-size: 11px;
-    color: var(--text-muted);
+  .subscription-text {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--accent-primary);
   }
 
   .logout-btn-compact {
