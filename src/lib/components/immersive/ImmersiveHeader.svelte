@@ -1,16 +1,19 @@
 <script lang="ts">
-  import { Disc3, LayoutGrid, Mic2, ListMusic, Music2, Info, Radio, Maximize, Minimize, ChevronDown, X, Square, Copy, Minus } from 'lucide-svelte';
+  import { Disc3, Mic2, ListMusic, Music2, Info, Radio, Maximize, Minimize, ChevronDown, X, Square, Copy, Minus } from 'lucide-svelte';
   import { t } from '$lib/i18n';
   import { getCurrentWindow } from '@tauri-apps/api/window';
 
   export type ImmersiveTab = 'lyrics' | 'trackInfo' | 'suggestions' | 'queue';
-  export type DisplayMode = 'coverflow' | 'split' | 'lyrics-focus' | 'queue-focus';
+  export type FocusTab = 'coverflow' | 'lyrics-focus' | 'queue-focus';
+  export type ViewMode = 'focus' | 'split';
 
   interface Props {
+    viewMode: ViewMode;
     activeTab: ImmersiveTab;
-    displayMode: DisplayMode;
+    activeFocusTab: FocusTab;
+    onViewModeChange: (mode: ViewMode) => void;
     onTabChange: (tab: ImmersiveTab) => void;
-    onDisplayModeChange: (mode: DisplayMode) => void;
+    onFocusTabChange: (tab: FocusTab) => void;
     onClose: () => void;
     onCloseApp?: () => void;
     visible?: boolean;
@@ -25,10 +28,12 @@
   }
 
   let {
+    viewMode,
     activeTab,
-    displayMode,
+    activeFocusTab,
+    onViewModeChange,
     onTabChange,
-    onDisplayModeChange,
+    onFocusTabChange,
     onClose,
     onCloseApp,
     visible = true,
@@ -69,45 +74,55 @@
     }
   }
 
-  const tabs = $derived([
+  // Split mode tabs
+  const splitTabs = $derived([
     { id: 'lyrics' as const, label: $t('player.lyrics'), icon: Music2, enabled: hasLyrics },
     { id: 'trackInfo' as const, label: $t('player.trackInfo') || 'Track Info', icon: Info, enabled: hasTrackInfo },
     { id: 'suggestions' as const, label: $t('player.suggestions') || 'Suggestions', icon: Radio, enabled: hasSuggestions },
     { id: 'queue' as const, label: $t('player.queue') || 'Queue', icon: ListMusic, enabled: true },
   ].filter(tab => tab.enabled));
 
-  const displayModes: { id: DisplayMode; icon: typeof Disc3; title: string }[] = [
-    { id: 'coverflow', icon: Disc3, title: 'Coverflow (1)' },
-    { id: 'split', icon: LayoutGrid, title: 'Split View (2)' },
-    { id: 'lyrics-focus', icon: Mic2, title: 'Lyrics Focus (3)' },
-    { id: 'queue-focus', icon: ListMusic, title: 'Queue Focus (4)' },
+  // Focus mode tabs
+  const focusTabs: { id: FocusTab; label: string; icon: typeof Disc3 }[] = [
+    { id: 'coverflow', label: 'Coverflow', icon: Disc3 },
+    { id: 'lyrics-focus', label: 'Lyrics', icon: Mic2 },
+    { id: 'queue-focus', label: 'Queue', icon: ListMusic },
   ];
 
-  // Only show tabs in split mode
-  const showTabs = $derived(displayMode === 'split');
+  const isFocusMode = $derived(viewMode === 'focus');
 </script>
 
 <header class="immersive-header" class:visible>
-  <!-- Left: Display mode switcher -->
+  <!-- Left: View mode toggle -->
   <div class="header-left">
-    <div class="mode-switcher">
-      {#each displayModes as mode (mode.id)}
-        <button
-          class="mode-btn"
-          class:active={displayMode === mode.id}
-          onclick={() => onDisplayModeChange(mode.id)}
-          title={mode.title}
-        >
-          <mode.icon size={18} />
-        </button>
-      {/each}
-    </div>
+    <button
+      class="mode-toggle"
+      onclick={() => onViewModeChange(isFocusMode ? 'split' : 'focus')}
+      title={isFocusMode ? 'Switch to Split View' : 'Switch to Focus View'}
+    >
+      <img
+        src={isFocusMode ? '/lotus.svg' : '/split-view.svg'}
+        alt={isFocusMode ? 'Focus Mode' : 'Split Mode'}
+        class="mode-icon"
+      />
+    </button>
   </div>
 
-  <!-- Center: Tabs (only in split mode) -->
-  {#if showTabs}
-    <nav class="tabs">
-      {#each tabs as tab (tab.id)}
+  <!-- Center: Tabs (change based on view mode) -->
+  <nav class="tabs">
+    {#if isFocusMode}
+      {#each focusTabs as tab (tab.id)}
+        <button
+          class="tab"
+          class:active={activeFocusTab === tab.id}
+          onclick={() => onFocusTabChange(tab.id)}
+        >
+          <tab.icon size={16} />
+          <span class="tab-label">{tab.label}</span>
+        </button>
+      {/each}
+    {:else}
+      {#each splitTabs as tab (tab.id)}
         <button
           class="tab"
           class:active={activeTab === tab.id}
@@ -117,10 +132,8 @@
           <span class="tab-label">{tab.label}</span>
         </button>
       {/each}
-    </nav>
-  {:else}
-    <div class="tabs-placeholder"></div>
-  {/if}
+    {/if}
+  </nav>
 
   <!-- Right: Expandable Window Controls -->
   <div class="header-actions">
@@ -211,46 +224,38 @@
   }
 
   .header-left {
-    flex: 1;
-    min-width: 100px;
+    flex: 0 0 auto;
+    min-width: 50px;
   }
 
-  .mode-switcher {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 4px;
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 10px;
-  }
-
-  .mode-btn {
+  .mode-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
-    background: none;
-    border: none;
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.65);
+    width: 42px;
+    height: 42px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
     cursor: pointer;
     transition: all 150ms ease;
   }
 
-  .mode-btn:hover {
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.12);
+  .mode-toggle:hover {
+    background: rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 255, 255, 0.25);
   }
 
-  .mode-btn.active {
-    color: var(--text-primary, white);
-    background: rgba(255, 255, 255, 0.2);
+  .mode-icon {
+    width: 22px;
+    height: 22px;
+    filter: invert(1) opacity(0.85);
+    transition: filter 150ms ease;
   }
 
-  .tabs-placeholder {
-    flex: 1;
+  .mode-toggle:hover .mode-icon {
+    filter: invert(1) opacity(1);
   }
 
   .tabs {

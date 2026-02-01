@@ -3,7 +3,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import ImmersiveBackground from './ImmersiveBackground.svelte';
   import ImmersiveArtwork from './ImmersiveArtwork.svelte';
-  import ImmersiveHeader, { type ImmersiveTab, type DisplayMode } from './ImmersiveHeader.svelte';
+  import ImmersiveHeader, { type ImmersiveTab, type FocusTab, type ViewMode } from './ImmersiveHeader.svelte';
   import PlayerControlsCompact from './PlayerControlsCompact.svelte';
   import LyricsPanel from './panels/LyricsPanel.svelte';
   import TrackInfoPanel from './panels/TrackInfoPanel.svelte';
@@ -115,8 +115,9 @@
   }: Props = $props();
 
   // UI State
-  let displayMode: DisplayMode = $state('split');
+  let viewMode: ViewMode = $state('split');
   let activeTab: ImmersiveTab = $state('lyrics');
+  let activeFocusTab: FocusTab = $state('coverflow');
   let showUI = $state(true);
   let hideTimeout: ReturnType<typeof setTimeout> | null = null;
   let isFullscreen = $state(false);
@@ -210,35 +211,38 @@
           onSeek(Math.min(duration, currentTime + 5));
         }
         break;
-      // Display mode shortcuts
-      case '1':
-        displayMode = 'coverflow';
+      // View mode toggle
+      case 'v':
+      case 'V':
+        viewMode = viewMode === 'split' ? 'focus' : 'split';
         break;
-      case '2':
-        displayMode = 'split';
-        break;
-      case '3':
-        displayMode = 'lyrics-focus';
-        break;
-      case '4':
-        displayMode = 'queue-focus';
-        break;
-      // Tab shortcuts (only in split mode)
+      // Tab shortcuts (split mode)
       case 'l':
       case 'L':
-        if (displayMode === 'split') activeTab = 'lyrics';
+        if (viewMode === 'split') activeTab = 'lyrics';
         break;
       case 't':
       case 'T':
-        if (displayMode === 'split' && enableCredits) activeTab = 'trackInfo';
+        if (viewMode === 'split' && enableCredits) activeTab = 'trackInfo';
         break;
       case 's':
       case 'S':
-        if (displayMode === 'split' && enableSuggestions) activeTab = 'suggestions';
+        if (viewMode === 'split' && enableSuggestions) activeTab = 'suggestions';
         break;
       case 'q':
       case 'Q':
-        if (displayMode === 'split') activeTab = 'queue';
+        if (viewMode === 'split') activeTab = 'queue';
+        else if (viewMode === 'focus') activeFocusTab = 'queue-focus';
+        break;
+      // Focus mode tabs
+      case '1':
+        if (viewMode === 'focus') activeFocusTab = 'coverflow';
+        break;
+      case '2':
+        if (viewMode === 'focus') activeFocusTab = 'lyrics-focus';
+        break;
+      case '3':
+        if (viewMode === 'focus') activeFocusTab = 'queue-focus';
         break;
     }
     resetHideTimer();
@@ -280,10 +284,12 @@
 
     <!-- Header with mode switcher -->
     <ImmersiveHeader
+      {viewMode}
       {activeTab}
-      {displayMode}
+      {activeFocusTab}
+      onViewModeChange={(mode) => viewMode = mode}
       onTabChange={(tab) => activeTab = tab}
-      onDisplayModeChange={(mode) => displayMode = mode}
+      onFocusTabChange={(tab) => activeFocusTab = tab}
       onClose={handleExitImmersive}
       visible={showUI}
       hasLyrics={true}
@@ -296,39 +302,42 @@
       onMinimize={minimizeWindow}
     />
 
-    <!-- Content based on display mode -->
-    {#if displayMode === 'coverflow'}
-      <!-- Coverflow: Centered artwork -->
-      <CoverflowPanel
-        {artwork}
-        {trackTitle}
-        {artist}
-        {album}
-        {isPlaying}
-        {quality}
-        {bitDepth}
-        {samplingRate}
-      />
-    {:else if displayMode === 'lyrics-focus'}
-      <!-- Lyrics Focus: Single line, large, centered -->
-      <LyricsFocusPanel
-        lines={lyricsLines}
-        activeIndex={lyricsActiveIndex}
-        isLoading={lyricsLoading}
-        error={lyricsError}
-      />
-    {:else if displayMode === 'queue-focus'}
-      <!-- Queue Focus: Full screen queue -->
-      <div class="focus-panel">
-        <div class="focus-panel-content queue-content">
-          <QueuePanel
-            tracks={queueTracks}
-            currentIndex={queueCurrentIndex}
-            onPlayTrack={(index) => onQueuePlayTrack?.(index)}
-            onClear={onQueueClear}
-          />
+    <!-- Content based on view mode -->
+    {#if viewMode === 'focus'}
+      <!-- Focus Mode Views -->
+      {#if activeFocusTab === 'coverflow'}
+        <!-- Coverflow: Centered artwork -->
+        <CoverflowPanel
+          {artwork}
+          {trackTitle}
+          {artist}
+          {album}
+          {isPlaying}
+          {quality}
+          {bitDepth}
+          {samplingRate}
+        />
+      {:else if activeFocusTab === 'lyrics-focus'}
+        <!-- Lyrics Focus: Single line, large, centered -->
+        <LyricsFocusPanel
+          lines={lyricsLines}
+          activeIndex={lyricsActiveIndex}
+          isLoading={lyricsLoading}
+          error={lyricsError}
+        />
+      {:else if activeFocusTab === 'queue-focus'}
+        <!-- Queue Focus: Full screen queue -->
+        <div class="focus-panel">
+          <div class="focus-panel-content queue-content">
+            <QueuePanel
+              tracks={queueTracks}
+              currentIndex={queueCurrentIndex}
+              onPlayTrack={(index) => onQueuePlayTrack?.(index)}
+              onClear={onQueueClear}
+            />
+          </div>
         </div>
-      </div>
+      {/if}
     {:else}
       <!-- Split: Artwork + Panel side by side -->
       <div class="immersive-main">
