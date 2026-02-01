@@ -882,6 +882,9 @@
                         <Disc3 size={32} />
                       </div>
                     {/if}
+                    {#if album.genre?.name}
+                      <div class="popular-genre-badge">{album.genre.name}</div>
+                    {/if}
                     {#if album.maximum_bit_depth || album.maximum_sampling_rate}
                       <div class="popular-quality-badge">
                         <QualityBadge
@@ -2164,10 +2167,10 @@
 
   .popular-quality-badge {
     position: absolute;
-    top: 6px;
+    bottom: 6px;
     right: 6px;
     z-index: 2;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     padding: 2px 6px;
@@ -2178,6 +2181,24 @@
     font-size: 10px;
     width: auto;
     color: rgba(255, 255, 255, 0.9);
+  }
+
+  .popular-genre-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 2;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.9);
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .popular-card-overlay {
