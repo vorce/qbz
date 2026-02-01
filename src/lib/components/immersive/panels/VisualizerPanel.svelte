@@ -189,13 +189,13 @@
   <canvas bind:this={canvasRef} class="visualizer-canvas"></canvas>
 
   <div class="track-info">
-    {#if artwork}
-      <img src={artwork} alt={trackTitle} class="artwork" />
-    {/if}
     <div class="text">
       <h1 class="title">{trackTitle}</h1>
       <p class="artist">{artist}</p>
     </div>
+    {#if artwork}
+      <img src={artwork} alt={trackTitle} class="artwork" />
+    {/if}
   </div>
 </div>
 
@@ -225,41 +225,49 @@
   }
 
   .track-info {
-    position: relative;
+    position: absolute;
+    bottom: 140px;
+    right: 40px;
     z-index: 10;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
+    flex-direction: row;
+    align-items: flex-end;
     gap: 16px;
   }
 
   .artwork {
-    width: min(180px, 22vw);
-    height: min(180px, 22vw);
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    width: 90px;
+    height: 90px;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
     object-fit: cover;
+    flex-shrink: 0;
   }
 
   .text {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    align-items: flex-end;
+    text-align: right;
+    gap: 2px;
   }
 
   .title {
-    font-size: clamp(16px, 2.2vw, 24px);
-    font-weight: 700;
+    font-size: 16px;
+    font-weight: 600;
     color: white;
     margin: 0;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .artist {
-    font-size: clamp(12px, 1.5vw, 16px);
-    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
     margin: 0;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
   }
 </style>
