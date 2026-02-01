@@ -131,6 +131,7 @@
     stopPolling,
     reset as resetPlayer,
     getPlayerState,
+    getVolume,
     type PlayingTrack,
     type PlayerState
   } from '$lib/stores/playerStore';
@@ -501,7 +502,7 @@
   let isPlaying = $state(false);
   let currentTime = $state(0);
   let duration = $state(0);
-  let volume = $state(75);
+  let volume = $state(getVolume()); // Load persisted volume from localStorage
   let isFavorite = $state(false);
 
   // Queue/Shuffle State (from queueStore subscription)
@@ -3058,6 +3059,8 @@
         onCast={openCastPicker}
         {isCastConnected}
         queueOpen={isQueueOpen}
+        {volume}
+        onVolumeChange={handleVolumeChange}
       />
     {/if}
 
