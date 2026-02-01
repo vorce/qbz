@@ -205,7 +205,7 @@
       <div class="cards-section">
         <!-- Artist Playlists from Qobuz -->
         {#each artistPlaylists as playlist (playlist.id)}
-          {@const playlistImage = playlist.images?.[playlist.images.length - 1] || playlist.images?.[0]}
+          {@const playlistImage = playlist.images?.[0] || playlist.images?.[playlist.images.length - 1]}
           <div class="card playlist-card">
             <div class="card-badge qobuz">
               <img src="/qobuz-logo-filled.svg" alt="Qobuz" class="badge-icon badge-qobuz" />
