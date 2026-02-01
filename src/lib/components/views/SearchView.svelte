@@ -905,7 +905,19 @@
                 </button>
               {:else if allResults.most_popular?.type === 'albums'}
                 {@const album = allResults.most_popular.content}
-                <div class="popular-card most-popular-card" class:menu-open={mostPopularMenuOpen} onmouseenter={measurePopularOverflow}>
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                  class="popular-card most-popular-card"
+                  class:menu-open={mostPopularMenuOpen}
+                  onmouseenter={measurePopularOverflow}
+                  onclick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (!target.closest('.popular-overlay-btn') && !target.closest('.popular-menu')) {
+                      onAlbumClick?.(album.id);
+                    }
+                  }}
+                >
                   <div class="popular-card-artwork">
                     {#if getAlbumArtwork(album)}
                       <img
@@ -2205,6 +2217,7 @@
     padding: 6px;
     background-color: var(--bg-secondary);
     border-radius: 12px;
+    cursor: pointer;
     transition: background-color 150ms ease;
   }
 
