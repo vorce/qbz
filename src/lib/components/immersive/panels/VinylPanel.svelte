@@ -50,10 +50,10 @@
     mouseY = 0.5;
   }
 
-  // Parallax calculations (extremely aggressive horizontal)
-  const coverOffsetX = $derived((mouseX - 0.5) * 200);
-  const coverOffsetY = $derived((mouseY - 0.5) * 40);
-  const revealOffset = $derived(isPlaying ? -8 : 0);
+  // Parallax calculations (aggressive horizontal for sleeve effect)
+  const coverOffsetX = $derived((mouseX - 0.5) * 100);
+  const coverOffsetY = $derived((mouseY - 0.5) * 20);
+  const revealOffset = $derived(isPlaying ? -10 : 0);
 
   // Vertex shader
   const vertexShaderSource = `#version 300 es
@@ -93,8 +93,8 @@
       float s = sin(u_rotation);
       uv = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);
 
-      // Apply aggressive parallax offset (horizontal emphasis)
-      uv += vec2(u_parallax.x * 0.15, u_parallax.y * 0.05);
+      // Apply parallax offset (horizontal emphasis)
+      uv += vec2(u_parallax.x * 0.06, u_parallax.y * 0.03);
 
       uv += center;
 
@@ -235,8 +235,8 @@
     // Calculate vinyl size and position (centered, with padding)
     // Vinyl moves opposite to cover for depth effect
     const size = Math.min(rect.width, rect.height) * 0.85;
-    const offsetX = (rect.width - size) / 2 + (mouseX - 0.5) * -120;
-    const offsetY = (rect.height - size) / 2 + (mouseY - 0.5) * -25;
+    const offsetX = (rect.width - size) / 2 + (mouseX - 0.5) * -60;
+    const offsetY = (rect.height - size) / 2 + (mouseY - 0.5) * -15;
 
     // Set uniforms
     gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), rect.width, rect.height);
