@@ -82,7 +82,6 @@
 
     uniform sampler2D u_texture;
     uniform float u_rotation;
-    uniform vec2 u_parallax;
 
     void main() {
       vec2 center = vec2(0.5);
@@ -93,9 +92,7 @@
       float s = sin(u_rotation);
       uv = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);
 
-      // Apply parallax offset (horizontal only - no Y movement for concentric rotation)
-      uv += vec2(u_parallax.x * 0.06, 0.0);
-
+      // No parallax on vinyl - it stays fixed, only sleeve moves
       uv += center;
 
       // Add padding - scale down UV to add margin around vinyl
@@ -246,18 +243,17 @@
 
     gl.useProgram(program);
 
-    // Calculate vinyl size and position (centered, with padding)
-    // Vinyl moves only horizontally for sleeve reveal effect (no Y movement)
+    // Calculate vinyl size and position (perfectly centered, no parallax)
+    // Only the sleeve moves - vinyl stays fixed and just rotates
     const size = Math.min(rect.width, rect.height) * 0.85;
-    const offsetX = (rect.width - size) / 2 + (mouseX - 0.5) * -60;
-    const offsetY = (rect.height - size) / 2; // Centered on Y axis - no parallax
+    const offsetX = (rect.width - size) / 2;
+    const offsetY = (rect.height - size) / 2;
 
     // Set uniforms
     gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), rect.width, rect.height);
     gl.uniform2f(gl.getUniformLocation(program, 'u_offset'), offsetX, offsetY);
     gl.uniform1f(gl.getUniformLocation(program, 'u_scale'), size);
     gl.uniform1f(gl.getUniformLocation(program, 'u_rotation'), rotation);
-    gl.uniform2f(gl.getUniformLocation(program, 'u_parallax'), mouseX - 0.5, mouseY - 0.5);
 
     // Bind texture
     gl.activeTexture(gl.TEXTURE0);
