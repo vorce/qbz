@@ -125,6 +125,14 @@
     }
   }
 
+  // Reset overflow measurement when most_popular content changes
+  $effect(() => {
+    allResults?.most_popular;
+    popularOverflowMeasured = false;
+    popularTitleOverflow = 0;
+    popularSubtitleOverflow = 0;
+  });
+
   // Portal action - moves element to body to escape stacking context
   function portal(node: HTMLElement) {
     document.body.appendChild(node);
@@ -2233,6 +2241,7 @@
   .popular-quality-badge {
     margin-top: auto;
     padding-top: 5px;
+    padding-bottom: 1px;
   }
 
   .popular-quality-badge :global(.quality-badge-compact) {
