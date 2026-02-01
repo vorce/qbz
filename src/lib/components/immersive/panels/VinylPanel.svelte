@@ -51,8 +51,8 @@
   }
 
   // Parallax calculations (aggressive horizontal for sleeve effect)
-  const coverOffsetX = $derived((mouseX - 0.5) * 100);
-  const coverOffsetY = $derived((mouseY - 0.5) * 20);
+  const coverOffsetX = $derived((mouseX - 0.5) * 120);
+  const coverOffsetY = $derived((mouseY - 0.5) * 35);
   const revealOffset = $derived(isPlaying ? -10 : 0);
 
   // Vertex shader
