@@ -405,13 +405,13 @@
     position: absolute;
     bottom: calc(100% + 8px);
     right: 0;
-    background: rgba(24, 24, 28, 0.98);
+    background: var(--bg-secondary);
     border: 1px solid var(--alpha-10);
     border-radius: 6px;
     padding: 8px 12px;
     min-width: 120px;
     max-width: 200px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
     z-index: 9999;
     animation: tooltip-appear 150ms ease;
     pointer-events: none;
@@ -439,7 +439,7 @@
   .tooltip-device {
     font-size: 12px;
     font-weight: 500;
-    color: white;
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
