@@ -137,6 +137,27 @@
     isFullscreen = await window.isFullscreen();
   }
 
+  // Exit immersive and fullscreen
+  async function handleExitImmersive() {
+    if (isFullscreen) {
+      const window = getCurrentWindow();
+      await window.setFullscreen(false);
+      isFullscreen = false;
+    }
+    onClose();
+  }
+
+  // Toggle maximize (not fullscreen)
+  async function toggleMaximize() {
+    const window = getCurrentWindow();
+    const maximized = await window.isMaximized();
+    if (maximized) {
+      await window.unmaximize();
+    } else {
+      await window.maximize();
+    }
+  }
+
   // Auto-hide UI after inactivity
   function resetHideTimer() {
     showUI = true;
@@ -253,13 +274,14 @@
       {displayMode}
       onTabChange={(tab) => activeTab = tab}
       onDisplayModeChange={(mode) => displayMode = mode}
-      {onClose}
+      onClose={handleExitImmersive}
       visible={showUI}
       hasLyrics={true}
       hasTrackInfo={enableCredits}
       hasSuggestions={enableSuggestions}
       {isFullscreen}
       onToggleFullscreen={toggleFullscreen}
+      onToggleMaximize={toggleMaximize}
     />
 
     <!-- Content based on display mode -->

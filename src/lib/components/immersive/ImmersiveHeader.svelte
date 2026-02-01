@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Disc3, LayoutGrid, Mic2, ListMusic, Music2, Info, Radio, Maximize, Minimize, ChevronDown, X } from 'lucide-svelte';
+  import { Disc3, LayoutGrid, Mic2, ListMusic, Music2, Info, Radio, Maximize, Minimize, ChevronDown, X, Square } from 'lucide-svelte';
   import { t } from '$lib/i18n';
   import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -19,6 +19,7 @@
     hasSuggestions?: boolean;
     isFullscreen?: boolean;
     onToggleFullscreen?: () => void;
+    onToggleMaximize?: () => void;
   }
 
   let {
@@ -33,7 +34,8 @@
     hasTrackInfo = true,
     hasSuggestions = true,
     isFullscreen = false,
-    onToggleFullscreen
+    onToggleFullscreen,
+    onToggleMaximize
   }: Props = $props();
 
   // Expandable window controls state
@@ -138,6 +140,13 @@
           {:else}
             <Maximize size={16} />
           {/if}
+        </button>
+        <button
+          class="window-btn"
+          onclick={onToggleMaximize}
+          title="Maximize Window"
+        >
+          <Square size={14} />
         </button>
         <button
           class="window-btn"
@@ -325,7 +334,7 @@
   }
 
   .window-controls.expanded .expanded-buttons {
-    max-width: 120px;
+    max-width: 160px;
     opacity: 1;
     margin-right: 4px;
   }
