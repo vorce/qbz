@@ -12,6 +12,7 @@
   import CoverflowPanel from './panels/CoverflowPanel.svelte';
   import StaticPanel from './panels/StaticPanel.svelte';
   import VinylPanel from './panels/VinylPanel.svelte';
+  import VisualizerPanel from './panels/VisualizerPanel.svelte';
   import LyricsFocusPanel from './panels/LyricsFocusPanel.svelte';
   import QualityBadge from '$lib/components/QualityBadge.svelte';
 
@@ -364,6 +365,14 @@
           {quality}
           {bitDepth}
           {samplingRate}
+        />
+      {:else if activeFocusTab === 'visualizer'}
+        <!-- Visualizer: Audio spectrum with mirror mode -->
+        <VisualizerPanel
+          enabled={true}
+          {artwork}
+          {trackTitle}
+          {artist}
         />
       {:else if activeFocusTab === 'lyrics-focus'}
         <!-- Lyrics Focus: Single line, large, centered -->
