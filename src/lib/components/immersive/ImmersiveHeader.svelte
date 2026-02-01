@@ -93,23 +93,25 @@
 </script>
 
 <header class="immersive-header" class:visible>
-  <!-- Left: View mode toggle -->
-  <div class="header-left">
+  <!-- Left: Spacer for balance -->
+  <div class="header-left"></div>
+
+  <!-- Center: Mode toggle + Tabs -->
+  <nav class="tabs">
+    <!-- Mode toggle button (icon shows target mode) -->
     <button
       class="mode-toggle"
       onclick={() => onViewModeChange(isFocusMode ? 'split' : 'focus')}
-      title={isFocusMode ? 'Switch to Split View' : 'Switch to Focus View'}
+      title={isFocusMode ? 'Switch to Split View (V)' : 'Switch to Focus View (V)'}
     >
       <img
-        src={isFocusMode ? '/lotus.svg' : '/split-view.svg'}
-        alt={isFocusMode ? 'Focus Mode' : 'Split Mode'}
+        src={isFocusMode ? '/split-view.svg' : '/lotus.svg'}
+        alt={isFocusMode ? 'Split Mode' : 'Focus Mode'}
         class="mode-icon"
       />
     </button>
-  </div>
 
-  <!-- Center: Tabs (change based on view mode) -->
-  <nav class="tabs">
+    <div class="tab-divider"></div>
     {#if isFocusMode}
       {#each focusTabs as tab (tab.id)}
         <button
@@ -224,38 +226,44 @@
   }
 
   .header-left {
-    flex: 0 0 auto;
-    min-width: 50px;
+    flex: 1;
+    min-width: 100px;
   }
 
   .mode-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
-    padding: 8px;
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 12px;
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+    background: none;
+    border: none;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 150ms ease;
   }
 
   .mode-toggle:hover {
-    background: rgba(0, 0, 0, 0.6);
-    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.12);
   }
 
   .mode-icon {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     filter: invert(1) opacity(0.85);
     transition: filter 150ms ease;
   }
 
   .mode-toggle:hover .mode-icon {
     filter: invert(1) opacity(1);
+  }
+
+  .tab-divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0 4px;
   }
 
   .tabs {
