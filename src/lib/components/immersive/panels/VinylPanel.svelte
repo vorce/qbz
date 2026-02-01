@@ -93,8 +93,8 @@
       float s = sin(u_rotation);
       uv = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);
 
-      // Apply parallax offset (horizontal emphasis)
-      uv += vec2(u_parallax.x * 0.06, u_parallax.y * 0.03);
+      // Apply parallax offset (horizontal only - no Y movement for concentric rotation)
+      uv += vec2(u_parallax.x * 0.06, 0.0);
 
       uv += center;
 
@@ -149,10 +149,23 @@
       img.onload = () => {
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+
+        // Generate mipmaps for smoother rendering at different scales
+        gl.generateMipmap(gl.TEXTURE_2D);
+
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        // Use trilinear filtering with mipmaps for anti-aliasing
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        // Enable anisotropic filtering if available (reduces aliasing on angled surfaces)
+        const ext = gl.getExtension('EXT_texture_filter_anisotropic');
+        if (ext) {
+          const maxAniso = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+          gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, maxAniso);
+        }
+
         resolve(texture);
       };
       img.onerror = () => resolve(null);
@@ -215,9 +228,10 @@
     const now = performance.now();
     const elapsed = (now - startTime) / 1000;
 
-    // Update rotation when playing
+    // Update rotation when playing (33⅓ RPM)
+    // 33.333 RPM = 0.5556 rotations/sec = 0.5556 * 2π / 60fps ≈ 0.0582 rad/frame
     if (isPlaying) {
-      rotation += 0.02; // ~0.3 RPM visual effect
+      rotation += 0.0582;
     }
 
     // Set canvas size
@@ -233,10 +247,10 @@
     gl.useProgram(program);
 
     // Calculate vinyl size and position (centered, with padding)
-    // Vinyl moves opposite to cover for depth effect
+    // Vinyl moves only horizontally for sleeve reveal effect (no Y movement)
     const size = Math.min(rect.width, rect.height) * 0.85;
     const offsetX = (rect.width - size) / 2 + (mouseX - 0.5) * -60;
-    const offsetY = (rect.height - size) / 2 + (mouseY - 0.5) * -15;
+    const offsetY = (rect.height - size) / 2; // Centered on Y axis - no parallax
 
     // Set uniforms
     gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), rect.width, rect.height);
