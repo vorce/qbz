@@ -12,7 +12,6 @@
   import CoverflowPanel from './panels/CoverflowPanel.svelte';
   import StaticPanel from './panels/StaticPanel.svelte';
   import LyricsFocusPanel from './panels/LyricsFocusPanel.svelte';
-  import HistoryPanel from './panels/HistoryPanel.svelte';
   import QualityBadge from '$lib/components/QualityBadge.svelte';
 
   interface LyricsLine {
@@ -246,11 +245,6 @@
         if (viewMode === 'split') activeTab = 'queue';
         else if (viewMode === 'focus') activeFocusTab = 'queue-focus';
         break;
-      case 'h':
-      case 'H':
-        if (viewMode === 'split') activeTab = 'history';
-        else if (viewMode === 'focus') activeFocusTab = 'history-focus';
-        break;
       // Focus mode tabs
       case '1':
         if (viewMode === 'focus') activeFocusTab = 'coverflow';
@@ -263,9 +257,6 @@
         break;
       case '4':
         if (viewMode === 'focus') activeFocusTab = 'queue-focus';
-        break;
-      case '5':
-        if (viewMode === 'focus') activeFocusTab = 'history-focus';
         break;
     }
     resetHideTimer();
@@ -372,16 +363,8 @@
               currentIndex={queueCurrentIndex}
               onPlayTrack={(index) => onQueuePlayTrack?.(index)}
               onClear={onQueueClear}
-            />
-          </div>
-        </div>
-      {:else if activeFocusTab === 'history-focus'}
-        <!-- History Focus: Full screen history -->
-        <div class="focus-panel">
-          <div class="focus-panel-content queue-content">
-            <HistoryPanel
-              tracks={historyTracks}
-              onPlayTrack={(trackId) => onPlayHistoryTrack?.(trackId)}
+              {historyTracks}
+              onPlayHistoryTrack={(trackId) => onPlayHistoryTrack?.(trackId)}
             />
           </div>
         </div>
@@ -431,11 +414,8 @@
               currentIndex={queueCurrentIndex}
               onPlayTrack={(index) => onQueuePlayTrack?.(index)}
               onClear={onQueueClear}
-            />
-          {:else if activeTab === 'history'}
-            <HistoryPanel
-              tracks={historyTracks}
-              onPlayTrack={(trackId) => onPlayHistoryTrack?.(trackId)}
+              {historyTracks}
+              onPlayHistoryTrack={(trackId) => onPlayHistoryTrack?.(trackId)}
             />
           {/if}
         </div>

@@ -33,6 +33,10 @@
   let isLoading = $state(true);
   let currentArtwork = $state('');
 
+  // Crossfade transition state
+  let isTransitioning = $state(false);
+  let previousArtwork = $state('');
+
   // Check capabilities and load WebGL component if available
   onMount(async () => {
     if (BUILD_IMMERSIVE_ENABLED && isRuntimeEnabled() && isWebGL2Available()) {
@@ -197,38 +201,56 @@
     img.src = imageUrl;
   }
 
-  // Track artwork changes for fallback renderer
+  // Track artwork changes and trigger transition
   $effect(() => {
-    if (useFallback && artwork && artwork !== currentArtwork) {
-      currentArtwork = artwork;
-      isLoading = true;
-      generateBlurredBackground(artwork);
+    if (artwork && artwork !== previousArtwork) {
+      // Trigger fade out
+      isTransitioning = true;
+
+      // After fade out, update artwork
+      setTimeout(() => {
+        previousArtwork = artwork;
+
+        // For fallback renderer, regenerate background
+        if (useFallback) {
+          currentArtwork = artwork;
+          isLoading = true;
+          generateBlurredBackground(artwork);
+        }
+
+        // Fade back in after a small delay for texture load
+        setTimeout(() => {
+          isTransitioning = false;
+        }, 100);
+      }, 400); // Match CSS transition duration
     }
   });
 </script>
 
 <div class="immersive-background">
-  {#if useWebGL && WebGLCanvas}
-    <!-- WebGL2 Renderer with ambient motion -->
-    <WebGLCanvas
-      artworkUrl={artwork}
-      enableMotion={enableAmbient}
-      intensity={ambientIntensity}
-      onFallback={handleWebGLFallback}
-    />
-  {:else if useFallback}
-    <!-- CSS Fallback Renderer -->
-    <div class="fallback-container" class:loading={isLoading}>
-      <canvas
-        bind:this={canvasRef}
-        class="background-canvas"
-        aria-hidden="true"
-      ></canvas>
-    </div>
-  {:else}
-    <!-- Loading state while determining renderer -->
-    <div class="loading-placeholder"></div>
-  {/if}
+  <div class="background-layer" class:transitioning={isTransitioning}>
+    {#if useWebGL && WebGLCanvas}
+      <!-- WebGL2 Renderer with ambient motion -->
+      <WebGLCanvas
+        artworkUrl={artwork}
+        enableMotion={enableAmbient}
+        intensity={ambientIntensity}
+        onFallback={handleWebGLFallback}
+      />
+    {:else if useFallback}
+      <!-- CSS Fallback Renderer -->
+      <div class="fallback-container" class:loading={isLoading}>
+        <canvas
+          bind:this={canvasRef}
+          class="background-canvas"
+          aria-hidden="true"
+        ></canvas>
+      </div>
+    {:else}
+      <!-- Loading state while determining renderer -->
+      <div class="loading-placeholder"></div>
+    {/if}
+  </div>
 
   <!-- Dark overlay for better contrast -->
   <div class="dark-overlay"></div>
@@ -241,6 +263,18 @@
     overflow: hidden;
     z-index: 0;
     background-color: #0a0a0b;
+  }
+
+  /* Crossfade transition layer */
+  .background-layer {
+    position: absolute;
+    inset: 0;
+    opacity: 1;
+    transition: opacity 400ms ease-out;
+  }
+
+  .background-layer.transitioning {
+    opacity: 0;
   }
 
   /* CSS Fallback styles */
