@@ -2062,7 +2062,7 @@
     <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">Streaming Only</span>
-        <span class="setting-desc">Skip L1/L2 cache - each play streams fresh. Offline cache still works for downloaded tracks.</span>
+        <span class="setting-desc">Disables temporary cache. Not recommended without a fast connection. Offline library tracks always play first.</span>
       </div>
       <Toggle enabled={streamingOnly} onchange={handleStreamingOnlyChange} />
     </div>
@@ -3019,8 +3019,10 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
   .account-card-compact {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 12px;
     padding: 8px 0;
+    min-height: 44px;
   }
 
   .avatar-small {
@@ -3035,14 +3037,17 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     font-size: 14px;
     font-weight: 600;
     flex-shrink: 0;
+    align-self: center;
   }
 
   .account-info-compact {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px 8px;
     min-width: 0;
+    align-self: center;
   }
 
   .username-compact {
@@ -3076,6 +3081,7 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     cursor: pointer;
     transition: background-color 150ms ease;
     flex-shrink: 0;
+    align-self: center;
   }
 
   .logout-btn-compact:hover {
