@@ -124,7 +124,22 @@
     "networkFs": {
       "auto": "Auto-detectar",
       "other": "Otro"
-    }
+    },
+    "stats": "{albums} álbumes • {tracks} pistas • {duration} • {size}",
+    "scanLibrary": "Escanear Biblioteca",
+    "viewHiddenAlbums": "Ver Álbumes Ocultos",
+    "fetchMissingArtwork": "Obtener Portadas Faltantes",
+    "maintenance": "MANTENIMIENTO",
+    "dangerZone": "ZONA DE PELIGRO",
+    "cleanupMissingFiles": "Limpiar archivos faltantes",
+    "clearDatabase": "Limpiar Base de Datos",
+    "filters": "Filtros",
+    "quality": "Calidad",
+    "albumName": "Nombre del Álbum",
+    "releaseYear": "Año de Lanzamiento",
+    "artistName": "Nombre del Artista",
+    "alphabetical": "Alfabético",
+    "group": "Agrupar:"
   },
   "album": {
     "tracks": "pistas",
@@ -374,12 +389,30 @@
       "qualityChangedCacheCleared": "Calidad cambiada. Caché de reproducción limpiado.",
       "outputDevice": "Dispositivo de Salida",
       "audioDevice": "Dispositivo de Audio",
+      "audioDeviceDesc": "Selecciona tu dispositivo de salida de audio preferido. Los dispositivos mostrados son del backend seleccionado.",
       "exclusiveMode": "Modo Exclusivo",
       "exclusiveModeDesc": "Bloquear dispositivo de audio para uso exclusivo",
+      "exclusiveModeNotAvailable": "El modo exclusivo solo está disponible con ALSA Direct. PipeWire y PulseAudio son servidores de audio multiplexados y no pueden proporcionar acceso exclusivo real.",
       "dacPassthrough": "Passthrough DAC",
       "dacPassthroughDesc": "Bypass del mixer del sistema para salida bit-perfect",
+      "dacPassthroughExtendedDesc": "Cuando está habilitado, anula la configuración de calidad anterior si tu dispositivo de audio no soporta la tasa de muestreo seleccionada. Previene el remuestreo para garantizar reproducción bit-perfect.",
+      "audioBackend": "Backend de Audio",
+      "audioBackendDesc": "Elige el sistema de audio: Auto (recomendado), PipeWire (moderno), ALSA Direct (bit-perfect, exclusivo), o PulseAudio (legado).",
       "currentSampleRate": "Tasa de Muestreo Actual",
-      "noActivePlayback": "Sin reproducción activa"
+      "noActivePlayback": "Sin reproducción activa",
+      "streamBuffer": "Buffering de Stream",
+      "streamBufferDesc": "Inicia la reproducción más rápido cuando la pista no está en caché. La búsqueda puede estar limitada durante el buffering inicial.",
+      "streamBufferSeconds": "Segundos a almacenar antes de iniciar reproducción ({seconds}s)",
+      "disableCache": "Deshabilitar Caché de Reproducción",
+      "disableCacheDesc": "Deshabilita el caché temporal. No recomendado sin conexión rápida. Las pistas de biblioteca offline siempre se reproducen primero.",
+      "bitPerfectHelp": "Ayuda con detección de dispositivos bit-perfect",
+      "bitPerfectDetection": "Detección de Dispositivos Bit-perfect",
+      "isInstalled": "está instalado",
+      "isNotInstalled": "no está instalado",
+      "alsaUtilsDesc": "El paquete alsa-utils proporciona herramientas de enumeración de hardware que QBZ usa para detectar dispositivos capaces de bit-perfect (hw:X,Y).",
+      "alsaUtilsNotInstalled": "Sin él, solo se muestran dispositivos ALSA genéricos y no verás la insignia BP para salidas verdaderamente bit-perfect.",
+      "systemConfigured": "Tu sistema está correctamente configurado para detección de dispositivos bit-perfect.",
+      "deviceNotListed": "Si no ves tu dispositivo listado como bit-perfect, asegúrate de que esté conectado y reconocido por tu sistema."
     },
     "playback": {
       "title": "Reproducción",
@@ -440,6 +473,7 @@
     "contentFiltering": {
       "title": "Filtrado de Contenido",
       "artistBlacklist": "Lista negra de artistas",
+      "artistsBlocked": "{count} artistas bloqueados",
       "manage": "Administrar",
       "disabled": "deshabilitado"
     },
@@ -470,8 +504,12 @@
       "title": "Biblioteca Offline",
       "disclaimer": "La biblioteca offline es un caché temporal de reproducción para escucha sin conexión mientras tengas una suscripción válida de Qobuz. No recibes una licencia para conservar o redistribuir el contenido. Si tu suscripción deja de ser válida, QBZ eliminará todo el contenido en caché después de 3 días.",
       "cachedTracks": "Pistas Offline",
+      "cachedTracksDesc": "Pistas en caché para reproducción offline",
       "clearCache": "Limpiar Todo",
-      "openFolder": "Abrir Carpeta"
+      "openFolder": "Abrir Carpeta",
+      "repair": "Reparar",
+      "repairDesc": "Corregir marcadores offline perdidos durante escaneos de biblioteca",
+      "openFolderDesc": "Abrir la carpeta de caché en tu gestor de archivos"
     },
     "networkCacheWarning": "La carpeta seleccionada está en una unidad de red.",
     "networkCacheWarningDetail": "Las pistas en caché pueden no estar disponibles cuando la red esté desconectada o en modo offline. ¿Estás seguro de que quieres usar esta ubicación?",
@@ -484,9 +522,26 @@
     "about": {
       "title": "Acerca de",
       "version": "Versión",
+      "currentVersion": "Versión actual",
       "sourceCode": "Código Fuente",
       "reportIssue": "Reportar Problema",
-      "checkUpdates": "Buscar Actualizaciones"
+      "checkUpdates": "Buscar Actualizaciones",
+      "checkUpdatesNow": "Buscar actualizaciones ahora",
+      "checkOnLaunch": "Buscar nuevas versiones al iniciar",
+      "showWhatsNew": "Mostrar novedades al actualizar",
+      "showChangelog": "Mostrar changelog de la versión actual"
+    },
+    "metadata": {
+      "title": "Metadatos",
+      "musicbrainz": "MusicBrainz",
+      "musicbrainzDesc": "Habilitar relaciones de artistas y metadatos mejorados de MusicBrainz.",
+      "cacheStats": "{artists} artistas, {relations} relaciones, {recordings} grabaciones",
+      "noArtworkCached": "Sin portadas en caché",
+      "artistVectors": "Vectores de Artistas (Sugerencias)",
+      "artworkThumbnails": "Miniaturas de Portadas",
+      "clearAllCaches": "Limpiar Todos los Cachés",
+      "clearAllCachesDesc": "Limpia todos los datos en caché anteriores",
+      "cachesDesc": "Cachés de cola, letras, portadas y metadatos"
     }
   },
   "auth": {

@@ -124,7 +124,22 @@
     "networkFs": {
       "auto": "Auto-detect",
       "other": "Other"
-    }
+    },
+    "stats": "{albums} albums • {tracks} tracks • {duration} • {size}",
+    "scanLibrary": "Scan Library",
+    "viewHiddenAlbums": "View Hidden Albums",
+    "fetchMissingArtwork": "Fetch Missing Artwork",
+    "maintenance": "MAINTENANCE",
+    "dangerZone": "DANGER ZONE",
+    "cleanupMissingFiles": "Cleanup missing files",
+    "clearDatabase": "Clear Library Database",
+    "filters": "Filters",
+    "quality": "Quality",
+    "albumName": "Album Name",
+    "releaseYear": "Release Year",
+    "artistName": "Artist Name",
+    "alphabetical": "Alphabetical",
+    "group": "Group:"
   },
   "album": {
     "tracks": "tracks",
@@ -374,12 +389,30 @@
       "qualityChangedCacheCleared": "Quality changed. Playback cache cleared.",
       "outputDevice": "Output Device",
       "audioDevice": "Audio Device",
+      "audioDeviceDesc": "Select your preferred audio output device. Devices shown are from the selected backend.",
       "exclusiveMode": "Exclusive Mode",
       "exclusiveModeDesc": "Lock audio device for exclusive use",
+      "exclusiveModeNotAvailable": "Exclusive mode is only available with ALSA Direct backend. PipeWire and PulseAudio are multiplexed audio servers and cannot provide true exclusive access.",
       "dacPassthrough": "DAC Passthrough",
       "dacPassthroughDesc": "Bypass system mixer for bit-perfect output",
+      "dacPassthroughExtendedDesc": "When enabled, overrides the quality setting above if your audio device doesn't support the selected sample rate. Prevents resampling to guarantee bit-perfect playback.",
+      "audioBackend": "Audio Backend",
+      "audioBackendDesc": "Choose audio system: Auto (recommended), PipeWire (modern), ALSA Direct (bit-perfect, exclusive), or PulseAudio (legacy).",
       "currentSampleRate": "Current Sample Rate",
-      "noActivePlayback": "No active playback"
+      "noActivePlayback": "No active playback",
+      "streamBuffer": "Stream Buffering",
+      "streamBufferDesc": "Start playback faster when track is not in cache. Seeking may be limited during initial buffering.",
+      "streamBufferSeconds": "Seconds to buffer before starting playback ({seconds}s)",
+      "disableCache": "Disable Playback Cache",
+      "disableCacheDesc": "Disables temporary cache. Not recommended without a fast connection. Offline library tracks always play first.",
+      "bitPerfectHelp": "Help with bit-perfect device detection",
+      "bitPerfectDetection": "Bit-perfect Device Detection",
+      "isInstalled": "is installed",
+      "isNotInstalled": "is not installed",
+      "alsaUtilsDesc": "The alsa-utils package provides hardware enumeration tools that QBZ uses to detect bit-perfect capable devices (hw:X,Y).",
+      "alsaUtilsNotInstalled": "Without it, only generic ALSA devices are shown, and you won't see the BP badge for true bit-perfect outputs.",
+      "systemConfigured": "Your system is properly configured for bit-perfect device detection.",
+      "deviceNotListed": "If you don't see your device listed as bit-perfect, ensure it's connected and recognized by your system."
     },
     "playback": {
       "title": "Playback",
@@ -440,6 +473,7 @@
     "contentFiltering": {
       "title": "Content Filtering",
       "artistBlacklist": "Artist Blacklist",
+      "artistsBlocked": "{count} artists blocked",
       "manage": "Manage",
       "disabled": "disabled"
     },
@@ -470,8 +504,12 @@
       "title": "Offline Library",
       "disclaimer": "The offline library is a temporary playback cache for offline listening while you have a valid Qobuz subscription. You do not receive a license to keep or redistribute the content. If your subscription becomes invalid, QBZ will remove all cached content after 3 days.",
       "cachedTracks": "Offline Tracks",
+      "cachedTracksDesc": "Cached tracks for offline playback",
       "clearCache": "Clear All",
-      "openFolder": "Open Folder"
+      "openFolder": "Open Folder",
+      "repair": "Repair",
+      "repairDesc": "Fix offline markers lost during library scans",
+      "openFolderDesc": "Open the cache folder in your file manager"
     },
     "networkCacheWarning": "The selected folder is on a network drive.",
     "networkCacheWarningDetail": "Cached tracks may not be available when the network is disconnected or in offline mode. Are you sure you want to use this location?",
@@ -484,9 +522,26 @@
     "about": {
       "title": "About",
       "version": "Version",
+      "currentVersion": "Current version",
       "sourceCode": "Source Code",
       "reportIssue": "Report Issue",
-      "checkUpdates": "Check for Updates"
+      "checkUpdates": "Check for Updates",
+      "checkUpdatesNow": "Check for updates now",
+      "checkOnLaunch": "Check for new releases on launch",
+      "showWhatsNew": "Show what's new on new version launch",
+      "showChangelog": "Show changelog for current version"
+    },
+    "metadata": {
+      "title": "Metadata",
+      "musicbrainz": "MusicBrainz",
+      "musicbrainzDesc": "Enable artist relationships and enhanced metadata from MusicBrainz.",
+      "cacheStats": "{artists} artists, {relations} relations, {recordings} recordings",
+      "noArtworkCached": "No cached artwork",
+      "artistVectors": "Artist Vectors (Suggestions)",
+      "artworkThumbnails": "Artwork Thumbnails",
+      "clearAllCaches": "Clear All Caches",
+      "clearAllCachesDesc": "Clears all cached data above",
+      "cachesDesc": "Queue, lyrics, artwork and metadata caches"
     }
   },
   "auth": {
