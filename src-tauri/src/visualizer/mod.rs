@@ -17,14 +17,15 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use tauri::AppHandle;
 
 /// Number of frequency bins to send to frontend
-pub const NUM_BARS: usize = 64;
+/// 16 bins, mirrored on frontend for symmetric look
+pub const NUM_BARS: usize = 16;
 
 /// FFT size (must be power of 2)
-/// 2048 gives good frequency resolution at ~21Hz per bin at 44.1kHz
-pub const FFT_SIZE: usize = 2048;
+/// 1024 is faster than 2048 and still gives ~43Hz resolution at 44.1kHz
+pub const FFT_SIZE: usize = 1024;
 
 /// Target frames per second for visualization updates
-pub const TARGET_FPS: u64 = 60;
+pub const TARGET_FPS: u64 = 30;
 
 /// Shared state for visualization that can be passed to the audio thread
 #[derive(Clone)]

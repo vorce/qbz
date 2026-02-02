@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn test_log_frequency_distribution() {
         // Verify that frequency bars are logarithmically distributed
-        let num_bars = 64;
+        let num_bars = NUM_BARS; // Use the actual constant
         let min_log = 20.0_f32.ln();
         let max_log = 20000.0_f32.ln();
 
@@ -189,8 +189,9 @@ mod tests {
         // First bar should be around 20Hz
         assert!(freqs[0] > 19.0 && freqs[0] < 25.0);
 
-        // Middle bar (~32) should be around 630Hz (geometric mean of 20 and 20000)
-        assert!(freqs[32] > 500.0 && freqs[32] < 800.0);
+        // Middle bar (~16 for 32 bars) should be around 630Hz (geometric mean of 20 and 20000)
+        let mid = num_bars / 2;
+        assert!(freqs[mid] > 500.0 && freqs[mid] < 800.0);
 
         // Last bar should approach 20000Hz
         assert!(freqs[num_bars - 1] > 15000.0);

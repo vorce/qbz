@@ -376,6 +376,9 @@
           {trackTitle}
           {artist}
           {album}
+          {quality}
+          {bitDepth}
+          {samplingRate}
         />
       {:else if activeFocusTab === 'lyrics-focus'}
         <!-- Lyrics Focus: Single line, large, centered -->

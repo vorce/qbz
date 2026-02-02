@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import { invoke } from '@tauri-apps/api/core';
+  import QualityBadge from '$lib/components/QualityBadge.svelte';
 
   interface Props {
     enabled?: boolean;
@@ -9,9 +10,21 @@
     trackTitle?: string;
     artist?: string;
     album?: string;
+    quality?: string;
+    bitDepth?: number;
+    samplingRate?: number;
   }
 
-  let { enabled = true, artwork = '', trackTitle = '', artist = '', album = '' }: Props = $props();
+  let {
+    enabled = true,
+    artwork = '',
+    trackTitle = '',
+    artist = '',
+    album = '',
+    quality,
+    bitDepth,
+    samplingRate
+  }: Props = $props();
 
   let canvasRef: HTMLCanvasElement | null = $state(null);
   let ctx: CanvasRenderingContext2D | null = null;
@@ -19,12 +32,76 @@
   let unlisten: UnlistenFn | null = null;
   let isInitialized = false;
 
-  const NUM_BARS = 64;
+  const NUM_BARS = 16; // Backend sends 16, we mirror for 32 visual bars
   const frequencyData = new Float32Array(NUM_BARS);
   const smoothedData = new Float32Array(NUM_BARS);
 
   // Smoothing for visual continuity
-  const SMOOTHING = 0.7;
+  const SMOOTHING = 0.6;
+
+  // Throttle rendering to 30fps max
+  let lastRenderTime = 0;
+  const FRAME_INTERVAL = 1000 / 30; // ~33ms
+
+  // Colors extracted from artwork (Material You style)
+  let colorPrimary = $state({ r: 0, g: 220, b: 200 });   // Default cyan
+  let colorSecondary = $state({ r: 150, g: 50, b: 255 }); // Default purple
+
+  // Extract dominant colors from artwork
+  function extractColors(imgSrc: string) {
+    if (!imgSrc) return;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // Use tiny canvas for fast sampling
+      const sampleCanvas = document.createElement('canvas');
+      const size = 10;
+      sampleCanvas.width = size;
+      sampleCanvas.height = size;
+      const sampleCtx = sampleCanvas.getContext('2d');
+      if (!sampleCtx) return;
+
+      sampleCtx.drawImage(img, 0, 0, size, size);
+      const data = sampleCtx.getImageData(0, 0, size, size).data;
+
+      // Collect vibrant colors (avoid black/dark and very light)
+      const colors: { r: number; g: number; b: number; sat: number }[] = [];
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        const lum = (max + min) / 2;
+        const sat = max === min ? 0 : (max - min) / (lum > 127 ? 510 - max - min : max + min);
+
+        // Skip black/near-black (lum > 60) and very light (lum < 220)
+        // Also require decent saturation for vibrant colors
+        if (lum > 60 && lum < 220 && sat > 0.15) {
+          colors.push({ r, g, b, sat });
+        }
+      }
+
+      if (colors.length >= 2) {
+        // Sort by saturation, pick most vibrant
+        colors.sort((a, b) => b.sat - a.sat);
+        colorPrimary = { r: colors[0].r, g: colors[0].g, b: colors[0].b };
+        // Pick a contrasting color (from the other half)
+        const midIdx = Math.floor(colors.length / 2);
+        colorSecondary = { r: colors[midIdx].r, g: colors[midIdx].g, b: colors[midIdx].b };
+      } else if (colors.length === 1) {
+        colorPrimary = { r: colors[0].r, g: colors[0].g, b: colors[0].b };
+        // Create secondary by shifting hue
+        colorSecondary = { r: colors[0].b, g: colors[0].r, b: colors[0].g };
+      }
+    };
+    img.src = imgSrc;
+  }
+
+  // Re-extract colors when artwork changes
+  $effect(() => {
+    if (artwork) {
+      extractColors(artwork);
+    }
+  });
 
   async function init() {
     if (!canvasRef || isInitialized) return;
@@ -61,90 +138,74 @@
       }
     });
 
-    render();
+    render(0);
   }
 
-  function render() {
+  function render(timestamp: number = 0) {
     if (!ctx || !canvasRef) return;
+
+    // Throttle to 30fps
+    const delta = timestamp - lastRenderTime;
+    if (delta < FRAME_INTERVAL) {
+      animationFrame = requestAnimationFrame(render);
+      return;
+    }
+    lastRenderTime = timestamp;
 
     const rect = canvasRef.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    canvasRef.width = rect.width * dpr;
-    canvasRef.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-
     const width = rect.width;
     const height = rect.height;
-    const centerY = height / 2;
-    const maxAmplitude = height * 0.35;
+
+    // Only resize canvas when needed (expensive operation)
+    const targetWidth = Math.floor(width * dpr);
+    const targetHeight = Math.floor(height * dpr);
+    if (canvasRef.width !== targetWidth || canvasRef.height !== targetHeight) {
+      canvasRef.width = targetWidth;
+      canvasRef.height = targetHeight;
+      ctx.scale(dpr, dpr);
+    }
 
     // Clear with black
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, width, height);
 
-    // Draw wave - top half
-    ctx.beginPath();
-    ctx.moveTo(0, centerY);
+    // Bar visualization with cubes - mirrored from center
+    const visualBars = NUM_BARS * 2; // 16 real + 16 mirrored = 32 visual
+    const barGap = 4;
+    const totalBarWidth = width / visualBars;
+    const barWidth = totalBarWidth - barGap;
+    const cubeHeight = 6;
+    const cubeGap = 2;
+    const maxBarHeight = height * 0.7;
+    const baseY = height * 0.85;
+    const centerX = width / 2;
 
+    // Draw bars from edges inward (mirrored, bass at edges)
     for (let i = 0; i < NUM_BARS; i++) {
-      const x = (i / (NUM_BARS - 1)) * width;
-      const amplitude = frequencyData[i] * maxAmplitude;
-      const y = centerY - amplitude;
+      const amplitude = frequencyData[i];
+      const barHeight = amplitude * maxBarHeight;
+      const numCubes = Math.floor(barHeight / (cubeHeight + cubeGap));
 
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        // Smooth curve using quadratic bezier
-        const prevX = ((i - 1) / (NUM_BARS - 1)) * width;
-        const cpX = (prevX + x) / 2;
-        ctx.quadraticCurveTo(prevX, centerY - frequencyData[i - 1] * maxAmplitude, cpX, (centerY - frequencyData[i - 1] * maxAmplitude + y) / 2);
+      // Left side (from left edge toward center)
+      const xLeft = i * totalBarWidth + barGap / 2;
+      // Right side (from right edge toward center)
+      const xRight = width - (i + 1) * totalBarWidth + barGap / 2;
+
+      for (let j = 0; j < numCubes; j++) {
+        const cubeY = baseY - (j + 1) * (cubeHeight + cubeGap);
+        const t = Math.min(j / 20, 1); // Normalized 0-1
+
+        // Interpolate between primary (bottom) and secondary (top)
+        const r = Math.floor(colorPrimary.r + t * (colorSecondary.r - colorPrimary.r));
+        const g = Math.floor(colorPrimary.g + t * (colorSecondary.g - colorPrimary.g));
+        const b = Math.floor(colorPrimary.b + t * (colorSecondary.b - colorPrimary.b));
+
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(xLeft, cubeY, barWidth, cubeHeight);
+        ctx.fillRect(xRight, cubeY, barWidth, cubeHeight);
       }
     }
-
-    // Create gradient for top wave
-    const gradientTop = ctx.createLinearGradient(0, centerY - maxAmplitude, 0, centerY);
-    gradientTop.addColorStop(0, 'rgba(0, 255, 200, 0.9)');
-    gradientTop.addColorStop(0.5, 'rgba(100, 100, 255, 0.7)');
-    gradientTop.addColorStop(1, 'rgba(150, 50, 200, 0.3)');
-
-    ctx.strokeStyle = gradientTop;
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke();
-
-    // Draw mirrored wave - bottom half
-    ctx.beginPath();
-    for (let i = 0; i < NUM_BARS; i++) {
-      const x = (i / (NUM_BARS - 1)) * width;
-      const amplitude = frequencyData[i] * maxAmplitude;
-      const y = centerY + amplitude;
-
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        const prevX = ((i - 1) / (NUM_BARS - 1)) * width;
-        const cpX = (prevX + x) / 2;
-        ctx.quadraticCurveTo(prevX, centerY + frequencyData[i - 1] * maxAmplitude, cpX, (centerY + frequencyData[i - 1] * maxAmplitude + y) / 2);
-      }
-    }
-
-    // Gradient for bottom wave (mirrored colors)
-    const gradientBottom = ctx.createLinearGradient(0, centerY, 0, centerY + maxAmplitude);
-    gradientBottom.addColorStop(0, 'rgba(150, 50, 200, 0.3)');
-    gradientBottom.addColorStop(0.5, 'rgba(100, 100, 255, 0.7)');
-    gradientBottom.addColorStop(1, 'rgba(0, 255, 200, 0.9)');
-
-    ctx.strokeStyle = gradientBottom;
-    ctx.stroke();
-
-    // Draw center line (subtle)
-    ctx.beginPath();
-    ctx.moveTo(0, centerY);
-    ctx.lineTo(width, centerY);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
 
     animationFrame = requestAnimationFrame(render);
   }
@@ -189,17 +250,23 @@
 <div class="visualizer-panel" class:visible={enabled}>
   <canvas bind:this={canvasRef} class="visualizer-canvas"></canvas>
 
-  <div class="track-info">
-    <div class="text">
-      <p class="artist">{artist}</p>
-      {#if album}
-        <p class="album">{album}</p>
-      {/if}
-      <h1 class="title">{trackTitle}</h1>
-    </div>
+  <div class="center-content">
     {#if artwork}
-      <img src={artwork} alt={trackTitle} class="artwork" />
+      <div class="artwork-container">
+        <img src={artwork} alt={trackTitle} class="artwork" />
+      </div>
     {/if}
+
+    <div class="track-info">
+      <h1 class="track-title">{trackTitle}</h1>
+      <p class="track-artist">{artist}</p>
+      {#if album}
+        <p class="track-album">{album}</p>
+      {/if}
+      <div class="quality-badge-wrapper">
+        <QualityBadge {quality} {bitDepth} {samplingRate} />
+      </div>
+    </div>
   </div>
 </div>
 
@@ -228,59 +295,87 @@
     height: 100%;
   }
 
-  .track-info {
-    position: absolute;
-    bottom: 140px;
-    right: 40px;
+  .center-content {
+    position: relative;
     z-index: 10;
     display: flex;
-    flex-direction: row;
-    align-items: flex-end;
-    gap: 16px;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding-top: 70px;
+    padding-bottom: 120px;
+  }
+
+  .artwork-container {
+    width: min(45vh, 360px);
+    height: min(45vh, 360px);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      0 20px 60px rgba(0, 0, 0, 0.3);
   }
 
   .artwork {
-    width: 108px;
-    height: 108px;
-    border-radius: 8px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    flex-shrink: 0;
   }
 
-  .text {
+  .track-info {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    text-align: right;
-    gap: 2px;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    max-width: 600px;
   }
 
-  .title {
-    font-size: 13px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.8);
+  .track-title {
+    font-size: clamp(20px, 3vw, 28px);
+    font-weight: 700;
+    color: var(--text-primary, white);
     margin: 0;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   }
 
-  .artist {
-    font-size: 14px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
+  .track-artist {
+    font-size: clamp(14px, 2vw, 18px);
+    color: var(--alpha-70, rgba(255, 255, 255, 0.7));
     margin: 0;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
   }
 
-  .album {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
+  .track-album {
+    font-size: clamp(12px, 1.5vw, 14px);
+    color: var(--alpha-50, rgba(255, 255, 255, 0.5));
     margin: 0;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
     font-style: italic;
+  }
+
+  .quality-badge-wrapper {
+    margin-top: 12px;
+  }
+
+  @media (max-width: 768px) {
+    .center-content {
+      padding: 70px 24px 130px;
+      gap: 16px;
+    }
+
+    .artwork-container {
+      width: min(55vw, 280px);
+      height: min(55vw, 280px);
+    }
+  }
+
+  @media (max-height: 600px) {
+    .artwork-container {
+      width: min(32vh, 220px);
+      height: min(32vh, 220px);
+    }
+
+    .track-info {
+      gap: 4px;
+    }
   }
 </style>
