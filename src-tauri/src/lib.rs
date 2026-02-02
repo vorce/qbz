@@ -4,6 +4,7 @@
 
 pub mod api;
 pub mod api_cache;
+pub mod artist_blacklist;
 pub mod artist_vectors;
 pub mod audio;
 pub mod cache;
@@ -223,6 +224,9 @@ pub fn run() {
     // Initialize artist vector store for playlist suggestions
     let artist_vectors_state = artist_vectors::ArtistVectorStoreState::new()
         .expect("Failed to initialize artist vector store");
+    // Initialize artist blacklist state
+    let blacklist_state = artist_blacklist::BlacklistState::new()
+        .expect("Failed to initialize artist blacklist");
     // Initialize ListenBrainz integration state
     let listenbrainz_state = listenbrainz::ListenBrainzSharedState::new()
         .expect("Failed to initialize ListenBrainz state");
@@ -472,6 +476,7 @@ pub fn run() {
         .manage(listenbrainz_state)
         .manage(remote_metadata_state)
         .manage(artist_vectors_state)
+        .manage(blacklist_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -917,6 +922,16 @@ pub fn run() {
             // Visualizer commands
             commands::set_visualizer_enabled,
             commands::is_visualizer_enabled,
+            // Artist blacklist commands
+            commands::get_artist_blacklist,
+            commands::add_to_artist_blacklist,
+            commands::remove_from_artist_blacklist,
+            commands::is_artist_blacklisted,
+            commands::set_blacklist_enabled,
+            commands::is_blacklist_enabled,
+            commands::get_blacklist_settings,
+            commands::get_blacklist_count,
+            commands::clear_artist_blacklist,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
