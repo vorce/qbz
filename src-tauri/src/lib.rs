@@ -785,6 +785,7 @@ pub fn run() {
             config::audio_settings::set_audio_stream_first_track,
             config::audio_settings::set_audio_stream_buffer_seconds,
             config::audio_settings::set_audio_streaming_only,
+            config::audio_settings::set_audio_limit_quality_to_device,
             // Audio backend commands
             commands::get_available_backends,
             commands::get_devices_for_backend,
