@@ -1,6 +1,12 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music, Heart, Search, X, ChevronLeft, ChevronRight, Radio, MoreHorizontal, Info, Disc } from 'lucide-svelte';
+  import { ArrowLeft, User, ChevronDown, ChevronUp, Play, Music, Heart, Search, X, ChevronLeft, ChevronRight, Radio, MoreHorizontal, Info, Disc, Ban } from 'lucide-svelte';
+  import {
+    isBlacklisted,
+    addToBlacklist,
+    removeFromBlacklist,
+    subscribe as subscribeBlacklist
+  } from '$lib/stores/artistBlacklistStore';
   import type { ArtistDetail, QobuzArtist } from '$lib/types';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackMenu from '../TrackMenu.svelte';
@@ -121,19 +127,33 @@
   let isFavorite = $state(false);
   let isFavoriteLoading = $state(false);
   let isRadioLoading = $state(false);
+  let artistIsBlacklisted = $state(false);
+  let isBlacklistLoading = $state(false);
   let radioLoadingMessage = $state('');
   let radioJustCreated = $state(false);
   let showNetworkSidebar = $state(false);
   let unsubscribeSidebar: (() => void) | null = null;
+  let unsubscribeBlacklist: (() => void) | null = null;
+
+  function updateBlacklistState() {
+    artistIsBlacklisted = isBlacklisted(artist.id);
+  }
 
   onMount(() => {
     unsubscribeSidebar = subscribeContentSidebar((active: ContentSidebarType) => {
       showNetworkSidebar = active === 'network';
     });
+
+    // Initialize blacklist state and subscribe to changes
+    updateBlacklistState();
+    unsubscribeBlacklist = subscribeBlacklist(() => {
+      updateBlacklistState();
+    });
   });
 
   onDestroy(() => {
     unsubscribeSidebar?.();
+    unsubscribeBlacklist?.();
   });
   let similarArtists = $state<QobuzArtist[]>([]);
   let similarArtistsLoading = $state(false);
@@ -384,6 +404,28 @@
       isFavorite = wasFavorite; // Rollback on error
     } finally {
       isFavoriteLoading = false;
+    }
+  }
+
+  async function toggleBlacklist() {
+    if (isBlacklistLoading) return;
+
+    isBlacklistLoading = true;
+    const wasBlacklisted = artistIsBlacklisted;
+
+    try {
+      if (wasBlacklisted) {
+        await removeFromBlacklist(artist.id);
+        artistIsBlacklisted = false;
+      } else {
+        await addToBlacklist(artist.id, artist.name);
+        artistIsBlacklisted = true;
+      }
+    } catch (err) {
+      console.error('Failed to toggle artist blacklist:', err);
+      artistIsBlacklisted = wasBlacklisted; // Rollback on error
+    } finally {
+      isBlacklistLoading = false;
     }
   }
 
@@ -1257,6 +1299,15 @@
           title="Artist Network"
         >
           <img src="/element-connect.svg" alt="Network" class="network-icon" />
+        </button>
+        <button
+          class="blacklist-btn"
+          class:is-blacklisted={artistIsBlacklisted}
+          onclick={toggleBlacklist}
+          disabled={isBlacklistLoading}
+          title={artistIsBlacklisted ? 'Remove from blacklist' : 'Add to blacklist'}
+        >
+          <Ban size={24} />
         </button>
       </div>
     </div>
@@ -2527,6 +2578,36 @@
   .network-btn:hover .network-icon,
   .network-btn.active .network-icon {
     filter: brightness(0) saturate(100%) invert(56%) sepia(63%) saturate(4848%) hue-rotate(230deg) brightness(102%) contrast(101%);
+  }
+
+  .blacklist-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 150ms ease;
+    flex-shrink: 0;
+  }
+
+  .blacklist-btn:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--error);
+  }
+
+  .blacklist-btn.is-blacklisted {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error);
+  }
+
+  .blacklist-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .floating-message {

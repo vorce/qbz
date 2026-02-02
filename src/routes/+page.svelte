@@ -37,11 +37,12 @@
     getCurrentContext,
     requestContextTrackFocus
   } from '$lib/stores/playbackContextStore';
-  import { 
+  import {
     initPlaybackPreferences,
     getCachedPreferences,
     isAutoplayEnabled
   } from '$lib/stores/playbackPreferencesStore';
+  import { initBlacklistStore } from '$lib/stores/artistBlacklistStore';
 
   // UI state management
   import {
@@ -2430,6 +2431,7 @@
     // Initialize playback context and preferences stores
     initPlaybackContextStore();
     initPlaybackPreferences();
+    initBlacklistStore();
 
     // Load infinite play preference
     try {
