@@ -747,10 +747,22 @@ async fn download_and_stream(
 }
 
 /// Number of Qobuz tracks to prefetch (not total tracks, just Qobuz)
-const QOBUZ_PREFETCH_COUNT: usize = 3;
+const QOBUZ_PREFETCH_COUNT: usize = 2;
 
 /// How far ahead to look for tracks to prefetch (to handle mixed playlists)
-const PREFETCH_LOOKAHEAD: usize = 15;
+const PREFETCH_LOOKAHEAD: usize = 10;
+
+/// Maximum concurrent prefetch downloads (reduced to prevent potential race conditions
+/// in native audio libraries that can cause memory corruption)
+const MAX_CONCURRENT_PREFETCH: usize = 1;
+
+lazy_static::lazy_static! {
+    /// Semaphore to limit concurrent prefetch operations
+    /// This helps prevent race conditions in native audio code (CPAL/PipeWire/ALSA)
+    /// that can cause memory corruption when multiple operations run simultaneously
+    static ref PREFETCH_SEMAPHORE: tokio::sync::Semaphore =
+        tokio::sync::Semaphore::new(MAX_CONCURRENT_PREFETCH);
+}
 
 /// Spawn background tasks to prefetch upcoming Qobuz tracks
 /// For mixed playlists, we look further ahead to find Qobuz tracks past local ones
@@ -814,8 +826,19 @@ fn spawn_prefetch(
 
         log::info!("Prefetching track: {} - {}", track_id, track_title);
 
-        // Spawn background task for each track
+        // Spawn background task for each track (with semaphore to limit concurrency)
         tokio::spawn(async move {
+            // Acquire semaphore permit to limit concurrent prefetches
+            // This prevents potential race conditions in native audio code
+            let _permit = match PREFETCH_SEMAPHORE.acquire().await {
+                Ok(permit) => permit,
+                Err(_) => {
+                    log::warn!("Prefetch semaphore closed, skipping track {}", track_id);
+                    cache_clone.unmark_fetching(track_id);
+                    return;
+                }
+            };
+
             let result = async {
                 let client_guard = client_clone.lock().await;
                 let stream_url = client_guard
@@ -831,6 +854,8 @@ fn spawn_prefetch(
 
             match result {
                 Ok(data) => {
+                    // Small delay before cache insertion to avoid potential race with audio thread
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
                     cache_clone.insert(track_id, data);
                     log::info!("Prefetch complete for track {}", track_id);
                 }
@@ -840,6 +865,7 @@ fn spawn_prefetch(
             }
 
             cache_clone.unmark_fetching(track_id);
+            // Permit is automatically released when _permit goes out of scope
         });
     }
 }
