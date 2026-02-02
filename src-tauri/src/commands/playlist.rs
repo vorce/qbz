@@ -48,13 +48,14 @@ pub async fn get_playlist(
 pub async fn search_playlists(
     query: String,
     limit: Option<u32>,
+    offset: Option<u32>,
     state: State<'_, AppState>,
 ) -> Result<SearchResultsPage<Playlist>, String> {
-    log::info!("Command: search_playlists \"{}\"", query);
+    log::info!("Command: search_playlists \"{}\" limit={:?} offset={:?}", query, limit, offset);
 
     let client = state.client.lock().await;
     client
-        .search_playlists(&query, limit.unwrap_or(20))
+        .search_playlists(&query, limit.unwrap_or(20), offset.unwrap_or(0))
         .await
         .map_err(|e| format!("Failed to search playlists: {}", e))
 }

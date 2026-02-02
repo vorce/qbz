@@ -723,13 +723,17 @@ impl QobuzClient {
     }
 
     /// Search playlists
-    pub async fn search_playlists(&self, query: &str, limit: u32) -> Result<SearchResultsPage<Playlist>> {
+    pub async fn search_playlists(&self, query: &str, limit: u32, offset: u32) -> Result<SearchResultsPage<Playlist>> {
         let url = endpoints::build_url(paths::PLAYLIST_SEARCH);
         let response: Value = self
             .http
             .get(&url)
             .header("X-App-Id", self.app_id().await?)
-            .query(&[("query", query), ("limit", &limit.to_string())])
+            .query(&[
+                ("query", query),
+                ("limit", &limit.to_string()),
+                ("offset", &offset.to_string()),
+            ])
             .send()
             .await?
             .json()

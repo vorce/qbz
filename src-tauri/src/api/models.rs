@@ -226,6 +226,12 @@ pub struct Playlist {
     pub is_public: bool,
     #[serde(default)]
     pub tracks: Option<TracksContainer>,
+    // Additional fields from search results
+    pub genres: Option<Vec<PlaylistGenre>>,
+    pub images150: Option<Vec<String>>,
+    pub images300: Option<Vec<String>>,
+    pub slug: Option<String>,
+    pub users_count: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -234,6 +240,13 @@ pub struct PlaylistOwner {
     pub id: u64,
     #[serde(default)]
     pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistGenre {
+    pub id: u64,
+    pub name: String,
+    pub slug: Option<String>,
 }
 
 /// Image set with multiple resolutions

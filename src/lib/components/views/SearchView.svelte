@@ -3,10 +3,11 @@
   import { invoke } from '@tauri-apps/api/core';
   import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown, Heart, Play, MoreHorizontal, ListPlus } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
+  import SearchPlaylistCard from '../SearchPlaylistCard.svelte';
   import ViewTransition from '../ViewTransition.svelte';
   import TrackMenu from '../TrackMenu.svelte';
   import QualityBadge from '../QualityBadge.svelte';
-  import { getSearchState, setSearchState, subscribeSearchFocus, subscribeSearchQuery, setSearchQuery, type SearchResults, type SearchAllResults, type SearchTab, type SearchFilterType } from '$lib/stores/searchState';
+  import { getSearchState, setSearchState, subscribeSearchFocus, subscribeSearchQuery, setSearchQuery, type SearchResults, type SearchAllResults, type SearchTab, type SearchFilterType, type Playlist } from '$lib/stores/searchState';
   import { setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { togglePlay } from '$lib/stores/playerStore';
   import { t } from '$lib/i18n';
@@ -226,6 +227,12 @@
     onTrackReDownload?: (track: Track) => void;
     checkTrackDownloaded?: (trackId: number) => boolean;
     onArtistClick?: (artistId: number) => void;
+    onPlaylistClick?: (playlistId: number) => void;
+    onPlaylistPlay?: (playlistId: number) => void;
+    onPlaylistPlayNext?: (playlistId: number) => void;
+    onPlaylistPlayLater?: (playlistId: number) => void;
+    onPlaylistCopyToLibrary?: (playlistId: number) => void;
+    onPlaylistShareQobuz?: (playlistId: number) => void;
     activeTrackId?: number | null;
     isPlaybackActive?: boolean;
   }
@@ -258,6 +265,12 @@
     onTrackReDownload,
     checkTrackDownloaded,
     onArtistClick,
+    onPlaylistClick,
+    onPlaylistPlay,
+    onPlaylistPlayNext,
+    onPlaylistPlayLater,
+    onPlaylistCopyToLibrary,
+    onPlaylistShareQobuz,
     activeTrackId = null,
     isPlaybackActive = false
   }: Props = $props();
@@ -308,6 +321,7 @@
   let albumResults = $state<SearchResults<Album> | null>(cachedState.albumResults ?? null);
   let trackResults = $state<SearchResults<Track> | null>(cachedState.trackResults ?? null);
   let artistResults = $state<SearchResults<Artist> | null>(cachedState.artistResults ?? null);
+  let playlistResults = $state<SearchResults<Playlist> | null>(cachedState.playlistResults ?? null);
   let allResults = $state<SearchAllResults<Album, Track, Artist> | null>(cachedState.allResults ?? null);
 
   let searchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -320,6 +334,7 @@
   let hasMoreAlbums = $derived(albumResults ? albumResults.offset + albumResults.items.length < albumResults.total : false);
   let hasMoreTracks = $derived(trackResults ? trackResults.offset + trackResults.items.length < trackResults.total : false);
   let hasMoreArtists = $derived(artistResults ? artistResults.offset + artistResults.items.length < artistResults.total : false);
+  let hasMorePlaylists = $derived(playlistResults ? playlistResults.offset + playlistResults.items.length < playlistResults.total : false);
 
   // Most popular result comes directly from Qobuz's catalog/search API
   // No heuristics needed - Qobuz determines the most relevant result
@@ -376,6 +391,7 @@
       albumResults,
       trackResults,
       artistResults,
+      playlistResults,
       allResults
     });
   });
@@ -486,6 +502,15 @@
         if (query.trim() !== searchQuery) return;
         artistResults = results;
         console.log('Artist results:', artistResults);
+      } else if (activeTab === 'playlists') {
+        const results = await invoke<SearchResults<Playlist>>('search_playlists', {
+          query: searchQuery,
+          limit: PAGE_SIZE,
+          offset: 0
+        });
+        if (query.trim() !== searchQuery) return;
+        playlistResults = results;
+        console.log('Playlist results:', playlistResults);
       }
     } catch (err) {
       // Only show error if this is still the latest search
@@ -546,6 +571,18 @@
         artistResults = {
           ...moreResults,
           items: [...artistResults.items, ...moreResults.items],
+          offset: 0
+        };
+      } else if (activeTab === 'playlists' && playlistResults && hasMorePlaylists) {
+        const newOffset = playlistResults.offset + playlistResults.items.length;
+        const moreResults = await invoke<SearchResults<Playlist>>('search_playlists', {
+          query: query.trim(),
+          limit: PAGE_SIZE,
+          offset: newOffset
+        });
+        playlistResults = {
+          ...moreResults,
+          items: [...playlistResults.items, ...moreResults.items],
           offset: 0
         };
       }
@@ -762,7 +799,6 @@
         class:active={activeTab === 'all'}
         onclick={() => handleTabChange('all')}
       >
-        <Search size={18} />
         <span>All</span>
       </button>
       <button
@@ -770,7 +806,6 @@
         class:active={activeTab === 'albums'}
         onclick={() => handleTabChange('albums')}
       >
-        <Disc3 size={18} />
         <span>{$t('search.albums')}</span>
       </button>
       <button
@@ -778,7 +813,6 @@
         class:active={activeTab === 'tracks'}
         onclick={() => handleTabChange('tracks')}
       >
-        <Music size={18} />
         <span>{$t('search.tracks')}</span>
       </button>
       <button
@@ -786,8 +820,14 @@
         class:active={activeTab === 'artists'}
         onclick={() => handleTabChange('artists')}
       >
-        <Mic2 size={18} />
         <span>{$t('search.artists')}</span>
+      </button>
+      <button
+        class="tab"
+        class:active={activeTab === 'playlists'}
+        onclick={() => handleTabChange('playlists')}
+      >
+        <span>Playlists</span>
       </button>
     </div>
 
@@ -1370,6 +1410,31 @@
             </div>
           {/if}
         </div>
+
+        <!-- Playlists Section (in unified view) -->
+        {#if allResults.playlists && allResults.playlists.items.length > 0}
+          <div class="playlists-section">
+            <div class="section-header">
+              <h3>Playlists</h3>
+              <button class="view-all-link" onclick={() => handleTabChange('playlists')}>
+                View all ({allResults.playlists.total})
+              </button>
+            </div>
+            <div class="playlists-preview-grid">
+              {#each allResults.playlists.items.slice(0, 6) as playlist}
+                <SearchPlaylistCard
+                  {playlist}
+                  onclick={() => onPlaylistClick?.(playlist.id)}
+                  onPlay={() => onPlaylistPlay?.(playlist.id)}
+                  onPlayNext={() => onPlaylistPlayNext?.(playlist.id)}
+                  onPlayLater={() => onPlaylistPlayLater?.(playlist.id)}
+                  onCopyToLibrary={() => onPlaylistCopyToLibrary?.(playlist.id)}
+                  onShareQobuz={() => onPlaylistShareQobuz?.(playlist.id)}
+                />
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
     {:else if activeTab === 'albums' && albumResults}
       {#if albumResults.items.length === 0}
@@ -1551,6 +1616,32 @@
           </div>
         {/if}
       {/if}
+
+    {:else if activeTab === 'playlists' && playlistResults}
+      {#if playlistResults.items.length === 0}
+        <div class="no-results">No playlists found for "{query}"</div>
+      {:else}
+        <div class="playlists-grid">
+          {#each playlistResults.items as playlist}
+            <SearchPlaylistCard
+              {playlist}
+              onclick={() => onPlaylistClick?.(playlist.id)}
+              onPlay={() => onPlaylistPlay?.(playlist.id)}
+              onPlayNext={() => onPlaylistPlayNext?.(playlist.id)}
+              onPlayLater={() => onPlaylistPlayLater?.(playlist.id)}
+              onCopyToLibrary={() => onPlaylistCopyToLibrary?.(playlist.id)}
+              onShareQobuz={() => onPlaylistShareQobuz?.(playlist.id)}
+            />
+          {/each}
+        </div>
+        {#if hasMorePlaylists}
+          <div class="load-more-container">
+            <button class="load-more-btn" onclick={loadMore} disabled={isLoadingMore}>
+              {isLoadingMore ? $t('actions.loading') : $t('artist.loadMore') + ` (${playlistResults.items.length} / ${playlistResults.total})`}
+            </button>
+          </div>
+        {/if}
+      {/if}
     {/if}
   </div>
 </div>
@@ -1720,14 +1811,13 @@
 
   .tabs {
     display: flex;
-    gap: 8px;
+    gap: 4px;
   }
 
   .tab {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
+    padding: 10px 12px;
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
@@ -1760,7 +1850,7 @@
     align-items: center;
     gap: 6px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-secondary);
     transition: color 150ms ease;
   }
@@ -1964,6 +2054,23 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 24px;
+  }
+
+  .playlists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(162px, 1fr));
+    gap: 24px;
+  }
+
+  .playlists-section {
+    margin-top: 32px;
+  }
+
+  .playlists-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(162px, 1fr));
+    gap: 24px;
+    max-width: calc(162px * 6 + 24px * 5);
   }
 
   .artist-card {

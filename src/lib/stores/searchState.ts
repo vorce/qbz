@@ -1,4 +1,4 @@
-export type SearchTab = 'all' | 'albums' | 'tracks' | 'artists';
+export type SearchTab = 'all' | 'albums' | 'tracks' | 'artists' | 'playlists';
 
 // Search filter types supported by Qobuz API
 export type SearchFilterType = 'MainArtist' | 'Performer' | 'Composer' | 'Label' | 'ReleaseName' | null;
@@ -16,10 +16,27 @@ export type MostPopularItem<Album, Track, Artist> =
   | { type: 'tracks'; content: Track }
   | { type: 'artists'; content: Artist };
 
+export interface Playlist {
+  id: number;
+  name: string;
+  description?: string;
+  owner: { id: number; name: string };
+  images?: string[];
+  images150?: string[];
+  images300?: string[];
+  tracks_count: number;
+  duration: number;
+  is_public: boolean;
+  genres?: { id: number; name: string; slug?: string }[];
+  slug?: string;
+  users_count?: number;
+}
+
 export interface SearchAllResults<Album, Track, Artist> {
   albums: SearchResults<Album>;
   tracks: SearchResults<Track>;
   artists: SearchResults<Artist>;
+  playlists: SearchResults<Playlist>;
   most_popular: MostPopularItem<Album, Track, Artist> | null;
 }
 
@@ -30,6 +47,7 @@ export interface SearchState<Album, Track, Artist> {
   albumResults: SearchResults<Album> | null;
   trackResults: SearchResults<Track> | null;
   artistResults: SearchResults<Artist> | null;
+  playlistResults: SearchResults<Playlist> | null;
   allResults: SearchAllResults<Album, Track, Artist> | null;
 }
 
@@ -40,6 +58,7 @@ let searchState: SearchState<unknown, unknown, unknown> = {
   albumResults: null,
   trackResults: null,
   artistResults: null,
+  playlistResults: null,
   allResults: null,
 };
 
@@ -96,6 +115,7 @@ export function clearSearchState(): void {
     albumResults: null,
     trackResults: null,
     artistResults: null,
+    playlistResults: null,
     allResults: null,
   };
   queryListeners.forEach(fn => fn(''));

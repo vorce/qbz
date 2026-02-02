@@ -2,7 +2,7 @@
 
 use tauri::State;
 
-use crate::api::{endpoints, endpoints::paths, Album, Artist, ArtistAlbums, LabelDetail, SearchResultsPage, Track, TracksContainer};
+use crate::api::{endpoints, endpoints::paths, Album, Artist, ArtistAlbums, LabelDetail, Playlist, SearchResultsPage, Track, TracksContainer};
 use crate::api_cache::ApiCacheState;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,7 @@ pub struct SearchAllResults {
     pub albums: SearchResultsPage<Album>,
     pub tracks: SearchResultsPage<Track>,
     pub artists: SearchResultsPage<Artist>,
+    pub playlists: SearchResultsPage<Playlist>,
     pub most_popular: Option<MostPopularItem>,
 }
 
@@ -116,6 +117,12 @@ pub async fn search_all(
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(|| SearchResultsPage { items: vec![], total: 0, offset: 0, limit: 30 });
 
+    // Parse playlists
+    let playlists: SearchResultsPage<Playlist> = response
+        .get("playlists")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(|| SearchResultsPage { items: vec![], total: 0, offset: 0, limit: 30 });
+
     // Parse most_popular - get the first item
     let most_popular: Option<MostPopularItem> = response
         .get("most_popular")
@@ -149,6 +156,7 @@ pub async fn search_all(
         albums,
         tracks,
         artists,
+        playlists,
         most_popular,
     })
 }
