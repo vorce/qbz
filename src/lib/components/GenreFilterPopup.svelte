@@ -171,7 +171,7 @@
   .genre-popup {
     position: fixed;
     z-index: 10000;
-    width: 340px;
+    width: 420px;
     max-height: 420px;
     background: var(--bg-primary);
     border: 1px solid var(--border-subtle);
@@ -259,7 +259,7 @@
 
   .genres-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 6px;
     padding: 12px;
     overflow-y: auto;
