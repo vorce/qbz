@@ -1764,6 +1764,7 @@
         {@const isTrackPlaying = isActiveTrack && isPlaybackActive}
         {@const available = isTrackAvailable(track)}
         {@const removedFromQobuz = isTrackRemovedFromQobuz(track)}
+        {@const trackBlacklisted = !track.isLocal && track.artistId ? isArtistBlacklisted(track.artistId) : false}
         <div
           class="track-row-wrapper"
           class:unavailable={!available}
@@ -1810,7 +1811,6 @@
               </button>
             </div>
           {/if}
-          {@const trackBlacklisted = !track.isLocal && track.artistId ? isArtistBlacklisted(track.artistId) : false}
           <TrackRow
             trackId={track.isLocal ? undefined : track.id}
             number={idx + 1}

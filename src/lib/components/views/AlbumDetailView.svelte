@@ -414,10 +414,10 @@
 
     <!-- Track Rows -->
     <div class="tracks">
-      {@const albumArtistBlacklisted = album.artistId ? isArtistBlacklisted(album.artistId) : false}
       {#each album.tracks as track, trackIndex (`${track.id}-${downloadStateVersion}`)}
         {@const downloadInfo = getTrackOfflineCacheStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
         {@const isTrackDownloaded = downloadInfo.status === 'ready'}
+        {@const albumArtistBlacklisted = album.artistId ? isArtistBlacklisted(album.artistId) : false}
         <TrackRow
           trackId={track.id}
           number={track.number}
