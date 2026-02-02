@@ -16,6 +16,11 @@
   import { syncCache as syncAlbumCache } from '$lib/stores/albumFavoritesStore';
   import { syncCache as syncArtistCache } from '$lib/stores/artistFavoritesStore';
   import { categorizeAlbum, getQobuzImage, formatQuality } from '$lib/adapters/qobuzAdapters';
+  import GenreFilterButton from '../GenreFilterButton.svelte';
+  import {
+    hasActiveFilter as hasGenreFilter,
+    getSelectedGenreNames
+  } from '$lib/stores/genreFilterStore';
   import type { FavoritesPreferences, QobuzAlbum } from '$lib/types';
 
   interface FavoriteAlbum {
@@ -397,8 +402,28 @@
     return new Map(filteredTracks.map((track, index) => [track.id, index]));
   });
 
+  // Genre filter version to trigger reactivity
+  let genreFilterVersion = $state(0);
+
+  function handleGenreFilterChange() {
+    genreFilterVersion++;
+  }
+
   let filteredAlbums = $derived.by(() => {
+    // Track genre filter changes for reactivity
+    void genreFilterVersion;
+
     let albums = favoriteAlbums;
+
+    // Filter by genre
+    const selectedGenreNames = getSelectedGenreNames();
+    if (selectedGenreNames.length > 0) {
+      albums = albums.filter(a =>
+        a.genre && selectedGenreNames.some(genreName =>
+          a.genre!.name.toLowerCase().includes(genreName.toLowerCase())
+        )
+      );
+    }
 
     // Filter by search
     if (albumSearch.trim()) {
@@ -1227,6 +1252,7 @@
   <div class="toolbar">
     {#if activeTab === 'albums'}
       <div class="toolbar-controls">
+        <GenreFilterButton onFilterChange={handleGenreFilterChange} />
         <div class="dropdown-container">
           <button class="control-btn" onclick={() => (showAlbumGroupMenu = !showAlbumGroupMenu)}>
             <span>
