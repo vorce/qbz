@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import TrackRow from './TrackRow.svelte';
   import type { OfflineCacheStatus } from '$lib/stores/offlineCacheState';
-  import { isArtistBlacklisted } from '$lib/stores/blacklistStore';
+  import { isBlacklisted as isArtistBlacklisted } from '$lib/stores/artistBlacklistStore';
 
   // Use generic types to match whatever caller passes
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -9,7 +9,7 @@
   import HomeSettingsModal from '../HomeSettingsModal.svelte';
   import GenreFilterButton from '../GenreFilterButton.svelte';
   import { formatDuration, formatQuality, getQobuzImage } from '$lib/adapters/qobuzAdapters';
-  import { isArtistBlacklisted } from '$lib/stores/blacklistStore';
+  import { isBlacklisted as isArtistBlacklisted } from '$lib/stores/artistBlacklistStore';
   import {
     subscribe as subscribeHomeSettings,
     getSettings,
