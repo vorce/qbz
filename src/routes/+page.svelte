@@ -1020,6 +1020,170 @@
     }
   }
 
+  // ============ Playlist Handler Functions (for Search) ============
+
+  interface PlaylistData {
+    id: number;
+    name: string;
+    owner: { id: number; name: string };
+    images?: string[];
+    tracks_count: number;
+    duration: number;
+    tracks?: {
+      items: Array<{
+        id: number;
+        title: string;
+        duration: number;
+        performer?: { id?: number; name: string };
+        album?: {
+          id: string;
+          title: string;
+          image?: { small?: string; thumbnail?: string; large?: string };
+        };
+        hires_streamable?: boolean;
+        maximum_bit_depth?: number;
+        maximum_sampling_rate?: number;
+      }>;
+    };
+  }
+
+  async function fetchPlaylistData(playlistId: number): Promise<PlaylistData | null> {
+    try {
+      const playlist = await invoke<PlaylistData>('get_playlist', { playlistId });
+      return playlist;
+    } catch (err) {
+      console.error('Failed to load playlist:', err);
+      showToast('Failed to load playlist', 'error');
+      return null;
+    }
+  }
+
+  async function playPlaylistById(playlistId: number) {
+    const playlist = await fetchPlaylistData(playlistId);
+    if (!playlist?.tracks?.items?.length) {
+      showToast('Playlist has no tracks', 'info');
+      return;
+    }
+
+    const tracks = playlist.tracks.items;
+    const queueTracks: BackendQueueTrack[] = tracks.map(t => ({
+      id: t.id,
+      title: t.title,
+      artist: t.performer?.name || 'Unknown Artist',
+      album: t.album?.title || '',
+      duration_secs: t.duration,
+      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || null,
+      hires: t.hires_streamable ?? false,
+      bit_depth: t.maximum_bit_depth ?? null,
+      sample_rate: t.maximum_sampling_rate ?? null,
+      is_local: false,
+      album_id: t.album?.id,
+      artist_id: t.performer?.id
+    }));
+
+    await setQueue(queueTracks, 0);
+
+    const firstTrack = tracks[0];
+    const artwork = firstTrack.album?.image?.large || firstTrack.album?.image?.thumbnail || firstTrack.album?.image?.small || '';
+    const quality = firstTrack.hires_streamable && firstTrack.maximum_bit_depth && firstTrack.maximum_sampling_rate
+      ? `${firstTrack.maximum_bit_depth}bit/${firstTrack.maximum_sampling_rate}kHz`
+      : firstTrack.hires_streamable
+        ? 'Hi-Res'
+        : '-';
+
+    await playTrack({
+      id: firstTrack.id,
+      title: firstTrack.title,
+      artist: firstTrack.performer?.name || 'Unknown Artist',
+      album: firstTrack.album?.title || '',
+      artwork,
+      duration: firstTrack.duration,
+      quality,
+      bitDepth: firstTrack.maximum_bit_depth,
+      samplingRate: firstTrack.maximum_sampling_rate,
+      albumId: firstTrack.album?.id,
+      artistId: firstTrack.performer?.id
+    });
+  }
+
+  async function queuePlaylistNextById(playlistId: number) {
+    const playlist = await fetchPlaylistData(playlistId);
+    if (!playlist?.tracks?.items?.length) {
+      showToast('Playlist has no tracks', 'info');
+      return;
+    }
+
+    const tracks = playlist.tracks.items;
+    // Add in reverse order so they play in correct sequence
+    for (let i = tracks.length - 1; i >= 0; i--) {
+      const t = tracks[i];
+      queueTrackNext({
+        id: t.id,
+        title: t.title,
+        artist: t.performer?.name || 'Unknown Artist',
+        album: t.album?.title || '',
+        duration_secs: t.duration,
+        artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || null,
+        hires: t.hires_streamable ?? false,
+        bit_depth: t.maximum_bit_depth ?? null,
+        sample_rate: t.maximum_sampling_rate ?? null,
+        is_local: false,
+        album_id: t.album?.id,
+        artist_id: t.performer?.id
+      });
+    }
+    showToast(`Playing ${tracks.length} tracks next`, 'success');
+  }
+
+  async function queuePlaylistLaterById(playlistId: number) {
+    const playlist = await fetchPlaylistData(playlistId);
+    if (!playlist?.tracks?.items?.length) {
+      showToast('Playlist has no tracks', 'info');
+      return;
+    }
+
+    const tracks = playlist.tracks.items;
+    const queueTracks: BackendQueueTrack[] = tracks.map(t => ({
+      id: t.id,
+      title: t.title,
+      artist: t.performer?.name || 'Unknown Artist',
+      album: t.album?.title || '',
+      duration_secs: t.duration,
+      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || null,
+      hires: t.hires_streamable ?? false,
+      bit_depth: t.maximum_bit_depth ?? null,
+      sample_rate: t.maximum_sampling_rate ?? null,
+      is_local: false,
+      album_id: t.album?.id,
+      artist_id: t.performer?.id
+    }));
+
+    const success = await addTracksToQueue(queueTracks);
+    if (success) {
+      showToast(`Added ${queueTracks.length} tracks to queue`, 'success');
+    } else {
+      showToast('Failed to add to queue', 'error');
+    }
+  }
+
+  async function copyPlaylistToLibraryById(playlistId: number) {
+    try {
+      showToast('Copying playlist to library...', 'info');
+      await invoke('subscribe_playlist', { playlistId });
+      sidebarRef?.refreshPlaylists();
+      showToast('Playlist copied to library', 'success');
+    } catch (err) {
+      console.error('Failed to copy playlist:', err);
+      showToast(`Failed to copy playlist: ${err}`, 'error');
+    }
+  }
+
+  function sharePlaylistQobuzLinkById(playlistId: number) {
+    const url = `https://play.qobuz.com/playlist/${playlistId}`;
+    writeText(url);
+    showToast('Playlist link copied to clipboard', 'success');
+  }
+
   // Playback Functions - QobuzTrack from search results
   async function handleTrackPlay(track: QobuzTrack) {
     console.log('Playing track:', track);
@@ -2761,6 +2925,12 @@
             onTrackRemoveDownload={handleTrackRemoveDownload}
             checkTrackDownloaded={checkTrackDownloaded}
             onArtistClick={handleArtistClick}
+            onPlaylistClick={selectPlaylist}
+            onPlaylistPlay={playPlaylistById}
+            onPlaylistPlayNext={queuePlaylistNextById}
+            onPlaylistPlayLater={queuePlaylistLaterById}
+            onPlaylistCopyToLibrary={copyPlaylistToLibraryById}
+            onPlaylistShareQobuz={sharePlaylistQobuzLinkById}
             activeTrackId={currentTrack?.id ?? null}
             isPlaybackActive={isPlaying}
           />
