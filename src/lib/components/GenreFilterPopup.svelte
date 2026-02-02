@@ -295,7 +295,7 @@
 
             <div class="tree-node">
               <div class="node-row level-0" class:selected={parentState === 'all'} class:partial={parentState === 'partial'}>
-                <button class="expand-btn" onclick={() => toggleExpanded(parentNode.genre.id)} type="button" title={isExpanded ? 'Collapse' : 'Expand'}>
+                <button class="expand-btn" onclick={(e) => { e.stopPropagation(); toggleExpanded(parentNode.genre.id); }} type="button" title={isExpanded ? 'Collapse' : 'Expand'}>
                   {#if isLoading}
                     <Loader2 size={14} class="animate-spin" />
                   {:else if isExpanded}
@@ -332,7 +332,7 @@
                     <div class="tree-node">
                       <div class="node-row level-1" class:selected={childState === 'all'} class:partial={childState === 'partial'}>
                         {#if hasGrandchildren || !areChildrenLoaded(childNode.genre.id)}
-                          <button class="expand-btn" onclick={() => toggleExpanded(childNode.genre.id)} type="button" title={childExpanded ? 'Collapse' : 'Expand'}>
+                          <button class="expand-btn" onclick={(e) => { e.stopPropagation(); toggleExpanded(childNode.genre.id); }} type="button" title={childExpanded ? 'Collapse' : 'Expand'}>
                             {#if childLoading}
                               <Loader2 size={12} class="animate-spin" />
                             {:else if childExpanded}
