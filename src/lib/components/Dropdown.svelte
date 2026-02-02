@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ChevronDown, Search } from 'lucide-svelte';
+  import { t } from '$lib/i18n';
   import {
     openMenu as openGlobalMenu,
     closeMenu as closeGlobalMenu,
@@ -239,7 +240,7 @@
           bind:this={searchInputRef}
           type="text"
           class="search-input"
-          placeholder="Search..."
+          placeholder={$t('placeholders.search')}
           bind:value={searchQuery}
           onkeydown={handleKeyDown}
         />

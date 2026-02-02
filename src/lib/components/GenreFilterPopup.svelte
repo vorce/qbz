@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { SlidersHorizontal, X, Minus, Check, ChevronRight, ChevronDown, Search, Loader2 } from 'lucide-svelte';
+  import { t } from '$lib/i18n';
   import {
     getChildGenres,
     getAllDescendantIds,
@@ -270,7 +271,7 @@
         <Search size={14} />
         <input
           type="text"
-          placeholder="Search genres..."
+          placeholder={$t('placeholders.searchGenres')}
           bind:value={searchQuery}
           class="search-input"
         />

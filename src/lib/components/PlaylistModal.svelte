@@ -602,34 +602,34 @@
 
           {#if selectedPlaylistId === CREATE_NEW_PLAYLIST}
             <div class="form-group">
-              <label for="name">Playlist name</label>
+              <label for="name">{$t('playlist.playlistName')}</label>
               <input
                 type="text"
                 id="name"
                 bind:value={name}
-                placeholder="My Playlist"
+                placeholder={$t('placeholders.myPlaylist')}
                 disabled={loading}
               />
             </div>
           {/if}
         {:else}
           <div class="form-group">
-            <label for="name">Name</label>
+            <label for="name">{$t('playlist.name')}</label>
             <input
               type="text"
               id="name"
               bind:value={name}
-              placeholder="My Playlist"
+              placeholder={$t('placeholders.myPlaylist')}
               disabled={loading}
             />
           </div>
 
           <div class="form-group">
-            <label for="description">Description (optional)</label>
+            <label for="description">{$t('playlist.descriptionOptional')}</label>
             <textarea
               id="description"
               bind:value={description}
-              placeholder="Add a description..."
+              placeholder={$t('placeholders.addDescription')}
               rows="3"
               disabled={loading}
             ></textarea>
