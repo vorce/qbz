@@ -451,7 +451,10 @@ fn try_init_stream_with_backend(
                 // Downcast backend to AlsaBackend to access try_create_direct_stream
                 if let Some(alsa_backend) = backend.as_any().downcast_ref::<crate::audio::alsa_backend::AlsaBackend>() {
                     if let Some(result) = alsa_backend.try_create_direct_stream(&config) {
-                        return Some(result.map(|stream| StreamType::AlsaDirect(Arc::new(stream))));
+                        return Some(result.map(|(stream, mode)| {
+                            log::info!("ALSA Direct stream created with mode: {:?}", mode);
+                            StreamType::AlsaDirect(Arc::new(stream))
+                        }));
                     }
                 }
             }

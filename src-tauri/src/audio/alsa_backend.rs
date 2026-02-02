@@ -411,31 +411,101 @@ impl AlsaBackend {
 
     /// Try to create direct ALSA stream for hw: devices (bypasses CPAL)
     /// Returns None if device is not a hw: device (should use CPAL instead)
+    ///
+    /// Implements controlled fallback:
+    /// 1. Try direct hw access first
+    /// 2. If format unsupported, try plughw (format conversion only, no resampling)
+    /// 3. Abort on other errors (busy, permissions, etc.)
     pub fn try_create_direct_stream(
         &self,
         config: &BackendConfig,
-    ) -> Option<Result<super::AlsaDirectStream, String>> {
+    ) -> Option<Result<(super::AlsaDirectStream, super::backend::BitPerfectMode), String>> {
         let device_id = config.device_id.as_ref()?;
 
-        // Only use direct ALSA for hw: and plughw: devices
+        // Only use direct ALSA for hw:/plughw:/front: devices
         if !super::AlsaDirectStream::is_hw_device(device_id) {
-            log::info!("[ALSA Backend] Device '{}' is not hw:/plughw:, using CPAL", device_id);
+            log::info!("[ALSA Backend] Device '{}' is not hw:/plughw:/front:, using CPAL", device_id);
             return None;
         }
 
+        // Determine the base device path for hw/plughw attempts
+        // front:CARD=X,DEV=Y -> extract card name for hw attempts
+        let (hw_device, plughw_device) = if device_id.starts_with("front:CARD=") {
+            // front:CARD=AMP,DEV=0 -> need to find corresponding hw:X,0
+            // For now, try the front: device directly as it's already hardware-direct
+            (device_id.to_string(), format!("plug:{}", device_id))
+        } else if device_id.starts_with("hw:") {
+            (device_id.to_string(), device_id.replace("hw:", "plughw:"))
+        } else if device_id.starts_with("plughw:") {
+            // Already plughw, try it directly
+            (device_id.replace("plughw:", "hw:"), device_id.to_string())
+        } else {
+            (device_id.to_string(), format!("plug:{}", device_id))
+        };
+
+        // Respect ALSA plugin selection from settings
+        let try_hw_first = match config.alsa_plugin {
+            Some(AlsaPlugin::Hw) => true,
+            Some(AlsaPlugin::PlugHw) => false, // Skip hw, go directly to plughw
+            Some(AlsaPlugin::Pcm) => {
+                log::info!("[ALSA Backend] PCM mode selected, not using direct ALSA");
+                return None; // Use CPAL instead
+            }
+            None => true, // Default: try hw first
+        };
+
+        if try_hw_first {
+            log::info!(
+                "[ALSA Backend] Attempting DIRECT hw stream: {} ({}Hz, {}ch)",
+                hw_device,
+                config.sample_rate,
+                config.channels
+            );
+
+            match super::AlsaDirectStream::new(&hw_device, config.sample_rate, config.channels) {
+                Ok(stream) => {
+                    log::info!("[ALSA Backend] ✓ Direct hw stream created successfully");
+                    return Some(Ok((stream, super::backend::BitPerfectMode::DirectHardware)));
+                }
+                Err(e) => {
+                    let error = super::backend::AlsaDirectError::from_alsa_error(&e);
+                    log::warn!("[ALSA Backend] hw attempt failed: {}", error);
+
+                    if !error.allows_plughw_fallback() {
+                        // Non-recoverable error (busy, permissions, etc.)
+                        log::error!("[ALSA Backend] Cannot fallback - error type: {:?}", error);
+                        return Some(Err(format!(
+                            "ALSA Direct failed: {}. Device may be in use or inaccessible.",
+                            error
+                        )));
+                    }
+
+                    log::info!("[ALSA Backend] Format unsupported on hw, trying plughw fallback...");
+                }
+            }
+        }
+
+        // Try plughw fallback (format conversion only)
         log::info!(
-            "[ALSA Backend] Creating DIRECT ALSA stream for hw: device: {} ({}Hz, {}ch)",
-            device_id,
+            "[ALSA Backend] Attempting plughw stream: {} ({}Hz, {}ch)",
+            plughw_device,
             config.sample_rate,
             config.channels
         );
 
-        // Create direct ALSA stream (bypasses rodio/CPAL)
-        Some(super::AlsaDirectStream::new(
-            device_id,
-            config.sample_rate,
-            config.channels,
-        ))
+        match super::AlsaDirectStream::new(&plughw_device, config.sample_rate, config.channels) {
+            Ok(stream) => {
+                log::info!("[ALSA Backend] ✓ plughw stream created (bit-perfect with format conversion)");
+                Some(Ok((stream, super::backend::BitPerfectMode::PluginFallback)))
+            }
+            Err(e) => {
+                log::error!("[ALSA Backend] plughw fallback also failed: {}", e);
+                Some(Err(format!(
+                    "Bit-perfect playback could not be established. hw failed, plughw failed: {}",
+                    e
+                )))
+            }
+        }
     }
 }
 
