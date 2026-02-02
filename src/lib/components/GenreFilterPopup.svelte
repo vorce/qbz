@@ -60,14 +60,14 @@
     const anchorRect = anchorEl.getBoundingClientRect();
     const popupRect = popupEl.getBoundingClientRect();
 
+    // Align right edge of popup with right edge of anchor (extends to the left)
     let left = anchorRect.right - popupRect.width;
     let top = anchorRect.bottom + 8;
 
-    // Keep within viewport
+    // Only adjust left if it goes off the LEFT edge of the screen
     if (left < 8) left = 8;
-    if (left + popupRect.width > window.innerWidth - 8) {
-      left = window.innerWidth - popupRect.width - 8;
-    }
+
+    // Handle vertical overflow
     if (top + popupRect.height > window.innerHeight - 8) {
       top = anchorRect.top - popupRect.height - 8;
     }
@@ -171,8 +171,8 @@
   .genre-popup {
     position: fixed;
     z-index: 10000;
-    width: 420px;
-    max-height: 420px;
+    width: 480px;
+    max-height: 500px;
     background: var(--bg-primary);
     border: 1px solid var(--border-subtle);
     border-radius: 10px;
@@ -259,11 +259,11 @@
 
   .genres-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     padding: 12px;
     overflow-y: auto;
-    max-height: 320px;
+    max-height: 400px;
   }
 
   .genre-card {
