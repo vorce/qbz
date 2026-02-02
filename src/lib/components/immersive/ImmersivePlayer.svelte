@@ -129,7 +129,7 @@
   }: Props = $props();
 
   // UI State
-  let viewMode: ViewMode = $state('split');
+  let viewMode: ViewMode = $state('focus');  // Default to focus mode (coverflow)
   let activeTab: ImmersiveTab = $state('lyrics');
   let activeFocusTab: FocusTab = $state('coverflow');
   let showUI = $state(true);
