@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { SlidersHorizontal, X, Minus, Check, ChevronRight, ChevronDown, Search } from 'lucide-svelte';
+  import { SlidersHorizontal, X, Minus, Check, ChevronRight, ChevronDown, Search, Loader2 } from 'lucide-svelte';
   import {
     getChildGenres,
     getAllDescendantIds,
@@ -11,6 +11,8 @@
     hasActiveFilter,
     setRememberSelection,
     getGenreFilterState,
+    loadChildren,
+    areChildrenLoaded,
     subscribe as subscribeGenre,
     type GenreInfo,
     type GenreTreeNode,
@@ -36,6 +38,7 @@
   let showAllGenres = $state(false);
   let searchQuery = $state('');
   let expandedNodes = $state<Set<number>>(new Set());
+  let loadingNodes = $state<Set<number>>(new Set());
   let popupEl: HTMLDivElement | null = null;
   let popupStyle = $state('');
 
@@ -58,28 +61,18 @@
     return unsubscribe;
   });
 
-  // Position popup when opening
+  // Position popup when opening or when size changes
   $effect(() => {
     if (isOpen && anchorEl) {
       positionPopup();
     }
   });
 
-  // Auto-expand nodes when searching
+  // Reposition when toggling advanced view (size changes)
   $effect(() => {
-    if (searchQuery.trim()) {
-      const matching = new Set<number>();
-      for (const parent of genreTree) {
-        if (nodeMatchesSearch(parent)) {
-          matching.add(parent.genre.id);
-          for (const child of parent.children) {
-            if (nodeMatchesSearch(child) || child.children.some(gc => genreMatchesSearch(gc.genre))) {
-              matching.add(child.genre.id);
-            }
-          }
-        }
-      }
-      expandedNodes = matching;
+    if (isOpen && anchorEl && showAllGenres !== undefined) {
+      // Small delay to let CSS transition complete
+      setTimeout(positionPopup, 10);
     }
   });
 
@@ -98,6 +91,8 @@
     if (!anchorEl || !popupEl) return;
 
     const anchorRect = anchorEl.getBoundingClientRect();
+    // Use expected width based on expanded state (CSS values)
+    const popupWidth = showAllGenres ? 630 : 530;
     const popupRect = popupEl.getBoundingClientRect();
 
     let left: number;
@@ -105,11 +100,12 @@
 
     if (align === 'right') {
       left = anchorRect.left;
-      if (left + popupRect.width > window.innerWidth - 8) {
-        left = window.innerWidth - popupRect.width - 8;
+      if (left + popupWidth > window.innerWidth - 8) {
+        left = window.innerWidth - popupWidth - 8;
       }
     } else {
-      left = anchorRect.right - popupRect.width;
+      // Align right edge of popup with right edge of anchor (extends to the left)
+      left = anchorRect.right - popupWidth;
       if (left < 8) left = 8;
     }
 
@@ -125,8 +121,8 @@
   }
 
   // Get selection state for a node: 'all' | 'none' | 'partial'
-  function getNodeState(node: GenreTreeNode): 'all' | 'none' | 'partial' {
-    const allIds = [node.genre.id, ...getAllDescendantIds(node.genre.id)];
+  function getNodeState(genreId: number): 'all' | 'none' | 'partial' {
+    const allIds = [genreId, ...getAllDescendantIds(genreId)];
     const selectedCount = allIds.filter(id => selectedIds.has(id)).length;
 
     if (selectedCount === 0) return 'none';
@@ -134,10 +130,10 @@
     return 'partial';
   }
 
-  // Toggle a parent node: select/deselect all descendants
-  function handleNodeToggle(node: GenreTreeNode) {
-    const currentState = getNodeState(node);
-    const allIds = [node.genre.id, ...getAllDescendantIds(node.genre.id)];
+  // Toggle a parent node: select/deselect all loaded descendants
+  function handleNodeToggle(genreId: number) {
+    const currentState = getNodeState(genreId);
+    const allIds = [genreId, ...getAllDescendantIds(genreId)];
 
     if (currentState === 'all') {
       setGenresSelected(allIds, false, context);
@@ -146,13 +142,22 @@
     }
   }
 
-  function toggleExpanded(genreId: number) {
+  async function toggleExpanded(genreId: number) {
     const newExpanded = new Set(expandedNodes);
+
     if (newExpanded.has(genreId)) {
       newExpanded.delete(genreId);
     } else {
       newExpanded.add(genreId);
+
+      // Lazy load children if not loaded
+      if (!areChildrenLoaded(genreId)) {
+        loadingNodes = new Set([...loadingNodes, genreId]);
+        await loadChildren(genreId);
+        loadingNodes = new Set([...loadingNodes].filter(id => id !== genreId));
+      }
     }
+
     expandedNodes = newExpanded;
   }
 
@@ -185,7 +190,7 @@
     }
   }
 
-  // Filter tree based on search
+  // Filter tree based on search (only works on loaded nodes)
   function filterTree(nodes: GenreTreeNode[]): GenreTreeNode[] {
     if (!searchQuery.trim()) return nodes;
 
@@ -203,6 +208,13 @@
   }
 
   let filteredTree = $derived(filterTree(genreTree));
+
+  function getChildCount(genreId: number): number {
+    const loaded = countDescendants(genreId);
+    if (loaded > 0) return loaded;
+    // If not loaded, we don't know the count
+    return 0;
+  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -275,26 +287,25 @@
         <!-- Hierarchical tree view -->
         <div class="genre-tree">
           {#each filteredTree as parentNode (parentNode.genre.id)}
-            {@const parentState = getNodeState(parentNode)}
+            {@const parentState = getNodeState(parentNode.genre.id)}
             {@const isExpanded = expandedNodes.has(parentNode.genre.id)}
-            {@const hasChildren = parentNode.children.length > 0}
-            {@const descendantCount = countDescendants(parentNode.genre.id)}
+            {@const isLoading = loadingNodes.has(parentNode.genre.id)}
+            {@const childCount = getChildCount(parentNode.genre.id)}
+            {@const hasLoadedChildren = parentNode.children.length > 0}
 
             <div class="tree-node">
               <div class="node-row level-0" class:selected={parentState === 'all'} class:partial={parentState === 'partial'}>
-                {#if hasChildren}
-                  <button class="expand-btn" onclick={() => toggleExpanded(parentNode.genre.id)} type="button" title={isExpanded ? 'Collapse' : 'Expand'}>
-                    {#if isExpanded}
-                      <ChevronDown size={14} />
-                    {:else}
-                      <ChevronRight size={14} />
-                    {/if}
-                  </button>
-                {:else}
-                  <span class="expand-placeholder"></span>
-                {/if}
+                <button class="expand-btn" onclick={() => toggleExpanded(parentNode.genre.id)} type="button" title={isExpanded ? 'Collapse' : 'Expand'}>
+                  {#if isLoading}
+                    <Loader2 size={14} class="animate-spin" />
+                  {:else if isExpanded}
+                    <ChevronDown size={14} />
+                  {:else}
+                    <ChevronRight size={14} />
+                  {/if}
+                </button>
 
-                <button class="node-content" onclick={() => handleNodeToggle(parentNode)} type="button">
+                <button class="node-content" onclick={() => handleNodeToggle(parentNode.genre.id)} type="button">
                   <span class="check-box" class:checked={parentState === 'all'} class:partial={parentState === 'partial'}>
                     {#if parentState === 'all'}
                       <Check size={10} strokeWidth={3} />
@@ -303,24 +314,28 @@
                     {/if}
                   </span>
                   <span class="node-name">{parentNode.genre.name}</span>
-                  {#if descendantCount > 0}
-                    <span class="descendant-count">{descendantCount}</span>
+                  {#if childCount > 0}
+                    <span class="descendant-count">{childCount}</span>
                   {/if}
                 </button>
               </div>
 
-              {#if isExpanded && hasChildren}
+              {#if isExpanded && hasLoadedChildren}
                 <div class="children-container">
                   {#each parentNode.children as childNode (childNode.genre.id)}
-                    {@const childState = getNodeState(childNode)}
+                    {@const childState = getNodeState(childNode.genre.id)}
                     {@const childExpanded = expandedNodes.has(childNode.genre.id)}
-                    {@const childHasChildren = childNode.children.length > 0}
+                    {@const childLoading = loadingNodes.has(childNode.genre.id)}
+                    {@const grandchildCount = getChildCount(childNode.genre.id)}
+                    {@const hasGrandchildren = childNode.children.length > 0 || !areChildrenLoaded(childNode.genre.id)}
 
                     <div class="tree-node">
                       <div class="node-row level-1" class:selected={childState === 'all'} class:partial={childState === 'partial'}>
-                        {#if childHasChildren}
+                        {#if hasGrandchildren || !areChildrenLoaded(childNode.genre.id)}
                           <button class="expand-btn" onclick={() => toggleExpanded(childNode.genre.id)} type="button" title={childExpanded ? 'Collapse' : 'Expand'}>
-                            {#if childExpanded}
+                            {#if childLoading}
+                              <Loader2 size={12} class="animate-spin" />
+                            {:else if childExpanded}
                               <ChevronDown size={12} />
                             {:else}
                               <ChevronRight size={12} />
@@ -330,22 +345,22 @@
                           <span class="expand-placeholder"></span>
                         {/if}
 
-                        <button class="node-content" onclick={() => childHasChildren ? handleNodeToggle(childNode) : handleGenreClick(childNode.genre.id)} type="button">
-                          <span class="check-box small" class:checked={childState === 'all' || (!childHasChildren && selectedIds.has(childNode.genre.id))} class:partial={childState === 'partial'}>
-                            {#if childState === 'all' || (!childHasChildren && selectedIds.has(childNode.genre.id))}
+                        <button class="node-content" onclick={() => handleNodeToggle(childNode.genre.id)} type="button">
+                          <span class="check-box small" class:checked={childState === 'all' || selectedIds.has(childNode.genre.id)} class:partial={childState === 'partial'}>
+                            {#if childState === 'all' || selectedIds.has(childNode.genre.id)}
                               <Check size={8} strokeWidth={3} />
                             {:else if childState === 'partial'}
                               <Minus size={8} strokeWidth={3} />
                             {/if}
                           </span>
                           <span class="node-name">{childNode.genre.name}</span>
-                          {#if childHasChildren}
-                            <span class="descendant-count">{childNode.children.length}</span>
+                          {#if grandchildCount > 0}
+                            <span class="descendant-count">{grandchildCount}</span>
                           {/if}
                         </button>
                       </div>
 
-                      {#if childExpanded && childHasChildren}
+                      {#if childExpanded && childNode.children.length > 0}
                         <div class="children-container">
                           {#each childNode.children as grandchildNode (grandchildNode.genre.id)}
                             <div class="node-row level-2" class:selected={selectedIds.has(grandchildNode.genre.id)}>
@@ -823,5 +838,15 @@
   .clear-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  /* Spinner animation */
+  :global(.animate-spin) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 </style>

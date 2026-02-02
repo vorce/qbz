@@ -1,5 +1,5 @@
 /**
- * Genre filter store with context support and 3-level hierarchy
+ * Genre filter store with context support and lazy-loaded 3-level hierarchy
  * Each context (home, favorites) has independent persistence
  */
 
@@ -11,11 +11,13 @@ export interface GenreInfo {
   color?: string;
   slug?: string;
   parentId?: number;
+  childrenLoaded?: boolean;
 }
 
 export interface GenreTreeNode {
   genre: GenreInfo;
   children: GenreTreeNode[];
+  loading?: boolean;
 }
 
 export type GenreFilterContext = 'home' | 'favorites';
@@ -71,6 +73,11 @@ function notify(context?: GenreFilterContext) {
   ctx.listeners.forEach((fn) => fn());
 }
 
+function notifyAll() {
+  notify('home');
+  notify('favorites');
+}
+
 function saveToStorage(context?: GenreFilterContext) {
   const ctx = context ?? currentContext;
   const ctxState = getContextState(ctx);
@@ -107,90 +114,95 @@ export function getContext(): GenreFilterContext {
   return currentContext;
 }
 
+/** Initial load: only fetch top-level genres (fast) */
 export async function loadGenres(): Promise<void> {
   if (state.parentGenres.length > 0) return;
 
   state.isLoading = true;
-  notify('home');
-  notify('favorites');
+  notifyAll();
 
   try {
-    // Fetch top-level genres
     const parentGenres = await invoke<GenreInfo[]>('get_genres', {});
-
-    const childrenByParent = new Map<number, GenreInfo[]>();
-    const allGenresList: GenreInfo[] = [...parentGenres];
-    const genreTree: GenreTreeNode[] = [];
-
-    // Fetch level 2 and level 3 genres
-    for (const parent of parentGenres) {
-      const level2Children = await invoke<GenreInfo[]>('get_genres', { parentId: parent.id });
-      const taggedLevel2 = level2Children.map(c => ({ ...c, parentId: parent.id }));
-      childrenByParent.set(parent.id, taggedLevel2);
-      allGenresList.push(...taggedLevel2);
-
-      const parentNode: GenreTreeNode = { genre: parent, children: [] };
-
-      // Fetch level 3 for each level 2
-      for (const child of taggedLevel2) {
-        const level3Children = await invoke<GenreInfo[]>('get_genres', { parentId: child.id });
-        const taggedLevel3 = level3Children.map(gc => ({ ...gc, parentId: child.id }));
-
-        if (taggedLevel3.length > 0) {
-          childrenByParent.set(child.id, taggedLevel3);
-          allGenresList.push(...taggedLevel3);
-        }
-
-        const childNode: GenreTreeNode = {
-          genre: child,
-          children: taggedLevel3.map(gc => ({ genre: gc, children: [] }))
-        };
-        parentNode.children.push(childNode);
-      }
-
-      genreTree.push(parentNode);
-    }
-
-    // Remove duplicates and sort
-    const uniqueGenres = Array.from(
-      new Map(allGenresList.map(g => [g.id, g])).values()
-    );
-    uniqueGenres.sort((a, b) => a.name.localeCompare(b.name));
     parentGenres.sort((a, b) => a.name.localeCompare(b.name));
-    genreTree.sort((a, b) => a.genre.name.localeCompare(b.genre.name));
+
+    // Create tree nodes without children (lazy loaded)
+    const genreTree: GenreTreeNode[] = parentGenres.map(genre => ({
+      genre: { ...genre, childrenLoaded: false },
+      children: [],
+    }));
 
     state.parentGenres = parentGenres;
-    state.allGenres = uniqueGenres;
+    state.allGenres = [...parentGenres];
     state.genreTree = genreTree;
-    state.childrenByParent = childrenByParent;
 
-    // Load saved selections
     loadFromStorage('home');
     loadFromStorage('favorites');
-
-    // Validate saved selections
-    const validIds = new Set(uniqueGenres.map((g) => g.id));
-    for (const ctx of ['home', 'favorites'] as GenreFilterContext[]) {
-      const ctxState = state.contexts[ctx];
-      const validSelection = new Set<number>();
-      ctxState.selectedGenreIds.forEach((id) => {
-        if (validIds.has(id)) {
-          validSelection.add(id);
-        }
-      });
-      ctxState.selectedGenreIds = validSelection;
-    }
   } catch (e) {
     console.error('Failed to load genres:', e);
     state.parentGenres = [];
     state.allGenres = [];
     state.genreTree = [];
-    state.childrenByParent = new Map();
   } finally {
     state.isLoading = false;
-    notify('home');
-    notify('favorites');
+    notifyAll();
   }
+}
+
+/** Lazy load children for a specific genre */
+export async function loadChildren(genreId: number): Promise<GenreInfo[]> {
+  // Check if already loaded
+  if (state.childrenByParent.has(genreId)) {
+    return state.childrenByParent.get(genreId) || [];
+  }
+
+  try {
+    const children = await invoke<GenreInfo[]>('get_genres', { parentId: genreId });
+    const taggedChildren = children.map(c => ({ ...c, parentId: genreId, childrenLoaded: false }));
+
+    state.childrenByParent.set(genreId, taggedChildren);
+
+    // Add to allGenres if not already present
+    for (const child of taggedChildren) {
+      if (!state.allGenres.find(g => g.id === child.id)) {
+        state.allGenres.push(child);
+      }
+    }
+
+    // Update tree node
+    updateTreeNode(genreId, taggedChildren);
+
+    notifyAll();
+    return taggedChildren;
+  } catch (e) {
+    console.error(`Failed to load children for genre ${genreId}:`, e);
+    state.childrenByParent.set(genreId, []);
+    return [];
+  }
+}
+
+function updateTreeNode(parentId: number, children: GenreInfo[]) {
+  // Find and update the node in the tree
+  function updateNode(nodes: GenreTreeNode[]): boolean {
+    for (const node of nodes) {
+      if (node.genre.id === parentId) {
+        node.genre.childrenLoaded = true;
+        node.children = children.map(c => ({
+          genre: c,
+          children: [],
+        }));
+        return true;
+      }
+      if (updateNode(node.children)) return true;
+    }
+    return false;
+  }
+
+  updateNode(state.genreTree);
+}
+
+/** Check if children are loaded for a genre */
+export function areChildrenLoaded(genreId: number): boolean {
+  return state.childrenByParent.has(genreId);
 }
 
 export function getGenreFilterState(context?: GenreFilterContext) {
@@ -221,14 +233,13 @@ export function getChildGenres(parentId: number): GenreInfo[] {
   return state.childrenByParent.get(parentId) || [];
 }
 
-/** Get all descendant IDs for a genre (children + grandchildren) */
+/** Get all loaded descendant IDs for a genre */
 export function getAllDescendantIds(genreId: number): number[] {
   const descendants: number[] = [];
   const children = state.childrenByParent.get(genreId) || [];
 
   for (const child of children) {
     descendants.push(child.id);
-    // Also get grandchildren
     const grandchildren = state.childrenByParent.get(child.id) || [];
     descendants.push(...grandchildren.map(gc => gc.id));
   }
@@ -236,7 +247,7 @@ export function getAllDescendantIds(genreId: number): number[] {
   return descendants;
 }
 
-/** Count total descendants (children + grandchildren) */
+/** Count loaded descendants */
 export function countDescendants(genreId: number): number {
   return getAllDescendantIds(genreId).length;
 }
@@ -265,8 +276,7 @@ export function getSelectedGenreNames(context?: GenreFilterContext): string[] {
 }
 
 /**
- * Get all genre names to filter by, including all descendants of selected genres.
- * Traverses up to 3 levels deep.
+ * Get all genre names to filter by, including all loaded descendants.
  */
 export function getFilterGenreNames(context?: GenreFilterContext): string[] {
   const selectedIds = Array.from(getContextState(context).selectedGenreIds);
@@ -278,7 +288,6 @@ export function getFilterGenreNames(context?: GenreFilterContext): string[] {
       names.add(genre.name);
     }
 
-    // Add all descendants (children and grandchildren)
     const descendantIds = getAllDescendantIds(id);
     for (const descId of descendantIds) {
       const descGenre = state.allGenres.find((g: GenreInfo) => g.id === descId);
@@ -306,12 +315,35 @@ export function toggleGenre(genreId: number, context?: GenreFilterContext): void
     ctxState.selectedGenreIds.delete(genreId);
   } else {
     ctxState.selectedGenreIds.add(genreId);
+    // Eagerly load all descendants for filtering
+    loadAllDescendants(genreId);
   }
   saveToStorage(ctx);
   notify(ctx);
 }
 
-/** Select or deselect multiple genres at once */
+/** Load all descendants (children and grandchildren) for a genre */
+async function loadAllDescendants(genreId: number): Promise<void> {
+  // Load children if not loaded
+  if (!state.childrenByParent.has(genreId)) {
+    const children = await loadChildren(genreId);
+    // Load grandchildren for each child
+    for (const child of children) {
+      if (!state.childrenByParent.has(child.id)) {
+        await loadChildren(child.id);
+      }
+    }
+  } else {
+    // Children already loaded, check grandchildren
+    const children = state.childrenByParent.get(genreId) || [];
+    for (const child of children) {
+      if (!state.childrenByParent.has(child.id)) {
+        await loadChildren(child.id);
+      }
+    }
+  }
+}
+
 export function setGenresSelected(genreIds: number[], selected: boolean, context?: GenreFilterContext): void {
   const ctx = context ?? currentContext;
   const ctxState = getContextState(ctx);
@@ -363,6 +395,5 @@ export function subscribe(callback: () => void, context?: GenreFilterContext): (
   return () => ctxState.listeners.delete(callback);
 }
 
-// Initialize by loading from storage for all contexts
 loadFromStorage('home');
 loadFromStorage('favorites');
