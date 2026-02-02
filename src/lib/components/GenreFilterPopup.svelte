@@ -1,16 +1,19 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { SlidersHorizontal, X, Minus, Check } from 'lucide-svelte';
+  import { SlidersHorizontal, X, Minus, Check, ChevronRight, ChevronDown, Search } from 'lucide-svelte';
   import {
-    getAvailableGenres,
     getChildGenres,
+    getAllDescendantIds,
+    countDescendants,
     toggleGenre,
+    setGenresSelected,
     clearSelection,
     hasActiveFilter,
     setRememberSelection,
     getGenreFilterState,
     subscribe as subscribeGenre,
     type GenreInfo,
+    type GenreTreeNode,
     type GenreFilterContext
   } from '$lib/stores/genreFilterStore';
 
@@ -27,27 +30,28 @@
   let { isOpen, onClose, anchorEl = null, context = 'home', align = 'left' }: Props = $props();
 
   let parentGenres = $state<GenreInfo[]>([]);
-  let allGenres = $state<GenreInfo[]>([]);
+  let genreTree = $state<GenreTreeNode[]>([]);
   let selectedIds = $state<Set<number>>(new Set());
   let rememberSelection = $state(true);
   let showAllGenres = $state(false);
+  let searchQuery = $state('');
+  let expandedNodes = $state<Set<number>>(new Set());
   let popupEl: HTMLDivElement | null = null;
   let popupStyle = $state('');
 
-  // Subscribe to store changes for this context
+  // Subscribe to store changes
   $effect(() => {
     const unsubscribe = subscribeGenre(() => {
       const state = getGenreFilterState(context);
       parentGenres = state.availableGenres;
-      allGenres = state.allGenres;
+      genreTree = state.genreTree;
       selectedIds = state.selectedGenreIds;
       rememberSelection = state.rememberSelection;
     }, context);
 
-    // Initial load
     const state = getGenreFilterState(context);
     parentGenres = state.availableGenres;
-    allGenres = state.allGenres;
+    genreTree = state.genreTree;
     selectedIds = state.selectedGenreIds;
     rememberSelection = state.rememberSelection;
 
@@ -60,6 +64,34 @@
       positionPopup();
     }
   });
+
+  // Auto-expand nodes when searching
+  $effect(() => {
+    if (searchQuery.trim()) {
+      const matching = new Set<number>();
+      for (const parent of genreTree) {
+        if (nodeMatchesSearch(parent)) {
+          matching.add(parent.genre.id);
+          for (const child of parent.children) {
+            if (nodeMatchesSearch(child) || child.children.some(gc => genreMatchesSearch(gc.genre))) {
+              matching.add(child.genre.id);
+            }
+          }
+        }
+      }
+      expandedNodes = matching;
+    }
+  });
+
+  function genreMatchesSearch(genre: GenreInfo): boolean {
+    if (!searchQuery.trim()) return true;
+    return genre.name.toLowerCase().includes(searchQuery.toLowerCase());
+  }
+
+  function nodeMatchesSearch(node: GenreTreeNode): boolean {
+    if (genreMatchesSearch(node.genre)) return true;
+    return node.children.some(child => nodeMatchesSearch(child));
+  }
 
   async function positionPopup() {
     await tick();
@@ -92,46 +124,36 @@
     toggleGenre(genreId, context);
   }
 
-  // Get parent selection state: 'all' | 'none' | 'partial'
-  function getParentState(parentId: number): 'all' | 'none' | 'partial' {
-    const children = getChildGenres(parentId);
-    if (children.length === 0) {
-      // No children, just check parent itself
-      return selectedIds.has(parentId) ? 'all' : 'none';
-    }
+  // Get selection state for a node: 'all' | 'none' | 'partial'
+  function getNodeState(node: GenreTreeNode): 'all' | 'none' | 'partial' {
+    const allIds = [node.genre.id, ...getAllDescendantIds(node.genre.id)];
+    const selectedCount = allIds.filter(id => selectedIds.has(id)).length;
 
-    const selectedCount = children.filter(c => selectedIds.has(c.id)).length;
     if (selectedCount === 0) return 'none';
-    if (selectedCount === children.length) return 'all';
+    if (selectedCount === allIds.length) return 'all';
     return 'partial';
   }
 
-  // Toggle parent: if all selected, deselect all; otherwise select all
-  function handleParentClick(parentId: number) {
-    const children = getChildGenres(parentId);
-    const currentState = getParentState(parentId);
-
-    if (children.length === 0) {
-      // No children, just toggle parent
-      toggleGenre(parentId, context);
-      return;
-    }
+  // Toggle a parent node: select/deselect all descendants
+  function handleNodeToggle(node: GenreTreeNode) {
+    const currentState = getNodeState(node);
+    const allIds = [node.genre.id, ...getAllDescendantIds(node.genre.id)];
 
     if (currentState === 'all') {
-      // Deselect all children
-      for (const child of children) {
-        if (selectedIds.has(child.id)) {
-          toggleGenre(child.id, context);
-        }
-      }
+      setGenresSelected(allIds, false, context);
     } else {
-      // Select all children
-      for (const child of children) {
-        if (!selectedIds.has(child.id)) {
-          toggleGenre(child.id, context);
-        }
-      }
+      setGenresSelected(allIds, true, context);
     }
+  }
+
+  function toggleExpanded(genreId: number) {
+    const newExpanded = new Set(expandedNodes);
+    if (newExpanded.has(genreId)) {
+      newExpanded.delete(genreId);
+    } else {
+      newExpanded.add(genreId);
+    }
+    expandedNodes = newExpanded;
   }
 
   function handleClearAll() {
@@ -162,6 +184,25 @@
       onClose();
     }
   }
+
+  // Filter tree based on search
+  function filterTree(nodes: GenreTreeNode[]): GenreTreeNode[] {
+    if (!searchQuery.trim()) return nodes;
+
+    return nodes
+      .filter(node => nodeMatchesSearch(node))
+      .map(node => ({
+        ...node,
+        children: node.children
+          .filter(child => nodeMatchesSearch(child))
+          .map(child => ({
+            ...child,
+            children: child.children.filter(gc => genreMatchesSearch(gc.genre))
+          }))
+      }));
+  }
+
+  let filteredTree = $derived(filterTree(genreTree));
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -178,7 +219,7 @@
         <SlidersHorizontal size={16} />
         <span>Filter by genre</span>
       </div>
-      <button class="close-btn" onclick={onClose} type="button">
+      <button class="close-btn" onclick={onClose} type="button" title="Close">
         <X size={16} />
       </button>
     </div>
@@ -192,67 +233,142 @@
           onclick={handleRememberToggle}
           type="button"
           aria-pressed={rememberSelection}
+          title="Remember selection"
         >
           <span class="toggle-thumb"></span>
         </button>
       </div>
       <div class="option-item">
-        <span>Show all sub-genres</span>
+        <span>Advanced view</span>
         <button
           class="toggle-switch"
           class:active={showAllGenres}
           onclick={() => showAllGenres = !showAllGenres}
           type="button"
           aria-pressed={showAllGenres}
+          title="Toggle advanced view"
         >
           <span class="toggle-thumb"></span>
         </button>
       </div>
     </div>
 
+    {#if showAllGenres}
+      <div class="search-row">
+        <Search size={14} />
+        <input
+          type="text"
+          placeholder="Search genres..."
+          bind:value={searchQuery}
+          class="search-input"
+        />
+        {#if searchQuery}
+          <button class="clear-search" onclick={() => searchQuery = ''} type="button" title="Clear search">
+            <X size={12} />
+          </button>
+        {/if}
+      </div>
+    {/if}
+
     <div class="genres-container">
       {#if showAllGenres}
-        <!-- Hierarchical view -->
-        {#each parentGenres as parent (parent.id)}
-          {@const children = getChildGenres(parent.id)}
-          {@const parentState = getParentState(parent.id)}
-          <div class="genre-group">
-            <button
-              class="parent-row"
-              class:selected={parentState === 'all'}
-              class:partial={parentState === 'partial'}
-              onclick={() => handleParentClick(parent.id)}
-              type="button"
-            >
-              <span class="check-box" class:checked={parentState === 'all'} class:partial={parentState === 'partial'}>
-                {#if parentState === 'all'}
-                  <Check size={10} strokeWidth={3} />
-                {:else if parentState === 'partial'}
-                  <Minus size={10} strokeWidth={3} />
-                {/if}
-              </span>
-              <span class="parent-name">{parent.name}</span>
-              {#if children.length > 0}
-                <span class="child-count">{children.length}</span>
-              {/if}
-            </button>
-            {#if children.length > 0}
-              <div class="children-grid">
-                {#each children as child (child.id)}
-                  <button
-                    class="child-card"
-                    class:selected={selectedIds.has(child.id)}
-                    onclick={() => handleGenreClick(child.id)}
-                    type="button"
-                  >
-                    <span class="genre-name">{child.name}</span>
-                    <span class="check-circle" class:checked={selectedIds.has(child.id)}></span>
+        <!-- Hierarchical tree view -->
+        <div class="genre-tree">
+          {#each filteredTree as parentNode (parentNode.genre.id)}
+            {@const parentState = getNodeState(parentNode)}
+            {@const isExpanded = expandedNodes.has(parentNode.genre.id)}
+            {@const hasChildren = parentNode.children.length > 0}
+            {@const descendantCount = countDescendants(parentNode.genre.id)}
+
+            <div class="tree-node">
+              <div class="node-row level-0" class:selected={parentState === 'all'} class:partial={parentState === 'partial'}>
+                {#if hasChildren}
+                  <button class="expand-btn" onclick={() => toggleExpanded(parentNode.genre.id)} type="button" title={isExpanded ? 'Collapse' : 'Expand'}>
+                    {#if isExpanded}
+                      <ChevronDown size={14} />
+                    {:else}
+                      <ChevronRight size={14} />
+                    {/if}
                   </button>
-                {/each}
+                {:else}
+                  <span class="expand-placeholder"></span>
+                {/if}
+
+                <button class="node-content" onclick={() => handleNodeToggle(parentNode)} type="button">
+                  <span class="check-box" class:checked={parentState === 'all'} class:partial={parentState === 'partial'}>
+                    {#if parentState === 'all'}
+                      <Check size={10} strokeWidth={3} />
+                    {:else if parentState === 'partial'}
+                      <Minus size={10} strokeWidth={3} />
+                    {/if}
+                  </span>
+                  <span class="node-name">{parentNode.genre.name}</span>
+                  {#if descendantCount > 0}
+                    <span class="descendant-count">{descendantCount}</span>
+                  {/if}
+                </button>
               </div>
-            {/if}
-          </div>
-        {/each}
+
+              {#if isExpanded && hasChildren}
+                <div class="children-container">
+                  {#each parentNode.children as childNode (childNode.genre.id)}
+                    {@const childState = getNodeState(childNode)}
+                    {@const childExpanded = expandedNodes.has(childNode.genre.id)}
+                    {@const childHasChildren = childNode.children.length > 0}
+
+                    <div class="tree-node">
+                      <div class="node-row level-1" class:selected={childState === 'all'} class:partial={childState === 'partial'}>
+                        {#if childHasChildren}
+                          <button class="expand-btn" onclick={() => toggleExpanded(childNode.genre.id)} type="button" title={childExpanded ? 'Collapse' : 'Expand'}>
+                            {#if childExpanded}
+                              <ChevronDown size={12} />
+                            {:else}
+                              <ChevronRight size={12} />
+                            {/if}
+                          </button>
+                        {:else}
+                          <span class="expand-placeholder"></span>
+                        {/if}
+
+                        <button class="node-content" onclick={() => childHasChildren ? handleNodeToggle(childNode) : handleGenreClick(childNode.genre.id)} type="button">
+                          <span class="check-box small" class:checked={childState === 'all' || (!childHasChildren && selectedIds.has(childNode.genre.id))} class:partial={childState === 'partial'}>
+                            {#if childState === 'all' || (!childHasChildren && selectedIds.has(childNode.genre.id))}
+                              <Check size={8} strokeWidth={3} />
+                            {:else if childState === 'partial'}
+                              <Minus size={8} strokeWidth={3} />
+                            {/if}
+                          </span>
+                          <span class="node-name">{childNode.genre.name}</span>
+                          {#if childHasChildren}
+                            <span class="descendant-count">{childNode.children.length}</span>
+                          {/if}
+                        </button>
+                      </div>
+
+                      {#if childExpanded && childHasChildren}
+                        <div class="children-container">
+                          {#each childNode.children as grandchildNode (grandchildNode.genre.id)}
+                            <div class="node-row level-2" class:selected={selectedIds.has(grandchildNode.genre.id)}>
+                              <span class="expand-placeholder"></span>
+                              <button class="node-content" onclick={() => handleGenreClick(grandchildNode.genre.id)} type="button">
+                                <span class="check-box small" class:checked={selectedIds.has(grandchildNode.genre.id)}>
+                                  {#if selectedIds.has(grandchildNode.genre.id)}
+                                    <Check size={8} strokeWidth={3} />
+                                  {/if}
+                                </span>
+                                <span class="node-name">{grandchildNode.genre.name}</span>
+                              </button>
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
       {:else}
         <!-- Simple grid view (parents only) -->
         <div class="genres-grid">
@@ -300,7 +416,8 @@
   }
 
   .genre-popup.expanded {
-    max-height: 650px;
+    width: 630px;
+    max-height: 700px;
   }
 
   .popup-header {
@@ -385,6 +502,46 @@
     transform: translateX(16px);
   }
 
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+  }
+
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+  }
+
+  .search-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .clear-search {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .clear-search:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
   .genres-container {
     flex: 1;
     overflow-y: auto;
@@ -439,8 +596,7 @@
     white-space: nowrap;
   }
 
-  .genre-card.selected .genre-name,
-  .child-card.selected .genre-name {
+  .genre-card.selected .genre-name {
     color: white;
   }
 
@@ -472,44 +628,101 @@
     transform: translate(-50%, -60%) rotate(45deg);
   }
 
-  /* Hierarchical view */
-  .genre-group {
-    margin-bottom: 12px;
+  /* Tree view */
+  .genre-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  .genre-group:last-child {
-    margin-bottom: 0;
+  .tree-node {
+    display: flex;
+    flex-direction: column;
   }
 
-  .parent-row {
-    width: 100%;
+  .node-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
+    gap: 4px;
+    padding: 6px 8px;
     border-radius: 6px;
-    cursor: pointer;
-    transition: all 150ms ease;
+    transition: background 150ms ease;
   }
 
-  .parent-row:hover {
+  .node-row:hover {
     background: var(--bg-hover);
-    border-color: var(--text-muted);
   }
 
-  .parent-row.selected {
+  .node-row.selected {
     background: var(--accent-primary);
-    border-color: var(--accent-primary);
   }
 
-  .parent-row.partial {
-    border-color: var(--accent-primary);
-  }
-
-  .parent-row.selected:hover {
+  .node-row.selected:hover {
     background: var(--accent-hover);
+  }
+
+  .node-row.partial {
+    background: rgba(var(--accent-primary-rgb, 59, 130, 246), 0.15);
+  }
+
+  .node-row.level-0 {
+    font-weight: 600;
+  }
+
+  .node-row.level-1 {
+    margin-left: 20px;
+    font-size: 12px;
+  }
+
+  .node-row.level-2 {
+    margin-left: 40px;
+    font-size: 11px;
+  }
+
+  .expand-btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .expand-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .node-row.selected .expand-btn {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .node-row.selected .expand-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+
+  .expand-placeholder {
+    width: 20px;
+    flex-shrink: 0;
+  }
+
+  .node-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    padding: 0;
+    min-width: 0;
   }
 
   .check-box {
@@ -526,6 +739,11 @@
     transition: all 150ms ease;
   }
 
+  .check-box.small {
+    width: 14px;
+    height: 14px;
+  }
+
   .check-box.checked {
     border-color: white;
     background: white;
@@ -538,81 +756,45 @@
     color: white;
   }
 
-  .parent-name {
-    flex: 1;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    text-align: left;
+  .node-row.selected .check-box {
+    border-color: white;
   }
 
-  .parent-row.selected .parent-name {
+  .node-row.selected .check-box.checked {
+    background: white;
+    color: var(--accent-primary);
+  }
+
+  .node-name {
+    flex: 1;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .node-row.selected .node-name {
     color: white;
   }
 
-  .child-count {
-    font-size: 11px;
+  .descendant-count {
+    font-size: 10px;
     color: var(--text-muted);
     background: var(--bg-tertiary);
     padding: 2px 6px;
     border-radius: 10px;
+    flex-shrink: 0;
   }
 
-  .parent-row.selected .child-count {
+  .node-row.selected .descendant-count {
     background: rgba(255, 255, 255, 0.2);
     color: rgba(255, 255, 255, 0.8);
   }
 
-  .children-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin-top: 8px;
-    padding-left: 26px;
-  }
-
-  .child-card {
-    position: relative;
-    height: 32px;
-    border-radius: 6px;
-    border: 1px solid var(--border-subtle);
-    cursor: pointer;
-    overflow: hidden;
-    background: var(--bg-tertiary);
+  .children-container {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 8px;
-    transition: all 150ms ease;
-  }
-
-  .child-card:hover {
-    background: var(--bg-hover);
-    border-color: var(--text-muted);
-  }
-
-  .child-card.selected {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
-  }
-
-  .child-card.selected:hover {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
-  }
-
-  .child-card .genre-name {
-    font-size: 10px;
-  }
-
-  .child-card .check-circle {
-    width: 12px;
-    height: 12px;
-  }
-
-  .child-card .check-circle.checked::after {
-    width: 3px;
-    height: 6px;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .popup-footer {
