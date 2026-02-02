@@ -148,8 +148,8 @@ export async function loadGenres(): Promise<void> {
   }
 }
 
-/** Lazy load children for a specific genre */
-export async function loadChildren(genreId: number): Promise<GenreInfo[]> {
+/** Lazy load children for a specific genre (silent = don't notify) */
+export async function loadChildren(genreId: number, silent = false): Promise<GenreInfo[]> {
   // Check if already loaded
   if (state.childrenByParent.has(genreId)) {
     return state.childrenByParent.get(genreId) || [];
@@ -171,7 +171,9 @@ export async function loadChildren(genreId: number): Promise<GenreInfo[]> {
     // Update tree node
     updateTreeNode(genreId, taggedChildren);
 
-    notifyAll();
+    if (!silent) {
+      notifyAll();
+    }
     return taggedChildren;
   } catch (e) {
     console.error(`Failed to load children for genre ${genreId}:`, e);
@@ -322,25 +324,38 @@ export function toggleGenre(genreId: number, context?: GenreFilterContext): void
   notify(ctx);
 }
 
-/** Load all descendants (children and grandchildren) for a genre */
+/** Load all descendants (children and grandchildren) for a genre - single notification */
 async function loadAllDescendants(genreId: number): Promise<void> {
-  // Load children if not loaded
+  let loaded = false;
+
+  // Load children if not loaded (silent)
   if (!state.childrenByParent.has(genreId)) {
-    const children = await loadChildren(genreId);
-    // Load grandchildren for each child
-    for (const child of children) {
-      if (!state.childrenByParent.has(child.id)) {
-        await loadChildren(child.id);
-      }
-    }
+    const children = await loadChildren(genreId, true);
+    loaded = true;
+    // Load grandchildren for each child in parallel (silent)
+    await Promise.all(
+      children.map(child =>
+        !state.childrenByParent.has(child.id)
+          ? loadChildren(child.id, true)
+          : Promise.resolve([])
+      )
+    );
   } else {
     // Children already loaded, check grandchildren
     const children = state.childrenByParent.get(genreId) || [];
-    for (const child of children) {
-      if (!state.childrenByParent.has(child.id)) {
-        await loadChildren(child.id);
-      }
+    const grandchildPromises = children
+      .filter(child => !state.childrenByParent.has(child.id))
+      .map(child => loadChildren(child.id, true));
+
+    if (grandchildPromises.length > 0) {
+      await Promise.all(grandchildPromises);
+      loaded = true;
     }
+  }
+
+  // Single notification after all loads complete
+  if (loaded) {
+    notifyAll();
   }
 }
 
