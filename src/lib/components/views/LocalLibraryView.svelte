@@ -2587,9 +2587,9 @@
       <div class="nav-row">
         <button class="back-btn" onclick={() => { clearLocalAlbum(); navGoBack(); }}>
           <ArrowLeft size={16} />
-          <span>Back to Library</span>
+          <span>{$t('library.backToLibrary')}</span>
         </button>
-        <button class="edit-btn" onclick={openAlbumEditModal} title="Edit album">
+        <button class="edit-btn" onclick={openAlbumEditModal} title={$t('actions.edit')}>
           <Edit3 size={16} />
         </button>
       </div>
@@ -2631,10 +2631,10 @@
             </div>
           {/if}
           <div class="album-actions">
-            <button class="action-btn-circle primary" onclick={handlePlayAllAlbum} title="Play All">
+            <button class="action-btn-circle primary" onclick={handlePlayAllAlbum} title={$t('actions.playAll')}>
               <Play size={20} fill="currentColor" color="currentColor" />
             </button>
-            <button class="action-btn-circle" onclick={handleShuffleAllAlbum} title="Shuffle">
+            <button class="action-btn-circle" onclick={handleShuffleAllAlbum} title={$t('actions.shuffle')}>
               <Shuffle size={18} />
             </button>
           </div>
@@ -2688,7 +2688,7 @@
         <HardDrive size={32} />
       </div>
       <div class="header-content">
-        <h1>Local Library</h1>
+        <h1>{$t('library.title')}</h1>
         {#if stats}
           <p class="subtitle">
             {stats.album_count} albums &bull; {stats.track_count} tracks &bull;
@@ -2696,14 +2696,14 @@
             {formatFileSize(stats.total_size_bytes)}
           </p>
         {:else}
-          <p class="subtitle">Your local music collection</p>
+          <p class="subtitle">{$t('library.yourCollection')}</p>
         {/if}
       </div>
       <div class="header-actions">
-        <button class="icon-btn" onclick={handleScan} disabled={scanning} title="Scan library">
+        <button class="icon-btn" onclick={handleScan} disabled={scanning} title={$t('library.scanLibrary')}>
           <RefreshCw size={20} class={scanning ? 'spinning' : ''} />
         </button>
-        <button class="icon-btn" onclick={() => (showSettings = !showSettings)} title="Library settings">
+        <button class="icon-btn" onclick={() => (showSettings = !showSettings)} title={$t('settings.library.title')}>
           <Settings size={20} />
         </button>
       </div>
@@ -2713,7 +2713,7 @@
     {#if isOffline}
       <div class="offline-notice">
         <AlertCircle size={16} />
-        <span>Playlist management is disabled in offline mode. You can still play your local tracks.</span>
+        <span>{$t('library.playlistOfflineMode')}</span>
       </div>
     {/if}
 
@@ -2840,14 +2840,14 @@
               class="btn btn-secondary"
               onclick={handleFetchMissingArtwork}
               disabled={fetchingArtwork || isOffline}
-              title={isOffline ? 'Artwork fetching unavailable offline' : ''}
+              title={isOffline ? $t('library.artworkOffline') : ''}
             >
               <ImageDown size={14} class={fetchingArtwork ? 'spinning' : ''} />
-              <span>{fetchingArtwork ? 'Fetching...' : 'Fetch Missing Artwork'}</span>
+              <span>{fetchingArtwork ? $t('library.fetchingArtwork') : $t('library.fetchMissingArtwork')}</span>
             </button>
           {:else if isOffline}
             <div class="discogs-hint">
-              <span>Artwork fetching unavailable offline</span>
+              <span>{$t('library.artworkOffline')}</span>
             </div>
           {:else}
             <div class="discogs-hint">
@@ -2945,14 +2945,14 @@
       {#if loading}
         <div class="loading">
           <div class="spinner"></div>
-          <p>Loading library...</p>
+          <p>{$t('library.loadingLibrary')}</p>
         </div>
       {:else if error}
         <div class="error">
           <AlertCircle size={48} />
-          <p>Failed to load library</p>
+          <p>{$t('library.failedLoadLibrary')}</p>
           <p class="error-detail">{error}</p>
-          <button class="retry-btn" onclick={loadLibraryData}>Retry</button>
+          <button class="retry-btn" onclick={loadLibraryData}>{$t('actions.retry')}</button>
         </div>
       {:else if activeTab === 'albums'}
         {#key activeTab}
@@ -2963,13 +2963,13 @@
             <div class="section-header">
               <h3>Hidden Albums ({hiddenAlbums.length})</h3>
               <button class="btn btn-secondary" onclick={toggleHiddenAlbumsView}>
-                <span>Back to Active Albums</span>
+                <span>{$t('library.backToActiveAlbums')}</span>
               </button>
             </div>
             {#if hiddenAlbums.length === 0}
               <div class="empty-state">
                 <Disc3 size={64} />
-                <p>No hidden albums</p>
+                <p>{$t('library.noHiddenAlbums')}</p>
               </div>
             {:else}
               <div class="album-list">
@@ -3009,8 +3009,8 @@
         {#if albums.length === 0}
           <div class="empty">
             <Disc3 size={48} />
-            <p>No albums in library</p>
-            <p class="empty-hint">Add folders and scan to build your library</p>
+            <p>{$t('library.noAlbumsInLibrary')}</p>
+            <p class="empty-hint">{$t('library.addFoldersHint')}</p>
           </div>
         {:else}
           <!-- Use memoized filtered and grouped albums -->
@@ -3079,14 +3079,14 @@
                   onclick={handleFilterPanelActivity}
                 >
                   <div class="filter-panel-header">
-                    <span>Filters</span>
+                    <span>{$t('library.filters')}</span>
                     {#if hasActiveFilters}
-                      <button class="clear-filters-btn" onclick={clearAllFilters}>Clear all</button>
+                      <button class="clear-filters-btn" onclick={clearAllFilters}>{$t('library.clearAllFilters')}</button>
                     {/if}
                   </div>
 
                   <div class="filter-section">
-                    <div class="filter-section-label">Quality</div>
+                    <div class="filter-section-label">{$t('library.quality')}</div>
                     <div class="filter-checkboxes">
                       <label class="filter-checkbox">
                         <input type="checkbox" bind:checked={filterHiRes} />
@@ -3230,8 +3230,8 @@
           {#if filteredAlbums.length === 0}
             <div class="empty">
               <Disc3 size={48} />
-              <p>No albums match your search</p>
-              <p class="empty-hint">Try a different artist or album name</p>
+              <p>{$t('library.noAlbumsMatch')}</p>
+              <p class="empty-hint">{$t('library.tryDifferentSearch')}</p>
             </div>
           {:else}
             <!-- Always use virtualization for albums - handles any library size efficiently -->
@@ -3265,7 +3265,7 @@
         {#if artists.length === 0}
           <div class="empty">
             <Mic2 size={48} />
-            <p>No artists in library</p>
+            <p>{$t('library.noArtistsInLibrary')}</p>
           </div>
         {:else}
           {@const { grouped: groupedArtists, alphaGroups: artistAlphaGroups } = groupedArtistsMemo}
@@ -3297,7 +3297,7 @@
               {#if filteredArtists.length === 0}
                 <div class="empty-small">
                   <Mic2 size={32} />
-                  <p>No artists match your search</p>
+                  <p>{$t('library.noArtistsMatch')}</p>
                 </div>
               {:else}
                 <div class="artist-list-scroll" bind:this={artistListScrollRef}>
@@ -3346,7 +3346,7 @@
                 {#if selectedArtistAlbums.length === 0}
                   <div class="empty-small">
                     <Disc3 size={32} />
-                    <p>No albums found</p>
+                    <p>{$t('library.noAlbumsFound')}</p>
                   </div>
                 {:else}
                   <div class="artist-albums-grid">
@@ -3371,7 +3371,7 @@
               {:else}
                 <div class="empty-small centered">
                   <Mic2 size={48} />
-                  <p>Select an artist to view their albums</p>
+                  <p>{$t('library.selectArtist')}</p>
                 </div>
               {/if}
             </div>
@@ -3386,7 +3386,7 @@
         {#if tracks.length === 0}
           <div class="empty">
             <Music size={48} />
-            <p>No tracks in library</p>
+            <p>{$t('library.noTracksInLibrary')}</p>
           </div>
         {:else}
           {@const { grouped: groupedTracks, alphaGroups: trackAlphaGroups, indexTargets: trackIndexTargets } = groupedTracksMemo}
@@ -3516,10 +3516,10 @@
             <button
               class="album-action-btn"
               onclick={openTagEditorFromAlbumSettings}
-              title="Edit album metadata for LocalLibrary indexing and search"
+              title={$t('library.editAlbumMetadataTitle')}
             >
               <Edit3 size={18} />
-              <span>Edit album info</span>
+              <span>{$t('library.editAlbumInfo')}</span>
             </button>
             <button
               class="album-action-btn"

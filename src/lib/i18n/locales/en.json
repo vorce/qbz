@@ -160,6 +160,7 @@
     "selectArtist": "Select an artist to view their albums",
     "noTracksInLibrary": "No tracks in library",
     "editAlbumInfo": "Edit album info",
+    "editAlbumMetadataTitle": "Edit album metadata for LocalLibrary indexing and search",
     "hideAlbum": "Hide this album from library",
     "hideAlbumHint": "Hidden albums can be viewed from Settings"
   },
