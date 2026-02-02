@@ -39,6 +39,7 @@ impl RecoStoreDb {
     }
 
     fn init(&self) -> Result<(), String> {
+        // Base schema - does NOT include genre_id (added via migration)
         self.conn
             .execute_batch(
                 r#"
@@ -50,7 +51,6 @@ impl RecoStoreDb {
                     album_id TEXT,
                     artist_id INTEGER,
                     playlist_id INTEGER,
-                    genre_id INTEGER,
                     created_at INTEGER NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_reco_events_type ON reco_events(event_type);
@@ -58,7 +58,6 @@ impl RecoStoreDb {
                 CREATE INDEX IF NOT EXISTS idx_reco_events_album ON reco_events(album_id);
                 CREATE INDEX IF NOT EXISTS idx_reco_events_artist ON reco_events(artist_id);
                 CREATE INDEX IF NOT EXISTS idx_reco_events_created ON reco_events(created_at);
-                CREATE INDEX IF NOT EXISTS idx_reco_events_genre ON reco_events(genre_id);
 
                 CREATE TABLE IF NOT EXISTS reco_scores (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,7 +78,7 @@ impl RecoStoreDb {
             )
             .map_err(|e| format!("Failed to initialize reco database: {}", e))?;
 
-        // Migration: Add genre_id column if it doesn't exist
+        // Migrations - run after base schema
         self.migrate_add_genre_id()?;
 
         Ok(())
