@@ -13,6 +13,7 @@ pub struct RecoEventRecord {
     pub track_id: Option<u64>,
     pub album_id: Option<String>,
     pub artist_id: Option<u64>,
+    pub genre_id: Option<u64>,
     pub created_at: i64,
 }
 
@@ -49,6 +50,7 @@ impl RecoStoreDb {
                     album_id TEXT,
                     artist_id INTEGER,
                     playlist_id INTEGER,
+                    genre_id INTEGER,
                     created_at INTEGER NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_reco_events_type ON reco_events(event_type);
@@ -56,6 +58,7 @@ impl RecoStoreDb {
                 CREATE INDEX IF NOT EXISTS idx_reco_events_album ON reco_events(album_id);
                 CREATE INDEX IF NOT EXISTS idx_reco_events_artist ON reco_events(artist_id);
                 CREATE INDEX IF NOT EXISTS idx_reco_events_created ON reco_events(created_at);
+                CREATE INDEX IF NOT EXISTS idx_reco_events_genre ON reco_events(genre_id);
 
                 CREATE TABLE IF NOT EXISTS reco_scores (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,6 +78,38 @@ impl RecoStoreDb {
                 "#,
             )
             .map_err(|e| format!("Failed to initialize reco database: {}", e))?;
+
+        // Migration: Add genre_id column if it doesn't exist
+        self.migrate_add_genre_id()?;
+
+        Ok(())
+    }
+
+    /// Migration to add genre_id column to existing databases
+    fn migrate_add_genre_id(&self) -> Result<(), String> {
+        // Check if column exists by querying table info
+        let has_column: bool = self
+            .conn
+            .prepare("PRAGMA table_info(reco_events)")
+            .map_err(|e| format!("Failed to query table info: {}", e))?
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|e| format!("Failed to read table info: {}", e))?
+            .filter_map(Result::ok)
+            .any(|col| col == "genre_id");
+
+        if !has_column {
+            log::info!("Migrating reco_events: adding genre_id column");
+            self.conn
+                .execute("ALTER TABLE reco_events ADD COLUMN genre_id INTEGER", [])
+                .map_err(|e| format!("Failed to add genre_id column: {}", e))?;
+            self.conn
+                .execute(
+                    "CREATE INDEX IF NOT EXISTS idx_reco_events_genre ON reco_events(genre_id)",
+                    [],
+                )
+                .map_err(|e| format!("Failed to create genre_id index: {}", e))?;
+        }
+
         Ok(())
     }
 
@@ -94,8 +129,9 @@ impl RecoStoreDb {
                     album_id,
                     artist_id,
                     playlist_id,
+                    genre_id,
                     created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 "#,
                 params![
                     event.event_type.as_str(),
@@ -104,6 +140,7 @@ impl RecoStoreDb {
                     event.album_id.as_deref(),
                     event.artist_id,
                     event.playlist_id,
+                    event.genre_id,
                     created_at,
                 ],
             )
@@ -173,7 +210,7 @@ impl RecoStoreDb {
             let mut stmt = self.conn
                 .prepare(
                     r#"
-                    SELECT event_type, item_type, track_id, album_id, artist_id, created_at
+                    SELECT event_type, item_type, track_id, album_id, artist_id, genre_id, created_at
                     FROM reco_events
                     WHERE created_at >= ?
                     ORDER BY created_at DESC
@@ -190,7 +227,8 @@ impl RecoStoreDb {
                         track_id: row.get(2)?,
                         album_id: row.get(3)?,
                         artist_id: row.get(4)?,
-                        created_at: row.get(5)?,
+                        genre_id: row.get(5)?,
+                        created_at: row.get(6)?,
                     })
                 })
                 .map_err(|e| format!("Failed to query reco events: {}", e))?;
@@ -202,7 +240,7 @@ impl RecoStoreDb {
             let mut stmt = self.conn
                 .prepare(
                     r#"
-                    SELECT event_type, item_type, track_id, album_id, artist_id, created_at
+                    SELECT event_type, item_type, track_id, album_id, artist_id, genre_id, created_at
                     FROM reco_events
                     WHERE created_at >= ?
                     ORDER BY created_at DESC
@@ -218,7 +256,8 @@ impl RecoStoreDb {
                         track_id: row.get(2)?,
                         album_id: row.get(3)?,
                         artist_id: row.get(4)?,
-                        created_at: row.get(5)?,
+                        genre_id: row.get(5)?,
+                        created_at: row.get(6)?,
                     })
                 })
                 .map_err(|e| format!("Failed to query reco events: {}", e))?;
@@ -229,6 +268,41 @@ impl RecoStoreDb {
         }
 
         Ok(events)
+    }
+
+    /// Get unique album_ids that have NULL genre_id (for backfill)
+    pub fn get_album_ids_without_genre(&self, limit: u32) -> Result<Vec<String>, String> {
+        let mut stmt = self.conn
+            .prepare(
+                r#"
+                SELECT DISTINCT album_id
+                FROM reco_events
+                WHERE album_id IS NOT NULL AND genre_id IS NULL
+                LIMIT ?
+                "#,
+            )
+            .map_err(|e| format!("Failed to prepare albums without genre query: {}", e))?;
+
+        let rows = stmt
+            .query_map(params![limit], |row| row.get::<_, String>(0))
+            .map_err(|e| format!("Failed to query albums without genre: {}", e))?;
+
+        let mut albums = Vec::new();
+        for row in rows {
+            albums.push(row.map_err(|e| format!("Failed to read album row: {}", e))?);
+        }
+        Ok(albums)
+    }
+
+    /// Update genre_id for all events with a given album_id
+    pub fn update_genre_for_album(&self, album_id: &str, genre_id: u64) -> Result<u64, String> {
+        let affected = self.conn
+            .execute(
+                "UPDATE reco_events SET genre_id = ? WHERE album_id = ? AND genre_id IS NULL",
+                params![genre_id, album_id],
+            )
+            .map_err(|e| format!("Failed to update genre for album: {}", e))?;
+        Ok(affected as u64)
     }
 
     pub fn get_top_artist_ids(&self, limit: u32) -> Result<Vec<TopArtistSeed>, String> {

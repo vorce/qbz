@@ -56,6 +56,7 @@ pub struct RecoEventInput {
     pub album_id: Option<String>,
     pub artist_id: Option<u64>,
     pub playlist_id: Option<u64>,
+    pub genre_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
