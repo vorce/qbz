@@ -5,7 +5,8 @@
 use tauri::State;
 use tokio::task;
 
-use crate::api::{QobuzClient, Track};
+use crate::api::Track;
+use crate::artist_blacklist::BlacklistState;
 use crate::playback_context::{ContentSource, ContextType, PlaybackContext};
 use crate::queue::QueueTrack;
 use crate::radio_engine::{BuildRadioOptions, RadioEngine, RadioPoolBuilder};
@@ -20,6 +21,7 @@ pub async fn create_artist_radio(
     artist_id: u64,
     artist_name: String,
     state: State<'_, AppState>,
+    blacklist_state: State<'_, BlacklistState>,
 ) -> Result<String, String> {
     log::info!("[Radio] Creating artist radio for: {} (ID: {})", artist_name, artist_id);
 
@@ -83,17 +85,34 @@ pub async fn create_artist_radio(
     .await
     .map_err(|e| format!("Track generation task failed: {}", e))??;
 
-    // Fetch full track details from Qobuz
+    // Fetch full track details from Qobuz, filtering blacklisted artists
     let mut tracks = Vec::new();
+    let mut blacklist_skipped = 0;
     for track_id in track_ids {
         match client.get_track(track_id).await {
             Ok(track) => {
+                // Check if track's artist is blacklisted
+                if let Some(ref performer) = track.performer {
+                    if blacklist_state.is_blacklisted(performer.id) {
+                        log::debug!(
+                            "[Radio] Skipping blacklisted artist track: {} - {}",
+                            performer.name,
+                            track.title
+                        );
+                        blacklist_skipped += 1;
+                        continue;
+                    }
+                }
                 tracks.push(track);
             }
             Err(e) => {
                 log::warn!("[Radio] Failed to fetch track {}: {}", track_id, e);
             }
         }
+    }
+
+    if blacklist_skipped > 0 {
+        log::info!("[Radio] Skipped {} tracks from blacklisted artists", blacklist_skipped);
     }
 
     if tracks.is_empty() {
@@ -135,6 +154,7 @@ pub async fn create_track_radio(
     track_name: String,
     artist_id: u64,
     state: State<'_, AppState>,
+    blacklist_state: State<'_, BlacklistState>,
 ) -> Result<String, String> {
     log::info!(
         "[Radio] Creating track radio for: {} (Track ID: {}, Artist ID: {})",
@@ -204,17 +224,34 @@ pub async fn create_track_radio(
     .await
     .map_err(|e| format!("Track generation task failed: {}", e))??;
 
-    // Fetch full track details from Qobuz
+    // Fetch full track details from Qobuz, filtering blacklisted artists
     let mut tracks = Vec::new();
+    let mut blacklist_skipped = 0;
     for track_id in track_ids {
         match client.get_track(track_id).await {
             Ok(track) => {
+                // Check if track's artist is blacklisted
+                if let Some(ref performer) = track.performer {
+                    if blacklist_state.is_blacklisted(performer.id) {
+                        log::debug!(
+                            "[Radio] Skipping blacklisted artist track: {} - {}",
+                            performer.name,
+                            track.title
+                        );
+                        blacklist_skipped += 1;
+                        continue;
+                    }
+                }
                 tracks.push(track);
             }
             Err(e) => {
                 log::warn!("[Radio] Failed to fetch track {}: {}", track_id, e);
             }
         }
+    }
+
+    if blacklist_skipped > 0 {
+        log::info!("[Radio] Skipped {} tracks from blacklisted artists", blacklist_skipped);
     }
 
     if tracks.is_empty() {
@@ -301,6 +338,7 @@ fn track_to_queue_track(track: &Track) -> QueueTrack {
 pub async fn refill_radio_queue(
     session_id: String,
     state: State<'_, AppState>,
+    blacklist_state: State<'_, BlacklistState>,
 ) -> Result<u32, String> {
     log::info!("[Radio] Refilling queue for session: {}", session_id);
 
@@ -337,18 +375,35 @@ pub async fn refill_radio_queue(
         return Ok(0);
     }
 
-    // Fetch full track details from Qobuz
+    // Fetch full track details from Qobuz, filtering blacklisted artists
     let client = state.client.lock().await;
     let mut tracks = Vec::new();
+    let mut blacklist_skipped = 0;
     for track_id in track_ids.iter().take(20) {
         match client.get_track(*track_id).await {
             Ok(track) => {
+                // Check if track's artist is blacklisted
+                if let Some(ref performer) = track.performer {
+                    if blacklist_state.is_blacklisted(performer.id) {
+                        log::debug!(
+                            "[Radio] Skipping blacklisted artist track during refill: {} - {}",
+                            performer.name,
+                            track.title
+                        );
+                        blacklist_skipped += 1;
+                        continue;
+                    }
+                }
                 tracks.push(track);
             }
             Err(e) => {
                 log::warn!("[Radio] Failed to fetch track {} during refill: {}", track_id, e);
             }
         }
+    }
+
+    if blacklist_skipped > 0 {
+        log::info!("[Radio] Refill skipped {} tracks from blacklisted artists", blacklist_skipped);
     }
 
     let added_count = tracks.len() as u32;
@@ -391,6 +446,7 @@ pub fn get_queue_remaining(state: State<'_, AppState>) -> u32 {
 pub async fn create_infinite_radio(
     recent_track_ids: Vec<u64>,
     state: State<'_, AppState>,
+    blacklist_state: State<'_, BlacklistState>,
 ) -> Result<String, String> {
     if recent_track_ids.is_empty() {
         return Err("No recent tracks provided for infinite radio".to_string());
@@ -468,17 +524,34 @@ pub async fn create_infinite_radio(
     .await
     .map_err(|e| format!("Track generation task failed: {}", e))??;
 
-    // Fetch full track details from Qobuz
+    // Fetch full track details from Qobuz, filtering blacklisted artists
     let mut tracks = Vec::new();
+    let mut blacklist_skipped = 0;
     for track_id in track_ids {
         match client.get_track(track_id).await {
             Ok(track) => {
+                // Check if track's artist is blacklisted
+                if let Some(ref performer) = track.performer {
+                    if blacklist_state.is_blacklisted(performer.id) {
+                        log::debug!(
+                            "[Radio] Skipping blacklisted artist track in infinite radio: {} - {}",
+                            performer.name,
+                            track.title
+                        );
+                        blacklist_skipped += 1;
+                        continue;
+                    }
+                }
                 tracks.push(track);
             }
             Err(e) => {
                 log::warn!("[Radio] Failed to fetch track {}: {}", track_id, e);
             }
         }
+    }
+
+    if blacklist_skipped > 0 {
+        log::info!("[Radio] Infinite radio skipped {} tracks from blacklisted artists", blacklist_skipped);
     }
 
     if tracks.is_empty() {

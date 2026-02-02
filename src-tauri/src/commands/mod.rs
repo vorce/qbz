@@ -2,6 +2,7 @@
 //!
 //! Exposes backend functionality to the frontend via IPC
 
+pub mod artist_blacklist;
 pub mod audio_backends;
 pub mod audio_diagnostics;
 pub mod auth;
@@ -26,6 +27,7 @@ pub mod smart_playlists;
 pub mod remote_metadata;
 pub mod visualizer;
 
+pub use artist_blacklist::*;
 pub use audio_backends::*;
 pub use audio_diagnostics::*;
 pub use auth::*;

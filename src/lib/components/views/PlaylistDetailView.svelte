@@ -19,6 +19,7 @@
   } from '$lib/stores/offlineStore';
   import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { isTrackUnavailable, clearTrackUnavailable, subscribe as subscribeUnavailable } from '$lib/stores/unavailableTracksStore';
+  import { isBlacklisted as isArtistBlacklisted } from '$lib/stores/artistBlacklistStore';
   import { showToast } from '$lib/stores/toastStore';
   import { t } from '$lib/i18n';
   import { onMount, tick } from 'svelte';
@@ -1124,7 +1125,14 @@
   }
 
   function buildQueueTracks(tracks: DisplayTrack[]) {
-    const queueTracks = tracks.map(t => ({
+    // Filter out blacklisted artists before building queue
+    const filteredTracks = tracks.filter(t => {
+      if (t.isLocal) return true; // Local tracks are never blacklisted
+      if (!t.artistId) return true; // No artist ID, can't check blacklist
+      return !isArtistBlacklisted(t.artistId);
+    });
+
+    const queueTracks = filteredTracks.map(t => ({
       id: t.isLocal ? Math.abs(t.id) : t.id,
       title: t.title,
       artist: t.artist || 'Unknown Artist',
@@ -1139,7 +1147,7 @@
       artist_id: t.isLocal ? null : (t.artistId ?? null),
     }));
 
-    const localIds = tracks
+    const localIds = filteredTracks
       .filter(t => t.isLocal)
       .map(t => Math.abs(t.id));
 
@@ -1398,9 +1406,18 @@
     const allTracks = displayTracks;
     if (allTracks.length === 0) return;
 
+    // Filter out blacklisted tracks
+    const playableTracks = allTracks.filter(t => {
+      if (t.isLocal) return true;
+      if (!t.artistId) return true;
+      return !isArtistBlacklisted(t.artistId);
+    });
+
+    if (playableTracks.length === 0) return;
+
     // Set playback context for playlist
     if (playlist) {
-      const trackIds = allTracks
+      const trackIds = playableTracks
         .filter(t => !t.isLocal) // Only Qobuz tracks in context
         .map(t => t.id);
 
@@ -1420,8 +1437,8 @@
     try {
       await setPlaylistQueue(0);
 
-      // Play first track (handle local vs Qobuz)
-      const firstTrack = allTracks[0];
+      // Play first playable track (handle local vs Qobuz)
+      const firstTrack = playableTracks[0];
       if (firstTrack.isLocal && onLocalTrackPlay) {
         const localTrack = localTracks.find(t => t.id === Math.abs(firstTrack.id));
         if (localTrack) onLocalTrackPlay(localTrack);
@@ -1466,14 +1483,23 @@
     const allTracks = displayTracks;
     if (allTracks.length === 0) return;
 
+    // Filter out blacklisted tracks
+    const playableTracks = allTracks.filter(t => {
+      if (t.isLocal) return true;
+      if (!t.artistId) return true;
+      return !isArtistBlacklisted(t.artistId);
+    });
+
+    if (playableTracks.length === 0) return;
+
     // Collect local track IDs to add to set
-    const localIds = allTracks
+    const localIds = playableTracks
       .filter(t => t.isLocal)
       .map(t => Math.abs(t.id));
 
     // Add in reverse order so first track ends up right after current
-    for (let i = allTracks.length - 1; i >= 0; i--) {
-      const t = allTracks[i];
+    for (let i = playableTracks.length - 1; i >= 0; i--) {
+      const t = playableTracks[i];
       try {
         await invoke('add_to_queue_next', {
           track: {
@@ -1506,7 +1532,16 @@
     const allTracks = displayTracks;
     if (allTracks.length === 0) return;
 
-    const queueTracks = allTracks.map(t => ({
+    // Filter out blacklisted tracks
+    const playableTracks = allTracks.filter(t => {
+      if (t.isLocal) return true;
+      if (!t.artistId) return true;
+      return !isArtistBlacklisted(t.artistId);
+    });
+
+    if (playableTracks.length === 0) return;
+
+    const queueTracks = playableTracks.map(t => ({
       id: t.isLocal ? Math.abs(t.id) : t.id,
       title: t.title,
       artist: t.artist || 'Unknown Artist',
@@ -1522,7 +1557,7 @@
     }));
 
     // Collect local track IDs
-    const localIds = allTracks
+    const localIds = playableTracks
       .filter(t => t.isLocal)
       .map(t => Math.abs(t.id));
 
@@ -1763,6 +1798,7 @@
         {@const isTrackPlaying = isActiveTrack && isPlaybackActive}
         {@const available = isTrackAvailable(track)}
         {@const removedFromQobuz = isTrackRemovedFromQobuz(track)}
+        {@const trackBlacklisted = !track.isLocal && track.artistId ? isArtistBlacklisted(track.artistId) : false}
         <div
           class="track-row-wrapper"
           class:unavailable={!available}
@@ -1825,18 +1861,24 @@
             isLocal={track.isLocal}
             isUnavailable={removedFromQobuz && isOwnPlaylist}
             unavailableTooltip={removedFromQobuz ? $t('player.trackUnavailable') : undefined}
-            hideFavorite={track.isLocal || removedFromQobuz}
-            hideDownload={track.isLocal || removedFromQobuz}
+            isBlacklisted={trackBlacklisted}
+            hideFavorite={track.isLocal || removedFromQobuz || trackBlacklisted}
+            hideDownload={track.isLocal || removedFromQobuz || trackBlacklisted}
             downloadStatus={downloadInfo.status}
             downloadProgress={downloadInfo.progress}
-            onPlay={available ? () => handleTrackClick(track, idx) : undefined}
-            onDownload={available && !track.isLocal && onTrackDownload ? () => onTrackDownload(track) : undefined}
-            onRemoveDownload={available && !track.isLocal && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
+            onPlay={available && !trackBlacklisted ? () => handleTrackClick(track, idx) : undefined}
+            onDownload={available && !track.isLocal && !trackBlacklisted && onTrackDownload ? () => onTrackDownload(track) : undefined}
+            onRemoveDownload={available && !track.isLocal && !trackBlacklisted && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
             menuActions={removedFromQobuz ? (isOwnPlaylist ? {
               // Only allow remove from playlist and find replacement for tracks removed from Qobuz (owned playlists only)
               onRemoveFromPlaylist: () => removeTrackFromPlaylist(track),
               onFindReplacement: () => openReplacementModal(track)
-            } : {}) : available ? {
+            } : {}) : trackBlacklisted ? {
+              // Blacklisted: only allow navigation and info, no playback
+              onGoToAlbum: !track.isLocal && track.albumId && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.albumId!) : undefined,
+              onGoToArtist: !track.isLocal && track.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(track.artistId!) : undefined,
+              onShowInfo: !track.isLocal && onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined
+            } : available ? {
               onPlayNow: () => handleTrackClick(track, idx),
               onPlayNext: track.isLocal ? () => handleTrackPlayNext(track) : (onTrackPlayNext ? () => onTrackPlayNext(track) : undefined),
               onPlayLater: track.isLocal ? () => handleTrackPlayLater(track) : (onTrackPlayLater ? () => onTrackPlayLater(track) : undefined),

@@ -37,11 +37,12 @@
     getCurrentContext,
     requestContextTrackFocus
   } from '$lib/stores/playbackContextStore';
-  import { 
+  import {
     initPlaybackPreferences,
     getCachedPreferences,
     isAutoplayEnabled
   } from '$lib/stores/playbackPreferencesStore';
+  import { initBlacklistStore, isBlacklisted as isArtistBlacklisted } from '$lib/stores/artistBlacklistStore';
 
   // UI state management
   import {
@@ -292,6 +293,7 @@
   import FavoritesView from '$lib/components/views/FavoritesView.svelte';
   import LocalLibraryView from '$lib/components/views/LocalLibraryView.svelte';
   import PlaylistManagerView from '$lib/components/views/PlaylistManagerView.svelte';
+  import BlacklistManagerView from '$lib/components/views/BlacklistManagerView.svelte';
 
   // Overlays
   import QueuePanel from '$lib/components/QueuePanel.svelte';
@@ -1256,12 +1258,18 @@
         ? 'Hi-Res'
         : '-';
 
-    // Build queue from album tracks before playing
+    // Build queue from album tracks before playing (filter blacklisted artists)
     if (selectedAlbum?.tracks) {
       console.log('[Album Queue] Building queue from', selectedAlbum.tracks.length, 'album tracks');
 
-      const trackIndex = selectedAlbum.tracks.findIndex(t => t.id === track.id);
-      const queueTracks: BackendQueueTrack[] = selectedAlbum.tracks.map(t => ({
+      // Filter out blacklisted tracks
+      const playableTracks = selectedAlbum.tracks.filter(t => {
+        const artistId = t.artistId ?? selectedAlbum.artistId;
+        return !artistId || !isArtistBlacklisted(artistId);
+      });
+
+      const trackIndex = playableTracks.findIndex(t => t.id === track.id);
+      const queueTracks: BackendQueueTrack[] = playableTracks.map(t => ({
         id: t.id,
         title: t.title,
         artist: t.artist || selectedAlbum?.artist || 'Unknown Artist',
@@ -1276,7 +1284,7 @@
         artist_id: t.artistId ?? selectedAlbum?.artistId
       }));
 
-      console.log('[Album Queue] Mapped to', queueTracks.length, 'queue tracks, startIndex:', trackIndex);
+      console.log('[Album Queue] Mapped to', queueTracks.length, 'queue tracks (filtered), startIndex:', trackIndex);
       console.log('[Album Queue] Track IDs:', queueTracks.map(t => t.id));
 
       // Set the queue starting at the clicked track
@@ -1612,18 +1620,31 @@
     }
   }
 
-  // Play all tracks from album (starting from first track)
+  // Play all tracks from album (starting from first non-blacklisted track)
   async function handlePlayAllAlbum() {
     if (!selectedAlbum?.tracks?.length) return;
-    const firstTrack = selectedAlbum.tracks[0];
-    await handleAlbumTrackPlay(firstTrack);
+    // Find first non-blacklisted track
+    const firstPlayableTrack = selectedAlbum.tracks.find(t => {
+      const artistId = t.artistId ?? selectedAlbum.artistId;
+      return !artistId || !isArtistBlacklisted(artistId);
+    });
+    if (!firstPlayableTrack) return;
+    await handleAlbumTrackPlay(firstPlayableTrack);
   }
 
   // Shuffle play all tracks from album
   async function handleShuffleAlbum() {
     if (!selectedAlbum?.tracks?.length) return;
 
-    console.log('[Album Shuffle] Starting shuffle with', selectedAlbum.tracks.length, 'tracks');
+    // Filter out blacklisted tracks
+    const playableTracks = selectedAlbum.tracks.filter(t => {
+      const artistId = t.artistId ?? selectedAlbum.artistId;
+      return !artistId || !isArtistBlacklisted(artistId);
+    });
+
+    if (playableTracks.length === 0) return;
+
+    console.log('[Album Shuffle] Starting shuffle with', playableTracks.length, 'playable tracks');
 
     // Set shuffle mode first
     try {
@@ -1634,8 +1655,8 @@
     }
 
     // Pick a random track to start with
-    const randomIndex = Math.floor(Math.random() * selectedAlbum.tracks.length);
-    const randomTrack = selectedAlbum.tracks[randomIndex];
+    const randomIndex = Math.floor(Math.random() * playableTracks.length);
+    const randomTrack = playableTracks[randomIndex];
 
     console.log('[Album Shuffle] Starting from random track index:', randomIndex, 'track:', randomTrack.title);
 
@@ -1648,10 +1669,18 @@
   async function handleAddAlbumToQueueNext() {
     if (!selectedAlbum?.tracks?.length) return;
 
+    // Filter out blacklisted tracks
+    const playableTracks = selectedAlbum.tracks.filter(t => {
+      const artistId = t.artistId ?? selectedAlbum.artistId;
+      return !artistId || !isArtistBlacklisted(artistId);
+    });
+
+    if (playableTracks.length === 0) return;
+
     const artwork = selectedAlbum.artwork || '';
     // Add in reverse order so first track ends up right after current
-    for (let i = selectedAlbum.tracks.length - 1; i >= 0; i--) {
-      const t = selectedAlbum.tracks[i];
+    for (let i = playableTracks.length - 1; i >= 0; i--) {
+      const t = playableTracks[i];
       queueTrackNext({
         id: t.id,
         title: t.title,
@@ -1667,15 +1696,23 @@
         artist_id: t.artistId ?? selectedAlbum?.artistId
       });
     }
-    showToast($t('toast.playingTracksNext', { values: { count: selectedAlbum.tracks.length } }), 'success');
+    showToast($t('toast.playingTracksNext', { values: { count: playableTracks.length } }), 'success');
   }
 
   // Add all album tracks to end of queue
   async function handleAddAlbumToQueueLater() {
     if (!selectedAlbum?.tracks?.length) return;
 
+    // Filter out blacklisted tracks
+    const playableTracks = selectedAlbum.tracks.filter(t => {
+      const artistId = t.artistId ?? selectedAlbum.artistId;
+      return !artistId || !isArtistBlacklisted(artistId);
+    });
+
+    if (playableTracks.length === 0) return;
+
     const artwork = selectedAlbum.artwork || '';
-    const queueTracks: BackendQueueTrack[] = selectedAlbum.tracks.map(t => ({
+    const queueTracks: BackendQueueTrack[] = playableTracks.map(t => ({
       id: t.id,
       title: t.title,
       artist: t.artist || selectedAlbum?.artist || 'Unknown Artist',
@@ -2437,6 +2474,7 @@
     // Initialize playback context and preferences stores
     initPlaybackContextStore();
     initPlaybackPreferences();
+    initBlacklistStore();
 
     // Load infinite play preference
     try {
@@ -2958,6 +2996,7 @@
         <SettingsView
           onBack={navGoBack}
           onLogout={handleLogout}
+          onBlacklistManagerClick={() => navigateTo('blacklist-manager')}
           userName={userInfo?.userName}
           subscription={userInfo?.subscription}
           subscriptionValidUntil={userInfo?.subscriptionValidUntil}
@@ -3171,6 +3210,11 @@
             sidebarRef?.refreshPlaylistSettings();
             sidebarRef?.refreshLocalTrackCounts();
           }}
+        />
+      {:else if activeView === 'blacklist-manager'}
+        <BlacklistManagerView
+          onBack={navGoBack}
+          onArtistSelect={handleArtistClick}
         />
       {/if}
     </main>
