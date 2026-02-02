@@ -15,14 +15,17 @@
     type GenreFilterContext
   } from '$lib/stores/genreFilterStore';
 
+  type DropdownAlign = 'left' | 'right';
+
   interface Props {
     isOpen: boolean;
     onClose: () => void;
     anchorEl?: HTMLElement | null;
     context?: GenreFilterContext;
+    align?: DropdownAlign;
   }
 
-  let { isOpen, onClose, anchorEl = null, context = 'home' }: Props = $props();
+  let { isOpen, onClose, anchorEl = null, context = 'home', align = 'left' }: Props = $props();
 
   let genres = $state<GenreInfo[]>([]);
   let selectedIds = $state<Set<number>>(new Set());
@@ -62,12 +65,22 @@
     const anchorRect = anchorEl.getBoundingClientRect();
     const popupRect = popupEl.getBoundingClientRect();
 
-    // Align right edge of popup with right edge of anchor (extends to the left)
-    let left = anchorRect.right - popupRect.width;
+    let left: number;
     let top = anchorRect.bottom + 8;
 
-    // Only adjust left if it goes off the LEFT edge of the screen
-    if (left < 8) left = 8;
+    if (align === 'right') {
+      // Align left edge of popup with left edge of anchor (extends to the right)
+      left = anchorRect.left;
+      // Adjust if it goes off the RIGHT edge
+      if (left + popupRect.width > window.innerWidth - 8) {
+        left = window.innerWidth - popupRect.width - 8;
+      }
+    } else {
+      // Align right edge of popup with right edge of anchor (extends to the left)
+      left = anchorRect.right - popupRect.width;
+      // Only adjust left if it goes off the LEFT edge of the screen
+      if (left < 8) left = 8;
+    }
 
     // Handle vertical overflow
     if (top + popupRect.height > window.innerHeight - 8) {

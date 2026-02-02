@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { SlidersHorizontal } from 'lucide-svelte';
+  import { SlidersHorizontal, ChevronDown } from 'lucide-svelte';
   import GenreFilterPopup from './GenreFilterPopup.svelte';
   import {
     hasActiveFilter,
@@ -13,12 +13,17 @@
     type GenreFilterContext
   } from '$lib/stores/genreFilterStore';
 
+  type ButtonVariant = 'default' | 'control';
+  type DropdownAlign = 'left' | 'right';
+
   interface Props {
     onFilterChange?: () => void;
     context?: GenreFilterContext;
+    variant?: ButtonVariant;
+    align?: DropdownAlign;
   }
 
-  let { onFilterChange, context = 'home' }: Props = $props();
+  let { onFilterChange, context = 'home', variant = 'default', align = 'left' }: Props = $props();
 
   let isOpen = $state(false);
   let buttonEl: HTMLButtonElement | null = null;
@@ -69,24 +74,44 @@
 </script>
 
 <div class="genre-filter-wrapper">
-  <button
-    class="genre-filter-btn"
-    class:active={hasFilter}
-    bind:this={buttonEl}
-    onclick={togglePopup}
-    type="button"
-  >
-    <SlidersHorizontal size={14} />
-    {#if selectedGenreName}
-      <span class="filter-label">{selectedGenreName}</span>
-    {:else}
-      <span class="filter-label">Filter by genre</span>
-    {/if}
-  </button>
+  {#if variant === 'control'}
+    <button
+      class="control-btn"
+      class:active={hasFilter}
+      bind:this={buttonEl}
+      onclick={togglePopup}
+      type="button"
+    >
+      <span>
+        {#if selectedGenreName}
+          Genre: {selectedGenreName}
+        {:else}
+          Genre: All
+        {/if}
+      </span>
+      <ChevronDown size={14} />
+    </button>
+  {:else}
+    <button
+      class="genre-filter-btn"
+      class:active={hasFilter}
+      bind:this={buttonEl}
+      onclick={togglePopup}
+      type="button"
+    >
+      <SlidersHorizontal size={14} />
+      {#if selectedGenreName}
+        <span class="filter-label">{selectedGenreName}</span>
+      {:else}
+        <span class="filter-label">Filter by genre</span>
+      {/if}
+    </button>
+  {/if}
 
   <GenreFilterPopup
     {isOpen}
     {context}
+    {align}
     onClose={closePopup}
     anchorEl={buttonEl}
   />
@@ -97,6 +122,7 @@
     position: relative;
   }
 
+  /* Default variant (Home style) */
   .genre-filter-btn {
     display: flex;
     align-items: center;
@@ -133,5 +159,29 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Control variant (Favorites style) */
+  .control-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .control-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .control-btn.active {
+    color: var(--accent-primary);
   }
 </style>

@@ -1255,7 +1255,7 @@
   <div class="toolbar">
     {#if activeTab === 'albums'}
       <div class="toolbar-controls">
-        <GenreFilterButton context={GENRE_CONTEXT} onFilterChange={handleGenreFilterChange} />
+        <GenreFilterButton context={GENRE_CONTEXT} variant="control" align="right" onFilterChange={handleGenreFilterChange} />
         <div class="dropdown-container">
           <button class="control-btn" onclick={() => (showAlbumGroupMenu = !showAlbumGroupMenu)}>
             <span>
