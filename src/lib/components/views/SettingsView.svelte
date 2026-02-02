@@ -75,7 +75,6 @@
     type UpdatePreferences
   } from '$lib/stores/updatesStore';
   import { openReleasePageAndAcknowledge } from '$lib/services/updatesService';
-  import { navigateTo } from '$lib/stores/navigationStore';
   import {
     getCount as getBlacklistCount,
     isEnabled as isBlacklistEnabled,
@@ -85,6 +84,7 @@
   interface Props {
     onBack?: () => void;
     onLogout?: () => void;
+    onBlacklistManagerClick?: () => void;
     userName?: string;
     userEmail?: string;
     subscription?: string;
@@ -115,6 +115,7 @@
   let {
     onBack,
     onLogout,
+    onBlacklistManagerClick,
     userName = 'User',
     userEmail = '',
     subscription = 'Qobuz™',
@@ -2422,7 +2423,7 @@
           </div>
         </div>
       </div>
-      <button class="link-btn" onclick={() => navigateTo('blacklist-manager')}>
+      <button class="link-btn" onclick={onBlacklistManagerClick}>
         {$t('settings.contentFiltering.manage')}
         <ChevronRight size={16} />
       </button>

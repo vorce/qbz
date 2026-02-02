@@ -2954,6 +2954,7 @@
         <SettingsView
           onBack={navGoBack}
           onLogout={handleLogout}
+          onBlacklistManagerClick={() => navigateTo('blacklist-manager')}
           userName={userInfo?.userName}
           subscription={userInfo?.subscription}
           subscriptionValidUntil={userInfo?.subscriptionValidUntil}
