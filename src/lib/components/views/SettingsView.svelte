@@ -1681,7 +1681,7 @@
       notifyDownloadSettingsChanged();
     } catch (err) {
       console.error('Failed to repair downloads:', err);
-      showToast($t('toast.failedRepairOffline', { error: String(err) }), 'error');
+      showToast($t('toast.failedRepairOffline', { values: { error: String(err) } }), 'error');
     } finally {
       isRepairingDownloads = false;
     }

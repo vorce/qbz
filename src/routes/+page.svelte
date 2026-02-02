@@ -663,7 +663,7 @@
    * - Weak (1), None (0): Show Informational Modal
    */
   async function handleMusicianClick(name: string, role: string) {
-    showToast($t('toast.lookingUp', { name }), 'info');
+    showToast($t('toast.lookingUp', { values: { name } }), 'info');
     try {
       const musician = await invoke<ResolvedMusician>('resolve_musician', { name, role });
       console.log('Resolved musician:', musician);
@@ -929,7 +929,7 @@
         artist_id: t.artistId ?? album.artistId
       });
     }
-    showToast($t('toast.playingTracksNext', { count: album.tracks.length }), 'success');
+    showToast($t('toast.playingTracksNext', { values: { count: album.tracks.length } }), 'success');
   }
 
   async function queueAlbumLaterById(albumId: string) {
@@ -954,7 +954,7 @@
 
     const success = await addTracksToQueue(queueTracks);
     if (success) {
-      showToast($t('toast.addedTracksToQueue', { count: queueTracks.length }), 'success');
+      showToast($t('toast.addedTracksToQueue', { values: { count: queueTracks.length } }), 'success');
     } else {
       showToast($t('toast.failedAddToQueue'), 'error');
     }
@@ -984,7 +984,7 @@
       showToast($t('toast.albumLinkCopiedSonglink'), 'success');
     } catch (err) {
       console.error('Failed to get Album.link:', err);
-      showToast($t('toast.albumLinkError', { error: String(err) }), 'error');
+      showToast($t('toast.albumLinkError', { values: { error: String(err) } }), 'error');
     }
   }
 
@@ -1002,7 +1002,7 @@
       return;
     }
 
-    showToast($t('toast.preparingTracksOffline', { count: tracksToDownload.length, album: album.title }), 'info');
+    showToast($t('toast.preparingTracksOffline', { values: { count: tracksToDownload.length, album: album.title } }), 'info');
 
     for (const track of tracksToDownload) {
       try {
@@ -1135,7 +1135,7 @@
         artist_id: t.performer?.id
       });
     }
-    showToast($t('toast.playingTracksNext', { count: tracks.length }), 'success');
+    showToast($t('toast.playingTracksNext', { values: { count: tracks.length } }), 'success');
   }
 
   async function queuePlaylistLaterById(playlistId: number) {
@@ -1163,7 +1163,7 @@
 
     const success = await addTracksToQueue(queueTracks);
     if (success) {
-      showToast($t('toast.addedTracksToQueue', { count: queueTracks.length }), 'success');
+      showToast($t('toast.addedTracksToQueue', { values: { count: queueTracks.length } }), 'success');
     } else {
       showToast($t('toast.failedAddToQueue'), 'error');
     }
@@ -1177,7 +1177,7 @@
       showToast($t('toast.playlistCopied'), 'success');
     } catch (err) {
       console.error('Failed to copy playlist:', err);
-      showToast($t('toast.failedCopyPlaylist', { error: String(err) }), 'error');
+      showToast($t('toast.failedCopyPlaylist', { values: { error: String(err) } }), 'error');
     }
   }
 
@@ -1195,7 +1195,7 @@
       sidebarRef?.refreshPlaylistSettings();
     } catch (err) {
       console.error('Failed to remove playlist favorite:', err);
-      showToast($t('toast.failedRemoveFavorites', { error: String(err) }), 'error');
+      showToast($t('toast.failedRemoveFavorites', { values: { error: String(err) } }), 'error');
     }
   }
 
@@ -1667,7 +1667,7 @@
         artist_id: t.artistId ?? selectedAlbum?.artistId
       });
     }
-    showToast($t('toast.playingTracksNext', { count: selectedAlbum.tracks.length }), 'success');
+    showToast($t('toast.playingTracksNext', { values: { count: selectedAlbum.tracks.length } }), 'success');
   }
 
   // Add all album tracks to end of queue
@@ -1692,7 +1692,7 @@
 
     const success = await addTracksToQueue(queueTracks);
     if (success) {
-      showToast($t('toast.addedTracksToQueue', { count: queueTracks.length }), 'success');
+      showToast($t('toast.addedTracksToQueue', { values: { count: queueTracks.length } }), 'success');
     } else {
       showToast($t('toast.failedAddToQueue'), 'error');
     }
@@ -1732,7 +1732,7 @@
       showToast($t('toast.albumLinkCopiedSonglink'), 'success');
     } catch (err) {
       console.error('Failed to get Album.link:', err);
-      showToast($t('toast.albumLinkError', { error: String(err) }), 'error');
+      showToast($t('toast.albumLinkError', { values: { error: String(err) } }), 'error');
     }
   }
 
@@ -1758,7 +1758,7 @@
         bitDepth: track.bitDepth,
         sampleRate: track.samplingRate,
       });
-      showToast($t('toast.preparingTrackOffline', { title: track.title }), 'info');
+      showToast($t('toast.preparingTrackOffline', { values: { title: track.title } }), 'info');
     } catch (err) {
       console.error('Failed to cache for offline:', err);
       showToast($t('toast.failedPrepareOffline'), 'error');
@@ -1798,7 +1798,7 @@
         bitDepth: 'bitDepth' in track ? track.bitDepth : undefined,
         sampleRate: 'samplingRate' in track ? track.samplingRate : undefined,
       });
-      showToast($t('toast.refreshingTrackOffline', { title: track.title }), 'info');
+      showToast($t('toast.refreshingTrackOffline', { values: { title: track.title } }), 'info');
     } catch (err) {
       console.error('Failed to refresh offline copy:', err);
       showToast($t('toast.failedRefreshOffline'), 'error');
@@ -1822,7 +1822,7 @@
       return;
     }
 
-    showToast($t('toast.preparingTracksOffline', { count: tracksToDownload.length, album: selectedAlbum.title }), 'info');
+    showToast($t('toast.preparingTracksOffline', { values: { count: tracksToDownload.length, album: selectedAlbum.title } }), 'info');
 
     for (const track of tracksToDownload) {
       try {
@@ -1857,7 +1857,7 @@
   async function handleReDownloadAlbum() {
     if (!selectedAlbum) return;
 
-    showToast($t('toast.refreshingAlbumOffline', { album: selectedAlbum.title }), 'info');
+    showToast($t('toast.refreshingAlbumOffline', { values: { album: selectedAlbum.title } }), 'info');
 
     for (const track of selectedAlbum.tracks) {
       try {
@@ -1895,7 +1895,7 @@
         return;
       }
 
-      showToast($t('toast.refreshingAlbumOffline', { album: album.title }), 'info');
+      showToast($t('toast.refreshingAlbumOffline', { values: { album: album.title } }), 'info');
 
       for (const track of album.tracks.data) {
         try {
@@ -1944,7 +1944,7 @@
         bitDepth: track.bitDepth,
         sampleRate: track.samplingRate,
       });
-      showToast($t('toast.preparingTrackOffline', { title: track.title }), 'info');
+      showToast($t('toast.preparingTrackOffline', { values: { title: track.title } }), 'info');
     } catch (err) {
       console.error('Failed to prepare for offline:', err);
       showToast($t('toast.failedPrepareOffline'), 'error');
@@ -2118,7 +2118,7 @@
 
   async function handleLoginSuccess(info: UserInfo) {
     setLoggedIn(info);
-    showToast($t('toast.welcomeUser', { name: info.userName }), 'success');
+    showToast($t('toast.welcomeUser', { values: { name: info.userName } }), 'success');
 
     // Load favorites now that login is confirmed (sync with Qobuz)
     loadFavorites();        // Track favorites

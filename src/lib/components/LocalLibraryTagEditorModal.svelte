@@ -174,7 +174,7 @@
       showRemotePanel = results.length > 0;
     } catch (err) {
       console.error('Remote search failed:', err);
-      showToast($t('toast.searchFailed', { error: String(err) }), 'error');
+      showToast($t('toast.searchFailed', { values: { error: String(err) } }), 'error');
       hasSearched = true;
     } finally {
       remoteSearching = false;
@@ -225,7 +225,7 @@
           'warning'
         );
       } else {
-        showToast($t('toast.appliedMetadata', { provider: providerName }), 'success');
+        showToast($t('toast.appliedMetadata', { values: { provider: providerName } }), 'success');
       }
       showRemotePanel = false;
     } catch (err) {
@@ -235,7 +235,7 @@
       if (errStr.includes('429') || errStr.toLowerCase().includes('rate')) {
         showToast($t('toast.rateLimited'), 'warning');
       } else {
-        showToast($t('toast.failedFetchMetadata', { error: String(err) }), 'error');
+        showToast($t('toast.failedFetchMetadata', { values: { error: String(err) } }), 'error');
       }
     } finally {
       remoteLoading = false;

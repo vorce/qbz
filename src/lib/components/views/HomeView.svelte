@@ -133,7 +133,7 @@
     if (info.type === 'custom') {
       return info.text;
     }
-    return $t(info.key, { name: info.name });
+    return $t(info.key, { values: { name: info.name } });
   });
 
 

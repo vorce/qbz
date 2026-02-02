@@ -1357,7 +1357,7 @@
 
       if (result.removed > 0) {
         cleanupStatus = `Removed ${result.removed} of ${result.checked} tracks`;
-        showToast($t('toast.removedMissingFiles', { count: result.removed }), 'success');
+        showToast($t('toast.removedMissingFiles', { values: { count: result.removed } }), 'success');
         // Reload library data
         cleanupStatus = 'Refreshing library...';
         await loadAlbums();
