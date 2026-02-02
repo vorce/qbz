@@ -1184,6 +1184,18 @@
     showToast('Playlist link copied to clipboard', 'success');
   }
 
+  async function removePlaylistFavoriteById(playlistId: number) {
+    try {
+      await invoke('playlist_set_favorite', { playlistId, favorite: false });
+      showToast('Playlist removed from favorites', 'success');
+      sidebarRef?.refreshPlaylists();
+      sidebarRef?.refreshPlaylistSettings();
+    } catch (err) {
+      console.error('Failed to remove playlist favorite:', err);
+      showToast(`Failed to remove from favorites: ${err}`, 'error');
+    }
+  }
+
   // Playback Functions - QobuzTrack from search results
   async function handleTrackPlay(track: QobuzTrack) {
     console.log('Playing track:', track);
@@ -3132,6 +3144,11 @@
             onTrackReDownload={handleDisplayTrackDownload}
             getTrackOfflineCacheStatus={getTrackOfflineCacheStatus}
             onPlaylistSelect={selectPlaylist}
+            onPlaylistPlay={playPlaylistById}
+            onPlaylistPlayNext={queuePlaylistNextById}
+            onPlaylistPlayLater={queuePlaylistLaterById}
+            onPlaylistRemoveFavorite={removePlaylistFavoriteById}
+            onPlaylistShareQobuz={sharePlaylistQobuzLinkById}
             selectedTab={getFavoritesTabFromView(activeView) ?? favoritesDefaultTab}
             onTabNavigate={(tab) => navigateToFavorites(tab)}
             activeTrackId={currentTrack?.id ?? null}

@@ -6,7 +6,7 @@
   import TrackRow from '../TrackRow.svelte';
   import QualityBadge from '../QualityBadge.svelte';
   import VirtualizedTrackList from '../VirtualizedTrackList.svelte';
-  import PlaylistCollage from '../PlaylistCollage.svelte';
+  import FavoritePlaylistCard from '../FavoritePlaylistCard.svelte';
   import FavoritesEditModal from '../FavoritesEditModal.svelte';
   import ViewTransition from '../ViewTransition.svelte';
   import { type OfflineCacheStatus } from '$lib/stores/offlineCacheState';
@@ -95,6 +95,11 @@
     onTrackReDownload?: (track: DisplayTrack) => void;
     getTrackOfflineCacheStatus?: (trackId: number) => { status: OfflineCacheStatus; progress: number };
     onPlaylistSelect?: (playlistId: number) => void;
+    onPlaylistPlay?: (playlistId: number) => void;
+    onPlaylistPlayNext?: (playlistId: number) => void;
+    onPlaylistPlayLater?: (playlistId: number) => void;
+    onPlaylistRemoveFavorite?: (playlistId: number) => void;
+    onPlaylistShareQobuz?: (playlistId: number) => void;
     selectedTab?: TabType;
     onTabNavigate?: (tab: TabType) => void;
     activeTrackId?: number | null;
@@ -146,6 +151,11 @@
     onTrackReDownload,
     getTrackOfflineCacheStatus,
     onPlaylistSelect,
+    onPlaylistPlay,
+    onPlaylistPlayNext,
+    onPlaylistPlayLater,
+    onPlaylistRemoveFavorite,
+    onPlaylistShareQobuz,
     selectedTab,
     onTabNavigate,
     activeTrackId = null,
@@ -2083,13 +2093,15 @@
         {:else}
           <div class="playlist-grid">
             {#each filteredPlaylists as playlist (playlist.id)}
-              <button class="playlist-card" onclick={() => onPlaylistSelect?.(playlist.id)}>
-                <div class="playlist-artwork">
-                  <PlaylistCollage artworks={playlist.images ?? []} size={140} />
-                </div>
-                <div class="playlist-name">{playlist.name}</div>
-                <div class="playlist-meta">{playlist.tracks_count} tracks</div>
-              </button>
+              <FavoritePlaylistCard
+                {playlist}
+                onclick={() => onPlaylistSelect?.(playlist.id)}
+                onPlay={() => onPlaylistPlay?.(playlist.id)}
+                onPlayNext={() => onPlaylistPlayNext?.(playlist.id)}
+                onPlayLater={() => onPlaylistPlayLater?.(playlist.id)}
+                onRemoveFavorite={() => onPlaylistRemoveFavorite?.(playlist.id)}
+                onShareQobuz={() => onPlaylistShareQobuz?.(playlist.id)}
+              />
             {/each}
           </div>
         {/if}
@@ -2937,49 +2949,9 @@
   /* Playlist grid styles */
   .playlist-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, 140px);
     gap: 24px;
-  }
-
-  .playlist-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 16px;
-    background-color: var(--bg-secondary);
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: background-color 150ms ease;
-  }
-
-  .playlist-card:hover {
-    background-color: var(--bg-tertiary);
-  }
-
-  .playlist-artwork {
-    width: 140px;
-    height: 140px;
-    border-radius: 8px;
-    overflow: hidden;
-    margin-bottom: 12px;
-  }
-
-  .playlist-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    text-align: center;
-    max-width: 140px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .playlist-meta {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 4px;
+    justify-content: start;
   }
 
   /* Artist Two-Column Sidepanel Layout */
