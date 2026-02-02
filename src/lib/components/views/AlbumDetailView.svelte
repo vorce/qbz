@@ -20,6 +20,7 @@
     number: number;
     title: string;
     artist?: string;
+    artistId?: number;
     duration: string;
     durationSeconds: number;
     quality?: string;
@@ -417,7 +418,8 @@
       {#each album.tracks as track, trackIndex (`${track.id}-${downloadStateVersion}`)}
         {@const downloadInfo = getTrackOfflineCacheStatus?.(track.id) ?? { status: 'none' as const, progress: 0 }}
         {@const isTrackDownloaded = downloadInfo.status === 'ready'}
-        {@const albumArtistBlacklisted = album.artistId ? isArtistBlacklisted(album.artistId) : false}
+        {@const trackArtistId = track.artistId ?? album.artistId}
+        {@const trackBlacklisted = trackArtistId ? isArtistBlacklisted(trackArtistId) : false}
         <TrackRow
           trackId={track.id}
           number={track.number}
@@ -426,17 +428,17 @@
           duration={track.duration}
           quality={track.quality}
           isPlaying={activeTrackId === track.id}
-          isBlacklisted={albumArtistBlacklisted}
+          isBlacklisted={trackBlacklisted}
           downloadStatus={downloadInfo.status}
           downloadProgress={downloadInfo.progress}
-          hideFavorite={albumArtistBlacklisted}
-          hideDownload={albumArtistBlacklisted}
-          onPlay={albumArtistBlacklisted ? undefined : () => {
+          hideFavorite={trackBlacklisted}
+          hideDownload={trackBlacklisted}
+          onPlay={trackBlacklisted ? undefined : () => {
             onTrackPlay?.(track);
           }}
-          onDownload={!albumArtistBlacklisted && onTrackDownload ? () => onTrackDownload(track) : undefined}
-          onRemoveDownload={!albumArtistBlacklisted && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
-          menuActions={albumArtistBlacklisted ? {
+          onDownload={!trackBlacklisted && onTrackDownload ? () => onTrackDownload(track) : undefined}
+          onRemoveDownload={!trackBlacklisted && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
+          menuActions={trackBlacklisted ? {
             // Blacklisted: only navigation and info
             onGoToArtist: album.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(album.artistId!) : undefined,
             onShowInfo: onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined
