@@ -3172,7 +3172,7 @@
       {:else if activeView === 'blacklist-manager'}
         <BlacklistManagerView
           onBack={navGoBack}
-          onArtistSelect={selectArtist}
+          onArtistSelect={handleArtistClick}
         />
       {/if}
     </main>
