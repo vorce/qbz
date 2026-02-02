@@ -46,12 +46,12 @@
     }
   }
 
-  function getPlaylistImage(): string {
+  function getPlaylistImages(): string[] {
     // Prefer images300 for better quality, fallback to images150, then images
-    if (playlist.images300?.length) return playlist.images300[0];
-    if (playlist.images150?.length) return playlist.images150[0];
-    if (playlist.images?.length) return playlist.images[0];
-    return '';
+    if (playlist.images300?.length) return playlist.images300;
+    if (playlist.images150?.length) return playlist.images150;
+    if (playlist.images?.length) return playlist.images;
+    return [];
   }
 
   function getGenreLabel(): string {
@@ -133,11 +133,7 @@
   onkeydown={(e) => e.key === 'Enter' && onclick?.()}
 >
   <div class="artwork-container">
-    {#if getPlaylistImage()}
-      <img src={getPlaylistImage()} alt={playlist.name} loading="lazy" />
-    {:else}
-      <PlaylistCollage artworks={playlist.images || []} size={162} />
-    {/if}
+    <PlaylistCollage artworks={getPlaylistImages()} size={162} />
 
     <div class="action-overlay">
       {#if getGenreLabel()}
