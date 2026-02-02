@@ -7,6 +7,7 @@
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import HomeSettingsModal from '../HomeSettingsModal.svelte';
+  import GenreFilterButton from '../GenreFilterButton.svelte';
   import { formatDuration, formatQuality, getQobuzImage } from '$lib/adapters/qobuzAdapters';
   import {
     subscribe as subscribeHomeSettings,
@@ -15,6 +16,10 @@
     type HomeSettings,
     type HomeSectionId
   } from '$lib/stores/homeSettingsStore';
+  import {
+    getSelectedGenreId,
+    hasActiveFilter as hasGenreFilter
+  } from '$lib/stores/genreFilterStore';
   import { setPlaybackContext } from '$lib/stores/playbackContextStore';
   import type { QobuzAlbum, QobuzArtist, QobuzTrack, DisplayTrack } from '$lib/types';
 
@@ -317,11 +322,12 @@
     total: number;
   }
 
-  async function fetchFeaturedAlbums(featuredType: string, limit: number): Promise<AlbumCardData[]> {
+  async function fetchFeaturedAlbums(featuredType: string, limit: number, genreId?: number): Promise<AlbumCardData[]> {
     try {
       const response = await invoke<FeaturedAlbumsResponse>('get_featured_albums', {
         featuredType,
-        limit
+        limit,
+        genreId: genreId ?? null
       });
       return response.items.map(toAlbumCard);
     } catch (err) {
@@ -434,6 +440,11 @@
       .slice(0, homeLimits.topArtists);
   }
 
+  function handleGenreFilterChange() {
+    // Reload home page with new genre filter
+    loadHome();
+  }
+
   async function loadHome() {
     isInitializing = true;
     isOverlayVisible = true;
@@ -469,9 +480,12 @@
       limitFavorites: Math.max(homeLimits.favoriteAlbums, homeLimits.favoriteTracks)
     });
 
+    // Get current genre filter
+    const genreId = getSelectedGenreId();
+
     // Start Qobuz API calls in parallel (don't await)
     if (isSectionVisible('newReleases')) {
-      fetchFeaturedAlbums('new-releases', homeLimits.featuredAlbums).then(async albums => {
+      fetchFeaturedAlbums('new-releases', homeLimits.featuredAlbums, genreId).then(async albums => {
         newReleases = albums;
         await loadAllAlbumDownloadStatuses(albums);
         loadingNewReleases = false;
@@ -482,7 +496,7 @@
     }
 
     if (isSectionVisible('pressAwards')) {
-      fetchFeaturedAlbums('press-awards', homeLimits.featuredAlbums).then(async albums => {
+      fetchFeaturedAlbums('press-awards', homeLimits.featuredAlbums, genreId).then(async albums => {
         pressAwards = albums;
         await loadAllAlbumDownloadStatuses(albums);
         loadingPressAwards = false;
@@ -493,7 +507,7 @@
     }
 
     if (isSectionVisible('mostStreamed')) {
-      fetchFeaturedAlbums('most-streamed', homeLimits.featuredAlbums).then(async albums => {
+      fetchFeaturedAlbums('most-streamed', homeLimits.featuredAlbums, genreId).then(async albums => {
         mostStreamed = albums;
         await loadAllAlbumDownloadStatuses(albums);
         loadingMostStreamed = false;
@@ -504,7 +518,7 @@
     }
 
     if (isSectionVisible('qobuzissimes')) {
-      fetchFeaturedAlbums('qobuzissimes', homeLimits.featuredAlbums).then(async albums => {
+      fetchFeaturedAlbums('qobuzissimes', homeLimits.featuredAlbums, genreId).then(async albums => {
         qobuzissimes = albums;
         await loadAllAlbumDownloadStatuses(albums);
         loadingQobuzissimes = false;
@@ -515,7 +529,7 @@
     }
 
     if (isSectionVisible('editorPicks')) {
-      fetchFeaturedAlbums('editor-picks', homeLimits.featuredAlbums).then(async albums => {
+      fetchFeaturedAlbums('editor-picks', homeLimits.featuredAlbums, genreId).then(async albums => {
         editorPicks = albums;
         await loadAllAlbumDownloadStatuses(albums);
         loadingEditorPicks = false;
@@ -610,16 +624,19 @@
     </div>
   {/if}
 
-  <!-- Header with greeting and settings -->
+  <!-- Header with greeting, filter and settings -->
   <div class="home-header">
     {#if homeSettings.greeting.enabled}
       <h2 class="greeting">{greetingText}</h2>
     {:else}
       <div></div>
     {/if}
-    <button class="settings-btn" onclick={() => isSettingsModalOpen = true} title={$t('home.customizeHome')}>
-      <img src="/home-gear.svg" alt="Settings" class="settings-icon" />
-    </button>
+    <div class="header-actions">
+      <GenreFilterButton onFilterChange={handleGenreFilterChange} />
+      <button class="settings-btn" onclick={() => isSettingsModalOpen = true} title={$t('home.customizeHome')}>
+        <img src="/home-gear.svg" alt="Settings" class="settings-icon" />
+      </button>
+    </div>
   </div>
 
   {#if isInitializing && !isOverlayVisible}
@@ -1055,6 +1072,12 @@
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .settings-btn {
