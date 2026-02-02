@@ -124,7 +124,29 @@
     "networkFs": {
       "auto": "Auto-detect",
       "other": "Other"
-    }
+    },
+    "backToLibrary": "Back to Library",
+    "yourCollection": "Your local music collection",
+    "playlistOfflineMode": "Playlist management is disabled in offline mode. You can still play your local tracks.",
+    "artworkOffline": "Artwork fetching unavailable offline",
+    "loadingLibrary": "Loading library...",
+    "failedLoadLibrary": "Failed to load library",
+    "backToActiveAlbums": "Back to Active Albums",
+    "noHiddenAlbums": "No hidden albums",
+    "noAlbumsInLibrary": "No albums in library",
+    "addFoldersHint": "Add folders and scan to build your library",
+    "clearAllFilters": "Clear all",
+    "offlineCache": "Offline cache",
+    "noAlbumsMatch": "No albums match your search",
+    "tryDifferentSearch": "Try a different artist or album name",
+    "noArtistsInLibrary": "No artists in library",
+    "noArtistsMatch": "No artists match your search",
+    "noAlbumsFound": "No albums found",
+    "selectArtist": "Select an artist to view their albums",
+    "noTracksInLibrary": "No tracks in library",
+    "editAlbumInfo": "Edit album info",
+    "hideAlbum": "Hide this album from library",
+    "hideAlbumHint": "Hidden albums can be viewed from Settings"
   },
   "album": {
     "tracks": "tracks",

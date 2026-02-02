@@ -124,7 +124,29 @@
     "networkFs": {
       "auto": "Auto-detectar",
       "other": "Otro"
-    }
+    },
+    "backToLibrary": "Volver a la Biblioteca",
+    "yourCollection": "Tu colección de música local",
+    "playlistOfflineMode": "La gestión de playlists está deshabilitada en modo offline. Aún puedes reproducir tus pistas locales.",
+    "artworkOffline": "Obtención de carátulas no disponible offline",
+    "loadingLibrary": "Cargando biblioteca...",
+    "failedLoadLibrary": "Error al cargar la biblioteca",
+    "backToActiveAlbums": "Volver a Álbumes Activos",
+    "noHiddenAlbums": "No hay álbumes ocultos",
+    "noAlbumsInLibrary": "No hay álbumes en la biblioteca",
+    "addFoldersHint": "Agrega carpetas y escanea para construir tu biblioteca",
+    "clearAllFilters": "Limpiar todo",
+    "offlineCache": "Caché offline",
+    "noAlbumsMatch": "Ningún álbum coincide con tu búsqueda",
+    "tryDifferentSearch": "Prueba con un artista o álbum diferente",
+    "noArtistsInLibrary": "No hay artistas en la biblioteca",
+    "noArtistsMatch": "Ningún artista coincide con tu búsqueda",
+    "noAlbumsFound": "No se encontraron álbumes",
+    "selectArtist": "Selecciona un artista para ver sus álbumes",
+    "noTracksInLibrary": "No hay pistas en la biblioteca",
+    "editAlbumInfo": "Editar información del álbum",
+    "hideAlbum": "Ocultar este álbum de la biblioteca",
+    "hideAlbumHint": "Los álbumes ocultos se pueden ver desde Configuración"
   },
   "album": {
     "tracks": "pistas",
