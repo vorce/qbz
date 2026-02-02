@@ -2493,21 +2493,21 @@
             </a> and enter your credentials below.
           </p>
           <div class="config-field">
-            <label for="lastfm-api-key">API Key</label>
+            <label for="lastfm-api-key">{$t('settings.integrations.apiKey')}</label>
             <input
               id="lastfm-api-key"
               type="text"
               bind:value={lastfmApiKey}
-              placeholder="Enter your API key"
+              placeholder={$t('placeholders.enterApiKey')}
             />
           </div>
           <div class="config-field">
-            <label for="lastfm-api-secret">Shared Secret</label>
+            <label for="lastfm-api-secret">{$t('settings.integrations.sharedSecret')}</label>
             <input
               id="lastfm-api-secret"
               type="password"
               bind:value={lastfmApiSecret}
-              placeholder="Enter your shared secret"
+              placeholder={$t('placeholders.enterSharedSecret')}
             />
           </div>
           <button
@@ -2515,7 +2515,7 @@
             onclick={handleLastfmConnect}
             disabled={!lastfmApiKey || !lastfmApiSecret || lastfmConnecting}
           >
-            {lastfmConnecting ? 'Opening...' : 'Authorize with Last.fm'}
+            {lastfmConnecting ? $t('settings.integrations.opening') : $t('settings.integrations.authorizeLastfm')}
           </button>
         </div>
       {/if}
@@ -2536,36 +2536,36 @@
         </button>
       </div>
       <div class="setting-row">
-        <span class="setting-label">Scrobbling</span>
+        <span class="setting-label">{$t('settings.integrations.scrobbling')}</span>
         <Toggle enabled={listenbrainzEnabled} onchange={handleListenBrainzEnabledChange} />
       </div>
     {:else}
       <div class="setting-row" class:last={!showListenBrainzConfig}>
-        <span class="setting-label">ListenBrainz</span>
+        <span class="setting-label">{$t('settings.integrations.listenbrainz')}</span>
         <button
           class="connect-btn"
           onclick={() => showListenBrainzConfig = !showListenBrainzConfig}
           disabled={listenbrainzConnecting}
         >
-          {listenbrainzConnecting ? 'Connecting...' : $t('settings.integrations.connect')}
+          {listenbrainzConnecting ? $t('settings.integrations.connecting') : $t('settings.integrations.connect')}
         </button>
       </div>
 
       {#if showListenBrainzConfig}
         <div class="lastfm-config">
           <p class="config-info">
-            Get your personal token from
+            {$t('settings.integrations.listenbrainzTokenHint')}
             <a href="https://listenbrainz.org/settings/" target="_blank" rel="noopener">
               listenbrainz.org/settings
             </a>
           </p>
           <div class="config-field">
-            <label for="listenbrainz-token">User Token</label>
+            <label for="listenbrainz-token">{$t('settings.integrations.userToken')}</label>
             <input
               id="listenbrainz-token"
               type="password"
               bind:value={listenbrainzToken}
-              placeholder="Paste your ListenBrainz token"
+              placeholder={$t('placeholders.pasteToken')}
             />
           </div>
           <button
