@@ -417,12 +417,6 @@
     color: var(--text-primary);
   }
 
-  [data-theme="light"] .option.selected,
-  [data-theme="warm"] .option.selected {
-    background-color: rgba(var(--accent-primary), 0.15);
-    color: var(--accent-primary);
-  }
-
   .no-results {
     padding: 12px 16px;
     text-align: center;

@@ -519,18 +519,6 @@
     flex: 1;
   }
 
-  .track-title-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    overflow: hidden;
-  }
-
-  .track-title-row :global(.stack-icon) {
-    flex-shrink: 0;
-  }
-
   .track-title {
     font-size: 14px;
     font-weight: 600;

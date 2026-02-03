@@ -740,20 +740,6 @@
     align-self: center;
   }
 
-  .song-title-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    width: 100%;
-  }
-
-  .song-title-row :global(.stack-icon) {
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-
   .song-title {
     font-size: 13px;
     font-weight: 500;

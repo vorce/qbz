@@ -1761,11 +1761,6 @@
   }
 
 
-  /* Compensate margin-right in collapsed mode by shifting icons slightly right */
-  .sidebar.collapsed .playlists-scroll .nav-item {
-    padding-left: 1px;
-  }
-
   .playlists-loading,
   .no-playlists {
     font-size: 12px;
@@ -2135,10 +2130,6 @@
 
   .menu-item .menu-label {
     flex: 1;
-  }
-
-  .menu-item .submenu-arrow {
-    flex-shrink: 0;
   }
 
   .menu-divider {

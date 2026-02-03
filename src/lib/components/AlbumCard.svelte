@@ -378,16 +378,6 @@
     height: 24px;
   }
 
-  .play-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 150ms ease;
-  }
-
   .action-overlay {
     position: absolute;
     inset: -1px;

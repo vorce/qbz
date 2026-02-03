@@ -2314,11 +2314,6 @@
     min-width: 240px;
   }
 
-  .search-icon-inline {
-    color: var(--text-muted);
-    flex-shrink: 0;
-  }
-
   .search-input-inline {
     flex: 1;
     background: none;
@@ -2478,60 +2473,10 @@
     font-weight: 600;
   }
 
-  .search-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background-color: var(--bg-tertiary);
-    border-radius: 8px;
-    padding: 8px 12px;
-    flex: 1;
-    max-width: 300px;
-  }
-
-  .search-container :global(.search-icon) {
-    color: var(--text-muted);
-    flex-shrink: 0;
-  }
-
-  .search-input {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--text-primary);
-    font-size: 14px;
-    outline: none;
-  }
-
-  .search-input::placeholder {
-    color: var(--text-muted);
-  }
-
-  .search-clear {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 2px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .search-clear:hover {
-    color: var(--text-primary);
-  }
-
   .results-count {
     margin-left: auto;
     font-size: 13px;
     color: var(--text-muted);
-  }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
   }
 
   .context-menu-wrapper {
@@ -2633,11 +2578,6 @@
     margin-top: 8px;
   }
 
-  .track-list {
-    display: flex;
-    flex-direction: column;
-  }
-
   .track-sections {
     display: flex;
     gap: 12px;
@@ -2656,42 +2596,6 @@
     height: 100%;
     min-width: 0;
     overflow: hidden;
-  }
-
-  .track-group-list {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  .track-group {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .track-group-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .track-group-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .track-group-subtitle {
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .track-group-count {
-    font-size: 12px;
-    color: var(--text-muted);
   }
 
   .album-grid {

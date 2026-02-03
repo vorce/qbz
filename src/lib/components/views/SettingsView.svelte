@@ -3290,13 +3290,6 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     align-items: flex-start;
   }
 
-  .setting-row:has(.radio-group) {
-    height: auto;
-    min-height: 48px;
-    padding: 12px 0;
-    align-items: flex-start;
-  }
-
   .setting-value {
     font-size: 14px;
     color: var(--text-muted);
@@ -3311,43 +3304,6 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     font-size: 12px;
     opacity: 0.7;
     margin-left: 4px;
-  }
-
-  .slider-container {
-    width: 240px;
-  }
-
-  .radio-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .radio-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    padding: 8px 12px;
-    border-radius: 6px;
-    transition: background 0.15s;
-  }
-
-  .radio-option:hover {
-    background: var(--alpha-5);
-  }
-
-  .radio-option input[type="radio"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    accent-color: var(--accent-color, #1db954);
-  }
-
-  .radio-option span {
-    font-size: 14px;
-    color: var(--text-primary);
-    user-select: none;
   }
 
   .connect-btn {
@@ -3415,39 +3371,12 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     cursor: not-allowed;
   }
 
-  .folder-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid var(--text-muted);
-    background: none;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .folder-btn:hover {
-    border-color: var(--text-primary);
-    color: var(--text-primary);
-    background-color: var(--bg-hover);
-  }
-
   /* Harmonize button widths across settings rows */
   .connect-btn,
-  .clear-btn,
-  .folder-btn,
-  .logout-btn {
+  .clear-btn {
     min-width: 140px;
     padding-top: 7px;
     padding-bottom: 7px;
-  }
-
-  .folder-btn {
-    justify-content: center;
   }
 
   /* Last.fm styles */

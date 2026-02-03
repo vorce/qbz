@@ -2233,88 +2233,6 @@
     min-height: 120px;
   }
 
-  /* Track card for Most Popular */
-  .track-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 12px;
-    background: var(--bg-secondary);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 150ms ease;
-    text-align: center;
-  }
-
-  .track-card:hover {
-    background: var(--bg-tertiary);
-  }
-
-  .track-card.most-popular-card {
-    width: 160px;
-    height: 220px;
-    justify-content: flex-start;
-  }
-
-  .track-card-artwork {
-    width: 120px;
-    height: 120px;
-    border-radius: 8px;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-
-  .track-card-artwork img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .track-card-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-tertiary);
-    color: var(--text-muted);
-  }
-
-  .track-card-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .track-card-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .track-card-artist {
-    font-size: 12px;
-    color: var(--text-secondary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .track-card-album {
-    font-size: 11px;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   /* Popular Card (for Most Popular tracks/albums) */
   .popular-card {
     width: 160px;
@@ -2642,15 +2560,6 @@
     text-decoration: underline;
   }
 
-  .artists-grid-compact {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 16px;
-    overflow-y: auto;
-    max-height: 400px;
-    padding-right: 8px;
-  }
-
   .artists-carousel-wrapper {
     position: relative;
     overflow: hidden;
@@ -2659,34 +2568,6 @@
   .artists-carousel {
     display: flex;
     gap: 15px;
-  }
-
-  .artists-grid-compact .artist-card {
-    width: 160px;
-    height: 220px;
-  }
-
-  .artists-grid-compact .artist-image-wrapper {
-    width: 120px;
-    height: 120px;
-    min-height: 120px;
-  }
-
-  .artists-grid-compact::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .artists-grid-compact::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .artists-grid-compact::-webkit-scrollbar-thumb {
-    background: var(--bg-tertiary);
-    border-radius: 3px;
-  }
-
-  .artists-grid-compact::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
   }
 
   .bottom-section {
@@ -2885,11 +2766,6 @@
 
     .bottom-section {
       gap: 24px;
-    }
-
-    .artists-grid-compact {
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      max-height: 300px;
     }
   }
 </style>

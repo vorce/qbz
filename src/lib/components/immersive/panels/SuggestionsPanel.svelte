@@ -505,21 +505,6 @@
     height: 19px;
   }
 
-  .card-info {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    z-index: 10; /* Above overlay */
-  }
-
-  .card-info :global(.tooltip-container) {
-    color: var(--alpha-50, rgba(255, 255, 255, 0.5));
-  }
-
-  .card-info:hover :global(.tooltip-container) {
-    color: var(--alpha-80, rgba(255, 255, 255, 0.8));
-  }
-
   /* Image wrapper with hover effects */
   .card-image-wrapper {
     position: relative;

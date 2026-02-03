@@ -327,8 +327,4 @@
     width: 100%;
   }
 
-  /* Layout-specific: equal width buttons */
-  .modal-footer :global(.btn) {
-    flex: 1;
-  }
 </style>

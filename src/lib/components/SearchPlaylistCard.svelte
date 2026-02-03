@@ -213,12 +213,6 @@
     background: var(--bg-tertiary);
   }
 
-  .artwork-container img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
   .action-overlay {
     position: absolute;
     inset: 0;

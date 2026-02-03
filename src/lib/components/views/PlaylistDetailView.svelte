@@ -2119,15 +2119,6 @@
     object-fit: cover;
   }
 
-  .artwork-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-  }
-
   .artwork-overlay {
     position: absolute;
     inset: 0;
@@ -2252,23 +2243,6 @@
     box-shadow: inset 0 0 0 1px var(--text-primary);
   }
 
-
-  .icon-btn {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 150ms ease;
-  }
-
-  .icon-btn:hover {
-    opacity: 1;
-  }
 
   .track-list {
     margin-top: 24px;

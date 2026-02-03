@@ -522,17 +522,6 @@
     width: 100%;
   }
 
-  .title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-  }
-
-  .title-row :global(.stack-icon) {
-    flex-shrink: 0;
-  }
-
   .title {
     font-size: 22px;
     font-weight: 600;

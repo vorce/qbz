@@ -121,10 +121,6 @@
     opacity: 0.3;
   }
 
-  .error-text {
-    color: var(--alpha-40, rgba(255, 255, 255, 0.4));
-  }
-
   .no-lyrics {
     font-style: italic;
   }

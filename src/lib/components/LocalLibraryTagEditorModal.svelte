@@ -841,32 +841,6 @@ input[type="number"] {
   border-color: var(--accent-primary);
 }
 
-  .warning {
-    margin-top: 10px;
-    background: rgba(245, 158, 11, 0.12);
-    border: 1px solid rgba(245, 158, 11, 0.25);
-    color: var(--text-primary);
-    padding: 10px 12px;
-    border-radius: 10px;
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
-  .ref-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .ref-item {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 10px 12px;
-    border: 1px solid var(--bg-tertiary);
-    border-radius: 10px;
-    background: var(--bg-secondary);
-  }
 
   .ref-label {
     font-size: 12px;

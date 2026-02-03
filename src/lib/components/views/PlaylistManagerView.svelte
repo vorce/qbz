@@ -1668,74 +1668,6 @@
     color: var(--text-primary);
   }
 
-  /* Folder Modal */
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-  }
-
-  .modal-content {
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    padding: 24px;
-    min-width: 320px;
-    max-width: 400px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  }
-
-  .modal-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 20px 0;
-  }
-
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-
-  .form-group label {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-muted);
-  }
-
-  .form-group input[type="text"] {
-    width: 100%;
-    padding: 10px 12px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--alpha-10);
-    border-radius: 8px;
-    font-size: 14px;
-    color: var(--text-primary);
-    outline: none;
-    transition: border-color 150ms ease;
-  }
-
-  .form-group input[type="text"]:focus {
-    border-color: var(--accent-primary);
-  }
-
-  .modal-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 20px;
-  }
-
-  .modal-actions-right {
-    display: flex;
-    gap: 12px;
-  }
-
   .controls {
     display: flex;
     align-items: center;
@@ -2029,10 +1961,6 @@
   .reorder-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
-  }
-
-  .drag-handle-placeholder {
-    width: 18px;
   }
 
   .edit-btn {

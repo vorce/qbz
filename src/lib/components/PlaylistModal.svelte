@@ -808,15 +808,6 @@
     margin-bottom: 16px;
   }
 
-  .track-info {
-    font-size: 14px;
-    color: var(--text-muted);
-    margin-bottom: 16px;
-    padding: 12px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-  }
-
   .label-row {
     display: flex;
     justify-content: space-between;
@@ -1125,100 +1116,4 @@
     cursor: not-allowed;
   }
 
-  .danger-zone {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid rgba(239, 68, 68, 0.2);
-  }
-
-  .danger-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #ef4444;
-    margin-bottom: 12px;
-  }
-
-  .btn-danger {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 8px;
-    font-size: 13px;
-    color: #ef4444;
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .btn-danger:hover:not(:disabled) {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: rgba(239, 68, 68, 0.5);
-  }
-
-  .btn-danger:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .delete-confirm {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 8px;
-  }
-
-  .delete-confirm span {
-    font-size: 13px;
-    color: #ef4444;
-  }
-
-  .delete-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .btn-cancel {
-    flex: 1;
-    padding: 8px 12px;
-    background: var(--bg-tertiary);
-    border: none;
-    border-radius: 6px;
-    font-size: 13px;
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: background-color 150ms ease;
-  }
-
-  .btn-cancel:hover:not(:disabled) {
-    background: var(--bg-hover);
-  }
-
-  .btn-delete {
-    flex: 1;
-    padding: 8px 12px;
-    background: #ef4444;
-    border: none;
-    border-radius: 6px;
-    font-size: 13px;
-    color: white;
-    cursor: pointer;
-    transition: background-color 150ms ease;
-  }
-
-  .btn-delete:hover:not(:disabled) {
-    background: #dc2626;
-  }
-
-  .btn-cancel:disabled,
-  .btn-delete:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 </style>

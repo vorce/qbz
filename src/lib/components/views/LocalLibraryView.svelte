@@ -3968,15 +3968,6 @@
     color: var(--text-primary);
   }
 
-  .folder-path-small {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-family: var(--font-mono, 'Courier New', monospace);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   .folder-badge {
     font-size: 10px;
     font-weight: 600;
@@ -4055,21 +4046,6 @@
     text-align: center;
     color: var(--text-muted);
     font-size: 14px;
-  }
-
-  .folder-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .folder-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    background: var(--bg-tertiary);
-    border-radius: 8px;
   }
 
   .folder-path {
@@ -4166,25 +4142,6 @@
   }
 
   .danger-btn-small:hover {
-    background: #ef4444;
-    color: white;
-  }
-
-  .danger-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: transparent;
-    color: #ef4444;
-    border: 1px solid #ef4444;
-    border-radius: 8px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .danger-btn:hover {
     background: #ef4444;
     color: white;
   }
@@ -4333,54 +4290,6 @@
     margin-bottom: 16px;
   }
 
-  .artist-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  .search-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-subtle);
-    border-radius: 8px;
-    padding: 8px 12px;
-    flex: 1;
-    max-width: 420px;
-  }
-
-  .search-icon {
-    color: var(--text-muted);
-  }
-
-  .search-input {
-    background: none;
-    border: none;
-    color: var(--text-primary);
-    font-size: 13px;
-    width: 100%;
-    outline: none;
-  }
-
-  .search-input::placeholder {
-    color: var(--text-muted);
-  }
-
-  .clear-search {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 2px;
-  }
-
-  .clear-search:hover {
-    color: var(--text-primary);
-  }
-
   .control-btn {
     display: inline-flex;
     align-items: center;
@@ -4481,21 +4390,6 @@
   .dropdown-item.selected {
     background: var(--bg-tertiary);
     font-weight: 600;
-  }
-
-  .dropdown-section-label {
-    padding: 6px 10px 4px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-  }
-
-  .dropdown-divider {
-    height: 1px;
-    background: var(--border-subtle);
-    margin: 6px 0;
   }
 
   /* Filter Panel */
@@ -4661,21 +4555,6 @@
   }
 
   /* Sort dropdown */
-  .sort-btn {
-    gap: 6px;
-  }
-
-  .sort-btn .sort-direction {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-
-  .sort-btn :global(.chevron) {
-    margin-left: 2px;
-    opacity: 0.6;
-    transition: transform 150ms ease;
-  }
-
   .sort-menu {
     position: absolute;
     top: calc(100% + 6px);
@@ -4766,12 +4645,6 @@
   }
 
   /* Album Grid */
-  .album-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 24px 14px; /* row-gap column-gap */
-  }
-
   .album-sections {
     display: flex;
     gap: 12px;
@@ -4789,38 +4662,6 @@
     height: 100%;
     min-width: 0;
     overflow: hidden;
-  }
-
-  .album-group-list {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  .album-group {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .album-group-header {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-
-  .album-group-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .album-group-count {
-    font-size: 12px;
-    color: var(--text-muted);
   }
 
   /* Album List */
@@ -4885,12 +4726,7 @@
     color: var(--text-muted);
   }
 
-  .album-row-quality {
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .album-row-quality .quality-badge {
+  .album-row-meta .quality-badge {
     font-size: 11px;
     font-weight: 600;
     color: var(--alpha-85);
@@ -4901,12 +4737,6 @@
     min-width: 90px;
     text-align: center;
     box-sizing: border-box;
-  }
-
-  .album-row-quality .quality-badge.hires {
-    background: linear-gradient(135deg, #fbbf24 0%, #b8860b 100%);
-    color: #1a1a1a;
-    border-color: transparent;
   }
 
   /* Track Controls */
@@ -4929,53 +4759,6 @@
     height: calc(100vh - 280px);
     min-height: 400px;
     overflow: hidden;
-  }
-
-  .track-group-list {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  .track-group {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .track-group-header {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .track-group-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .track-group-subtitle {
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .track-group-count {
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .alpha-index {
-    position: sticky;
-    top: 120px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 6px 4px;
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.2);
   }
 
   .alpha-index-inline {
@@ -5013,167 +4796,6 @@
     opacity: 0.25;
     cursor: default;
     pointer-events: none;
-  }
-
-  /* Artist Grid */
-  .artist-sections {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-  }
-
-  .artist-sections.virtualized {
-    flex: 1;
-    height: calc(100vh - 280px);
-    min-height: 400px;
-  }
-
-  .artist-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 24px;
-  }
-
-  .artist-list-virtualized {
-    height: 100%;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .artist-list-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 150ms ease;
-  }
-
-  .artist-list-row:hover {
-    background: var(--bg-tertiary);
-  }
-
-  .artist-list-icon {
-    width: 40px;
-    height: 40px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-    color: var(--text-muted);
-    overflow: hidden;
-  }
-
-  .artist-list-icon.has-image {
-    background: none;
-  }
-
-  .artist-list-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .artist-list-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .artist-list-name {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .artist-list-stats {
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .artist-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    cursor: pointer;
-    transition: background 150ms ease;
-  }
-
-  .artist-card:hover {
-    background: var(--bg-tertiary);
-  }
-
-  .artist-image-btn {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid var(--alpha-15);
-    border-radius: 6px;
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: all 150ms ease;
-    z-index: 2;
-  }
-
-  .artist-image-btn:hover {
-    background: rgba(0, 0, 0, 0.8);
-    border-color: var(--accent-primary);
-    color: var(--accent-primary);
-  }
-
-  .artist-icon {
-    width: 100px;
-    height: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-tertiary);
-    border-radius: 50%;
-    margin-bottom: 12px;
-    color: var(--text-muted);
-    overflow: hidden;
-  }
-
-  .artist-icon.has-image {
-    background: none;
-  }
-
-  .artist-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .artist-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    text-align: center;
-    margin-bottom: 4px;
-  }
-
-  .artist-stats {
-    font-size: 12px;
-    color: var(--text-muted);
-    text-align: center;
   }
 
   /* Track List */
@@ -5552,27 +5174,6 @@
     margin-left: -8px;
   }
 
-  .form-group input[type="text"] {
-    width: 100%;
-    padding: 10px 12px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--bg-tertiary);
-    border-radius: 8px;
-    font-size: 14px;
-    color: var(--text-primary);
-    transition: border-color 150ms ease;
-  }
-
-  .form-group input[type="text"]:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .form-group input[type="text"]:focus:not(:disabled) {
-    outline: none;
-    border-color: var(--accent-primary);
-  }
-
   .toggle-label {
     display: flex;
     align-items: center;
@@ -5627,17 +5228,6 @@
     overflow: hidden;
     margin-left: -8px;
     width: calc(100% + 8px);
-  }
-
-  .discogs-placeholder {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    font-size: 12px;
-    text-align: center;
-    padding: 10px;
   }
 
   .discogs-hint {

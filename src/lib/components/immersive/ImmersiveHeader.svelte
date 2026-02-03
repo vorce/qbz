@@ -415,18 +415,5 @@
       padding: 12px 16px;
     }
 
-    .mode-switcher {
-      padding: 3px;
-    }
-
-    .mode-btn {
-      width: 30px;
-      height: 30px;
-    }
-
-    .action-btn {
-      width: 36px;
-      height: 36px;
-    }
   }
 </style>

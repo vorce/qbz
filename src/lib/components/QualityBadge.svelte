@@ -188,24 +188,6 @@
     cursor: help;
   }
 
-  [data-theme="light"] .quality-badge {
-    background: rgba(40, 42, 54, 0.85);
-    border: 1px solid rgba(40, 42, 54, 0.95);
-  }
-
-  [data-theme="light"] .tier-label,
-  [data-theme="light"] .quality-info {
-    color: #ffffff;
-  }
-
-  [data-theme="light"] .badge-icon {
-    filter: invert(1) brightness(1.5);
-  }
-
-  [data-theme="light"] .badge-icon.hires {
-    filter: brightness(1.2);
-  }
-
   .icon-container {
     width: 24px;
     height: 24px;
