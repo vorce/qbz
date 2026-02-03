@@ -4,7 +4,7 @@
   import ViewTransition from '../ViewTransition.svelte';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { writeText as copyToClipboard } from '@tauri-apps/plugin-clipboard-manager';
-  import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Loader2, Sun, Moon, SunMoon, HelpCircle, Ban, Wand2 } from 'lucide-svelte';
+  import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Loader2, Sun, Moon, SunMoon, HelpCircle, Ban } from 'lucide-svelte';
   import Toggle from '../Toggle.svelte';
   import Dropdown from '../Dropdown.svelte';
   import DeviceDropdown from '../DeviceDropdown.svelte';
@@ -2022,7 +2022,7 @@
             onclick={() => showDACWizardModal = true}
             title={$t('dacWizard.title')}
           >
-            <Wand2 size={16} />
+            <img src="/gandalf.svg" alt="DAC Setup" class="gandalf-icon" />
           </button>
         {/if}
       </div>
@@ -3001,6 +3001,12 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
   .dac-setup-btn:hover {
     opacity: 0.9;
     transform: scale(1.05);
+  }
+
+  .dac-setup-btn .gandalf-icon {
+    width: 18px;
+    height: 18px;
+    filter: invert(1);
   }
 
   .loading-overlay {

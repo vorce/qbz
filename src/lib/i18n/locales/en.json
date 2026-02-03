@@ -1024,9 +1024,18 @@
     "triggerTooltip": "DAC Setup Guide",
     "welcome": {
       "title": "Guided DAC Setup",
-      "subtitle": "Step-by-step instructions.",
-      "body": "You will copy and run commands in a terminal. QBZ will guide you and explain each step. A backup will be created before any changes.",
-      "checkbox": "I understand this guide modifies system audio configuration",
+      "subtitle": "This wizard helps you configure your DAC for bit-perfect playback on Linux.",
+      "intro": "QBZ will not modify your system automatically.\nEach step shows the exact commands to run, explains what they do, and lets you decide when to proceed.",
+      "disclaimerTitle": "Before continuing, please note:",
+      "bulletResponsibility": "You are responsible for creating, keeping, and restoring your own backups",
+      "bulletNoGuarantee": "QBZ follows official documentation and recommended practices, but cannot guarantee results on systems with:",
+      "bulletHelper": "This guide is provided as a helper, not a system recovery tool",
+      "systemIssue1": "Previous custom audio configurations",
+      "systemIssue2": "Manually modified PipeWire, Pulse, or WirePlumber setups",
+      "systemIssue3": "Commands skipped or executed out of order",
+      "recovery": "If anything goes wrong, you can restore your previous configuration using the backup created during this process.",
+      "readyText": "When you're ready, continue step by step.\nNothing will run unless you run it.",
+      "checkbox": "I understand and accept these terms",
       "start": "Start"
     },
     "precheck": {

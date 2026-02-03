@@ -197,7 +197,7 @@
   const steps = $derived<Step[]>(STEPS.map((step, index) => ({
     id: step,
     label: $t(`dacWizard.steps.${toCamelCase(step)}`) || step,
-    status: completedSteps.has(step) ? 'complete' : index === currentIndex ? 'active' : 'upcoming'
+    status: index === currentIndex ? 'active' : completedSteps.has(step) ? 'complete' : 'upcoming'
   })));
 
   // Navigation
@@ -362,8 +362,28 @@
 
         <div class="wizard-content">
           {#if currentStep === 'welcome'}
-            <div class="step-content">
-              <p class="body-text">{$t('dacWizard.welcome.body')}</p>
+            <div class="step-content welcome-content">
+              <p class="body-text intro-text">{$t('dacWizard.welcome.intro')}</p>
+
+              <div class="disclaimer-section">
+                <p class="disclaimer-title">{$t('dacWizard.welcome.disclaimerTitle')}</p>
+                <ul class="disclaimer-list">
+                  <li>{$t('dacWizard.welcome.bulletResponsibility')}</li>
+                  <li>
+                    {$t('dacWizard.welcome.bulletNoGuarantee')}
+                    <ul class="system-issues">
+                      <li>{$t('dacWizard.welcome.systemIssue1')}</li>
+                      <li>{$t('dacWizard.welcome.systemIssue2')}</li>
+                      <li>{$t('dacWizard.welcome.systemIssue3')}</li>
+                    </ul>
+                  </li>
+                  <li>{$t('dacWizard.welcome.bulletHelper')}</li>
+                </ul>
+              </div>
+
+              <p class="body-text recovery-text">{$t('dacWizard.welcome.recovery')}</p>
+
+              <p class="body-text ready-text">{$t('dacWizard.welcome.readyText')}</p>
 
               <label class="checkbox-row">
                 <input type="checkbox" bind:checked={welcomeConfirmed} />
@@ -814,6 +834,69 @@
     color: var(--text-secondary);
     line-height: 1.6;
     margin: 0;
+    white-space: pre-line;
+  }
+
+  /* Welcome step styles */
+  .welcome-content {
+    gap: 20px;
+  }
+
+  .intro-text {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .disclaimer-section {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 16px;
+    border-left: 3px solid var(--warning, #fbbf24);
+  }
+
+  .disclaimer-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+  }
+
+  .disclaimer-list {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .disclaimer-list > li {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .system-issues {
+    margin: 8px 0 0 0;
+    padding-left: 16px;
+    list-style-type: disc;
+  }
+
+  .system-issues li {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .recovery-text {
+    padding: 12px;
+    background: rgba(34, 197, 94, 0.1);
+    border-radius: 6px;
+    border-left: 3px solid var(--color-success, #22c55e);
+  }
+
+  .ready-text {
+    font-style: italic;
+    color: var(--text-muted);
   }
 
   .checkbox-row {

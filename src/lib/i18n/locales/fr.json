@@ -964,10 +964,19 @@
     "title": "Assistant Configuration DAC",
     "triggerTooltip": "Guide de configuration DAC",
     "welcome": {
-      "title": "Configuration guidée du DAC",
-      "subtitle": "Instructions étape par étape.",
-      "body": "Vous allez copier et exécuter des commandes dans un terminal. QBZ vous guidera et expliquera chaque étape. Une sauvegarde sera créée avant toute modification.",
-      "checkbox": "Je comprends que ce guide modifie la configuration audio du système",
+      "title": "Configuration Guidée du DAC",
+      "subtitle": "Cet assistant vous aide à configurer votre DAC pour une lecture bit-perfect sous Linux.",
+      "intro": "QBZ n'applique aucune modification automatiquement.\nChaque étape affiche les commandes exactes à exécuter, explique leur fonctionnement et vous laisse décider quand continuer.",
+      "disclaimerTitle": "Avant de poursuivre, veuillez noter :",
+      "bulletResponsibility": "Vous êtes responsable de la création, de la conservation et de la restauration de vos sauvegardes",
+      "bulletNoGuarantee": "QBZ s'appuie sur la documentation officielle et les bonnes pratiques, sans pouvoir garantir le bon fonctionnement sur des systèmes ayant :",
+      "bulletHelper": "Ce guide est une aide, et non un outil de récupération système",
+      "systemIssue1": "Des configurations audio personnalisées existantes",
+      "systemIssue2": "Des modifications manuelles de PipeWire, Pulse ou WirePlumber",
+      "systemIssue3": "Des commandes ignorées ou exécutées dans un ordre différent",
+      "recovery": "En cas de problème, vous pourrez restaurer votre configuration précédente à l'aide de la sauvegarde créée durant ce processus.",
+      "readyText": "Lorsque vous êtes prêt, avancez étape par étape.\nRien ne s'exécute sans votre action.",
+      "checkbox": "Je comprends et j'accepte ces conditions",
       "start": "Commencer"
     },
     "precheck": {

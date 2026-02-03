@@ -965,9 +965,18 @@
     "triggerTooltip": "DAC-Einrichtungshilfe",
     "welcome": {
       "title": "Geführte DAC-Einrichtung",
-      "subtitle": "Schritt-für-Schritt-Anleitung.",
-      "body": "Sie werden Befehle kopieren und im Terminal ausführen. QBZ führt Sie durch jeden Schritt und erklärt alles. Vor Änderungen wird eine Sicherung erstellt.",
-      "checkbox": "Ich verstehe, dass diese Anleitung die System-Audiokonfiguration ändert",
+      "subtitle": "Dieser Assistent hilft Ihnen, Ihren DAC für bit-perfekte Wiedergabe unter Linux zu konfigurieren.",
+      "intro": "QBZ nimmt keine automatischen Änderungen an Ihrem System vor.\nJeder Schritt zeigt die exakten Befehle, erklärt deren Funktion und überlässt Ihnen die Entscheidung, wann Sie fortfahren.",
+      "disclaimerTitle": "Bitte beachten Sie vor dem Fortfahren:",
+      "bulletResponsibility": "Sie sind selbst verantwortlich für das Erstellen, Aufbewahren und Wiederherstellen Ihrer Backups",
+      "bulletNoGuarantee": "QBZ basiert auf offizieller Dokumentation und empfohlenen Vorgehensweisen, kann jedoch keine Garantie bieten bei Systemen mit:",
+      "bulletHelper": "Diese Anleitung ist als Hilfestellung gedacht, nicht als System-Recovery-Werkzeug",
+      "systemIssue1": "Bereits vorhandenen benutzerdefinierten Audio-Konfigurationen",
+      "systemIssue2": "Manuell angepassten PipeWire-, Pulse- oder WirePlumber-Setups",
+      "systemIssue3": "Übersprungenen oder in falscher Reihenfolge ausgeführten Befehlen",
+      "recovery": "Sollte etwas nicht wie erwartet funktionieren, können Sie Ihre vorherige Konfiguration jederzeit aus dem erstellten Backup wiederherstellen.",
+      "readyText": "Gehen Sie Schritt für Schritt vor.\nNichts wird ausgeführt, solange Sie es nicht selbst tun.",
+      "checkbox": "Ich verstehe und akzeptiere diese Bedingungen",
       "start": "Starten"
     },
     "precheck": {
