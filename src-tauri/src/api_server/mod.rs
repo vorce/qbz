@@ -423,6 +423,7 @@ fn build_router(ctx: ApiContext) -> Router {
         .route("/api/search/all", get(search_all))
         .route("/api/queue", get(get_queue))
         .route("/api/queue/add", post(add_to_queue))
+        .route("/api/queue/add-next", post(add_to_queue_next))
         .route("/api/queue/play", post(play_queue_index))
         .route("/api/queue/shuffle", post(set_shuffle))
         .route("/api/queue/repeat", post(set_repeat))
@@ -703,6 +704,15 @@ async fn add_to_queue(
 ) -> Result<StatusCode, StatusCode> {
     let app_state = ctx.app_handle.state::<AppState>();
     app_state.queue.add_track(payload.track);
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn add_to_queue_next(
+    State(ctx): State<ApiContext>,
+    Json(payload): Json<AddToQueueRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    app_state.queue.add_track_next(payload.track);
     Ok(StatusCode::NO_CONTENT)
 }
 
