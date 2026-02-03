@@ -435,6 +435,16 @@
     loadLocalTrackCounts();
   }
 
+  // Focus and clear the search input (for keybinding)
+  export function focusSearch() {
+    sidebarSearchQuery = '';
+    clearSearchState();
+    // Wait for next tick to ensure input is ready, then focus
+    setTimeout(() => {
+      sidebarSearchInput?.focus();
+    }, 0);
+  }
+
   // Update counts for a specific playlist (single source of truth from detail view)
   export function updatePlaylistCounts(playlistId: number, qobuzCount: number, localCount: number) {
     // Update Qobuz count in userPlaylists

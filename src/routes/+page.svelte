@@ -510,8 +510,12 @@
   let isAlbumCreditsOpen = $state(false);
   let albumCreditsAlbumId = $state<string | null>(null);
   
-  // Sidebar reference for refreshing playlists
-  let sidebarRef: { getPlaylists: () => { id: number; name: string; tracks_count: number }[], refreshPlaylists: () => void } | undefined;
+  // Sidebar reference for refreshing playlists and search
+  let sidebarRef: {
+    getPlaylists: () => { id: number; name: string; tracks_count: number }[];
+    refreshPlaylists: () => void;
+    focusSearch: () => void;
+  } | undefined;
 
   // Playback State (from playerStore subscription)
   let currentTrack = $state<PlayingTrack | null>(null);
@@ -2434,6 +2438,7 @@
     registerAction('playback.prev', handleSkipBack);
     registerAction('nav.back', navGoBack);
     registerAction('nav.forward', navGoForward);
+    registerAction('nav.search', () => sidebarRef?.focusSearch());
     registerAction('ui.focusMode', toggleFocusMode);
     registerAction('ui.queue', toggleQueue);
     registerAction('ui.escape', handleUIEscape);

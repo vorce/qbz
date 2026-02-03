@@ -94,6 +94,13 @@ export const ACTIONS: KeybindingAction[] = [
     defaultShortcut: 'Alt+ArrowRight',
     description: 'Navigate to next page',
   },
+  {
+    id: 'nav.search',
+    label: 'Search',
+    category: 'navigation',
+    defaultShortcut: 'Ctrl+f',
+    description: 'Focus search field',
+  },
 
   // UI
   {
