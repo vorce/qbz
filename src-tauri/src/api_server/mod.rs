@@ -98,6 +98,25 @@ struct AddToQueueRequest {
     track: QueueTrack,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ShuffleRequest {
+    enabled: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RepeatRequest {
+    mode: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ShuffleRepeatResponse {
+    shuffle: bool,
+    repeat: String,
+}
+
 #[derive(Debug)]
 struct ApiServerHandle {
     handle: AxumHandle<SocketAddr>,
@@ -370,6 +389,8 @@ fn build_router(ctx: ApiContext) -> Router {
         .route("/api/queue", get(get_queue))
         .route("/api/queue/add", post(add_to_queue))
         .route("/api/queue/play", post(play_queue_index))
+        .route("/api/queue/shuffle", post(set_shuffle))
+        .route("/api/queue/repeat", post(set_repeat))
         .route("/api/ws", get(ws_handler))
         .with_state(ctx.clone())
         .layer(middleware::from_fn(lan_only))
@@ -567,6 +588,40 @@ async fn play_queue_index(
         }
     }
     Ok(Json(track))
+}
+
+async fn set_shuffle(
+    State(ctx): State<ApiContext>,
+    Json(payload): Json<ShuffleRequest>,
+) -> Result<Json<ShuffleRepeatResponse>, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    app_state.queue.set_shuffle(payload.enabled);
+    let repeat = match app_state.queue.get_repeat() {
+        crate::queue::RepeatMode::Off => "off",
+        crate::queue::RepeatMode::All => "all",
+        crate::queue::RepeatMode::One => "one",
+    };
+    Ok(Json(ShuffleRepeatResponse {
+        shuffle: app_state.queue.is_shuffle(),
+        repeat: repeat.to_string(),
+    }))
+}
+
+async fn set_repeat(
+    State(ctx): State<ApiContext>,
+    Json(payload): Json<RepeatRequest>,
+) -> Result<Json<ShuffleRepeatResponse>, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    let mode = match payload.mode.to_lowercase().as_str() {
+        "all" => crate::queue::RepeatMode::All,
+        "one" => crate::queue::RepeatMode::One,
+        _ => crate::queue::RepeatMode::Off,
+    };
+    app_state.queue.set_repeat(mode);
+    Ok(Json(ShuffleRepeatResponse {
+        shuffle: app_state.queue.is_shuffle(),
+        repeat: payload.mode,
+    }))
 }
 
 async fn ws_handler(
