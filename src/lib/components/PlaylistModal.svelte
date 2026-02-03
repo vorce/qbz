@@ -5,6 +5,7 @@
   import { subscribe as subscribeOffline, getStatus, createPendingPlaylist } from '$lib/stores/offlineStore';
   import { showToast } from '$lib/stores/toastStore';
   import { t } from '$lib/i18n';
+  import { get } from 'svelte/store';
   import {
     subscribe as subscribeFolders,
     getVisibleFolders,
@@ -107,10 +108,11 @@
 
   // Get display text for selected playlist
   const selectedPlaylistDisplay = $derived(() => {
+    const translate = get(t);
     if (selectedPlaylistId === null) return '';
-    if (selectedPlaylistId === CREATE_NEW_PLAYLIST) return '+ Create new playlist';
+    if (selectedPlaylistId === CREATE_NEW_PLAYLIST) return '+ ' + translate('playlist.createNewPlaylist');
     const pl = userPlaylists.find(p => p.id === selectedPlaylistId);
-    return pl ? `${pl.name} (${getTotalTrackCount(pl)} tracks)` : '';
+    return pl ? translate('playlist.playlistWithTracks', { count: getTotalTrackCount(pl), name: pl.name }) : '';
   });
 
   // Handle dropdown item click
@@ -519,11 +521,11 @@
       <div class="modal-header">
         <h2>
           {#if mode === 'create'}
-            New Playlist
+            {$t('playlist.newPlaylist')}
           {:else if mode === 'edit'}
-            Edit Playlist
+            {$t('playlist.editPlaylist')}
           {:else}
-            Add to Playlist
+            {$t('playlist.addToPlaylist')}
           {/if}
         </h2>
         <button class="close-btn" onclick={onClose}>
@@ -539,9 +541,9 @@
         {#if mode === 'addTrack'}
           <div class="form-group">
             <div class="label-row">
-              <label for="playlist-search">Choose playlist</label>
+              <label for="playlist-search">{$t('playlist.choosePlaylist')}</label>
               <span class="track-info-inline">
-                Adding {trackIds.length} {isLocalTracks ? 'local ' : ''}track{trackIds.length !== 1 ? 's' : ''}
+                {$t('playlist.addingTracks', { values: { count: trackIds.length, type: isLocalTracks ? $t('playlist.local') : '' } })}
               </span>
             </div>
             <div class="playlist-dropdown" bind:this={dropdownRef}>
@@ -550,7 +552,7 @@
                 id="playlist-search"
                 bind:this={inputRef}
                 bind:value={playlistSearchQuery}
-                placeholder={selectedPlaylistId ? selectedPlaylistDisplay() : 'Search playlists...'}
+                placeholder={selectedPlaylistId ? selectedPlaylistDisplay() : $t('placeholders.searchPlaylists')}
                 disabled={loading}
                 onfocus={() => isPlaylistDropdownOpen = true}
                 onkeydown={handleDropdownKeydown}
@@ -574,7 +576,7 @@
                     class:highlighted={highlightedIndex === 0}
                     onclick={() => selectPlaylist(CREATE_NEW_PLAYLIST)}
                   >
-                    + Create new playlist
+                    + {$t('playlist.createNewPlaylist')}
                   </button>
                   {#each filteredPlaylists.slice(0, 8) as pl, i (pl.id)}
                     <button
@@ -584,15 +586,15 @@
                       onclick={() => selectPlaylist(pl.id)}
                     >
                       <span class="playlist-name">{pl.name}</span>
-                      <span class="playlist-count">{getTotalTrackCount(pl)} tracks</span>
+                      <span class="playlist-count">{$t('playlist.trackCount', { values: { count: getTotalTrackCount(pl) } })}</span>
                     </button>
                   {/each}
                   {#if filteredPlaylists.length === 0 && playlistSearchQuery.trim()}
-                    <div class="no-results">No playlists found</div>
+                    <div class="no-results">{$t('playlist.noPlaylistsFound')}</div>
                   {/if}
                   {#if filteredPlaylists.length > 8}
                     <div class="more-results">
-                      {filteredPlaylists.length - 8} more playlist{filteredPlaylists.length - 8 !== 1 ? 's' : ''}...
+                      {$t('playlist.morePlaylists', { values: { count: filteredPlaylists.length - 8 } })}
                     </div>
                   {/if}
                 </div>
@@ -639,14 +641,14 @@
             <div class="form-group">
               <label for="folder-select">
                 <Folder size={14} class="icon-inline" />
-                Folder
+                {$t('playlist.folder')}
               </label>
               <select
                 id="folder-select"
                 bind:value={folderId}
                 disabled={loading}
               >
-                <option value={null}>No folder</option>
+                <option value={null}>{$t('playlist.noFolder')}</option>
                 {#each folders as folder (folder.id)}
                   <option value={folder.id}>{folder.name}</option>
                 {/each}
@@ -662,7 +664,7 @@
                   bind:checked={isPublic}
                   disabled={loading}
                 />
-                <span>Make playlist public</span>
+                <span>{$t('playlist.makePublic')}</span>
               </label>
             </div>
 
@@ -680,7 +682,7 @@
                     {:else}
                       <Eye size={14} />
                     {/if}
-                    Hide from sidebar
+                    {$t('playlist.hideFromSidebar')}
                   </span>
                 </label>
               </div>
@@ -694,37 +696,37 @@
           <div class="footer-left">
             {#if showDeleteConfirm}
               <div class="delete-confirm-inline">
-                <span>Delete?</span>
+                <span>{$t('actions.deleteConfirm')}</span>
                 <button class="btn-delete-sm" onclick={handleDelete} disabled={loading}>
-                  Yes
+                  {$t('actions.yes')}
                 </button>
                 <button class="btn-cancel-sm" onclick={() => showDeleteConfirm = false} disabled={loading}>
-                  No
+                  {$t('actions.no')}
                 </button>
               </div>
             {:else}
               <button class="btn-danger-sm" onclick={() => showDeleteConfirm = true} disabled={loading}>
                 <Trash2 size={12} />
-                Delete
+                {$t('actions.delete')}
               </button>
             {/if}
           </div>
         {/if}
         <div class="footer-right">
           <button class="btn btn-secondary" onclick={onClose} disabled={loading}>
-            Cancel
+            {$t('actions.cancel')}
           </button>
           <button class="btn btn-primary" onclick={handleSubmit} disabled={loading}>
             {#if loading}
-              Saving...
+              {$t('actions.saving')}
             {:else if mode === 'create'}
-              Create
+              {$t('actions.create')}
             {:else if mode === 'edit'}
-              Save
+              {$t('actions.save')}
             {:else if selectedPlaylistId === CREATE_NEW_PLAYLIST}
-              Create & Add
+              {$t('playlist.createAndAdd')}
             {:else}
-              Add
+              {$t('actions.add')}
             {/if}
           </button>
         </div>
