@@ -15,7 +15,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::path::PathBuf;
 use std::sync::Once;
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{broadcast, Mutex};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
@@ -274,6 +274,16 @@ pub fn broadcast_playback_event(app_handle: &AppHandle, event: &PlaybackEvent) {
     }
 }
 
+/// Emit playback event to both desktop UI (Tauri event) and PWA (WebSocket)
+fn emit_playback_update(app_handle: &AppHandle) {
+    let app_state = app_handle.state::<AppState>();
+    let event = app_state.player.get_playback_event();
+    // Emit to desktop UI
+    let _ = app_handle.emit("playback:state", &event);
+    // Broadcast to WebSocket clients (PWA)
+    broadcast_playback_event(app_handle, &event);
+}
+
 #[tauri::command]
 pub async fn remote_control_get_status(app: AppHandle) -> Result<RemoteControlStatus, String> {
     let settings_state = app.state::<RemoteControlSettingsState>();
@@ -452,6 +462,7 @@ async fn play(State(ctx): State<ApiContext>) -> Result<StatusCode, StatusCode> {
         .player
         .resume()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    emit_playback_update(&ctx.app_handle);
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -462,6 +473,7 @@ async fn pause(State(ctx): State<ApiContext>) -> Result<StatusCode, StatusCode> 
         .player
         .pause()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    emit_playback_update(&ctx.app_handle);
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -513,6 +525,9 @@ async fn play_queue_track(
         return Err(StatusCode::BAD_GATEWAY);
     }
 
+    // Emit update to both desktop UI and PWA
+    emit_playback_update(&ctx.app_handle);
+
     Ok(track)
 }
 
@@ -523,6 +538,7 @@ async fn seek(
     let app_state = ctx.app_handle.state::<AppState>();
     commands::playback::seek(payload.position, app_state)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    emit_playback_update(&ctx.app_handle);
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -533,6 +549,7 @@ async fn set_volume(
     let app_state = ctx.app_handle.state::<AppState>();
     commands::playback::set_volume(payload.volume, app_state)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    emit_playback_update(&ctx.app_handle);
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -688,6 +705,7 @@ async fn play_queue_index(
                 log::error!("Remote control play_queue_index failed: {}", err);
                 return Err(StatusCode::BAD_GATEWAY);
             }
+            emit_playback_update(&ctx.app_handle);
         }
     }
     Ok(Json(track))
@@ -835,6 +853,7 @@ async fn play_album(
                 log::error!("Remote control play_album failed: {}", err);
                 return Err(StatusCode::BAD_GATEWAY);
             }
+            emit_playback_update(&ctx.app_handle);
         }
     }
 
