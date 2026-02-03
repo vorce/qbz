@@ -47,9 +47,9 @@
   let accessible = $state(true);
   let checkingAccessibility = $state(false);
 
-  // Network filesystem options (derived to support i18n reactivity)
-  const networkFsOptions = $derived([
-    { value: '', label: $t('library.networkFs.auto') },
+  // Network filesystem options - static values, labels use $t() in template for reactivity
+  const networkFsOptions = [
+    { value: '', labelKey: 'library.networkFs.auto' },
     { value: 'cifs', label: 'SMB/CIFS (Samba)' },
     { value: 'nfs', label: 'NFS' },
     { value: 'sshfs', label: 'SSHFS' },
@@ -57,8 +57,8 @@
     { value: 'webdav', label: 'WebDAV' },
     { value: 'glusterfs', label: 'GlusterFS' },
     { value: 'ceph', label: 'CephFS' },
-    { value: 'other', label: $t('library.networkFs.other') }
-  ]);
+    { value: 'other', labelKey: 'library.networkFs.other' }
+  ];
 
   // Reset form when modal opens
   $effect(() => {
@@ -340,7 +340,7 @@
               disabled={loading}
             >
               {#each networkFsOptions as option}
-                <option value={option.value}>{option.label}</option>
+                <option value={option.value}>{option.labelKey ? $t(option.labelKey) : option.label}</option>
               {/each}
             </select>
             <span class="form-hint">{$t('library.networkFsTypeHint')}</span>
