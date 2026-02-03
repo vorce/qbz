@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, ConnectInfo, Query, State},
+    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, ConnectInfo, Path, Query, State},
     http::{header, Method, StatusCode},
     middleware,
     response::IntoResponse,
@@ -20,7 +20,7 @@ use tokio::sync::{broadcast, Mutex};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use crate::{
-    api::{SearchResultsPage, Track},
+    api::{Album, Artist, SearchResultsPage, Track},
     artist_blacklist::BlacklistState,
     commands::{self, search::SearchAllResults},
     config::{
@@ -397,6 +397,8 @@ fn build_router(ctx: ApiContext) -> Router {
         .route("/api/favorites/add", post(add_favorite))
         .route("/api/favorites/remove", post(remove_favorite))
         .route("/api/album/play", post(play_album))
+        .route("/api/album/:id", get(get_album))
+        .route("/api/artist/:id", get(get_artist))
         .route("/api/ws", get(ws_handler))
         .with_state(ctx.clone())
         .layer(middleware::from_fn(lan_only))
@@ -803,6 +805,33 @@ async fn play_album(
     }
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn get_album(
+    State(ctx): State<ApiContext>,
+    Path(album_id): Path<String>,
+) -> Result<Json<Album>, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    let client = app_state.client.lock().await;
+    let album = client
+        .get_album(&album_id)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok(Json(album))
+}
+
+async fn get_artist(
+    State(ctx): State<ApiContext>,
+    Path(artist_id): Path<String>,
+) -> Result<Json<Artist>, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    let client = app_state.client.lock().await;
+    let id: u64 = artist_id.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
+    let artist = client
+        .get_artist(id, true)  // Include albums
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok(Json(artist))
 }
 
 async fn ws_handler(
