@@ -5,6 +5,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 // ============ Types ============
 
@@ -430,4 +431,44 @@ export function reset(): void {
   repeatMode = 'off';
   localTrackIds = new Set();
   notifyListeners();
+}
+
+// ============ Event Listeners ============
+
+let queueEventUnlisten: UnlistenFn | null = null;
+
+interface QueueStateEvent {
+  shuffle: boolean;
+  repeat: string;
+}
+
+/**
+ * Start listening for queue state events from backend (e.g., shuffle/repeat changes from remote control)
+ */
+export async function startQueueEventListener(): Promise<void> {
+  if (queueEventUnlisten) return;
+
+  try {
+    queueEventUnlisten = await listen<QueueStateEvent>('queue:state', (event) => {
+      console.log('[Queue] Received queue state event:', event.payload);
+      // Update local state directly from event
+      isShuffle = event.payload.shuffle;
+      repeatMode = event.payload.repeat.toLowerCase() as RepeatMode;
+      notifyListeners();
+    });
+    console.log('[Queue] Started listening for queue state events');
+  } catch (err) {
+    console.error('[Queue] Failed to start queue event listener:', err);
+  }
+}
+
+/**
+ * Stop listening for queue state events
+ */
+export function stopQueueEventListener(): void {
+  if (queueEventUnlisten) {
+    queueEventUnlisten();
+    queueEventUnlisten = null;
+    console.log('[Queue] Stopped listening for queue state events');
+  }
 }

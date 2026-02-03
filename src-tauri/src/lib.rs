@@ -415,6 +415,14 @@ pub fn run() {
                     if should_emit {
                         let sample_rate = player_state.get_sample_rate();
                         let bit_depth = player_state.get_bit_depth();
+                        // Get queue state for shuffle/repeat
+                        let queue_state = &app_handle.state::<AppState>().queue;
+                        let shuffle = queue_state.is_shuffle();
+                        let repeat = match queue_state.get_repeat() {
+                            queue::RepeatMode::Off => "off",
+                            queue::RepeatMode::All => "all",
+                            queue::RepeatMode::One => "one",
+                        };
                         let event = player::PlaybackEvent {
                             is_playing,
                             position,
@@ -423,6 +431,8 @@ pub fn run() {
                             volume,
                             sample_rate: if sample_rate > 0 { Some(sample_rate) } else { None },
                             bit_depth: if bit_depth > 0 { Some(bit_depth) } else { None },
+                            shuffle: Some(shuffle),
+                            repeat: Some(repeat.to_string()),
                         };
                         let _ = app_handle.emit("playback:state", &event);
                         api_server::broadcast_playback_event(&app_handle, &event);

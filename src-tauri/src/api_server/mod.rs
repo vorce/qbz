@@ -277,11 +277,33 @@ pub fn broadcast_playback_event(app_handle: &AppHandle, event: &PlaybackEvent) {
 /// Emit playback event to both desktop UI (Tauri event) and PWA (WebSocket)
 fn emit_playback_update(app_handle: &AppHandle) {
     let app_state = app_handle.state::<AppState>();
-    let event = app_state.player.get_playback_event();
+    let mut event = app_state.player.get_playback_event();
+    // Add queue state to event for PWA sync
+    event.shuffle = Some(app_state.queue.is_shuffle());
+    event.repeat = Some(match app_state.queue.get_repeat() {
+        crate::queue::RepeatMode::Off => "off".to_string(),
+        crate::queue::RepeatMode::All => "all".to_string(),
+        crate::queue::RepeatMode::One => "one".to_string(),
+    });
     // Emit to desktop UI
     let _ = app_handle.emit("playback:state", &event);
     // Broadcast to WebSocket clients (PWA)
     broadcast_playback_event(app_handle, &event);
+}
+
+/// Emit queue state event to desktop UI when shuffle/repeat changes
+fn emit_queue_state_update(app_handle: &AppHandle) {
+    let app_state = app_handle.state::<AppState>();
+    let shuffle = app_state.queue.is_shuffle();
+    let repeat = match app_state.queue.get_repeat() {
+        crate::queue::RepeatMode::Off => "off",
+        crate::queue::RepeatMode::All => "all",
+        crate::queue::RepeatMode::One => "one",
+    };
+    let _ = app_handle.emit("queue:state", serde_json::json!({
+        "shuffle": shuffle,
+        "repeat": repeat
+    }));
 }
 
 #[tauri::command]
@@ -722,6 +744,8 @@ async fn set_shuffle(
         crate::queue::RepeatMode::All => "all",
         crate::queue::RepeatMode::One => "one",
     };
+    // Notify desktop UI of queue state change
+    emit_queue_state_update(&ctx.app_handle);
     Ok(Json(ShuffleRepeatResponse {
         shuffle: app_state.queue.is_shuffle(),
         repeat: repeat.to_string(),
@@ -739,6 +763,8 @@ async fn set_repeat(
         _ => crate::queue::RepeatMode::Off,
     };
     app_state.queue.set_repeat(mode);
+    // Notify desktop UI of queue state change
+    emit_queue_state_update(&ctx.app_handle);
     Ok(Json(ShuffleRepeatResponse {
         shuffle: app_state.queue.is_shuffle(),
         repeat: payload.mode,

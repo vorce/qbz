@@ -489,6 +489,10 @@ pub struct PlaybackEvent {
     pub sample_rate: Option<u32>,
     /// Actual bit depth of the current stream
     pub bit_depth: Option<u32>,
+    /// Queue shuffle state
+    pub shuffle: Option<bool>,
+    /// Queue repeat mode ("off", "all", "one")
+    pub repeat: Option<String>,
 }
 
 /// Shared state between main thread and audio thread
@@ -2012,6 +2016,8 @@ impl Player {
             volume: self.state.volume(),
             sample_rate: if sample_rate > 0 { Some(sample_rate) } else { None },
             bit_depth: if bit_depth > 0 { Some(bit_depth) } else { None },
+            shuffle: None,  // Set by caller with access to queue state
+            repeat: None,   // Set by caller with access to queue state
         }
     }
 }

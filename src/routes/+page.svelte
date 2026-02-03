@@ -165,6 +165,8 @@
     getBackendQueueState,
     getQueueState,
     setOfflineMode as setQueueOfflineMode,
+    startQueueEventListener,
+    stopQueueEventListener,
     type QueueTrack,
     type BackendQueueTrack,
     type RepeatMode
@@ -2360,13 +2362,15 @@
     keybindingHandler(e);
   }
 
-  // Playback state polling - managed by playerStore
-  // Always keep polling active to receive external playback events (e.g., from remote control)
+  // Playback and queue state listeners
+  // Always keep active to receive external events (e.g., from remote control)
   $effect(() => {
     startPolling();
+    startQueueEventListener();
 
     return () => {
       stopPolling();
+      stopQueueEventListener();
     };
   });
 
