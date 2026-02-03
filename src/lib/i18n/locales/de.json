@@ -1065,6 +1065,7 @@
       "title": "Einrichtung abgeschlossen",
       "subtitle": "Ihr DAC ist für Bit-Perfect-Wiedergabe konfiguriert.",
       "summary": "Erstellte Konfigurationen:",
+      "configuredFor": "Konfiguriert für:",
       "close": "Schließen"
     },
     "error": {

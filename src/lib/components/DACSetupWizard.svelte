@@ -243,6 +243,7 @@
 
   // Generate pulse config command based on selected apps
   function generatePulseConfig(): string[] {
+    const fileName = dacNodeName ? `99-qbz-bitperfect-${dacShortName()}.conf` : '99-qbz-bitperfect.conf';
     const rules = selectedApps.map(app => {
       const matchKey = app === 'QBZ' ? 'application.name' : 'application.process.binary';
       const matchValue = app === 'QBZ' ? 'QBZ' : app.toLowerCase();
@@ -254,12 +255,22 @@
 
     return [
       'mkdir -p ~/.config/pipewire/pipewire-pulse.conf.d',
-      `cat > ~/.config/pipewire/pipewire-pulse.conf.d/99-qbz-bitperfect.conf << 'EOF'`,
+      `cat > ~/.config/pipewire/pipewire-pulse.conf.d/${fileName} << 'EOF'`,
       '# QBZ DAC Setup - Per-App Bit-Perfect',
       'pulse.rules = [',
       rules,
       ']',
       'EOF'
+    ];
+  }
+
+  // Get created config file paths for summary
+  function getCreatedConfigPaths(): string[] {
+    const name = dacNodeName ? dacShortName() : null;
+    return [
+      `~/.config/pipewire/pipewire.conf.d/${name ? `99-qbz-dac-${name}.conf` : '99-qbz-dac.conf'}`,
+      `~/.config/pipewire/pipewire-pulse.conf.d/${name ? `99-qbz-bitperfect-${name}.conf` : '99-qbz-bitperfect.conf'}`,
+      `~/.config/wireplumber/wireplumber.conf.d/${name ? `99-qbz-dac-${name}.conf` : '99-qbz-dac.conf'}`
     ];
   }
 
@@ -633,12 +644,19 @@
             <div class="done-content">
               <CheckCircle size={64} class="done-icon" />
 
+              {#if dacCapabilities?.description || dacNodeName}
+                <div class="done-dac-info">
+                  <span class="done-dac-label">{$t('dacWizard.done.configuredFor')}</span>
+                  <span class="done-dac-name">{dacCapabilities?.description || dacShortName()}</span>
+                </div>
+              {/if}
+
               <div class="done-summary">
                 <h4>{$t('dacWizard.done.summary')}</h4>
                 <ul class="config-list">
-                  <li><code>~/.config/pipewire/pipewire.conf.d/99-qbz-dac.conf</code></li>
-                  <li><code>~/.config/pipewire/pipewire-pulse.conf.d/99-qbz-bitperfect.conf</code></li>
-                  <li><code>~/.config/wireplumber/wireplumber.conf.d/99-qbz-dac.conf</code></li>
+                  {#each getCreatedConfigPaths() as path}
+                    <li><code>{path}</code></li>
+                  {/each}
                 </ul>
               </div>
             </div>
@@ -1155,6 +1173,24 @@
 
   .done-content :global(.done-icon) {
     color: var(--accent-primary);
+  }
+
+  .done-dac-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .done-dac-label {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .done-dac-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
   }
 
   .done-summary {

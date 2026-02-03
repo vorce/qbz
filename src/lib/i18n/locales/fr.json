@@ -1064,6 +1064,7 @@
     "done": {
       "title": "Configuration terminée",
       "subtitle": "Votre DAC est configuré pour la lecture bit-perfect.",
+      "configuredFor": "Configuré pour :",
       "summary": "Configurations créées :",
       "close": "Fermer"
     },

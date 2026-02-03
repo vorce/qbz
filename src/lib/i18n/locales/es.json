@@ -1123,6 +1123,7 @@
     "done": {
       "title": "Configuración Completa",
       "subtitle": "Tu DAC está configurado para reproducción bit-perfect.",
+      "configuredFor": "Configurado para:",
       "summary": "Configs creados:",
       "close": "Cerrar"
     },
