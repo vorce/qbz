@@ -5,6 +5,8 @@ import { invoke } from '@tauri-apps/api/core';
 // Register locales
 register('en', () => import('./locales/en.json'));
 register('es', () => import('./locales/es.json'));
+register('fr', () => import('./locales/fr.json'));
+register('de', () => import('./locales/de.json'));
 
 // Initialize i18n
 export function initI18n() {
@@ -46,6 +48,8 @@ export async function setLocale(newLocale: string) {
 export const locales = [
   { code: 'en', name: 'English', nativeName: 'English' },
   { code: 'es', name: 'Spanish', nativeName: 'Español' },
+  { code: 'fr', name: 'French', nativeName: 'Français' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch' },
 ] as const;
 
 export type LocaleCode = (typeof locales)[number]['code'];
