@@ -25,6 +25,7 @@ use crate::{
     commands::{self, search::SearchAllResults},
     config::{
         audio_settings::AudioSettingsState,
+        playback_preferences::{AutoplayMode, PlaybackPreferencesState, PlaybackPreferences},
         remote_control_settings::{RemoteControlSettings, RemoteControlSettingsState},
     },
     offline_cache::OfflineCacheState,
@@ -399,6 +400,8 @@ fn build_router(ctx: ApiContext) -> Router {
         .route("/api/album/play", post(play_album))
         .route("/api/album/:id", get(get_album))
         .route("/api/artist/:id", get(get_artist))
+        .route("/api/playback/preferences", get(get_playback_preferences))
+        .route("/api/playback/autoplay", post(set_autoplay))
         .route("/api/ws", get(ws_handler))
         .with_state(ctx.clone())
         .layer(middleware::from_fn(lan_only))
@@ -558,6 +561,37 @@ struct FavoriteRequest {
 #[serde(rename_all = "camelCase")]
 struct PlayAlbumRequest {
     album_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetAutoplayRequest {
+    mode: String,
+}
+
+async fn get_playback_preferences(
+    State(ctx): State<ApiContext>,
+) -> Result<Json<PlaybackPreferences>, StatusCode> {
+    let prefs_state = ctx.app_handle.state::<PlaybackPreferencesState>();
+    prefs_state.get_preferences()
+        .map(Json)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+async fn set_autoplay(
+    State(ctx): State<ApiContext>,
+    Json(payload): Json<SetAutoplayRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let prefs_state = ctx.app_handle.state::<PlaybackPreferencesState>();
+    let mode = match payload.mode.as_str() {
+        "continue" => AutoplayMode::ContinueWithinSource,
+        "track_only" => AutoplayMode::PlayTrackOnly,
+        "infinite" => AutoplayMode::InfiniteRadio,
+        _ => return Err(StatusCode::BAD_REQUEST),
+    };
+    prefs_state.set_autoplay_mode(mode)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn search_tracks(
