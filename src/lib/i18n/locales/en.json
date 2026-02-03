@@ -1023,8 +1023,8 @@
   "dacWizard": {
     "triggerTooltip": "DAC Setup Guide",
     "tooltip": {
-      "title": "Bit-Perfect Setup Wizard",
-      "desc": "Configure your DAC for lossless audio playback"
+      "title": "The Hi-Fi Wizard",
+      "desc": "If you haven't already, he can help you set up bit-perfect on your DAC"
     },
     "welcome": {
       "title": "Guided DAC Setup",

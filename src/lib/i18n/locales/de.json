@@ -964,8 +964,8 @@
     "title": "DAC-Einrichtungsassistent",
     "triggerTooltip": "DAC-Einrichtungshilfe",
     "tooltip": {
-      "title": "Bit-Perfect-Assistent",
-      "desc": "Konfigurieren Sie Ihren DAC für verlustfreie Audiowiedergabe"
+      "title": "Der Hi-Fi-Magier",
+      "desc": "Falls noch nicht geschehen, kann er dir bei der Bit-Perfect-Konfiguration helfen"
     },
     "welcome": {
       "title": "Geführte DAC-Einrichtung",

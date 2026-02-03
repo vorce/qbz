@@ -964,8 +964,8 @@
     "title": "Assistant Configuration DAC",
     "triggerTooltip": "Guide de configuration DAC",
     "tooltip": {
-      "title": "Assistant Bit-Perfect",
-      "desc": "Configurez votre DAC pour une lecture audio sans perte"
+      "title": "Le Mage Hi-Fi",
+      "desc": "Si ce n'est pas déjà fait, il peut vous aider à configurer le bit-perfect sur votre DAC"
     },
     "welcome": {
       "title": "Configuration Guidée du DAC",

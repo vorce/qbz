@@ -1023,8 +1023,8 @@
   "dacWizard": {
     "triggerTooltip": "Guía de Configuración de DAC",
     "tooltip": {
-      "title": "Asistente Bit-Perfect",
-      "desc": "Configura tu DAC para reproducción sin pérdidas"
+      "title": "El Mago del Hi-Fi",
+      "desc": "Si aún no lo has hecho, puede ayudarte a configurar bit-perfect en tu DAC"
     },
     "welcome": {
       "title": "Configuración Guiada de DAC",
