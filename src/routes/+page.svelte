@@ -317,6 +317,7 @@
   import UpdateReminderModal from '$lib/components/updates/UpdateReminderModal.svelte';
   import WhatsNewModal from '$lib/components/updates/WhatsNewModal.svelte';
   import FlatpakWelcomeModal from '$lib/components/updates/FlatpakWelcomeModal.svelte';
+  import KeyboardShortcutsModal from '$lib/components/KeyboardShortcutsModal.svelte';
   import type { ReleaseInfo } from '$lib/stores/updatesStore';
   import {
     decideLaunchModals,
@@ -496,6 +497,7 @@
   let playlistModalTracksAreLocal = $state(false);
   let isPlaylistImportOpen = $state(false);
   let isAboutModalOpen = $state(false);
+  let isShortcutsModalOpen = $state(false);
 
   // Track Info Modal State
   let isTrackInfoOpen = $state(false);
@@ -2433,6 +2435,7 @@
     registerAction('ui.focusMode', toggleFocusMode);
     registerAction('ui.queue', toggleQueue);
     registerAction('ui.escape', handleUIEscape);
+    registerAction('ui.showShortcuts', () => { isShortcutsModalOpen = true; });
 
     // Session save on window close/hide
     const handleBeforeUnload = () => {
@@ -3410,6 +3413,16 @@
     <AboutModal
       isOpen={isAboutModalOpen}
       onClose={() => isAboutModalOpen = false}
+    />
+
+    <!-- Keyboard Shortcuts Modal -->
+    <KeyboardShortcutsModal
+      isOpen={isShortcutsModalOpen}
+      onClose={() => isShortcutsModalOpen = false}
+      onOpenSettings={() => {
+        isShortcutsModalOpen = false;
+        navigateTo('settings');
+      }}
     />
 
     {#if updateRelease}
