@@ -19,7 +19,7 @@ pub struct TrackInfo {
 pub async fn get_user_playlists(
     state: State<'_, AppState>,
 ) -> Result<Vec<Playlist>, String> {
-    log::info!("Command: get_user_playlists");
+    log::debug!("Command: get_user_playlists");
 
     let client = state.client.lock().await;
     client
@@ -34,7 +34,7 @@ pub async fn get_playlist(
     playlist_id: u64,
     state: State<'_, AppState>,
 ) -> Result<Playlist, String> {
-    log::info!("Command: get_playlist {}", playlist_id);
+    log::debug!("Command: get_playlist {}", playlist_id);
 
     let client = state.client.lock().await;
     client
@@ -51,7 +51,7 @@ pub async fn search_playlists(
     offset: Option<u32>,
     state: State<'_, AppState>,
 ) -> Result<SearchResultsPage<Playlist>, String> {
-    log::info!("Command: search_playlists \"{}\" limit={:?} offset={:?}", query, limit, offset);
+    log::debug!("Command: search_playlists \"{}\" limit={:?} offset={:?}", query, limit, offset);
 
     let client = state.client.lock().await;
     client
@@ -148,7 +148,7 @@ pub async fn get_tracks_by_ids(
     track_ids: Vec<u64>,
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::api::models::Track>, String> {
-    log::info!("Command: get_tracks_by_ids ({} tracks)", track_ids.len());
+    log::debug!("Command: get_tracks_by_ids ({} tracks)", track_ids.len());
 
     let client = state.client.lock().await;
     let mut tracks = Vec::new();
@@ -169,7 +169,7 @@ pub async fn get_tracks_by_ids(
 /// Get the current user's Qobuz ID
 #[tauri::command]
 pub async fn get_current_user_id(state: State<'_, AppState>) -> Result<Option<u64>, String> {
-    log::info!("Command: get_current_user_id");
+    log::debug!("Command: get_current_user_id");
 
     let client = state.client.lock().await;
     Ok(client.get_user_id().await)
@@ -235,7 +235,7 @@ pub async fn get_track_info(
     track_id: u64,
     state: State<'_, AppState>,
 ) -> Result<TrackInfo, String> {
-    log::info!("Command: get_track_info {}", track_id);
+    log::debug!("Command: get_track_info {}", track_id);
 
     let client = state.client.lock().await;
     let track = client

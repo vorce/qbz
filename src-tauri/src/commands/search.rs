@@ -330,7 +330,7 @@ pub async fn get_featured_albums(
     genre_id: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<SearchResultsPage<Album>, String> {
-    log::info!(
+    log::debug!(
         "Command: get_featured_albums type={} limit={:?} offset={:?} genre_id={:?}",
         featured_type,
         limit,
@@ -383,7 +383,7 @@ pub async fn get_artist(
     state: State<'_, AppState>,
     cache_state: State<'_, ApiCacheState>,
 ) -> Result<Artist, String> {
-    log::info!("Command: get_artist {}", artist_id);
+    log::debug!("Command: get_artist {}", artist_id);
 
     // Get current locale
     let locale = {
@@ -428,7 +428,7 @@ pub async fn get_artist_detail(
     artist_id: u64,
     state: State<'_, AppState>,
 ) -> Result<Artist, String> {
-    log::info!("Command: get_artist_detail {}", artist_id);
+    log::debug!("Command: get_artist_detail {}", artist_id);
 
     let client = state.client.lock().await;
     client
@@ -445,7 +445,7 @@ pub async fn get_artist_tracks(
     offset: Option<u32>,
     state: State<'_, AppState>,
 ) -> Result<TracksContainer, String> {
-    log::info!(
+    log::debug!(
         "Command: get_artist_tracks {} limit={:?} offset={:?}",
         artist_id,
         limit,
@@ -467,7 +467,7 @@ pub async fn get_artist_albums(
     offset: Option<u32>,
     state: State<'_, AppState>,
 ) -> Result<ArtistAlbums, String> {
-    log::info!(
+    log::debug!(
         "Command: get_artist_albums {} limit={:?} offset={:?}",
         artist_id,
         limit,
@@ -548,7 +548,7 @@ pub async fn get_genres(
     parent_id: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::api::models::GenreInfo>, String> {
-    log::info!("Command: get_genres parent_id={:?}", parent_id);
+    log::debug!("Command: get_genres parent_id={:?}", parent_id);
 
     let client = state.client.lock().await;
     client

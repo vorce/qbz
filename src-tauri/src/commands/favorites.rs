@@ -14,7 +14,7 @@ pub async fn get_favorites(
     offset: Option<u32>,
     state: State<'_, AppState>,
 ) -> Result<Value, String> {
-    log::info!("Command: get_favorites type={} limit={:?} offset={:?}", fav_type, limit, offset);
+    log::debug!("Command: get_favorites type={} limit={:?} offset={:?}", fav_type, limit, offset);
 
     let client = state.client.lock().await;
     client

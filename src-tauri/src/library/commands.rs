@@ -1352,7 +1352,7 @@ pub async fn playlist_get_local_tracks_with_position(
 pub async fn playlist_get_all_local_track_counts(
     state: State<'_, LibraryState>,
 ) -> Result<std::collections::HashMap<u64, u32>, String> {
-    log::info!("Command: playlist_get_all_local_track_counts");
+    log::debug!("Command: playlist_get_all_local_track_counts");
 
     let db = state.db.lock().await;
     db.get_all_playlist_local_track_counts()
@@ -1377,7 +1377,7 @@ pub async fn playlist_clear_local_tracks(
 pub async fn playlist_get_all_settings(
     state: State<'_, LibraryState>,
 ) -> Result<Vec<PlaylistSettings>, String> {
-    log::info!("Command: playlist_get_all_settings");
+    log::debug!("Command: playlist_get_all_settings");
 
     let db = state.db.lock().await;
     db.get_all_playlist_settings()
@@ -1469,7 +1469,7 @@ pub async fn playlist_get_stats(
 pub async fn playlist_get_all_stats(
     state: State<'_, LibraryState>,
 ) -> Result<Vec<PlaylistStats>, String> {
-    log::info!("Command: playlist_get_all_stats");
+    log::debug!("Command: playlist_get_all_stats");
 
     let db = state.db.lock().await;
     db.get_all_playlist_stats()
@@ -2657,7 +2657,7 @@ pub async fn create_playlist_folder(
 pub async fn get_playlist_folders(
     state: State<'_, LibraryState>,
 ) -> Result<Vec<PlaylistFolder>, String> {
-    log::info!("Command: get_playlist_folders");
+    log::debug!("Command: get_playlist_folders");
 
     let db = state.db.lock().await;
     db.get_all_playlist_folders().map_err(|e| e.to_string())
