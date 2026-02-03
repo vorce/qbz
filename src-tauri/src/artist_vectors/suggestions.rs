@@ -149,9 +149,9 @@ impl SuggestionsEngine {
         // 1. Ensure vectors exist for playlist artists (skip if configured)
         let step1_start = Instant::now();
         if self.config.skip_vector_build {
-            log::info!("[SuggestionsEngine] Step 1: SKIPPED (skip_vector_build=true), using only cached vectors");
+            log::debug!("[SuggestionsEngine] Step 1: SKIPPED (skip_vector_build=true), using only cached vectors");
         } else {
-            log::info!("[SuggestionsEngine] Step 1: Ensuring vectors for {} artists", playlist_artists.len());
+            log::debug!("[SuggestionsEngine] Step 1: Ensuring vectors for {} artists", playlist_artists.len());
             for (i, (mbid, name)) in playlist_artists.iter().enumerate() {
                 let artist_start = Instant::now();
                 let _ = self
@@ -160,14 +160,14 @@ impl SuggestionsEngine {
                     .await;
                 log::debug!("[SuggestionsEngine] ensure_vector {}/{} took {:?}", i + 1, playlist_artists.len(), artist_start.elapsed());
             }
-            log::info!("[SuggestionsEngine] Step 1 completed in {:?}", step1_start.elapsed());
+            log::debug!("[SuggestionsEngine] Step 1 completed in {:?}", step1_start.elapsed());
         }
 
         // 2. Compute combined playlist vector
-        log::info!("[SuggestionsEngine] Step 2: Computing playlist vector");
+        log::debug!("[SuggestionsEngine] Step 2: Computing playlist vector");
         let step2_start = Instant::now();
         let playlist_vector = self.compute_playlist_vector(&playlist_artist_mbids).await?;
-        log::info!("[SuggestionsEngine] Step 2 completed in {:?}, vector empty={}", step2_start.elapsed(), playlist_vector.is_empty());
+        log::debug!("[SuggestionsEngine] Step 2 completed in {:?}, vector empty={}", step2_start.elapsed(), playlist_vector.is_empty());
 
         if playlist_vector.is_empty() {
             log::warn!("[SuggestionsEngine] Playlist vector is empty, returning empty result");
@@ -180,7 +180,7 @@ impl SuggestionsEngine {
         }
 
         // 3. Find related artists (using direct relationships, not vector similarity)
-        log::info!("[SuggestionsEngine] Step 3: Finding related artists");
+        log::debug!("[SuggestionsEngine] Step 3: Finding related artists");
         let step3_start = Instant::now();
         let exclude_vec: Vec<String> = playlist_artist_mbids.to_vec();
         let similar_artists = {
@@ -189,14 +189,14 @@ impl SuggestionsEngine {
             // This finds members, collaborators, etc. from the MusicBrainz data
             store.get_all_related_artists(&playlist_artist_mbids, &exclude_vec, self.config.max_artists)?
         };
-        log::info!("[SuggestionsEngine] Step 3 completed in {:?}, found {} related artists", step3_start.elapsed(), similar_artists.len());
+        log::debug!("[SuggestionsEngine] Step 3 completed in {:?}, found {} related artists", step3_start.elapsed(), similar_artists.len());
 
         let similar_artists_count = similar_artists.len();
         let mut source_artists = Vec::new();
         let mut all_tracks = Vec::new();
 
         // 4a. First, search for tracks by playlist artists themselves (highest relevance)
-        log::info!("[SuggestionsEngine] Step 4a: Searching tracks for {} playlist artists", playlist_artists.len());
+        log::debug!("[SuggestionsEngine] Step 4a: Searching tracks for {} playlist artists", playlist_artists.len());
         let step4a_start = Instant::now();
 
         for (mbid, name) in playlist_artists {
@@ -220,10 +220,10 @@ impl SuggestionsEngine {
                 all_tracks.push(track);
             }
         }
-        log::info!("[SuggestionsEngine] Step 4a completed in {:?}, got {} tracks from playlist artists", step4a_start.elapsed(), all_tracks.len());
+        log::debug!("[SuggestionsEngine] Step 4a completed in {:?}, got {} tracks from playlist artists", step4a_start.elapsed(), all_tracks.len());
 
         // 4b. Then search for tracks by related/similar artists
-        log::info!("[SuggestionsEngine] Step 4b: Searching tracks for {} related artists", similar_artists.len());
+        log::debug!("[SuggestionsEngine] Step 4b: Searching tracks for {} related artists", similar_artists.len());
         let step4b_start = Instant::now();
 
         for (i, artist) in similar_artists.iter().enumerate() {
@@ -263,11 +263,11 @@ impl SuggestionsEngine {
 
             // Stop if we have enough tracks
             if all_tracks.len() >= self.config.max_pool_size * 2 {
-                log::info!("[SuggestionsEngine] Reached extended pool size {} after {} related artists", all_tracks.len(), i + 1);
+                log::debug!("[SuggestionsEngine] Reached extended pool size {} after {} related artists", all_tracks.len(), i + 1);
                 break;
             }
         }
-        log::info!("[SuggestionsEngine] Step 4b completed in {:?}, got {} total tracks", step4b_start.elapsed(), all_tracks.len());
+        log::debug!("[SuggestionsEngine] Step 4b completed in {:?}, got {} total tracks", step4b_start.elapsed(), all_tracks.len());
 
         // 5. Deduplicate by title+artist (keeps highest similarity version)
         let mut seen_titles: HashSet<String> = HashSet::new();

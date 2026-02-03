@@ -1218,7 +1218,7 @@ pub async fn playlist_get_settings(
     playlist_id: u64,
     state: State<'_, LibraryState>,
 ) -> Result<Option<PlaylistSettings>, String> {
-    log::info!("Command: playlist_get_settings {}", playlist_id);
+    log::debug!("Command: playlist_get_settings {}", playlist_id);
 
     let db = state.db.lock().await;
     db.get_playlist_settings(playlist_id)
@@ -1340,7 +1340,7 @@ pub async fn playlist_get_local_tracks_with_position(
     playlist_id: u64,
     state: State<'_, LibraryState>,
 ) -> Result<Vec<crate::library::PlaylistLocalTrack>, String> {
-    log::info!("Command: playlist_get_local_tracks_with_position {}", playlist_id);
+    log::debug!("Command: playlist_get_local_tracks_with_position {}", playlist_id);
 
     let db = state.db.lock().await;
     db.get_playlist_local_tracks_with_position(playlist_id)
@@ -1457,7 +1457,7 @@ pub async fn playlist_get_stats(
     playlist_id: u64,
     state: State<'_, LibraryState>,
 ) -> Result<Option<PlaylistStats>, String> {
-    log::info!("Command: playlist_get_stats {}", playlist_id);
+    log::debug!("Command: playlist_get_stats {}", playlist_id);
 
     let db = state.db.lock().await;
     db.get_playlist_stats(playlist_id)

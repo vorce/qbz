@@ -142,7 +142,7 @@ pub async fn get_playlist_suggestions_v2(
     }
 
     let resolve_elapsed = resolve_start.elapsed();
-    log::info!(
+    log::debug!(
         "[Suggestions] MBID resolution took {:?}: {} cached, {} resolved, {} skipped (skip_network={})",
         resolve_elapsed,
         cached_count,
@@ -171,7 +171,7 @@ pub async fn get_playlist_suggestions_v2(
     ));
 
     // Log config (already extracted above for skip_network check)
-    log::info!("[Suggestions] Config: max_artists={}, tracks_per={}, pool_size={}, skip_build={}",
+    log::debug!("[Suggestions] Config: max_artists={}, tracks_per={}, pool_size={}, skip_build={}",
         config.max_artists, config.tracks_per_artist, config.max_pool_size, config.skip_vector_build);
 
     let engine = SuggestionsEngine::new(
@@ -185,7 +185,7 @@ pub async fn get_playlist_suggestions_v2(
     let exclude_set: HashSet<u64> = input.exclude_track_ids.into_iter().collect();
 
     // Generate suggestions
-    log::info!("[Suggestions] Calling engine.generate_suggestions with {} artists", artist_info.len());
+    log::debug!("[Suggestions] Calling engine.generate_suggestions with {} artists", artist_info.len());
     let engine_start = std::time::Instant::now();
 
     let result = engine
