@@ -1,11 +1,22 @@
 <script lang="ts">
-  import { X, CheckCircle, Check, AlertTriangle, XCircle } from 'lucide-svelte';
+  import { X, CheckCircle, Check, AlertTriangle, XCircle, Search, Loader2 } from 'lucide-svelte';
+  import { invoke } from '@tauri-apps/api/core';
   import { t } from '$lib/i18n';
   import WizardStepper, { type Step } from './wizard/WizardStepper.svelte';
   import CommandBlock from './wizard/CommandBlock.svelte';
   import WarningBanner from './wizard/WarningBanner.svelte';
   import DistroSelector from './wizard/DistroSelector.svelte';
   import BitPerfectAppSelector from './wizard/BitPerfectAppSelector.svelte';
+
+  // DAC capabilities from Tauri backend
+  interface DacCapabilities {
+    node_name: string;
+    sample_rates: number[];
+    formats: string[];
+    channels: number | null;
+    description: string | null;
+    error: string | null;
+  }
 
   // DAC node name validation
   type DacType = 'usb' | 'pci' | 'bluetooth' | 'virtual' | 'unknown';
@@ -71,6 +82,36 @@
   let showRollback = $state(false);
   let selectedDistro = $state('debian');
 
+  // DAC capabilities query state
+  let dacCapabilities = $state<DacCapabilities | null>(null);
+  let isQueryingDac = $state(false);
+
+  async function queryDacCapabilities() {
+    if (!dacNodeName.trim() || dacValidation !== 'valid') return;
+
+    isQueryingDac = true;
+    dacCapabilities = null;
+
+    try {
+      const caps = await invoke<DacCapabilities>('query_dac_capabilities', {
+        nodeName: dacNodeName
+      });
+      dacCapabilities = caps;
+    } catch (err) {
+      console.error('Failed to query DAC capabilities:', err);
+      dacCapabilities = {
+        node_name: dacNodeName,
+        sample_rates: [],
+        formats: [],
+        channels: null,
+        description: null,
+        error: String(err)
+      };
+    } finally {
+      isQueryingDac = false;
+    }
+  }
+
   // Reset state when modal opens
   $effect(() => {
     if (isOpen) {
@@ -81,6 +122,8 @@
       precheckDone = false;
       restartDone = false;
       showRollback = false;
+      dacCapabilities = null;
+      isQueryingDac = false;
     }
   });
 
@@ -327,6 +370,71 @@
                   </div>
                 {/if}
               </div>
+
+              <!-- Query DAC Capabilities -->
+              {#if dacValidation === 'valid'}
+                <div class="query-section">
+                  <button
+                    class="query-btn"
+                    onclick={queryDacCapabilities}
+                    disabled={isQueryingDac}
+                  >
+                    {#if isQueryingDac}
+                      <Loader2 size={16} class="spin" />
+                      {$t('dacWizard.detectDac.query.querying')}
+                    {:else}
+                      <Search size={16} />
+                      {$t('dacWizard.detectDac.query.button')}
+                    {/if}
+                  </button>
+
+                  {#if dacCapabilities}
+                    <div class="capabilities-result">
+                      {#if dacCapabilities.description}
+                        <div class="cap-row">
+                          <span class="cap-label">{$t('dacWizard.detectDac.query.device')}:</span>
+                          <span class="cap-value">{dacCapabilities.description}</span>
+                        </div>
+                      {/if}
+
+                      {#if dacCapabilities.sample_rates.length > 0}
+                        <div class="cap-row">
+                          <span class="cap-label">{$t('dacWizard.detectDac.query.sampleRates')}:</span>
+                          <span class="cap-value rates">
+                            {dacCapabilities.sample_rates.map(r => `${(r / 1000).toFixed(1)}kHz`).join(', ')}
+                          </span>
+                        </div>
+                      {/if}
+
+                      {#if dacCapabilities.formats.length > 0}
+                        <div class="cap-row">
+                          <span class="cap-label">{$t('dacWizard.detectDac.query.formats')}:</span>
+                          <span class="cap-value">{dacCapabilities.formats.join(', ')}</span>
+                        </div>
+                      {/if}
+
+                      {#if dacCapabilities.channels}
+                        <div class="cap-row">
+                          <span class="cap-label">{$t('dacWizard.detectDac.query.channels')}:</span>
+                          <span class="cap-value">{dacCapabilities.channels}</span>
+                        </div>
+                      {/if}
+
+                      {#if dacCapabilities.error}
+                        <WarningBanner
+                          variant="warning"
+                          body={dacCapabilities.error}
+                        />
+                      {:else}
+                        <WarningBanner
+                          variant="info"
+                          body={$t('dacWizard.detectDac.query.disclaimer')}
+                        />
+                      {/if}
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             </div>
 
           {:else if currentStep === 'backup'}
@@ -730,6 +838,79 @@
   .dac-type.virtual {
     color: var(--color-error, #ef4444);
     background: rgba(239, 68, 68, 0.1);
+  }
+
+  .query-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .query-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--accent-primary);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 150ms ease;
+  }
+
+  .query-btn:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .query-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .query-btn :global(.spin) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .capabilities-result {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+  }
+
+  .cap-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .cap-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .cap-value {
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .cap-value.rates {
+    font-family: var(--font-mono, monospace);
+    color: var(--color-success, #22c55e);
   }
 
   .targeting-info {

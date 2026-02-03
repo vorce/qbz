@@ -999,6 +999,15 @@
         "pciDac": "Audio interne - bit-perfect dépend du matériel",
         "bluetoothDac": "Appareil Bluetooth - bit-perfect impossible",
         "virtualDac": "Appareil virtuel - bit-perfect non applicable"
+      },
+      "query": {
+        "button": "Interroger les capacités du DAC",
+        "querying": "Interrogation...",
+        "device": "Appareil",
+        "sampleRates": "Taux d'échantillonnage",
+        "formats": "Formats",
+        "channels": "Canaux",
+        "disclaimer": "Si ces valeurs ne correspondent pas aux spécifications de votre DAC, consultez la documentation du fabricant."
       }
     },
     "backup": {
