@@ -381,16 +381,20 @@
   const languageToLocale: Record<string, string | null> = {
     'Auto': null,
     'English': 'en',
-    'Español': 'es'
+    'Español': 'es',
+    'Français': 'fr',
+    'Deutsch': 'de'
   };
 
   const localeToLanguage: Record<string, string> = {
     'en': 'English',
-    'es': 'Español'
+    'es': 'Español',
+    'fr': 'Français',
+    'de': 'Deutsch'
   };
 
   // Available languages (only those with translations)
-  const availableLanguages = ['Auto', 'English', 'Español'];
+  const availableLanguages = ['Auto', 'English', 'Español', 'Français', 'Deutsch'];
 
   // Audio settings
   let streamingQuality = $state('Hi-Res+');
@@ -1082,7 +1086,7 @@
     } else {
       // 'Auto' - use browser locale, defaulting to 'en'
       const browserLocale = navigator.language.split('-')[0];
-      const supportedLocale = ['en', 'es'].includes(browserLocale) ? browserLocale : 'en';
+      const supportedLocale = ['en', 'es', 'fr', 'de'].includes(browserLocale) ? browserLocale : 'en';
       await setLocale(supportedLocale);
       // Clear the stored locale so it uses browser detection on next load
       localStorage.removeItem('qbz-locale');
