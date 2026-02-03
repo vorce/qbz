@@ -393,6 +393,10 @@ fn build_router(ctx: ApiContext) -> Router {
         .route("/api/queue/play", post(play_queue_index))
         .route("/api/queue/shuffle", post(set_shuffle))
         .route("/api/queue/repeat", post(set_repeat))
+        .route("/api/favorites", get(get_favorites))
+        .route("/api/favorites/add", post(add_favorite))
+        .route("/api/favorites/remove", post(remove_favorite))
+        .route("/api/album/play", post(play_album))
         .route("/api/ws", get(ws_handler))
         .with_state(ctx.clone())
         .layer(middleware::from_fn(lan_only))
@@ -534,6 +538,26 @@ struct SearchQuery {
     offset: Option<u32>,
 }
 
+#[derive(Deserialize)]
+struct FavoritesQuery {
+    fav_type: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FavoriteRequest {
+    fav_type: String,
+    item_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlayAlbumRequest {
+    album_id: String,
+}
+
 async fn search_tracks(
     State(ctx): State<ApiContext>,
     Query(query): Query<SearchQuery>,
@@ -665,6 +689,120 @@ async fn set_repeat(
         shuffle: app_state.queue.is_shuffle(),
         repeat: payload.mode,
     }))
+}
+
+async fn get_favorites(
+    State(ctx): State<ApiContext>,
+    Query(query): Query<FavoritesQuery>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    let client = app_state.client.lock().await;
+    let result = client
+        .get_favorites(&query.fav_type, query.limit.unwrap_or(50), query.offset.unwrap_or(0))
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok(Json(result))
+}
+
+async fn add_favorite(
+    State(ctx): State<ApiContext>,
+    Json(payload): Json<FavoriteRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    let client = app_state.client.lock().await;
+    client
+        .add_favorite(&payload.fav_type, &payload.item_id)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn remove_favorite(
+    State(ctx): State<ApiContext>,
+    Json(payload): Json<FavoriteRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    let client = app_state.client.lock().await;
+    client
+        .remove_favorite(&payload.fav_type, &payload.item_id)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn play_album(
+    State(ctx): State<ApiContext>,
+    Json(payload): Json<PlayAlbumRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+
+    // Get album with tracks (scope the client lock)
+    let album = {
+        let client = app_state.client.lock().await;
+        client
+            .get_album(&payload.album_id)
+            .await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?
+    };
+
+    // Extract tracks and convert to QueueTrack
+    let tracks: Vec<QueueTrack> = if let Some(tracks) = album.tracks {
+        tracks.items.into_iter().map(|t| {
+            let artist_name = t.performer.as_ref()
+                .map(|p| p.name.clone())
+                .unwrap_or_else(|| album.artist.name.clone());
+            let artwork = album.image.large.clone().or(album.image.small.clone());
+
+            QueueTrack {
+                id: t.id,
+                title: t.title,
+                artist: artist_name,
+                album: album.title.clone(),
+                duration_secs: t.duration as u64,
+                artwork_url: artwork,
+                hires: t.hires,
+                bit_depth: t.maximum_bit_depth,
+                sample_rate: t.maximum_sampling_rate,
+                is_local: false,
+                album_id: Some(album.id.clone()),
+                artist_id: t.performer.as_ref().map(|p| p.id),
+                streamable: t.streamable,
+            }
+        }).collect()
+    } else {
+        return Err(StatusCode::NOT_FOUND);
+    };
+
+    if tracks.is_empty() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Clear queue and add all tracks
+    app_state.queue.clear();
+    for track in tracks {
+        app_state.queue.add_track(track);
+    }
+
+    // Play the first track
+    if let Some(first_track) = app_state.queue.play_index(0) {
+        if !first_track.is_local {
+            let offline_cache = ctx.app_handle.state::<OfflineCacheState>();
+            let audio_settings = ctx.app_handle.state::<AudioSettingsState>();
+            if let Err(err) = commands::playback::play_track(
+                first_track.id,
+                Some(first_track.duration_secs),
+                None,
+                app_state,
+                offline_cache,
+                audio_settings,
+            ).await {
+                log::error!("Remote control play_album failed: {}", err);
+                return Err(StatusCode::BAD_GATEWAY);
+            }
+        }
+    }
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn ws_handler(
