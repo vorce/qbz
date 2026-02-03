@@ -28,7 +28,7 @@ use crate::{
     },
     offline_cache::OfflineCacheState,
     player::PlaybackEvent,
-    queue::QueueTrack,
+    queue::{QueueState as QueueStateData, QueueTrack},
     AppState,
 };
 
@@ -84,6 +84,18 @@ struct SeekRequest {
 #[serde(rename_all = "camelCase")]
 struct VolumeRequest {
     volume: f32,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlayIndexRequest {
+    index: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AddToQueueRequest {
+    track: QueueTrack,
 }
 
 #[derive(Debug)]
@@ -355,6 +367,9 @@ fn build_router(ctx: ApiContext) -> Router {
         .route("/api/playback/seek", post(seek))
         .route("/api/playback/volume", post(set_volume))
         .route("/api/search", get(search_tracks))
+        .route("/api/queue", get(get_queue))
+        .route("/api/queue/add", post(add_to_queue))
+        .route("/api/queue/play", post(play_queue_index))
         .route("/api/ws", get(ws_handler))
         .with_state(ctx.clone())
         .layer(middleware::from_fn(lan_only))
@@ -512,6 +527,46 @@ async fn search_tracks(
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
     Ok(Json(results))
+}
+
+async fn get_queue(State(ctx): State<ApiContext>) -> Result<Json<QueueStateData>, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    Ok(Json(app_state.queue.get_state()))
+}
+
+async fn add_to_queue(
+    State(ctx): State<ApiContext>,
+    Json(payload): Json<AddToQueueRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    app_state.queue.add_track(payload.track);
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn play_queue_index(
+    State(ctx): State<ApiContext>,
+    Json(payload): Json<PlayIndexRequest>,
+) -> Result<Json<Option<QueueTrack>>, StatusCode> {
+    let app_state = ctx.app_handle.state::<AppState>();
+    let track = app_state.queue.play_index(payload.index);
+    if let Some(ref t) = track {
+        if !t.is_local {
+            let offline_cache = ctx.app_handle.state::<OfflineCacheState>();
+            let audio_settings = ctx.app_handle.state::<AudioSettingsState>();
+            if let Err(err) = commands::playback::play_track(
+                t.id,
+                Some(t.duration_secs),
+                None,
+                app_state,
+                offline_cache,
+                audio_settings,
+            ).await {
+                log::error!("Remote control play_queue_index failed: {}", err);
+                return Err(StatusCode::BAD_GATEWAY);
+            }
+        }
+    }
+    Ok(Json(track))
 }
 
 async fn ws_handler(
