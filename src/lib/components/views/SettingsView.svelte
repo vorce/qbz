@@ -11,6 +11,7 @@
   import DeviceDropdown from '../DeviceDropdown.svelte';
   import AlsaUtilsHelpModal from '../AlsaUtilsHelpModal.svelte';
   import DACSetupWizard from '../DACSetupWizard.svelte';
+  import RemoteControlSetupGuide from '../RemoteControlSetupGuide.svelte';
   import VolumeSlider from '../VolumeSlider.svelte';
   import UpdateCheckResultModal from '../updates/UpdateCheckResultModal.svelte';
   import WhatsNewModal from '../updates/WhatsNewModal.svelte';
@@ -645,6 +646,7 @@
   let remoteControlQrOpen = $state(false);
   let remoteControlQrData = $state('');
   let remoteControlUrl = $state('');
+  let showRemoteControlGuide = $state(false);
 
   // Load saved settings on mount
   onMount(() => {
@@ -2820,7 +2822,13 @@
 
   <!-- Remote Control Section -->
   <section class="section" id="remote-control" bind:this={remoteControlSection}>
-    <h3 class="section-title">{$t('settings.integrations.remoteControl')}</h3>
+    <div class="section-title-row">
+      <h3 class="section-title">{$t('settings.integrations.remoteControl')}</h3>
+      <span class="experimental-badge">{$t('settings.integrations.remoteControlExperimental')}</span>
+      <button class="setup-guide-btn" onclick={() => showRemoteControlGuide = true}>
+        {$t('settings.integrations.remoteControlSetupGuide')}
+      </button>
+    </div>
 
     <div class="setting-row">
       <div class="setting-info">
@@ -3529,6 +3537,48 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 16px;
+  }
+
+  .section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .section-title-row .section-title {
+    margin-bottom: 0;
+  }
+
+  .experimental-badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .setup-guide-btn {
+    margin-left: auto;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .setup-guide-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
   }
 
   .subsection-title {
@@ -4293,4 +4343,9 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
 <DACSetupWizard
   isOpen={showDACWizardModal}
   onClose={() => showDACWizardModal = false}
+/>
+
+<RemoteControlSetupGuide
+  isOpen={showRemoteControlGuide}
+  onClose={() => showRemoteControlGuide = false}
 />
