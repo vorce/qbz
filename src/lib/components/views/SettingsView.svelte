@@ -4,11 +4,12 @@
   import ViewTransition from '../ViewTransition.svelte';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { writeText as copyToClipboard } from '@tauri-apps/plugin-clipboard-manager';
-  import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Loader2, Sun, Moon, SunMoon, HelpCircle, Ban } from 'lucide-svelte';
+  import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Loader2, Sun, Moon, SunMoon, HelpCircle, Ban, Wand2 } from 'lucide-svelte';
   import Toggle from '../Toggle.svelte';
   import Dropdown from '../Dropdown.svelte';
   import DeviceDropdown from '../DeviceDropdown.svelte';
   import AlsaUtilsHelpModal from '../AlsaUtilsHelpModal.svelte';
+  import DACSetupWizard from '../DACSetupWizard.svelte';
   import VolumeSlider from '../VolumeSlider.svelte';
   import UpdateCheckResultModal from '../updates/UpdateCheckResultModal.svelte';
   import WhatsNewModal from '../updates/WhatsNewModal.svelte';
@@ -151,6 +152,9 @@
 
   // ALSA Utils help modal
   let showAlsaUtilsHelpModal = $state(false);
+
+  // DAC Setup Wizard modal
+  let showDACWizardModal = $state(false);
 
   // Offline mode state
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
@@ -2003,14 +2007,25 @@
         <span class="setting-label">{$t('settings.audio.audioBackend')}</span>
         <span class="setting-desc">{$t('settings.audio.audioBackendDesc')}</span>
       </div>
-      <Dropdown
-        value={selectedBackend}
-        options={backendOptions}
-        onchange={handleBackendChange}
-        wide
-        expandLeft
-        compact
-      />
+      <div class="backend-selector-row">
+        <Dropdown
+          value={selectedBackend}
+          options={backendOptions}
+          onchange={handleBackendChange}
+          wide
+          expandLeft
+          compact
+        />
+        {#if selectedBackend === 'PipeWire'}
+          <button
+            class="dac-setup-btn"
+            onclick={() => showDACWizardModal = true}
+            title={$t('dacWizard.title')}
+          >
+            <Wand2 size={16} />
+          </button>
+        {/if}
+      </div>
     </div>
     <div class="setting-row">
       <div class="setting-info">
@@ -2962,6 +2977,32 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     color: var(--accent);
   }
 
+  .backend-selector-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dac-setup-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--accent-primary);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    transition: all 150ms ease;
+    flex-shrink: 0;
+  }
+
+  .dac-setup-btn:hover {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+
   .loading-overlay {
     position: fixed;
     top: 0;
@@ -3795,4 +3836,9 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
 <AlsaUtilsHelpModal
   isOpen={showAlsaUtilsHelpModal}
   onClose={() => showAlsaUtilsHelpModal = false}
+/>
+
+<DACSetupWizard
+  isOpen={showDACWizardModal}
+  onClose={() => showDACWizardModal = false}
 />

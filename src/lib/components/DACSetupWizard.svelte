@@ -1,0 +1,790 @@
+<script lang="ts">
+  import { X, CheckCircle } from 'lucide-svelte';
+  import { t } from '$lib/i18n';
+  import WizardStepper, { type Step } from './wizard/WizardStepper.svelte';
+  import CommandBlock from './wizard/CommandBlock.svelte';
+  import WarningBanner from './wizard/WarningBanner.svelte';
+  import DistroSelector from './wizard/DistroSelector.svelte';
+  import BitPerfectAppSelector from './wizard/BitPerfectAppSelector.svelte';
+
+  interface Props {
+    isOpen: boolean;
+    onClose: () => void;
+  }
+
+  let { isOpen, onClose }: Props = $props();
+
+  type WizardStep =
+    | 'welcome'
+    | 'precheck'
+    | 'detect-dac'
+    | 'backup'
+    | 'pipewire-config'
+    | 'pulse-config'
+    | 'wireplumber-config'
+    | 'restart'
+    | 'verify'
+    | 'done';
+
+  const STEPS: WizardStep[] = [
+    'welcome',
+    'precheck',
+    'detect-dac',
+    'backup',
+    'pipewire-config',
+    'pulse-config',
+    'wireplumber-config',
+    'restart',
+    'verify',
+    'done'
+  ];
+
+  // Wizard state
+  let currentStep = $state<WizardStep>('welcome');
+  let completedSteps = $state(new Set<WizardStep>());
+  let dacNodeName = $state('alsa_output.usb-Generic_USB_Audio-00.analog-stereo');
+  let selectedApps = $state(['QBZ']);
+  let precheckDone = $state(false);
+  let restartDone = $state(false);
+  let showRollback = $state(false);
+  let selectedDistro = $state('debian');
+
+  // Reset state when modal opens
+  $effect(() => {
+    if (isOpen) {
+      currentStep = 'welcome';
+      completedSteps = new Set();
+      dacNodeName = 'alsa_output.usb-Generic_USB_Audio-00.analog-stereo';
+      selectedApps = ['QBZ'];
+      precheckDone = false;
+      restartDone = false;
+      showRollback = false;
+    }
+  });
+
+  // Derived values
+  const currentIndex = $derived(STEPS.indexOf(currentStep));
+
+  const steps = $derived<Step[]>(STEPS.map((step, index) => ({
+    id: step,
+    label: $t(`dacWizard.steps.${step === 'detect-dac' ? 'detectDac' : step.replace(/-/g, '')}`) || step,
+    status: completedSteps.has(step) ? 'complete' : index === currentIndex ? 'active' : 'upcoming'
+  })));
+
+  // Navigation
+  function goToStep(stepId: string) {
+    const step = stepId as WizardStep;
+    if (completedSteps.has(step)) {
+      currentStep = step;
+    }
+  }
+
+  function next() {
+    completedSteps.add(currentStep);
+    completedSteps = new Set(completedSteps);
+
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < STEPS.length) {
+      currentStep = STEPS[nextIndex];
+    }
+  }
+
+  function back() {
+    const prevIndex = currentIndex - 1;
+    if (prevIndex >= 0) {
+      currentStep = STEPS[prevIndex];
+    }
+  }
+
+  function handleClose() {
+    onClose();
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      handleClose();
+    }
+  }
+
+  function handleBackdropClick(e: MouseEvent) {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  }
+
+  // Generate pulse config command based on selected apps
+  function generatePulseConfig(): string[] {
+    const rules = selectedApps.map(app => {
+      const matchKey = app === 'QBZ' ? 'application.name' : 'application.process.binary';
+      const matchValue = app === 'QBZ' ? 'QBZ' : app.toLowerCase();
+      return `  {
+    matches = [ { ${matchKey} = "${matchValue}" } ]
+    actions = { update-props = { resample.disable = true, channelmix.disable = true } }
+  }`;
+    }).join('\n');
+
+    return [
+      'mkdir -p ~/.config/pipewire/pipewire-pulse.conf.d',
+      `cat > ~/.config/pipewire/pipewire-pulse.conf.d/99-qbz-bitperfect.conf << 'EOF'`,
+      '# QBZ DAC Setup - Per-App Bit-Perfect',
+      'pulse.rules = [',
+      rules,
+      ']',
+      'EOF'
+    ];
+  }
+
+  // Generate WirePlumber config with user's DAC node name
+  function generateWireplumberConfig(): string[] {
+    return [
+      'mkdir -p ~/.config/wireplumber/wireplumber.conf.d',
+      `cat > ~/.config/wireplumber/wireplumber.conf.d/99-qbz-dac.conf << 'EOF'`,
+      '# QBZ DAC Setup - Device-Specific Rules',
+      'monitor.alsa.rules = [',
+      '  {',
+      '    matches = [',
+      `      { node.name = "${dacNodeName}", media.class = "Audio/Sink" }`,
+      '    ]',
+      '    actions = {',
+      '      update-props = {',
+      '        audio.allowed-rates = [ 44100 48000 88200 96000 176400 192000 ]',
+      '        resample.disable = true',
+      '        channelmix.disable = true',
+      '      }',
+      '    }',
+      '  }',
+      ']',
+      'EOF'
+    ];
+  }
+</script>
+
+<svelte:document onkeydown={handleKeydown} />
+
+{#if isOpen}
+  <div class="wizard-backdrop" onclick={handleBackdropClick} role="presentation">
+    <div
+      class="wizard-modal"
+      role="dialog"
+      aria-modal="true"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <!-- Header -->
+      <header class="wizard-header">
+        <div class="header-content">
+          {#if currentStep === 'welcome'}
+            <h2>{$t('dacWizard.welcome.title')}</h2>
+            <p>{$t('dacWizard.welcome.subtitle')}</p>
+          {:else if currentStep === 'precheck'}
+            <h2>{$t('dacWizard.precheck.title')}</h2>
+            <p>{$t('dacWizard.precheck.subtitle')}</p>
+          {:else if currentStep === 'detect-dac'}
+            <h2>{$t('dacWizard.detectDac.title')}</h2>
+            <p>{$t('dacWizard.detectDac.subtitle')}</p>
+          {:else if currentStep === 'backup'}
+            <h2>{$t('dacWizard.backup.title')}</h2>
+            <p>{$t('dacWizard.backup.subtitle')}</p>
+          {:else if currentStep === 'pipewire-config'}
+            <h2>{$t('dacWizard.pipewireConfig.title')}</h2>
+            <p>{$t('dacWizard.pipewireConfig.subtitle')}</p>
+          {:else if currentStep === 'pulse-config'}
+            <h2>{$t('dacWizard.pulseConfig.title')}</h2>
+            <p>{$t('dacWizard.pulseConfig.subtitle')}</p>
+          {:else if currentStep === 'wireplumber-config'}
+            <h2>{$t('dacWizard.wireplumberConfig.title')}</h2>
+            <p>{$t('dacWizard.wireplumberConfig.subtitle')}</p>
+          {:else if currentStep === 'restart'}
+            <h2>{$t('dacWizard.restart.title')}</h2>
+            <p>{$t('dacWizard.restart.subtitle')}</p>
+          {:else if currentStep === 'verify'}
+            <h2>{$t('dacWizard.verify.title')}</h2>
+            <p>{$t('dacWizard.verify.subtitle')}</p>
+          {:else if currentStep === 'done'}
+            <h2>{$t('dacWizard.done.title')}</h2>
+            <p>{$t('dacWizard.done.subtitle')}</p>
+          {/if}
+        </div>
+        <button class="close-btn" onclick={handleClose}>
+          <X size={20} />
+        </button>
+      </header>
+
+      <!-- Body -->
+      <div class="wizard-body">
+        {#if currentStep !== 'done'}
+          <WizardStepper {steps} onStepClick={goToStep} />
+        {/if}
+
+        <div class="wizard-content">
+          {#if currentStep === 'welcome'}
+            <div class="step-content">
+              <p class="body-text">{$t('dacWizard.welcome.body')}</p>
+            </div>
+
+          {:else if currentStep === 'precheck'}
+            <div class="step-content">
+              <CommandBlock
+                label={$t('dacWizard.precheck.hint')}
+                command="systemctl --user status pipewire pipewire-pulse wireplumber"
+              />
+
+              <label class="checkbox-row">
+                <input type="checkbox" bind:checked={precheckDone} />
+                <span>{$t('dacWizard.precheck.checkbox')}</span>
+              </label>
+
+              {#if !precheckDone}
+                <div class="install-section">
+                  <h4>{$t('dacWizard.precheck.installTitle')}</h4>
+                  <p class="install-subtitle">{$t('dacWizard.precheck.installSubtitle')}</p>
+                  <DistroSelector bind:selected={selectedDistro} />
+                </div>
+              {/if}
+            </div>
+
+          {:else if currentStep === 'detect-dac'}
+            <div class="step-content">
+              <CommandBlock
+                label={$t('dacWizard.detectDac.step1')}
+                command="wpctl status"
+              />
+
+              <CommandBlock
+                label={$t('dacWizard.detectDac.step2')}
+                command="wpctl inspect <ID> | grep node.name"
+              />
+
+              <div class="input-group">
+                <label class="input-label">{$t('dacWizard.detectDac.inputLabel')}</label>
+                <input
+                  type="text"
+                  class="text-input mono"
+                  bind:value={dacNodeName}
+                  placeholder={$t('dacWizard.detectDac.inputPlaceholder')}
+                />
+              </div>
+            </div>
+
+          {:else if currentStep === 'backup'}
+            <div class="step-content">
+              <CommandBlock
+                command={[
+                  'BACKUP=~/.config/qbz/backups/pipewire-$(date +%Y%m%d-%H%M%S)',
+                  'mkdir -p "$BACKUP"',
+                  'cp -a ~/.config/pipewire "$BACKUP/" 2>/dev/null || true',
+                  'cp -a ~/.config/wireplumber "$BACKUP/" 2>/dev/null || true',
+                  'echo "Backup created at: $BACKUP"'
+                ]}
+              />
+
+              <WarningBanner variant="info" body={$t('dacWizard.backup.hint')} />
+            </div>
+
+          {:else if currentStep === 'pipewire-config'}
+            <div class="step-content">
+              <p class="body-text">{$t('dacWizard.pipewireConfig.explanation')}</p>
+
+              <CommandBlock
+                command={[
+                  'mkdir -p ~/.config/pipewire/pipewire.conf.d',
+                  `cat > ~/.config/pipewire/pipewire.conf.d/99-qbz-dac.conf << 'EOF'`,
+                  '# QBZ DAC Setup - Sample Rate Switching',
+                  'context.properties = {',
+                  '  default.clock.allowed-rates = [ 44100 48000 88200 96000 176400 192000 ]',
+                  '}',
+                  'EOF'
+                ]}
+              />
+            </div>
+
+          {:else if currentStep === 'pulse-config'}
+            <div class="step-content">
+              <BitPerfectAppSelector bind:selectedApps />
+
+              <WarningBanner variant="warning" body={$t('dacWizard.pulseConfig.warning')} />
+
+              <CommandBlock command={generatePulseConfig()} />
+            </div>
+
+          {:else if currentStep === 'wireplumber-config'}
+            <div class="step-content">
+              <div class="targeting-info">
+                <span class="targeting-label">{$t('dacWizard.wireplumberConfig.targeting')}</span>
+                <code class="targeting-value">{dacNodeName}</code>
+              </div>
+
+              <CommandBlock command={generateWireplumberConfig()} />
+            </div>
+
+          {:else if currentStep === 'restart'}
+            <div class="step-content">
+              <CommandBlock
+                command="systemctl --user restart pipewire pipewire-pulse wireplumber"
+              />
+
+              <WarningBanner variant="info" body={$t('dacWizard.restart.hint')} />
+
+              <label class="checkbox-row">
+                <input type="checkbox" bind:checked={restartDone} />
+                <span>{$t('dacWizard.restart.checkbox')}</span>
+              </label>
+            </div>
+
+          {:else if currentStep === 'verify'}
+            <div class="step-content">
+              <div class="verify-instructions">
+                <pre>{$t('dacWizard.verify.instructions')}</pre>
+              </div>
+
+              <CommandBlock command="pw-top" />
+
+              <p class="success-hint">{$t('dacWizard.verify.success')}</p>
+
+              {#if showRollback}
+                <div class="rollback-section">
+                  <h4>{$t('dacWizard.verify.rollbackTitle')}</h4>
+                  <p class="rollback-hint">{$t('dacWizard.verify.rollbackHint')}</p>
+                  <CommandBlock
+                    command={[
+                      '# Restore backup',
+                      'BACKUP=$(ls -td ~/.config/qbz/backups/pipewire-* | head -1)',
+                      'rm -rf ~/.config/pipewire ~/.config/wireplumber',
+                      'cp -a "$BACKUP/pipewire" ~/.config/',
+                      'cp -a "$BACKUP/wireplumber" ~/.config/',
+                      'systemctl --user restart pipewire pipewire-pulse wireplumber'
+                    ]}
+                  />
+
+                  <WarningBanner
+                    variant="info"
+                    title={$t('dacWizard.error.title')}
+                    body={$t('dacWizard.error.body')}
+                    links={[
+                      { label: $t('dacWizard.error.pipewireDocs'), url: $t('dacWizard.error.pipewireUrl') },
+                      { label: $t('dacWizard.error.archWiki'), url: $t('dacWizard.error.archWikiUrl') }
+                    ]}
+                  />
+                </div>
+              {/if}
+            </div>
+
+          {:else if currentStep === 'done'}
+            <div class="done-content">
+              <CheckCircle size={64} class="done-icon" />
+
+              <div class="done-summary">
+                <h4>{$t('dacWizard.done.summary')}</h4>
+                <ul class="config-list">
+                  <li><code>~/.config/pipewire/pipewire.conf.d/99-qbz-dac.conf</code></li>
+                  <li><code>~/.config/pipewire/pipewire-pulse.conf.d/99-qbz-bitperfect.conf</code></li>
+                  <li><code>~/.config/wireplumber/wireplumber.conf.d/99-qbz-dac.conf</code></li>
+                </ul>
+              </div>
+            </div>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="wizard-footer">
+        {#if currentStep === 'welcome'}
+          <button class="btn btn-primary" onclick={next}>
+            {$t('dacWizard.welcome.start')}
+          </button>
+        {:else if currentStep === 'verify'}
+          <button class="btn btn-secondary" onclick={() => { showRollback = true; }}>
+            {$t('dacWizard.verify.failed')}
+          </button>
+          <button class="btn btn-ghost" onclick={next}>
+            {$t('dacWizard.verify.skip')}
+          </button>
+          <button class="btn btn-primary" onclick={next}>
+            {$t('dacWizard.verify.passed')}
+          </button>
+        {:else if currentStep === 'done'}
+          <button class="btn btn-primary" onclick={handleClose}>
+            {$t('dacWizard.done.close')}
+          </button>
+        {:else}
+          <button class="btn btn-secondary" onclick={back}>
+            {$t('dacWizard.buttons.back')}
+          </button>
+          <button
+            class="btn btn-primary"
+            onclick={next}
+            disabled={(currentStep === 'precheck' && !precheckDone) || (currentStep === 'restart' && !restartDone)}
+          >
+            {$t('dacWizard.buttons.next')}
+          </button>
+        {/if}
+      </footer>
+    </div>
+  </div>
+{/if}
+
+<style>
+  .wizard-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 24px;
+    animation: fadeIn 150ms ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .wizard-modal {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 860px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-subtle);
+    animation: slideUp 200ms ease;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .wizard-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    min-height: 64px;
+  }
+
+  .header-content h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+  }
+
+  .header-content p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .close-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 150ms ease;
+    flex-shrink: 0;
+  }
+
+  .close-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .wizard-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    gap: 24px;
+    padding: 24px;
+  }
+
+  .wizard-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .step-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .body-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    transition: background-color 150ms ease;
+  }
+
+  .checkbox-row:hover {
+    background: var(--bg-hover);
+  }
+
+  .checkbox-row input {
+    accent-color: var(--accent-primary);
+    width: 16px;
+    height: 16px;
+  }
+
+  .checkbox-row span {
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .install-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .install-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+  }
+
+  .install-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 12px 0;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .input-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .text-input {
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--text-primary);
+    transition: border-color 150ms ease;
+  }
+
+  .text-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+  }
+
+  .text-input.mono {
+    font-family: var(--font-mono, monospace);
+  }
+
+  .text-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .targeting-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+  }
+
+  .targeting-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .targeting-value {
+    font-size: 14px;
+    font-family: var(--font-mono, monospace);
+    color: var(--accent-primary);
+    word-break: break-all;
+  }
+
+  .verify-instructions {
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+  }
+
+  .verify-instructions pre {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  .success-hint {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+    font-style: italic;
+  }
+
+  .rollback-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rollback-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .rollback-hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .done-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    padding: 40px 0;
+  }
+
+  .done-content :global(.done-icon) {
+    color: var(--accent-primary);
+  }
+
+  .done-summary {
+    text-align: center;
+  }
+
+  .done-summary h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+  }
+
+  .config-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .config-list code {
+    font-size: 12px;
+    font-family: var(--font-mono, monospace);
+    color: var(--text-secondary);
+  }
+
+  .wizard-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 150ms ease;
+    border: none;
+  }
+
+  .btn-primary {
+    background: var(--accent-primary);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-hover);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .btn-ghost:hover {
+    color: var(--text-primary);
+    background: var(--alpha-8, rgba(255,255,255,0.08));
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .wizard-modal {
+      max-width: 100%;
+      max-height: 100vh;
+      border-radius: 0;
+    }
+
+    .wizard-body {
+      flex-direction: column;
+    }
+
+    .wizard-footer {
+      flex-direction: column;
+    }
+
+    .btn {
+      width: 100%;
+    }
+  }
+</style>
