@@ -2361,13 +2361,9 @@
   }
 
   // Playback state polling - managed by playerStore
-  // Start/stop polling based on whether there's a current track
+  // Always keep polling active to receive external playback events (e.g., from remote control)
   $effect(() => {
-    if (currentTrack) {
-      startPolling();
-    } else {
-      stopPolling();
-    }
+    startPolling();
 
     return () => {
       stopPolling();
