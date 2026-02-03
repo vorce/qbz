@@ -1067,6 +1067,7 @@
       "subtitle": "Agrega QBZ y players que quieras sin resampling.",
       "apps": {
         "qbz": "QBZ",
+        "qobuzPlayer": "qobuz-player (TUI)",
         "vlc": "VLC",
         "deadbeef": "DeaDBeeF",
         "strawberry": "Strawberry",

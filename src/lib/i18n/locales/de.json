@@ -959,5 +959,119 @@
     "collapse": "Einklappen",
     "expand": "Ausklappen",
     "clearFilter": "Filter löschen"
+  },
+  "dacWizard": {
+    "title": "DAC-Einrichtungsassistent",
+    "triggerTooltip": "DAC-Einrichtungshilfe",
+    "welcome": {
+      "title": "Geführte DAC-Einrichtung",
+      "subtitle": "Schritt-für-Schritt-Anleitung. Nichts wird automatisch ausgeführt.",
+      "body": "Sie werden Befehle kopieren und im Terminal ausführen. QBZ führt Sie durch jeden Schritt und erklärt alles. Vor Änderungen wird eine Sicherung erstellt.",
+      "start": "Starten"
+    },
+    "precheck": {
+      "title": "Audio-Stack prüfen",
+      "subtitle": "Bestätigen Sie, dass PipeWire und WirePlumber laufen.",
+      "hint": "Suchen Sie nach 'active (running)' für alle Dienste",
+      "checkbox": "Ich habe diesen Befehl ausgeführt und die Dienste sind aktiv",
+      "installTitle": "Erforderliche Pakete installieren",
+      "installSubtitle": "Wählen Sie Ihre Distribution, um den Installationsbefehl zu sehen.",
+      "distros": {
+        "debian": "Ubuntu / Debian / Mint / Pop!_OS",
+        "fedora": "Fedora / RHEL",
+        "arch": "Arch / Manjaro / EndeavourOS",
+        "opensuse": "openSUSE",
+        "other": "Andere"
+      },
+      "otherHint": "Bitte installieren Sie: pipewire, pipewire-pulse, wireplumber, alsa-utils"
+    },
+    "detectDac": {
+      "title": "Standard-DAC identifizieren",
+      "subtitle": "Wir benötigen den genauen PipeWire-Knotennamen.",
+      "step1": "Finden Sie Ihren DAC unter 'Audio > Sinks'. Notieren Sie die Nummer (z.B. 46).",
+      "step2": "Dann mit dieser Nummer ausführen:",
+      "inputLabel": "node.name eingeben",
+      "inputPlaceholder": "alsa_output.usb-..."
+    },
+    "backup": {
+      "title": "Sicherung erstellen",
+      "subtitle": "Erforderlich vor jeder Änderung.",
+      "hint": "Sie können diese Sicherung später bei Bedarf wiederherstellen."
+    },
+    "pipewireConfig": {
+      "title": "Mehrere Abtastraten erlauben",
+      "subtitle": "Ermöglicht automatisches Umschalten ohne 48kHz-Zwang.",
+      "explanation": "Standardmäßig sperrt PipeWire auf 48kHz. Diese Konfiguration ermöglicht es Ihrem DAC, zur nativen Abtastrate des Tracks zu wechseln."
+    },
+    "pulseConfig": {
+      "title": "Apps für Bit-Perfect wählen",
+      "subtitle": "Fügen Sie QBZ und alle Player hinzu, die Sie ohne Resampling möchten.",
+      "apps": {
+        "qbz": "QBZ",
+        "qobuzPlayer": "qobuz-player (TUI)",
+        "vlc": "VLC",
+        "deadbeef": "DeaDBeeF",
+        "strawberry": "Strawberry",
+        "clementine": "Clementine",
+        "custom": "Benutzerdefiniert..."
+      },
+      "customPlaceholder": "Binärname (z.B. mein-player)",
+      "warning": "Beste Ergebnisse: Verwenden Sie Bit-Perfect nur pro App. Globales Pulse-Bit-Perfect kann Browser beschädigen, die festes 48kHz ausgeben."
+    },
+    "wireplumberConfig": {
+      "title": "Nur Ihren DAC ansteuern",
+      "subtitle": "Regeln nur auf den erkannten Sink anwenden.",
+      "targeting": "Dies zielt auf:"
+    },
+    "restart": {
+      "title": "Audio-Dienste neu starten",
+      "subtitle": "Erforderlich, um Änderungen anzuwenden.",
+      "hint": "Audio kann kurz unterbrochen werden. Das ist normal.",
+      "checkbox": "Ich habe die Dienste neu gestartet"
+    },
+    "verify": {
+      "title": "Abtastraten-Umschaltung überprüfen",
+      "subtitle": "Spielen Sie verschiedene Abtastraten und bestätigen Sie, dass RATE sich ändert.",
+      "instructions": "1. Öffnen Sie ein Terminal und führen Sie aus: pw-top\n2. Spielen Sie in QBZ einen 44,1kHz-Track\n3. Prüfen Sie, dass RATE 44100 anzeigt\n4. Spielen Sie einen 96kHz-Track\n5. Prüfen Sie, dass RATE 96000 anzeigt",
+      "success": "RATE sollte sich ändern, um der Abtastrate jedes Tracks zu entsprechen.",
+      "passed": "Bestanden",
+      "failed": "Fehlgeschlagen",
+      "skip": "Überspringen",
+      "rollbackTitle": "Sicherung wiederherstellen",
+      "rollbackHint": "Führen Sie diese Befehle aus, um Ihre vorherige Konfiguration wiederherzustellen:"
+    },
+    "done": {
+      "title": "Einrichtung abgeschlossen",
+      "subtitle": "Ihr DAC ist für Bit-Perfect-Wiedergabe konfiguriert.",
+      "summary": "Erstellte Konfigurationen:",
+      "close": "Schließen"
+    },
+    "error": {
+      "title": "Hilfe benötigt?",
+      "body": "Wenn etwas schief gelaufen ist, überprüfen Sie diese Ressourcen:",
+      "pipewireDocs": "Offizielle PipeWire-Dokumentation",
+      "archWiki": "Arch Wiki - PipeWire",
+      "pipewireUrl": "https://docs.pipewire.org/",
+      "archWikiUrl": "https://wiki.archlinux.org/title/PipeWire"
+    },
+    "buttons": {
+      "next": "Weiter",
+      "back": "Zurück",
+      "close": "Schließen",
+      "copy": "Kopieren",
+      "copied": "Kopiert!"
+    },
+    "steps": {
+      "welcome": "Willkommen",
+      "precheck": "Vorprüfung",
+      "detectDac": "DAC erkennen",
+      "backup": "Sicherung",
+      "pipewireConfig": "PipeWire",
+      "pulseConfig": "Pulse",
+      "wireplumberConfig": "WirePlumber",
+      "restart": "Neustart",
+      "verify": "Überprüfen",
+      "done": "Fertig"
+    }
   }
 }

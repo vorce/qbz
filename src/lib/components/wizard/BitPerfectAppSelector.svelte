@@ -11,6 +11,7 @@
   // App definitions with binary names for config
   const predefinedApps = [
     { id: 'qbz', labelKey: 'dacWizard.pulseConfig.apps.qbz', binary: 'QBZ', disabled: true },
+    { id: 'qobuz-player', labelKey: 'dacWizard.pulseConfig.apps.qobuzPlayer', binary: 'qobuz-player' },
     { id: 'vlc', labelKey: 'dacWizard.pulseConfig.apps.vlc', binary: 'vlc' },
     { id: 'deadbeef', labelKey: 'dacWizard.pulseConfig.apps.deadbeef', binary: 'deadbeef' },
     { id: 'strawberry', labelKey: 'dacWizard.pulseConfig.apps.strawberry', binary: 'strawberry' },
