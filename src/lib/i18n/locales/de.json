@@ -967,6 +967,7 @@
       "title": "Geführte DAC-Einrichtung",
       "subtitle": "Schritt-für-Schritt-Anleitung.",
       "body": "Sie werden Befehle kopieren und im Terminal ausführen. QBZ führt Sie durch jeden Schritt und erklärt alles. Vor Änderungen wird eine Sicherung erstellt.",
+      "checkbox": "Ich verstehe, dass diese Anleitung die System-Audiokonfiguration ändert",
       "start": "Starten"
     },
     "precheck": {
@@ -1013,7 +1014,8 @@
     "backup": {
       "title": "Sicherung erstellen",
       "subtitle": "Erforderlich vor jeder Änderung.",
-      "hint": "Sie können diese Sicherung später bei Bedarf wiederherstellen."
+      "hint": "Sie können diese Sicherung später bei Bedarf wiederherstellen.",
+      "checkbox": "Ich habe die Sicherung erstellt"
     },
     "pipewireConfig": {
       "title": "Mehrere Abtastraten erlauben",

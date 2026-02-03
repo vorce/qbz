@@ -77,7 +77,9 @@
   let completedSteps = $state(new Set<WizardStep>());
   let dacNodeName = $state('');
   let selectedApps = $state(['QBZ']);
+  let welcomeConfirmed = $state(false);
   let precheckDone = $state(false);
+  let backupConfirmed = $state(false);
   let restartDone = $state(false);
   let showRollback = $state(false);
   let selectedDistro = $state('debian');
@@ -119,7 +121,9 @@
       completedSteps = new Set();
       dacNodeName = '';
       selectedApps = ['QBZ'];
+      welcomeConfirmed = false;
       precheckDone = false;
+      backupConfirmed = false;
       restartDone = false;
       showRollback = false;
       dacCapabilities = null;
@@ -286,6 +290,11 @@
           {#if currentStep === 'welcome'}
             <div class="step-content">
               <p class="body-text">{$t('dacWizard.welcome.body')}</p>
+
+              <label class="checkbox-row">
+                <input type="checkbox" bind:checked={welcomeConfirmed} />
+                <span>{$t('dacWizard.welcome.checkbox')}</span>
+              </label>
             </div>
 
           {:else if currentStep === 'precheck'}
@@ -450,6 +459,11 @@
               />
 
               <WarningBanner variant="info" body={$t('dacWizard.backup.hint')} />
+
+              <label class="checkbox-row">
+                <input type="checkbox" bind:checked={backupConfirmed} />
+                <span>{$t('dacWizard.backup.checkbox')}</span>
+              </label>
             </div>
 
           {:else if currentStep === 'pipewire-config'}
@@ -560,7 +574,7 @@
       <!-- Footer -->
       <footer class="wizard-footer">
         {#if currentStep === 'welcome'}
-          <button class="btn btn-primary" onclick={next}>
+          <button class="btn btn-primary" onclick={next} disabled={!welcomeConfirmed}>
             {$t('dacWizard.welcome.start')}
           </button>
         {:else if currentStep === 'verify'}
@@ -584,7 +598,11 @@
           <button
             class="btn btn-primary"
             onclick={next}
-            disabled={(currentStep === 'precheck' && !precheckDone) || (currentStep === 'restart' && !restartDone)}
+            disabled={
+              (currentStep === 'precheck' && !precheckDone) ||
+              (currentStep === 'backup' && !backupConfirmed) ||
+              (currentStep === 'restart' && !restartDone)
+            }
           >
             {$t('dacWizard.buttons.next')}
           </button>

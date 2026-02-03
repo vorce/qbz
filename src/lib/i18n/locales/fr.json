@@ -967,6 +967,7 @@
       "title": "Configuration guidée du DAC",
       "subtitle": "Instructions étape par étape.",
       "body": "Vous allez copier et exécuter des commandes dans un terminal. QBZ vous guidera et expliquera chaque étape. Une sauvegarde sera créée avant toute modification.",
+      "checkbox": "Je comprends que ce guide modifie la configuration audio du système",
       "start": "Commencer"
     },
     "precheck": {
@@ -1013,7 +1014,8 @@
     "backup": {
       "title": "Créer une sauvegarde",
       "subtitle": "Requis avant toute modification.",
-      "hint": "Vous pourrez restaurer cette sauvegarde ultérieurement si nécessaire."
+      "hint": "Vous pourrez restaurer cette sauvegarde ultérieurement si nécessaire.",
+      "checkbox": "J'ai créé la sauvegarde"
     },
     "pipewireConfig": {
       "title": "Autoriser plusieurs taux d'échantillonnage",

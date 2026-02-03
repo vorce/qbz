@@ -1026,6 +1026,7 @@
       "title": "Guided DAC Setup",
       "subtitle": "Step-by-step instructions.",
       "body": "You will copy and run commands in a terminal. QBZ will guide you and explain each step. A backup will be created before any changes.",
+      "checkbox": "I understand this guide modifies system audio configuration",
       "start": "Start"
     },
     "precheck": {
@@ -1072,7 +1073,8 @@
     "backup": {
       "title": "Create Backup",
       "subtitle": "Required before any changes.",
-      "hint": "You can restore this backup later if needed."
+      "hint": "You can restore this backup later if needed.",
+      "checkbox": "I created the backup"
     },
     "pipewireConfig": {
       "title": "Allow Multiple Sample Rates",
