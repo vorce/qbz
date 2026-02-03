@@ -342,7 +342,9 @@
     "enterFolderName": "Ingresa el nombre de la carpeta",
     "enterApiKey": "Ingresa tu API key",
     "enterSharedSecret": "Ingresa tu shared secret",
-    "pasteToken": "Pega tu token de ListenBrainz"
+    "pasteToken": "Pega tu token de ListenBrainz",
+    "yearExample": "ej. 1999",
+    "genreExample": "ej. ROCK, POP, etc"
   },
   "player": {
     "nowPlaying": "Reproduciendo",
@@ -696,6 +698,29 @@
       "clearAllCachesDesc": "Limpia todos los datos en caché anteriores",
       "cachesDesc": "Cachés de cola, letras, portadas y metadatos"
     }
+  },
+  "metadata": {
+    "editMetadata": "Editar metadatos",
+    "albumName": "Nombre del álbum",
+    "albumArtist": "Artista del álbum",
+    "year": "Año",
+    "genre": "Género",
+    "catalogNumber": "Catálogo / ID de lanzamiento",
+    "resultsCount": "{count} resultados",
+    "noResultsTryDifferent": "Sin resultados, intenta otra búsqueda",
+    "openInBrowser": "Abrir en navegador",
+    "apply": "Aplicar",
+    "track": "Pista",
+    "trackTitle": "Título de pista",
+    "disc": "Disco",
+    "of": "de",
+    "albumPath": "Ruta del álbum",
+    "persistence": "Persistencia",
+    "persistenceSidecar": "Sidecar QBZ (no modifica archivos)",
+    "persistenceDirect": "Escribir en archivos de audio (tags embebidos)",
+    "writesToDisk": "Escribe archivos en disco.",
+    "writingProgress": "Escribiendo {current} de {total}...",
+    "writingTags": "Escribiendo tags..."
   },
   "auth": {
     "login": "Iniciar Sesión",

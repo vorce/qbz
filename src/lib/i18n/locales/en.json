@@ -342,7 +342,9 @@
     "enterFolderName": "Enter folder name",
     "enterApiKey": "Enter your API key",
     "enterSharedSecret": "Enter your shared secret",
-    "pasteToken": "Paste your ListenBrainz token"
+    "pasteToken": "Paste your ListenBrainz token",
+    "yearExample": "e.g. 1999",
+    "genreExample": "e.g. ROCK, POP, etc"
   },
   "player": {
     "nowPlaying": "Now Playing",
@@ -696,6 +698,29 @@
       "clearAllCachesDesc": "Clears all cached data above",
       "cachesDesc": "Queue, lyrics, artwork and metadata caches"
     }
+  },
+  "metadata": {
+    "editMetadata": "Edit metadata",
+    "albumName": "Album name",
+    "albumArtist": "Album artist",
+    "year": "Year",
+    "genre": "Genre",
+    "catalogNumber": "Catalog / Release ID",
+    "resultsCount": "{count} results",
+    "noResultsTryDifferent": "No results, try different search",
+    "openInBrowser": "Open in browser",
+    "apply": "Apply",
+    "track": "Track",
+    "trackTitle": "Track title",
+    "disc": "Disc",
+    "of": "of",
+    "albumPath": "Album path",
+    "persistence": "Persistence",
+    "persistenceSidecar": "QBZ sidecar (does not modify files)",
+    "persistenceDirect": "Write to audio files (embedded tags)",
+    "writesToDisk": "Writes to files on disk.",
+    "writingProgress": "Writing {current} of {total}...",
+    "writingTags": "Writing tags..."
   },
   "auth": {
     "login": "Login",

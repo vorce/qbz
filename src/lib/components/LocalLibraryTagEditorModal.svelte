@@ -377,40 +377,40 @@
   <Modal
     isOpen={isOpen}
     onClose={onClose}
-    title="Edit metadata"
+    title={$t('metadata.editMetadata')}
     maxWidth="820px"
   >
     {#snippet children()}
       <div class="tag-editor">
         <div class="grid grid-2">
           <div class="field">
-            <label>Album name</label>
+            <label>{$t('metadata.albumName')}</label>
             <input class="text control-sm" type="text" bind:value={albumTitle} />
           </div>
           <div class="field">
-            <label>Album artist</label>
+            <label>{$t('metadata.albumArtist')}</label>
             <input class="text control-sm" type="text" bind:value={albumArtist} />
           </div>
         </div>
 
         <div class="grid grid-3">
           <div class="field">
-            <label>Year</label>
+            <label>{$t('metadata.year')}</label>
             <input
               class="text control-sm"
               type="number"
               step="1"
               inputmode="numeric"
               bind:value={yearInput}
-              placeholder="e.g. 1999"
+              placeholder={$t('placeholders.yearExample')}
             />
           </div>
           <div class="field">
-            <label>Genre</label>
-            <input class="text control-sm" type="text" bind:value={genre} placeholder="e.g. ROCK, POP, etc" />
+            <label>{$t('metadata.genre')}</label>
+            <input class="text control-sm" type="text" bind:value={genre} placeholder={$t('placeholders.genreExample')} />
           </div>
           <div class="field">
-            <label>Catalog / Release ID</label>
+            <label>{$t('metadata.catalogNumber')}</label>
             <input class="text control-sm" type="text" bind:value={catalogNumber} />
           </div>
         </div>
@@ -433,13 +433,13 @@
             >
               {#if remoteSearching}
                 <span class="spinner-inline"></span>
-                Searching...
+                {$t('search.searching')}
               {:else}
                 <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="11" cy="11" r="8"/>
                   <path d="m21 21-4.3-4.3"/>
                 </svg>
-                Search
+                {$t('playlist.searchButton')}
               {/if}
             </button>
             {#if hasSearched}
@@ -449,13 +449,13 @@
                   onclick={() => showRemotePanel = !showRemotePanel}
                   type="button"
                 >
-                  <span class="result-text">{remoteResults.length} results</span>
+                  <span class="result-text">{$t('metadata.resultsCount', { values: { count: remoteResults.length } })}</span>
                   <svg class="icon-inline chevron" class:rotated={showRemotePanel} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="6 9 12 15 18 9"/>
                   </svg>
                 </button>
               {:else}
-                <span class="no-results">No results, try different search</span>
+                <span class="no-results">{$t('metadata.noResultsTryDifferent')}</span>
               {/if}
             {/if}
           </div>
@@ -475,7 +475,7 @@
                     <span class="result-artist">{result.artist}</span>
                     <div class="result-details">
                       {#if result.year}<span class="detail">{result.year}</span>{/if}
-                      {#if result.track_count}<span class="detail">{result.track_count} tracks</span>{/if}
+                      {#if result.track_count}<span class="detail">{$t('playlist.trackCount', { values: { count: result.track_count } })}</span>{/if}
                       {#if result.country}<span class="detail">{result.country}</span>{/if}
                       {#if result.format}<span class="detail">{result.format}</span>{/if}
                     </div>
@@ -495,7 +495,7 @@
                   onclick={openInBrowser}
                   disabled={!selectedResult}
                   type="button"
-                  title="Open in browser"
+                  title={$t('metadata.openInBrowser')}
                 >
                   <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -512,7 +512,7 @@
                   {#if remoteLoading}
                     <span class="spinner-inline"></span>
                   {:else}
-                    Apply
+                    {$t('metadata.apply')}
                   {/if}
                 </button>
               </div>
@@ -523,23 +523,23 @@
         <div class="section">
           <div class="track-table">
             <div class="track-head">
-              <div class="cell cell-head">Track</div>
-              <div class="cell cell-head">Track title</div>
-              <div class="cell cell-head">Disc</div>
+              <div class="cell cell-head">{$t('metadata.track')}</div>
+              <div class="cell cell-head">{$t('metadata.trackTitle')}</div>
+              <div class="cell cell-head">{$t('metadata.disc')}</div>
             </div>
             <div class="track-body">
-              {#each trackEdits as t, i (t.id)}
+              {#each trackEdits as trk, i (trk.id)}
                 <div class="track-row">
                   <div class="cell">
-                    <input class="table-input control-xs num" type="number" min="1" step="1" bind:value={t.trackNumber} />
+                    <input class="table-input control-xs num" type="number" min="1" step="1" bind:value={trk.trackNumber} />
                   </div>
                   <div class="cell">
-                    <input class="table-input control-xs" type="text" bind:value={t.title} />
+                    <input class="table-input control-xs" type="text" bind:value={trk.title} />
                   </div>
                   <div class="cell">
                     <div class="disc-of">
-                      <input class="table-input control-xs num" type="number" min="1" step="1" bind:value={t.discNumber} />
-                      <span class="disc-sep">of</span>
+                      <input class="table-input control-xs num" type="number" min="1" step="1" bind:value={trk.discNumber} />
+                      <span class="disc-sep">{$t('metadata.of')}</span>
                       <input
                         class="table-input control-xs num"
                         type="number"
@@ -556,7 +556,7 @@
         </div>
 
         <div class="ref-inline">
-          <span class="ref-label">Album path</span>
+          <span class="ref-label">{$t('metadata.albumPath')}</span>
           <span class="ref-value mono">{album?.directory_path ?? ''}</span>
         </div>
       </div>
@@ -565,33 +565,33 @@
   {#snippet footer()}
     <div class="footer-row">
       <div class="footer-left">
-        <label class="footer-label" for="persistence-select">Persistence</label>
+        <label class="footer-label" for="persistence-select">{$t('metadata.persistence')}</label>
         <select
           id="persistence-select"
           class="select-inline control-xs"
           bind:value={persistence}
         >
-          <option value="sidecar">QBZ sidecar (does not modify files)</option>
-          <option value="direct">Write to audio files (embedded tags)</option>
+          <option value="sidecar">{$t('metadata.persistenceSidecar')}</option>
+          <option value="direct">{$t('metadata.persistenceDirect')}</option>
         </select>
         {#if persistence === 'direct'}
-          <span class="warning-inline">Writes to files on disk.</span>
+          <span class="warning-inline">{$t('metadata.writesToDisk')}</span>
         {/if}
       </div>
       <div class="footer-actions">
-        <button class="btn btn-secondary" onclick={onClose} disabled={saving}>Cancel</button>
+        <button class="btn btn-secondary" onclick={onClose} disabled={saving}>{$t('actions.cancel')}</button>
         <button class="btn btn-primary" onclick={handleSave} disabled={saving}>
           {#if saving}
             <span class="spinner-inline"></span>
             {#if writeProgress}
-              Writing {writeProgress.current} of {writeProgress.total}...
+              {$t('metadata.writingProgress', { values: { current: writeProgress.current, total: writeProgress.total } })}
             {:else if persistence === 'direct'}
-              Writing tags...
+              {$t('metadata.writingTags')}
             {:else}
-              Saving...
+              {$t('actions.saving')}
             {/if}
           {:else}
-            Save
+            {$t('actions.save')}
           {/if}
         </button>
       </div>
