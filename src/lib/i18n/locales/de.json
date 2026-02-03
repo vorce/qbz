@@ -965,7 +965,7 @@
     "triggerTooltip": "DAC-Einrichtungshilfe",
     "welcome": {
       "title": "Geführte DAC-Einrichtung",
-      "subtitle": "Schritt-für-Schritt-Anleitung. Nichts wird automatisch ausgeführt.",
+      "subtitle": "Schritt-für-Schritt-Anleitung.",
       "body": "Sie werden Befehle kopieren und im Terminal ausführen. QBZ führt Sie durch jeden Schritt und erklärt alles. Vor Änderungen wird eine Sicherung erstellt.",
       "start": "Starten"
     },

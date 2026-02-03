@@ -1024,7 +1024,7 @@
     "triggerTooltip": "DAC Setup Guide",
     "welcome": {
       "title": "Guided DAC Setup",
-      "subtitle": "Step-by-step instructions. Nothing runs automatically.",
+      "subtitle": "Step-by-step instructions.",
       "body": "You will copy and run commands in a terminal. QBZ will guide you and explain each step. A backup will be created before any changes.",
       "start": "Start"
     },
