@@ -5,7 +5,6 @@
   import { subscribe as subscribeOffline, getStatus, createPendingPlaylist } from '$lib/stores/offlineStore';
   import { showToast } from '$lib/stores/toastStore';
   import { t } from '$lib/i18n';
-  import { get } from 'svelte/store';
   import {
     subscribe as subscribeFolders,
     getVisibleFolders,
@@ -106,14 +105,13 @@
       : userPlaylists
   );
 
-  // Get display text for selected playlist
-  const selectedPlaylistDisplay = $derived(() => {
-    const translate = get(t);
+  // Get display text for selected playlist - regular function to avoid $t() in $derived()
+  function getSelectedPlaylistDisplay(): string {
     if (selectedPlaylistId === null) return '';
-    if (selectedPlaylistId === CREATE_NEW_PLAYLIST) return '+ ' + translate('playlist.createNewPlaylist');
+    if (selectedPlaylistId === CREATE_NEW_PLAYLIST) return '+ ' + $t('playlist.createNewPlaylist');
     const pl = userPlaylists.find(p => p.id === selectedPlaylistId);
-    return pl ? translate('playlist.playlistWithTracks', { count: getTotalTrackCount(pl), name: pl.name }) : '';
-  });
+    return pl ? $t('playlist.playlistWithTracks', { values: { count: getTotalTrackCount(pl), name: pl.name } }) : '';
+  }
 
   // Handle dropdown item click
   function selectPlaylist(id: number | null) {
@@ -552,7 +550,7 @@
                 id="playlist-search"
                 bind:this={inputRef}
                 bind:value={playlistSearchQuery}
-                placeholder={selectedPlaylistId ? selectedPlaylistDisplay() : $t('placeholders.searchPlaylists')}
+                placeholder={selectedPlaylistId ? getSelectedPlaylistDisplay() : $t('placeholders.searchPlaylists')}
                 disabled={loading}
                 onfocus={() => isPlaylistDropdownOpen = true}
                 onkeydown={handleDropdownKeydown}
