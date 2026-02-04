@@ -2893,11 +2893,13 @@
       {/if}
     </button>
     {#if !remoteControlCollapsed}
+    <!-- TODO: Re-enable when setup guide content is complete
     <div class="section-header-actions">
       <button class="setup-guide-btn" onclick={() => showRemoteControlGuide = true}>
         {$t('settings.integrations.remoteControlSetupGuide')}
       </button>
     </div>
+    -->
 
     <div class="setting-row">
       <div class="setting-info">
