@@ -4,7 +4,7 @@
  * Manages toast notifications across the app with auto-hide and queue support.
  */
 
-export type ToastType = 'success' | 'error' | 'info' | 'buffering';
+export type ToastType = 'success' | 'error' | 'info' | 'warning' | 'buffering';
 
 export interface Toast {
   message: string;
@@ -114,6 +114,7 @@ export function showToast(message: string, type: ToastType = 'info', duration?: 
       success: 3000,
       error: 5000,
       info: 3000,
+      warning: 4000,
       buffering: 0  // Never used, but needed for type safety
     };
 
