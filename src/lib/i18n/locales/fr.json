@@ -945,6 +945,13 @@
     "showNetworkFolders": "Afficher le contenu du dossier réseau",
     "showNetworkFoldersDesc": "Afficher le contenu des dossiers montés en réseau (NAS, Samba, etc.) en mode hors ligne manuel"
   },
+  "download": {
+    "makeAvailable": "Rendre disponible hors ligne",
+    "queued": "En file d'attente pour hors ligne",
+    "preparing": "Préparation pour hors ligne",
+    "ready": "Disponible hors ligne (cliquer pour supprimer)",
+    "failed": "Échec de la mise en cache (cliquer pour réessayer)"
+  },
   "filter": {
     "all": "Tout"
   },

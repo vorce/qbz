@@ -945,6 +945,13 @@
     "showNetworkFolders": "Netzwerkordner-Inhalt anzeigen",
     "showNetworkFoldersDesc": "Inhalte aus eingebundenen Netzwerkordnern (NAS, Samba usw.) im manuellen Offline-Modus anzeigen"
   },
+  "download": {
+    "makeAvailable": "Offline verfügbar machen",
+    "queued": "Warteschlange für Offline",
+    "preparing": "Wird für Offline vorbereitet",
+    "ready": "Offline verfügbar (zum Entfernen klicken)",
+    "failed": "Caching fehlgeschlagen (zum erneuten Versuch klicken)"
+  },
   "filter": {
     "all": "Alle"
   },
