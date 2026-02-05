@@ -1,6 +1,6 @@
 # QBZ Snap package configuration
 
-name: qbz
+name: qbz-player
 title: "QBZ — Native Qobuz Client for Linux"
 version: '1.1.8'
 summary: Native Qobuz player for Linux with bit-perfect audio and DAC control
