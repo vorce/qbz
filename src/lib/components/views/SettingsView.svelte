@@ -604,6 +604,34 @@
   // Title bar settings
   let hideTitleBar = $state(getHideTitleBar());
 
+  // Immersive default view
+  const IMMERSIVE_VIEW_KEYS = [
+    'remember', 'coverflow', 'static', 'vinyl', 'visualizer',
+    'lyrics-focus', 'queue-focus',
+    'split-lyrics', 'split-trackInfo', 'split-suggestions', 'split-queue'
+  ] as const;
+  let immersiveDefaultView = $state(
+    localStorage.getItem('qbz-immersive-default-view') || 'remember'
+  );
+
+  function getImmersiveViewOptions(): string[] {
+    return IMMERSIVE_VIEW_KEYS.map(key => $t(`settings.appearance.immersiveViews.${key}`));
+  }
+
+  function getImmersiveViewDisplayValue(): string {
+    return $t(`settings.appearance.immersiveViews.${immersiveDefaultView}`);
+  }
+
+  function handleImmersiveViewChange(displayValue: string) {
+    const options = getImmersiveViewOptions();
+    const index = options.indexOf(displayValue);
+    if (index >= 0) {
+      const key = IMMERSIVE_VIEW_KEYS[index];
+      immersiveDefaultView = key;
+      localStorage.setItem('qbz-immersive-default-view', key);
+    }
+  }
+
   // Tray settings
   let enableTray = $state(true);
   let minimizeToTray = $state(false);
@@ -2526,6 +2554,14 @@
         <span class="setting-desc">{$t('settings.appearance.hideTitleBarDesc')}</span>
       </div>
       <Toggle enabled={hideTitleBar} onchange={(v) => setHideTitleBar(v)} />
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">{$t('settings.appearance.immersiveDefaultView')}</span>
+      <Dropdown
+        value={getImmersiveViewDisplayValue()}
+        options={getImmersiveViewOptions()}
+        onchange={handleImmersiveViewChange}
+      />
     </div>
 
     <!-- System Tray subsection -->
