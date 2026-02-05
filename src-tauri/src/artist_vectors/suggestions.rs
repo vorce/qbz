@@ -348,20 +348,18 @@ impl SuggestionsEngine {
         {
             Ok(results) => {
                 let mut tracks = Vec::new();
-                let search_name_lower = search_query.to_lowercase();
 
                 for item in results.items {
                     // Verify the track's performer matches the artist we searched for
                     let performer_name = item
                         .performer
                         .as_ref()
-                        .map(|p| p.name.to_lowercase())
+                        .map(|p| p.name.clone())
                         .unwrap_or_default();
 
-                    // Check if performer name matches (fuzzy: contains or is contained)
-                    let is_match = performer_name.contains(&search_name_lower)
-                        || search_name_lower.contains(&performer_name)
-                        || names_similar(&performer_name, &search_name_lower);
+                    // STRICT matching - only accept if names are genuinely similar
+                    // This prevents "Martín Méndez" from matching "Tomas Martin Lopez"
+                    let is_match = names_similar(&performer_name, &search_query);
 
                     if is_match {
                         tracks.push(self.track_to_suggested(&item, artist_mbid, similarity));
@@ -431,18 +429,35 @@ impl SuggestionsEngine {
     }
 }
 
+/// Normalize a name for comparison (remove accents, lowercase)
+fn normalize_name(name: &str) -> String {
+    name.to_lowercase()
+        .replace('á', "a").replace('é', "e").replace('í', "i").replace('ó', "o").replace('ú', "u")
+        .replace('à', "a").replace('è', "e").replace('ì', "i").replace('ò', "o").replace('ù', "u")
+        .replace('ä', "a").replace('ë', "e").replace('ï', "i").replace('ö', "o").replace('ü', "u")
+        .replace('ñ', "n").replace('ç', "c")
+}
+
 /// Check if two artist names are similar enough to be considered a match
 ///
-/// Handles cases like "George Harrison" vs "Harrison, George" or slight variations
+/// STRICT matching to prevent false positives like:
+/// - "Martín Méndez" matching "Tomas Martin Lopez" (share "Martin")
+/// - "Martín Méndez" matching "Martin Mendez" (different person, same name)
+///
+/// For person names (2-3 words), we require ALL words to match.
+/// This handles "George Harrison" vs "Harrison, George" but rejects partial matches.
 fn names_similar(name1: &str, name2: &str) -> bool {
-    // Exact match
-    if name1 == name2 {
+    let norm1 = normalize_name(name1);
+    let norm2 = normalize_name(name2);
+
+    // Exact match after normalization
+    if norm1 == norm2 {
         return true;
     }
 
-    // Split into words and check overlap
-    let words1: HashSet<&str> = name1.split_whitespace().collect();
-    let words2: HashSet<&str> = name2.split_whitespace().collect();
+    // Split into words
+    let words1: HashSet<&str> = norm1.split_whitespace().collect();
+    let words2: HashSet<&str> = norm2.split_whitespace().collect();
 
     if words1.is_empty() || words2.is_empty() {
         return false;
@@ -450,15 +465,22 @@ fn names_similar(name1: &str, name2: &str) -> bool {
 
     // Count matching words
     let matches = words1.intersection(&words2).count();
+    let max_words = words1.len().max(words2.len());
     let min_words = words1.len().min(words2.len());
 
-    // If most words match, consider it a match
-    // For 2-word names (like "George Harrison"), need both words
-    // For longer names, allow some flexibility
-    if min_words <= 2 {
-        matches >= min_words
+    // STRICT: For person names (2-3 words), require ALL words of the shorter name to match
+    // AND the match ratio must be high (no extra unrelated words)
+    if min_words <= 3 {
+        // All words of shorter name must be in longer name
+        let all_short_match = matches == min_words;
+        // And the longer name shouldn't have too many extra words
+        // e.g., "Martin Mendez" (2) vs "Tomas Martin Lopez" (3) -> 1 match out of 2 = reject
+        // e.g., "George Harrison" (2) vs "Harrison, George" (2) -> 2 match out of 2 = accept
+        let ratio = matches as f32 / max_words as f32;
+        all_short_match && ratio >= 0.66
     } else {
-        matches as f32 / min_words as f32 >= 0.7
+        // For longer names (bands, etc.), allow some flexibility
+        matches as f32 / max_words as f32 >= 0.75
     }
 }
 
