@@ -472,12 +472,28 @@ impl SuggestionsEngine {
     async fn has_incompatible_genre(&self, client: &QobuzClient, artist_id: u64, artist_name: &str) -> bool {
         // Incompatible genre keywords - these would never appear in a rock/metal context
         const INCOMPATIBLE_GENRES: &[&str] = &[
+            // Latin/Tropical
             "bachata", "merengue", "reggaeton", "salsa", "cumbia", "vallenato",
+            "latin pop", "tropical", "urbano latino", "regional mexicano",
+            // Asian pop
             "k-pop", "kpop", "j-pop", "jpop", "mandopop", "cantopop",
-            "schlager", "volksmusi", "chanson",
-            "gospel", "christian",
-            "children", "nursery", "lullaby",
-            "latin pop", "tropical", "urbano latino",
+            // European folk/schlager
+            "schlager", "volksmusi", "chanson", "volksmusik",
+            // Religious
+            "gospel", "christian", "worship", "religious",
+            // Children/Family
+            "children", "nursery", "lullaby", "kids", "kindermusik",
+            // Electronic/Dance (club-oriented)
+            "trance", "techno", "house", "edm", "dubstep", "drum and bass",
+            "hardstyle", "eurodance", "hands up", "happy hardcore",
+            // Spoken word/Non-music
+            "audiobook", "spoken word", "podcast", "meditation", "asmr",
+            "relaxation", "sleep", "nature sounds", "white noise",
+            "comedy", "stand-up", "hörbuch", "hörspiel",
+            // Country (usually incompatible with metal)
+            "country", "bluegrass", "americana country",
+            // New age/Wellness
+            "new age", "healing", "spa", "yoga", "mindfulness",
         ];
 
         // Fetch artist with a few albums
@@ -507,6 +523,23 @@ impl SuggestionsEngine {
                                 log::debug!(
                                     "[SuggestionsEngine] Artist '{}' has incompatible album title: '{}'",
                                     artist_name, album.title
+                                );
+                                return true;
+                            }
+                        }
+
+                        // Additional title-based checks for non-music content
+                        const INCOMPATIBLE_TITLE_KEYWORDS: &[&str] = &[
+                            "audiobook", "hörbuch", "hörspiel", "gelesen von", "read by",
+                            "narrated by", "lesung", "märchen", "fairy tale",
+                            "meditation", "relaxation", "sleep music", "yoga music",
+                            "trance mix", "club mix", "dance mix", "dj mix",
+                        ];
+                        for keyword in INCOMPATIBLE_TITLE_KEYWORDS {
+                            if title_lower.contains(keyword) {
+                                log::debug!(
+                                    "[SuggestionsEngine] Artist '{}' has incompatible album title keyword '{}': '{}'",
+                                    artist_name, keyword, album.title
                                 );
                                 return true;
                             }
