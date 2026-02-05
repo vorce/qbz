@@ -402,12 +402,13 @@ impl SuggestionsEngine {
         }
     }
 
-    /// Validate that an artist exists in Qobuz with their own catalog
+    /// Validate that an artist exists in Qobuz with their own catalog AND compatible genre
     ///
     /// Returns Some((artist_id, artist_name)) if found, None otherwise.
     /// This prevents false matches for:
     /// - Session musicians without their own page (e.g., "Martin Lopez" drummer)
     /// - Names that match different artists (e.g., Latin "Martin Mendez" vs bassist)
+    /// - Artists with incompatible genres (bachata/merengue artist vs metal drummer)
     async fn validate_qobuz_artist(
         &self,
         client: &QobuzClient,
@@ -425,28 +426,104 @@ impl SuggestionsEngine {
         };
 
         // Look for exact name match
+        let mut candidate: Option<(u64, String)> = None;
+
         for artist in &results.items {
             let artist_lower = artist.name.to_lowercase();
 
             // Exact match
-            if artist_lower == name_lower {
-                // Must have albums to be considered valid
-                if artist.albums_count.unwrap_or(0) > 0 {
-                    return Some((artist.id, artist.name.clone()));
-                }
+            if artist_lower == name_lower && artist.albums_count.unwrap_or(0) > 0 {
+                candidate = Some((artist.id, artist.name.clone()));
+                break;
             }
         }
 
         // Also try "The X" variant (e.g., "Beatles" -> "The Beatles")
-        let the_name_lower = format!("the {}", name_lower);
-        for artist in &results.items {
-            let artist_lower = artist.name.to_lowercase();
-            if artist_lower == the_name_lower && artist.albums_count.unwrap_or(0) > 0 {
-                return Some((artist.id, artist.name.clone()));
+        if candidate.is_none() {
+            let the_name_lower = format!("the {}", name_lower);
+            for artist in &results.items {
+                let artist_lower = artist.name.to_lowercase();
+                if artist_lower == the_name_lower && artist.albums_count.unwrap_or(0) > 0 {
+                    candidate = Some((artist.id, artist.name.clone()));
+                    break;
+                }
             }
         }
 
+        // If we found a candidate, verify their genre is compatible
+        if let Some((artist_id, artist_name)) = candidate {
+            if self.has_incompatible_genre(client, artist_id, &artist_name).await {
+                log::info!(
+                    "[SuggestionsEngine] Rejecting '{}' (ID: {}) - incompatible genre detected",
+                    artist_name, artist_id
+                );
+                return None;
+            }
+            return Some((artist_id, artist_name));
+        }
+
         None
+    }
+
+    /// Check if an artist has incompatible genres (bachata, merengue, k-pop, etc.)
+    ///
+    /// Fetches a few albums and checks their genres against a blocklist.
+    /// Returns true if incompatible, false if compatible or unknown.
+    async fn has_incompatible_genre(&self, client: &QobuzClient, artist_id: u64, artist_name: &str) -> bool {
+        // Incompatible genre keywords - these would never appear in a rock/metal context
+        const INCOMPATIBLE_GENRES: &[&str] = &[
+            "bachata", "merengue", "reggaeton", "salsa", "cumbia", "vallenato",
+            "k-pop", "kpop", "j-pop", "jpop", "mandopop", "cantopop",
+            "schlager", "volksmusi", "chanson",
+            "gospel", "christian",
+            "children", "nursery", "lullaby",
+            "latin pop", "tropical", "urbano latino",
+        ];
+
+        // Fetch artist with a few albums
+        match client.get_artist_with_pagination(artist_id, true, Some(5), None).await {
+            Ok(artist) => {
+                if let Some(albums) = &artist.albums {
+                    for album in &albums.items {
+                        if let Some(genre) = &album.genre {
+                            let genre_lower = genre.name.to_lowercase();
+
+                            // Check if genre matches any incompatible keyword
+                            for incompatible in INCOMPATIBLE_GENRES {
+                                if genre_lower.contains(incompatible) {
+                                    log::debug!(
+                                        "[SuggestionsEngine] Artist '{}' has incompatible genre: '{}' (album: {})",
+                                        artist_name, genre.name, album.title
+                                    );
+                                    return true;
+                                }
+                            }
+                        }
+
+                        // Also check album title for genre hints (e.g., "Latino Bachata Amor")
+                        let title_lower = album.title.to_lowercase();
+                        for incompatible in INCOMPATIBLE_GENRES {
+                            if title_lower.contains(incompatible) {
+                                log::debug!(
+                                    "[SuggestionsEngine] Artist '{}' has incompatible album title: '{}'",
+                                    artist_name, album.title
+                                );
+                                return true;
+                            }
+                        }
+                    }
+                }
+                false
+            }
+            Err(e) => {
+                log::warn!(
+                    "[SuggestionsEngine] Failed to fetch albums for genre check ({}): {}",
+                    artist_name, e
+                );
+                // On error, don't block - let it through
+                false
+            }
+        }
     }
 
     /// Convert a Track to a SuggestedTrack
