@@ -74,8 +74,10 @@
 <style>
   .collage {
     position: relative;
-    width: var(--size);
-    height: var(--size);
+    width: var(--size, 120px);
+    height: var(--size, 120px);
+    max-width: var(--size, 120px);
+    max-height: var(--size, 120px);
     overflow: hidden;
     border-radius: 6px;
     background: var(--bg-tertiary);
@@ -94,6 +96,8 @@
 
   .cover {
     object-fit: cover;
+    max-width: 100%;
+    max-height: 100%;
   }
 
   /* Single cover - full size */
