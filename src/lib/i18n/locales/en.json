@@ -572,6 +572,20 @@
       "systemNotifications": "System Notifications",
       "hideTitleBar": "Hide title bar",
       "hideTitleBarDesc": "Hide the title bar completely (for tiling window manager users)",
+      "immersiveDefaultView": "Immersive default view",
+      "immersiveViews": {
+        "remember": "Remember last used",
+        "coverflow": "Coverflow",
+        "static": "Static",
+        "vinyl": "Vinyl",
+        "visualizer": "Visualizer",
+        "lyrics-focus": "Lyrics",
+        "queue-focus": "Queue",
+        "split-lyrics": "Split: Lyrics",
+        "split-trackInfo": "Split: Track Info",
+        "split-suggestions": "Split: Suggestions",
+        "split-queue": "Split: Queue"
+      },
       "tray": {
         "title": "System Tray",
         "enableTray": "Enable tray icon",

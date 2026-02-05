@@ -555,6 +555,20 @@
       "systemNotifications": "Notifications système",
       "hideTitleBar": "Masquer la barre de titre",
       "hideTitleBarDesc": "Masquer complètement la barre de titre (pour les utilisateurs de gestionnaires de fenêtres en mosaïque)",
+      "immersiveDefaultView": "Vue par défaut du mode immersif",
+      "immersiveViews": {
+        "remember": "Mémoriser la dernière utilisée",
+        "coverflow": "Coverflow",
+        "static": "Statique",
+        "vinyl": "Vinyle",
+        "visualizer": "Visualiseur",
+        "lyrics-focus": "Paroles",
+        "queue-focus": "File d'attente",
+        "split-lyrics": "Divisé : Paroles",
+        "split-trackInfo": "Divisé : Info piste",
+        "split-suggestions": "Divisé : Suggestions",
+        "split-queue": "Divisé : File d'attente"
+      },
       "tray": {
         "title": "Barre d'état système",
         "enableTray": "Activer l'icône dans la barre système",

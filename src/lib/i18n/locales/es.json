@@ -572,6 +572,20 @@
       "systemNotifications": "Notificaciones del Sistema",
       "hideTitleBar": "Ocultar barra de título",
       "hideTitleBarDesc": "Ocultar completamente la barra de título (para usuarios de gestores de ventanas en mosaico)",
+      "immersiveDefaultView": "Vista predeterminada del modo inmersivo",
+      "immersiveViews": {
+        "remember": "Recordar la última usada",
+        "coverflow": "Coverflow",
+        "static": "Estática",
+        "vinyl": "Vinilo",
+        "visualizer": "Visualizador",
+        "lyrics-focus": "Letras",
+        "queue-focus": "Cola",
+        "split-lyrics": "Dividido: Letras",
+        "split-trackInfo": "Dividido: Info de pista",
+        "split-suggestions": "Dividido: Sugerencias",
+        "split-queue": "Dividido: Cola"
+      },
       "tray": {
         "title": "Bandeja del Sistema",
         "enableTray": "Habilitar icono de bandeja",

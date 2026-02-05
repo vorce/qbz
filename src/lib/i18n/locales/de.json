@@ -555,6 +555,20 @@
       "systemNotifications": "Systembenachrichtigungen",
       "hideTitleBar": "Titelleiste ausblenden",
       "hideTitleBarDesc": "Titelleiste komplett ausblenden (für Tiling-Window-Manager-Nutzer)",
+      "immersiveDefaultView": "Standard-Ansicht im Immersiv-Modus",
+      "immersiveViews": {
+        "remember": "Letzte Ansicht merken",
+        "coverflow": "Coverflow",
+        "static": "Statisch",
+        "vinyl": "Vinyl",
+        "visualizer": "Visualizer",
+        "lyrics-focus": "Liedtexte",
+        "queue-focus": "Warteschlange",
+        "split-lyrics": "Geteilt: Liedtexte",
+        "split-trackInfo": "Geteilt: Titelinfo",
+        "split-suggestions": "Geteilt: Vorschläge",
+        "split-queue": "Geteilt: Warteschlange"
+      },
       "tray": {
         "title": "Systemtray",
         "enableTray": "Tray-Symbol aktivieren",
