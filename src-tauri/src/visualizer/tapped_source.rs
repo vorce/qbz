@@ -13,7 +13,7 @@ use super::RingBuffer;
 /// Wraps a Source and sends samples to a ring buffer for visualization
 pub struct TappedSource<S>
 where
-    S: Source<Item = i16>,
+    S: Source<Item = f32>,
 {
     inner: S,
     ring_buffer: Arc<RingBuffer>,
@@ -22,7 +22,7 @@ where
 
 impl<S> TappedSource<S>
 where
-    S: Source<Item = i16>,
+    S: Source<Item = f32>,
 {
     /// Create a new TappedSource wrapping the given source
     pub fn new(
@@ -40,9 +40,9 @@ where
 
 impl<S> Iterator for TappedSource<S>
 where
-    S: Source<Item = i16>,
+    S: Source<Item = f32>,
 {
-    type Item = i16;
+    type Item = f32;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -50,10 +50,8 @@ where
 
         // Only send to visualizer if enabled - this is a fast atomic check
         if self.enabled.load(std::sync::atomic::Ordering::Relaxed) {
-            // Convert i16 to f32 normalized to [-1, 1]
-            // This is the only computation we do in the hot path
-            let normalized = sample as f32 / i16::MAX as f32;
-            self.ring_buffer.push(normalized);
+            // f32 samples are already normalized to [-1.0, 1.0]
+            self.ring_buffer.push(sample);
         }
 
         Some(sample)
@@ -67,7 +65,7 @@ where
 
 impl<S> Source for TappedSource<S>
 where
-    S: Source<Item = i16>,
+    S: Source<Item = f32>,
 {
     #[inline]
     fn current_frame_len(&self) -> Option<usize> {
@@ -98,14 +96,14 @@ mod tests {
 
     #[test]
     fn test_tapped_source_passes_through() {
-        let samples: Vec<i16> = vec![1000, 2000, 3000, -1000, -2000];
+        let samples: Vec<f32> = vec![0.5, 0.75, -0.5, -0.25, 0.0];
         let source = SamplesBuffer::new(1, 44100, samples.clone());
 
         let ring_buffer = Arc::new(RingBuffer::new(16));
         let enabled = Arc::new(AtomicBool::new(true));
 
         let tapped = TappedSource::new(source, ring_buffer, enabled);
-        let output: Vec<i16> = tapped.collect();
+        let output: Vec<f32> = tapped.collect();
 
         // Samples should pass through unchanged
         assert_eq!(output, samples);
@@ -113,21 +111,21 @@ mod tests {
 
     #[test]
     fn test_tapped_source_fills_ring_buffer() {
-        let samples: Vec<i16> = vec![i16::MAX, 0, i16::MIN];
+        let samples: Vec<f32> = vec![1.0, 0.0, -1.0];
         let source = SamplesBuffer::new(1, 44100, samples);
 
         let ring_buffer = Arc::new(RingBuffer::new(16));
         let enabled = Arc::new(AtomicBool::new(true));
 
         let tapped = TappedSource::new(source, ring_buffer.clone(), enabled);
-        let _: Vec<i16> = tapped.collect();
+        let _: Vec<f32> = tapped.collect();
 
-        // Check ring buffer received normalized samples
+        // Check ring buffer received samples directly (f32 already normalized)
         let mut snapshot = [0.0f32; 3];
         ring_buffer.snapshot(&mut snapshot);
 
-        assert!((snapshot[0] - 1.0).abs() < 0.001); // i16::MAX -> ~1.0
-        assert!((snapshot[1] - 0.0).abs() < 0.001); // 0 -> 0.0
-        assert!((snapshot[2] - (-1.0)).abs() < 0.01); // i16::MIN -> ~-1.0
+        assert!((snapshot[0] - 1.0).abs() < 0.001);
+        assert!((snapshot[1] - 0.0).abs() < 0.001);
+        assert!((snapshot[2] - (-1.0)).abs() < 0.001);
     }
 }
