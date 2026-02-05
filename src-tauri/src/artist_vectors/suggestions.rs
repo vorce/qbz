@@ -41,9 +41,9 @@ pub struct SuggestionConfig {
 impl Default for SuggestionConfig {
     fn default() -> Self {
         Self {
-            max_artists: 20,
-            tracks_per_artist: 5,
-            max_pool_size: 100,
+            max_artists: 30,           // Increased from 20 for more variety
+            tracks_per_artist: 6,      // Increased from 5
+            max_pool_size: 150,        // Increased from 100
             vector_max_age_days: 7,
             min_similarity: 0.1,
             skip_vector_build: false,

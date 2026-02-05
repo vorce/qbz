@@ -24,6 +24,28 @@ pub struct PlaylistArtist {
     pub qobuz_id: Option<u64>,
 }
 
+/// Genres that are typically incompatible with rock/metal playlists
+/// Used to filter out false positives from name-only matching
+const INCOMPATIBLE_GENRE_KEYWORDS: &[&str] = &[
+    "merengue", "reggaeton", "salsa", "bachata", "cumbia", "vallenato",
+    "k-pop", "kpop", "j-pop", "jpop", "mandopop", "cantopop",
+    "schlager", "volksmusi", "chanson",
+    "country singer", "country music",
+    "gospel singer", "christian music",
+    "children", "nursery",
+];
+
+/// Check if an artist's disambiguation suggests an incompatible genre
+fn has_incompatible_disambiguation(disambiguation: Option<&str>) -> bool {
+    match disambiguation {
+        Some(d) => {
+            let lower = d.to_lowercase();
+            INCOMPATIBLE_GENRE_KEYWORDS.iter().any(|kw| lower.contains(kw))
+        }
+        None => false,
+    }
+}
+
 /// Input for generating suggestions
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct SuggestionsInput {
@@ -100,12 +122,22 @@ pub async fn get_playlist_suggestions_v2(
         if mb_state.client.is_enabled().await {
             match mb_state.client.search_artist(&artist.name).await {
                 Ok(response) => {
+                    // Find best match: high score AND compatible genre
+                    // This prevents "Martín Méndez" (Opeth bassist) matching "Martin Mendez" (merengue singer)
                     if let Some(mb_artist) = response
                         .artists
                         .iter()
-                        .find(|a| a.score.unwrap_or(0) >= 90)
+                        .filter(|a| a.score.unwrap_or(0) >= 90)
+                        .find(|a| !has_incompatible_disambiguation(a.disambiguation.as_deref()))
                     {
                         let mbid = mb_artist.id.clone();
+                        log::debug!(
+                            "[Suggestions] Resolved '{}' -> {} (score={}, disambiguation={:?})",
+                            artist.name,
+                            mb_artist.name,
+                            mb_artist.score.unwrap_or(0),
+                            mb_artist.disambiguation
+                        );
                         // Cache the resolved artist
                         let resolved = ResolvedArtist {
                             mbid: Some(mbid.clone()),
@@ -123,6 +155,15 @@ pub async fn get_playlist_suggestions_v2(
                         artist_info.push((mbid, artist.name.clone()));
                         resolved_count += 1;
                         continue;
+                    } else if let Some(skipped) = response.artists.iter().find(|a| {
+                        a.score.unwrap_or(0) >= 90 && has_incompatible_disambiguation(a.disambiguation.as_deref())
+                    }) {
+                        log::info!(
+                            "[Suggestions] Skipped incompatible artist for '{}': {} (disambiguation: {:?})",
+                            artist.name,
+                            skipped.name,
+                            skipped.disambiguation
+                        );
                     }
                 }
                 Err(e) => {

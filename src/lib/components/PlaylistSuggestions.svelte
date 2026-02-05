@@ -113,9 +113,10 @@
 
   // Configuration
   const VISIBLE_COUNT = 6;
-  const INITIAL_POOL = 18;  // 3 pages worth
-  const EXPANDED_POOL = 60; // Full pool on demand
-  const MAX_POOL = 120; // Maximum pool for "load more variety"
+  const INITIAL_POOL = 30;  // 5 pages worth (increased from 18)
+  const EXPANDED_POOL = 100; // Full pool on demand (increased from 60)
+  const MAX_POOL = 200; // Maximum pool for "load more variety" (increased from 120)
+  const MIN_AVAILABLE_THRESHOLD = 12; // Auto-refresh when available tracks fall below this
 
   // Track user interaction to detect when they want more variety
   let completedCycles = $state(0); // How many times user cycled through all pages
@@ -174,6 +175,18 @@
       completedCycles = 0;
       lastAddedAt = 0;
       void loadSuggestions(false);
+    }
+  });
+
+  // Auto-refresh when available tracks fall below threshold (pool exhaustion fix)
+  $effect(() => {
+    const availableCount = filteredPool.length;
+    const isPoolLow = availableCount < MIN_AVAILABLE_THRESHOLD && availableCount > 0;
+    const canExpand = hasLoadedOnce && !loading && !loadingMore && pool.length < MAX_POOL;
+
+    if (isPoolLow && canExpand) {
+      log(`Pool running low (${availableCount} available), auto-expanding...`);
+      void handleLoadMoreVariety();
     }
   });
 
