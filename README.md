@@ -356,6 +356,8 @@ qbz/
 ├── packaging/
 │   ├── aur/              # Arch Linux PKGBUILD
 │   └── flatpak/          # Flatpak manifest
+├── docs/
+│   └── release-1.1.8/    # Release notes
 └── static/               # Static assets and logo
 ```
 
@@ -384,12 +386,12 @@ qbz/
 
 **PipeWire DAC Passthrough**
 - Requires PipeWire configuration for automatic sample rate switching
-- See [AUDIO_BACKENDS.md](qbz-nix-docs/AUDIO_BACKENDS.md) for setup instructions
-- **Flatpak users:** PipeWire bit-perfect is not available due to sandbox restrictions - use ALSA Direct backend instead
+- Use the in-app Settings wizard for guided setup
+- **Flatpak users:** PipeWire bit-perfect can work if PipeWire is configured correctly. If it does not, use ALSA Direct.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues and pull requests.
+Contributions are welcome. Please read `CONTRIBUTING.md` before submitting issues or pull requests.
 
 ## macOS (Experimental)
 
