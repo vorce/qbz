@@ -10,6 +10,8 @@
   <a href="https://github.com/vicrodh/qbz"><img src="https://img.shields.io/badge/platform-Linux-0b0b0b?style=flat&logo=linux" alt="Platform" /></a>
 </p>
 
+[![qbz-player](https://snapcraft.io/qbz-player/badge.svg)](https://snapcraft.io/qbz-player)
+
 # QBZ
 
 QBZ is a free and open source (FOSS) high-fidelity streaming client for Linux with native playback. It is a real desktop application, not a web wrapper, so it can use DAC passthrough, switch sample rates per track, and deliver bit-perfect audio.
@@ -36,6 +38,26 @@ yay -S qbz-bin
 
 # Using paru
 paru -S qbz-bin
+```
+
+### Snap
+
+```bash
+sudo snap install qbz-player
+```
+
+Post-install plug connections for audio backends:
+
+```bash
+sudo snap connect qbz-player:alsa
+sudo snap connect qbz-player:pulseaudio
+sudo snap connect qbz-player:pipewire
+```
+
+Optional: external drives and network mounts
+
+```bash
+sudo snap connect qbz-player:removable-media
 ```
 
 ### Flatpak
