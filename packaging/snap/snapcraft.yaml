@@ -1,20 +1,37 @@
 # QBZ Snap package configuration
 
 name: qbz
+title: "QBZ — Native Qobuz Client for Linux"
 version: '1.1.8'
-summary: Native Qobuz client for Linux with bit-perfect audio
+summary: Native Qobuz player for Linux with bit-perfect audio and DAC control
 description: |
-  QBZ is a native Qobuz streaming client for Linux, designed for audiophiles
-  who need bit-perfect playback without browser sample rate limitations.
+  QBZ is a native Linux desktop client for Qobuz™, designed for high-fidelity playback.
+
+  Unlike browser-based players or web wrappers, QBZ uses a native audio pipeline with direct ALSA and PipeWire integration, allowing bit-perfect playback, exclusive device access, and proper per-track sample-rate switching for external DACs.
+
+  Browsers are limited by system mixers and WebAudio, often resampling audio to 48 kHz. QBZ bypasses these limitations to deliver true high-resolution audio up to 24-bit / 192 kHz on Linux.
 
   Features:
-  - Bit-perfect hi-res audio playback (up to 192kHz/24-bit)
-  - DAC Passthrough for automatic sample rate switching
-  - ALSA Direct backend for exclusive hardware access
-  - PipeWire and PulseAudio support
-  - Last.fm scrobbling
-  - Chromecast and DLNA casting
-  - Offline mode with local library support
+  - Native Qobuz™ streaming client (not a web wrapper)
+  - Bit-perfect playback with ALSA exclusive mode
+  - DAC passthrough and per-track sample-rate switching
+  - Hi-Res FLAC playback
+  - Queue, playlists, favorites, and offline cache
+  - Local library integration
+  - Chromecast and DLNA support
+  - MPRIS media keys and desktop integration
+  - Open source (MIT license)
+
+  QBZ is built for Linux users and audiophiles who care about how audio actually reaches their hardware.
+
+  Legal:
+  QBZ uses the Qobuz™ API but is not affiliated with, endorsed by, or certified by Qobuz.
+
+license: MIT
+contact: https://github.com/vicrodh/qbz/discussions
+website: https://qbz.lol
+source-code: https://github.com/vicrodh/qbz
+issues: https://github.com/vicrodh/qbz/issues
 
 grade: stable
 confinement: strict
