@@ -428,7 +428,10 @@ impl QobuzClient {
     /// Get list of genres
     pub async fn get_genres(&self, parent_id: Option<u64>) -> Result<Vec<GenreInfo>> {
         let url = endpoints::build_url(paths::GENRE_LIST);
-        let mut query: Vec<(&str, String)> = vec![];
+        // Force English for consistent genre names across all user regions
+        let mut query: Vec<(&str, String)> = vec![
+            ("lang", "en".to_string()),
+        ];
 
         if let Some(pid) = parent_id {
             query.push(("parent_id", pid.to_string()));
