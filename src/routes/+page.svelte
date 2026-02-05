@@ -577,11 +577,21 @@
 
   async function handleAlbumClick(albumId: string) {
     try {
+      console.log('[Album] handleAlbumClick called with albumId:', albumId, 'type:', typeof albumId);
       showToast($t('toast.loadingAlbum'), 'info');
       const album = await invoke<QobuzAlbum>('get_album', { albumId });
-      console.log('Album details:', album);
+      console.log('[Album] API response received, id:', album?.id, 'title:', album?.title, 'tracks:', album?.tracks?.items?.length);
 
-      selectedAlbum = convertQobuzAlbum(album);
+      const converted = convertQobuzAlbum(album);
+      console.log('[Album] Converted album, id:', converted?.id, 'tracks:', converted?.tracks?.length);
+
+      if (!converted || !converted.id) {
+        console.error('[Album] convertQobuzAlbum returned invalid data:', converted);
+        showToast($t('toast.failedLoadAlbum'), 'error');
+        return;
+      }
+
+      selectedAlbum = converted;
       navigateTo('album');
       hideToast();
 
@@ -592,7 +602,7 @@
         albumArtistAlbums = [];
       }
     } catch (err) {
-      console.error('Failed to load album:', err);
+      console.error('[Album] Failed to load album:', err);
       showToast($t('toast.failedLoadAlbum'), 'error');
     }
   }
@@ -2998,6 +3008,12 @@
           subscriptionValidUntil={userInfo?.subscriptionValidUntil}
           showTitleBar={showTitleBar}
         />
+      {:else if activeView === 'album' && !selectedAlbum}
+        <!-- Defensive fallback: album view active but no data loaded (#43) -->
+        <div class="view-error">
+          <p>{$t('toast.failedLoadAlbum')}</p>
+          <button class="view-error-back" onclick={navGoBack}>{$t('actions.back')}</button>
+        </div>
       {:else if activeView === 'album' && selectedAlbum}
         <AlbumDetailView
           album={selectedAlbum}
@@ -3565,6 +3581,31 @@
   .app.no-titlebar .content-area,
   .app.no-titlebar .main-content {
     height: calc(100vh - 104px); /* Only 104px NowPlayingBar, no title bar */
+  }
+
+  .view-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 15px;
+  }
+
+  .view-error-back {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .view-error-back:hover {
+    background: var(--bg-hover);
   }
 
 </style>
