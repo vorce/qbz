@@ -87,15 +87,8 @@ pub async fn play_track(
 ) -> Result<PlayTrackResult, String> {
     let mut preferred_quality = parse_quality(quality.as_deref());
 
-    // Apply quality limiting if enabled
-    {
-        let store = audio_settings.store.lock().map_err(|e| format!("Lock error: {}", e))?;
-        if let Ok(settings) = store.get_settings() {
-            if settings.limit_quality_to_device {
-                preferred_quality = limit_quality_for_device(preferred_quality, settings.device_max_sample_rate);
-            }
-        }
-    }
+    // NOTE: limit_quality_to_device disabled in 1.1.9 — was causing incorrect downgrades (#45)
+    // The feature code is preserved but disconnected until the detection logic is reliable.
 
     log::info!(
         "Command: play_track {} (duration: {:?}s, quality_str={:?}, parsed={:?}, format_id={})",
@@ -334,15 +327,8 @@ pub async fn prefetch_track(
 ) -> Result<(), String> {
     let mut preferred_quality = parse_quality(quality.as_deref());
 
-    // Apply quality limiting if enabled
-    {
-        let store = audio_settings.store.lock().map_err(|e| format!("Lock error: {}", e))?;
-        if let Ok(settings) = store.get_settings() {
-            if settings.limit_quality_to_device {
-                preferred_quality = limit_quality_for_device(preferred_quality, settings.device_max_sample_rate);
-            }
-        }
-    }
+    // NOTE: limit_quality_to_device disabled in 1.1.9 — was causing incorrect downgrades (#45)
+    // The feature code is preserved but disconnected until the detection logic is reliable.
 
     log::info!(
         "Command: prefetch_track {} (quality_str={:?}, parsed={:?}, format_id={})",

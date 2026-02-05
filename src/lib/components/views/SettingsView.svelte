@@ -432,7 +432,7 @@
   let streamFirstTrack = $state(false);
   let streamBufferSeconds = $state(3);
   let streamingOnly = $state(false);
-  let limitQualityToDevice = $state(true);  // Enabled by default for bit-perfect
+  let limitQualityToDevice = $state(false);  // Disabled in 1.1.9 — detection unreliable (#45)
 
   // Backend system state
   let availableBackends = $state<BackendInfo[]>([]);
@@ -2183,13 +2183,8 @@
         onchange={handleQualityChange}
       />
     </div>
-    <div class="setting-row">
-      <div class="setting-info">
-        <span class="setting-label">{$t('settings.audio.limitQualityToDevice')}</span>
-        <span class="setting-desc">{$t('settings.audio.limitQualityToDeviceDesc')}</span>
-      </div>
-      <Toggle enabled={limitQualityToDevice} onchange={handleLimitQualityToDeviceChange} />
-    </div>
+    <!-- NOTE: limitQualityToDevice hidden in 1.1.9 — was causing incorrect downgrades (#45) -->
+    <!-- The setting is preserved but hidden until the detection logic is reliable. -->
     <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{$t('settings.audio.audioBackend')}</span>

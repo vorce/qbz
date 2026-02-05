@@ -44,7 +44,7 @@ impl Default for AudioSettings {
             stream_first_track: true,  // Enabled by default for faster playback start
             stream_buffer_seconds: 3,  // 3 seconds initial buffer
             streaming_only: false,  // Disabled by default (cache tracks for instant replay)
-            limit_quality_to_device: true,  // Enabled by default for bit-perfect guarantee
+            limit_quality_to_device: false,  // Disabled in 1.1.9 — detection logic unreliable (#45)
             device_max_sample_rate: None,   // Set when device is selected
         }
     }
@@ -91,7 +91,7 @@ impl AudioSettingsStore {
         let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN stream_first_track INTEGER DEFAULT 0", []);
         let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN stream_buffer_seconds INTEGER DEFAULT 3", []);
         let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN streaming_only INTEGER DEFAULT 0", []);
-        let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN limit_quality_to_device INTEGER DEFAULT 1", []);
+        let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN limit_quality_to_device INTEGER DEFAULT 0", []);
         let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN device_max_sample_rate INTEGER", []);
 
         Ok(Self { conn })
