@@ -17,6 +17,12 @@
   import { togglePlay } from '$lib/stores/playerStore';
   import { getQueue, syncQueueState, playQueueIndex } from '$lib/stores/queueStore';
   import { subscribeContentSidebar, toggleContentSidebar, type ContentSidebarType } from '$lib/stores/sidebarStore';
+  import {
+    subscribe as subscribeFavorites,
+    isTrackFavorite,
+    isTrackToggling,
+    toggleTrackFavorite
+  } from '$lib/stores/favoritesStore';
   import { tick, onMount, onDestroy } from 'svelte';
 
   interface Track {
@@ -128,6 +134,16 @@
   let tracksLoading = $state(false);
   let isFavorite = $state(false);
   let isFavoriteLoading = $state(false);
+  let trackFavoritesVersion = $state(0); // Bumped on favoritesStore changes to trigger reactivity
+
+  // Helpers that read trackFavoritesVersion to establish reactive dependency for the {#each} block
+  function checkTrackFav(trackId: number): boolean {
+    return trackFavoritesVersion >= 0 && isTrackFavorite(trackId);
+  }
+  function checkTrackToggling(trackId: number): boolean {
+    return trackFavoritesVersion >= 0 && isTrackToggling(trackId);
+  }
+
   let isRadioLoading = $state(false);
   let artistIsBlacklisted = $state(false);
   let isBlacklistLoading = $state(false);
@@ -138,6 +154,7 @@
   let showNetworkSidebar = $state(false);
   let unsubscribeSidebar: (() => void) | null = null;
   let unsubscribeBlacklist: (() => void) | null = null;
+  let unsubscribeTrackFavorites: (() => void) | null = null;
 
   function updateBlacklistState() {
     artistIsBlacklisted = isBlacklisted(artist.id);
@@ -154,11 +171,17 @@
     unsubscribeBlacklist = subscribeBlacklist(() => {
       updateBlacklistState();
     });
+
+    // Subscribe to track favorites changes
+    unsubscribeTrackFavorites = subscribeFavorites(() => {
+      trackFavoritesVersion++;
+    });
   });
 
   onDestroy(() => {
     unsubscribeSidebar?.();
     unsubscribeBlacklist?.();
+    unsubscribeTrackFavorites?.();
   });
   let similarArtists = $state<QobuzArtist[]>([]);
   let similarArtistsLoading = $state(false);
@@ -1567,15 +1590,24 @@
               <div class="track-duration">{formatDuration(track.duration)}</div>
               <div class="track-actions">
                 {#if onTrackAddFavorite}
+                  {@const trackIsFav = checkTrackFav(track.id)}
+                  {@const trackIsToggling = checkTrackToggling(track.id)}
                   <button
                     class="track-favorite-btn"
-                    onclick={(e) => {
+                    class:is-favorite={trackIsFav}
+                    class:is-toggling={trackIsToggling}
+                    onclick={async (e) => {
                       e.stopPropagation();
-                      onTrackAddFavorite(track.id);
+                      await toggleTrackFavorite(track.id);
                     }}
-                    title="Add to favorites"
+                    disabled={trackIsToggling}
+                    title={trackIsFav ? 'Remove from favorites' : 'Add to favorites'}
                   >
-                    <Heart size={16} />
+                    {#if trackIsFav}
+                      <Heart size={16} fill="var(--accent-primary)" color="var(--accent-primary)" />
+                    {:else}
+                      <Heart size={16} />
+                    {/if}
                   </button>
                 {/if}
                 <TrackMenu
@@ -3638,6 +3670,16 @@
 
   .track-row:hover .track-favorite-btn:hover {
     opacity: 1;
+  }
+
+  .track-favorite-btn.is-favorite {
+    opacity: 1;
+    color: var(--accent-primary);
+  }
+
+  .track-favorite-btn.is-toggling {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   /* Responsive */
