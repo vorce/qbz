@@ -130,6 +130,7 @@
     setIsSkipping,
     setQueueEnded,
     setOnTrackEnded,
+    setOnResumeFromStop,
     togglePlay,
     seek as playerSeek,
     setVolume as playerSetVolume,
@@ -2674,6 +2675,15 @@
         setQueueEnded(true);
         await stopPlayback();
         setIsPlaying(false);
+      }
+    });
+
+    // Set up resume-from-stop callback: re-play the queue's current track
+    setOnResumeFromStop(async () => {
+      const queueState = await getBackendQueueState();
+      if (queueState?.current_track && queueState.current_index !== null) {
+        console.log('[Player] Resuming from stop, replaying queue index:', queueState.current_index);
+        await playQueueTrack(queueState.current_track);
       }
     });
 

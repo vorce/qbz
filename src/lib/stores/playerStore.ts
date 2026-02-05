@@ -134,6 +134,7 @@ let queueEnded = false;
 
 // Callbacks for track advancement (set by consumer)
 let onTrackEnded: (() => Promise<void>) | null = null;
+let onResumeFromStop: (() => Promise<void>) | null = null;
 
 // Session restore state - when set, next play will load the track first
 let pendingSessionRestore: { trackId: number; position: number } | null = null;
@@ -286,7 +287,13 @@ export function hasPendingSessionRestore(): boolean {
  * Toggle play/pause
  */
 export async function togglePlay(): Promise<void> {
-  if (!currentTrack) return;
+  if (!currentTrack) {
+    // After stop, try to resume from the queue's current track
+    if (onResumeFromStop) {
+      await onResumeFromStop();
+    }
+    return;
+  }
 
   const newIsPlaying = !isPlaying;
   isPlaying = newIsPlaying;
@@ -452,6 +459,13 @@ export async function stop(): Promise<void> {
 }
 
 // ============ Event-Based Updates ============
+
+/**
+ * Set callback for resuming playback after stop (re-play current queue track)
+ */
+export function setOnResumeFromStop(callback: () => Promise<void>): void {
+  onResumeFromStop = callback;
+}
 
 /**
  * Set callback for when track ends (for auto-advance)
