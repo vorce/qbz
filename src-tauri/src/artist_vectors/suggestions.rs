@@ -203,9 +203,10 @@ impl SuggestionsEngine {
             source_artists.push(name.clone());
 
             // Search Qobuz for tracks by this playlist artist (similarity = 1.0)
-            // Fetch 1.5x more tracks for playlist artists (higher priority)
-            let playlist_artist_limit = (self.config.tracks_per_artist as f32 * 1.5).ceil() as usize;
-            log::info!("[SuggestionsEngine] Step 4a: Searching for '{}' (MBID: {})", name, mbid);
+            // Fetch many more tracks since many might already be in playlist
+            // For a playlist with 23 tracks, we need to search beyond those to find new ones
+            let playlist_artist_limit = (self.config.tracks_per_artist * 5).max(30); // At least 30 tracks
+            log::info!("[SuggestionsEngine] Step 4a: Searching for '{}' (MBID: {}) with limit {}", name, mbid, playlist_artist_limit);
             let tracks = self.search_artist_tracks_with_limit(mbid, Some(name), 1.0, playlist_artist_limit).await;
             log::info!("[SuggestionsEngine] Step 4a: Found {} tracks for '{}'", tracks.len(), name);
 
@@ -532,9 +533,12 @@ impl SuggestionsEngine {
             search_query, qobuz_artist_name, qobuz_artist_id
         );
 
-        // Step 2: Search for tracks by artist name (fetch 3x limit to have room for filtering)
+        // Step 2: Search for tracks by artist name
+        // Fetch many more since search results include tracks where the artist appears,
+        // not just tracks BY the artist. We filter down to exact matches.
+        let search_limit = ((limit * 5) as u32).max(100).min(500); // Between 100-500
         match client
-            .search_tracks(&search_query, (limit * 3) as u32, 0, None)
+            .search_tracks(&search_query, search_limit, 0, None)
             .await
         {
             Ok(results) => {
@@ -586,14 +590,26 @@ impl SuggestionsEngine {
         // Normalize name for comparison (removes accents: å→a, é→e, etc.)
         let name_normalized = normalize_name(name);
 
-        // Search Qobuz for artist
-        let results = match client.search_artists(name, 10, 0, None).await {
+        // Search Qobuz for artist - try original name first
+        let mut results = match client.search_artists(name, 10, 0, None).await {
             Ok(r) => r,
             Err(e) => {
                 log::warn!("[SuggestionsEngine] Artist search failed for '{}': {}", name, e);
                 return None;
             }
         };
+
+        // If no results and name has accents, also try normalized name
+        // e.g., "Mikael Åkerfeldt" -> "Mikael Akerfeldt"
+        if results.items.is_empty() && name != name_normalized {
+            log::debug!(
+                "[SuggestionsEngine] No results for '{}', trying normalized '{}'",
+                name, name_normalized
+            );
+            if let Ok(r) = client.search_artists(&name_normalized, 10, 0, None).await {
+                results = r;
+            }
+        }
 
         // Look for exact name match (comparing normalized versions)
         let mut candidate: Option<(u64, String)> = None;
