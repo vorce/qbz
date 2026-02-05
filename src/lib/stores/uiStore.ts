@@ -5,6 +5,7 @@
  */
 
 import { closeAll as closeAllMenus } from './floatingMenuStore';
+import { hideSidebar as hideLyricsSidebar } from './lyricsStore';
 
 // Overlay states
 let isQueueOpen = false;
@@ -66,6 +67,7 @@ export function getFullScreenOpen(): boolean {
 
 export function openFullScreen(): void {
   closeAllMenus();
+  hideLyricsSidebar();
   isFullScreenOpen = true;
   notifyListeners();
 }
@@ -88,6 +90,7 @@ export function getFocusModeOpen(): boolean {
 
 export function openFocusMode(): void {
   closeAllMenus();
+  hideLyricsSidebar();
   isFocusModeOpen = true;
   notifyListeners();
 }
