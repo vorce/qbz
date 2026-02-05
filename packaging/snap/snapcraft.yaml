@@ -45,6 +45,8 @@ passthrough:
       bind: $SNAP/usr/share/alsa
     /etc/alsa:
       bind: $SNAP/etc/alsa
+    /usr/lib/x86_64-linux-gnu/alsa-lib:
+      bind: $SNAP/usr/lib/x86_64-linux-gnu/alsa-lib
 
 architectures:
   - build-on: amd64
@@ -60,6 +62,7 @@ apps:
       WEBKIT_EXEC_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1
       GTK_USE_PORTAL: "0"
       GIO_USE_PORTAL: "0"
+      PIPEWIRE_RUNTIME_DIR: $XDG_RUNTIME_DIR/..
     plugs:
       - network
       - network-status
@@ -74,6 +77,7 @@ apps:
       - gsettings
       - pulseaudio
       - alsa
+      - pipewire
 
 parts:
   alsa-config:
@@ -81,6 +85,8 @@ parts:
     source: alsa
     organize:
       conf.d/10-rate-lav.conf: etc/alsa/conf.d/10-rate-lav.conf
+      conf.d/50-pulseaudio.conf: etc/alsa/conf.d/50-pulseaudio.conf
+      conf.d/50-pipewire.conf: etc/alsa/conf.d/50-pipewire.conf
 
   qbz:
     plugin: rust
@@ -103,7 +109,9 @@ parts:
       - libayatana-appindicator3-1
       - libasound2
       - libasound2-data
+      - libasound2-plugins
       - libssl3
+      - pipewire-bin
       - pulseaudio-utils
       # Include alsa-utils in the snap for aplay -L command
       - alsa-utils
