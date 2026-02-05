@@ -196,7 +196,7 @@ impl SuggestionsEngine {
         let mut all_tracks = Vec::new();
 
         // 4a. First, search for tracks by playlist artists themselves (highest relevance)
-        log::debug!("[SuggestionsEngine] Step 4a: Searching tracks for {} playlist artists", playlist_artists.len());
+        log::info!("[SuggestionsEngine] Step 4a: Searching tracks for {} playlist artists", playlist_artists.len());
         let step4a_start = Instant::now();
 
         for (mbid, name) in playlist_artists {
@@ -205,11 +205,16 @@ impl SuggestionsEngine {
             // Search Qobuz for tracks by this playlist artist (similarity = 1.0)
             // Fetch 1.5x more tracks for playlist artists (higher priority)
             let playlist_artist_limit = (self.config.tracks_per_artist as f32 * 1.5).ceil() as usize;
+            log::info!("[SuggestionsEngine] Step 4a: Searching for '{}' (MBID: {})", name, mbid);
             let tracks = self.search_artist_tracks_with_limit(mbid, Some(name), 1.0, playlist_artist_limit).await;
+            log::info!("[SuggestionsEngine] Step 4a: Found {} tracks for '{}'", tracks.len(), name);
 
+            let mut added = 0;
+            let mut skipped = 0;
             for mut track in tracks {
                 // Skip if already in playlist
                 if exclude_track_ids.contains(&track.track_id) {
+                    skipped += 1;
                     continue;
                 }
 
@@ -218,9 +223,11 @@ impl SuggestionsEngine {
                 }
 
                 all_tracks.push(track);
+                added += 1;
             }
+            log::info!("[SuggestionsEngine] Step 4a: Added {} tracks for '{}' ({} skipped as already in playlist)", added, name, skipped);
         }
-        log::debug!("[SuggestionsEngine] Step 4a completed in {:?}, got {} tracks from playlist artists", step4a_start.elapsed(), all_tracks.len());
+        log::info!("[SuggestionsEngine] Step 4a completed in {:?}, got {} tracks from playlist artists", step4a_start.elapsed(), all_tracks.len());
 
         // 4b. Then search for tracks by related/similar artists
         log::debug!("[SuggestionsEngine] Step 4b: Searching tracks for {} related artists", similar_artists.len());
@@ -512,15 +519,15 @@ impl SuggestionsEngine {
         let validated_artist = self.validate_qobuz_artist(&client, &search_query).await;
 
         if validated_artist.is_none() {
-            log::debug!(
-                "[SuggestionsEngine] Skipping '{}' - no Qobuz artist page found",
+            log::info!(
+                "[SuggestionsEngine] Skipping '{}' - no Qobuz artist page found or incompatible genre",
                 search_query
             );
             return Vec::new();
         }
 
         let (qobuz_artist_id, qobuz_artist_name) = validated_artist.unwrap();
-        log::debug!(
+        log::info!(
             "[SuggestionsEngine] Validated '{}' -> Qobuz artist '{}' (ID: {})",
             search_query, qobuz_artist_name, qobuz_artist_id
         );
@@ -635,29 +642,42 @@ impl SuggestionsEngine {
     /// Returns true if incompatible, false if compatible or unknown.
     async fn has_incompatible_genre(&self, client: &QobuzClient, artist_id: u64, artist_name: &str) -> bool {
         // Incompatible genre keywords - these would never appear in a rock/metal context
+        // NOTE: Qobuz sends localized genre names, so we need variants in multiple languages
         const INCOMPATIBLE_GENRES: &[&str] = &[
-            // Latin/Tropical
+            // Latin/Tropical (English + Spanish + Portuguese)
             "bachata", "merengue", "reggaeton", "salsa", "cumbia", "vallenato",
             "latin pop", "tropical", "urbano latino", "regional mexicano",
+            "latin", "latina", "latino",  // Generic Latin
+            "américa latina", "america latina", "latinoamérica", "latinoamerica",
+            "música latina", "musica latina",
+            "música tropical", "musica tropical",
             // Asian pop
             "k-pop", "kpop", "j-pop", "jpop", "mandopop", "cantopop",
-            // European folk/schlager
+            // European folk/schlager (German + French)
             "schlager", "volksmusi", "chanson", "volksmusik",
-            // Religious
+            "variété française", "variete francaise",
+            // Religious (English + Spanish)
             "gospel", "christian", "worship", "religious",
-            // Children/Family
+            "música cristiana", "musica cristiana", "alabanza",
+            // Children/Family (English + Spanish + German + French)
             "children", "nursery", "lullaby", "kids", "kindermusik",
+            "infantil", "niños", "para niños", "música infantil",
+            "comptines", "berceuse", "enfants",
             // Electronic/Dance (club-oriented)
             "trance", "techno", "house", "edm", "dubstep", "drum and bass",
             "hardstyle", "eurodance", "hands up", "happy hardcore",
-            // Spoken word/Non-music
+            "electrónica", "electronica", "électronique", "elektronische",
+            // Spoken word/Non-music (English + Spanish + German + French)
             "audiobook", "spoken word", "podcast", "meditation", "asmr",
             "relaxation", "sleep", "nature sounds", "white noise",
             "comedy", "stand-up", "hörbuch", "hörspiel",
+            "audiolibro", "libro audio", "meditación", "meditacion",
+            "livre audio", "méditation",
             // Country (usually incompatible with metal)
             "country", "bluegrass", "americana country",
-            // New age/Wellness
+            // New age/Wellness (English + Spanish)
             "new age", "healing", "spa", "yoga", "mindfulness",
+            "nueva era", "bienestar", "relajación", "relajacion",
         ];
 
         // Fetch artist with a few albums
