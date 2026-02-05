@@ -37,6 +37,9 @@ grade: stable
 confinement: strict
 base: core22
 icon: snap/gui/qbz.png
+layout:
+  /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1:
+    bind: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1
 
 architectures:
   - build-on: amd64
