@@ -92,6 +92,7 @@ parts:
       - libgtk-3-0
       - libayatana-appindicator3-1
       - libasound2
+      - libasound2-data
       - libssl3
       - pulseaudio-utils
       # Include alsa-utils in the snap for aplay -L command
