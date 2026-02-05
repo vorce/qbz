@@ -636,8 +636,24 @@ impl QobuzClient {
         limit: Option<u32>,
         offset: Option<u32>,
     ) -> Result<Artist> {
+        self.get_artist_with_pagination_and_locale(artist_id, with_albums, limit, offset, None).await
+    }
+
+    /// Get artist by ID with album pagination and optional locale override
+    /// Use locale_override to force a specific language (e.g., "en" for genre checking)
+    pub async fn get_artist_with_pagination_and_locale(
+        &self,
+        artist_id: u64,
+        with_albums: bool,
+        limit: Option<u32>,
+        offset: Option<u32>,
+        locale_override: Option<&str>,
+    ) -> Result<Artist> {
         let url = endpoints::build_url(paths::ARTIST_GET);
-        let locale = self.locale().await;
+        let locale = match locale_override {
+            Some(l) => l.to_string(),
+            None => self.locale().await,
+        };
         let mut query = vec![
             ("artist_id", artist_id.to_string()),
             ("lang", locale),

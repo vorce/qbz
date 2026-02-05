@@ -642,46 +642,35 @@ impl SuggestionsEngine {
     /// Returns true if incompatible, false if compatible or unknown.
     async fn has_incompatible_genre(&self, client: &QobuzClient, artist_id: u64, artist_name: &str) -> bool {
         // Incompatible genre keywords - these would never appear in a rock/metal context
-        // NOTE: Qobuz sends localized genre names, so we need variants in multiple languages
+        // NOTE: We force English locale when fetching, so only English names needed
         const INCOMPATIBLE_GENRES: &[&str] = &[
-            // Latin/Tropical (English + Spanish + Portuguese)
+            // Latin/Tropical
             "bachata", "merengue", "reggaeton", "salsa", "cumbia", "vallenato",
-            "latin pop", "tropical", "urbano latino", "regional mexicano",
-            "latin", "latina", "latino",  // Generic Latin
-            "américa latina", "america latina", "latinoamérica", "latinoamerica",
-            "música latina", "musica latina",
-            "música tropical", "musica tropical",
+            "latin pop", "latin music", "tropical", "urbano", "regional mexican",
+            "latin",  // Generic Latin parent genre
             // Asian pop
-            "k-pop", "kpop", "j-pop", "jpop", "mandopop", "cantopop",
-            // European folk/schlager (German + French)
-            "schlager", "volksmusi", "chanson", "volksmusik",
-            "variété française", "variete francaise",
-            // Religious (English + Spanish)
-            "gospel", "christian", "worship", "religious",
-            "música cristiana", "musica cristiana", "alabanza",
-            // Children/Family (English + Spanish + German + French)
-            "children", "nursery", "lullaby", "kids", "kindermusik",
-            "infantil", "niños", "para niños", "música infantil",
-            "comptines", "berceuse", "enfants",
+            "k-pop", "kpop", "j-pop", "jpop", "mandopop", "cantopop", "c-pop",
+            // European folk/schlager
+            "schlager", "chanson", "french chanson", "volksmusik",
+            // Religious
+            "gospel", "christian", "worship", "religious", "spiritual",
+            // Children/Family
+            "children", "nursery", "lullaby", "kids",
             // Electronic/Dance (club-oriented)
             "trance", "techno", "house", "edm", "dubstep", "drum and bass",
-            "hardstyle", "eurodance", "hands up", "happy hardcore",
-            "electrónica", "electronica", "électronique", "elektronische",
-            // Spoken word/Non-music (English + Spanish + German + French)
+            "hardstyle", "eurodance", "hands up", "happy hardcore", "dance",
+            // Spoken word/Non-music
             "audiobook", "spoken word", "podcast", "meditation", "asmr",
             "relaxation", "sleep", "nature sounds", "white noise",
-            "comedy", "stand-up", "hörbuch", "hörspiel",
-            "audiolibro", "libro audio", "meditación", "meditacion",
-            "livre audio", "méditation",
+            "comedy", "stand-up",
             // Country (usually incompatible with metal)
-            "country", "bluegrass", "americana country",
-            // New age/Wellness (English + Spanish)
-            "new age", "healing", "spa", "yoga", "mindfulness",
-            "nueva era", "bienestar", "relajación", "relajacion",
+            "country", "bluegrass", "americana",
+            // New age/Wellness
+            "new age", "healing", "spa", "yoga", "mindfulness", "wellness",
         ];
 
-        // Fetch artist with a few albums
-        match client.get_artist_with_pagination(artist_id, true, Some(5), None).await {
+        // Fetch artist with a few albums (use English locale for consistent genre names)
+        match client.get_artist_with_pagination_and_locale(artist_id, true, Some(5), None, Some("en")).await {
             Ok(artist) => {
                 if let Some(albums) = &artist.albums {
                     for album in &albums.items {
