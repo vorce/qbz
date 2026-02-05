@@ -103,10 +103,7 @@ parts:
 
       # Build frontend
       npm ci
-      npm run build
-
-      # Build Tauri backend
-      cargo build --release --manifest-path src-tauri/Cargo.toml
+      npm run tauri build -- --no-bundle
 
       # Install binary
       mkdir -p $SNAPCRAFT_PART_INSTALL/bin
