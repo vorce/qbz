@@ -389,7 +389,12 @@
     "castToDevice": "Caster vers un appareil",
     "castingManage": "Casting - Cliquez pour gérer",
     "miniPlayer": "Mini lecteur",
-    "fullScreen": "Plein écran"
+    "fullScreen": "Plein écran",
+    "exitFullScreen": "Quitter le plein écran",
+    "maximize": "Agrandir",
+    "restore": "Restaurer",
+    "minimize": "Réduire",
+    "exitImmersive": "Quitter le mode immersif"
   },
   "quality": {
     "mp3": "MP3 320 kbps",

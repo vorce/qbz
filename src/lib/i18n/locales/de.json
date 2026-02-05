@@ -389,7 +389,12 @@
     "castToDevice": "An Gerät übertragen",
     "castingManage": "Casting – klicken, um zu verwalten",
     "miniPlayer": "Mini-Player",
-    "fullScreen": "Vollbild"
+    "fullScreen": "Vollbild",
+    "exitFullScreen": "Vollbild beenden",
+    "maximize": "Maximieren",
+    "restore": "Wiederherstellen",
+    "minimize": "Minimieren",
+    "exitImmersive": "Immersiv-Modus beenden"
   },
   "quality": {
     "mp3": "MP3 320kbps",

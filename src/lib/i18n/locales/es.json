@@ -402,7 +402,12 @@
     "castToDevice": "Transmitir a dispositivo",
     "castingManage": "Transmitiendo - Clic para administrar",
     "miniPlayer": "Mini Reproductor",
-    "fullScreen": "Pantalla Completa"
+    "fullScreen": "Pantalla Completa",
+    "exitFullScreen": "Salir de Pantalla Completa",
+    "maximize": "Maximizar",
+    "restore": "Restaurar",
+    "minimize": "Minimizar",
+    "exitImmersive": "Salir del modo inmersivo"
   },
   "quality": {
     "mp3": "MP3 320kbps",
