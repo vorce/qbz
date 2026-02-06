@@ -2185,16 +2185,9 @@
   }
 
   async function handleLoginSuccess(info: UserInfo) {
-    // Activate per-user backend state before anything else
-    if (info.userId) {
-      try {
-        await invoke('activate_user_session', { userId: info.userId });
-        console.log('[Session] Per-user session activated for user', info.userId);
-      } catch (err) {
-        console.error('[Session] Failed to activate user session:', err);
-        // Non-fatal: app works but uses empty stores
-      }
-    }
+    // Set login state FIRST to immediately switch from LoginView to app
+    // (prevents login form flash during async session activation)
+    setLoggedIn(info);
 
     // Set up per-user localStorage scoping and migrate old keys
     setStorageUserId(info.userId || null);
@@ -2202,7 +2195,16 @@
       migrateLocalStorage(info.userId);
     }
 
-    setLoggedIn(info);
+    // Activate per-user backend state (LoginView already did this for auto-login,
+    // but we call again to ensure it's active for manual login too — it's idempotent)
+    if (info.userId) {
+      try {
+        await invoke('activate_user_session', { userId: info.userId });
+      } catch (err) {
+        console.error('[Session] Failed to activate user session:', err);
+      }
+    }
+
     showToast($t('toast.welcomeUser', { values: { name: info.userName } }), 'success');
 
     // Initialize per-user stores now that the backend session is active
