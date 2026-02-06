@@ -263,18 +263,9 @@ pub fn run() {
                 .media_controls
                 .init(app.handle().clone());
 
-            // Start visualizer FFT thread (disabled by default, enabled via command)
-            app.state::<AppState>()
-                .visualizer
-                .start(app.handle().clone());
-
-            // Start remote control API server if enabled
-            let app_handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = api_server::sync_server(&app_handle).await {
-                    log::error!("Remote control API init failed: {}", e);
-                }
-            });
+            // NOTE: Visualizer FFT thread and Remote Control API server are started
+            // in activate_user_session (post-login), not here. They need per-user
+            // state to be initialized first.
 
             // NOTE: Subscription purge check moved to activate_user_session
             // (runs after login when per-user state is available)

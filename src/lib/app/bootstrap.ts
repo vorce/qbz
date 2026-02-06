@@ -136,8 +136,8 @@ export function bootstrapApp(): BootstrapResult {
   const cleanupMouse = setupMouseNavigation();
   const cleanupZoom = setupZoomControls();
 
-  // Restore Last.fm session (async, fire-and-forget)
-  restoreLastfmSession();
+  // NOTE: restoreLastfmSession() is NOT called here.
+  // It's called from handleLoginSuccess in +page.svelte after session activation.
 
   // Initialize offline store (async, fire-and-forget)
   initOfflineStore();

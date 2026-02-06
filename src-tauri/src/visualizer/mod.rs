@@ -73,6 +73,8 @@ impl Default for VisualizerTap {
 pub struct Visualizer {
     /// Shared tap state (given to Player for sample capture)
     tap: VisualizerTap,
+    /// Whether the FFT thread has been started (prevents double-start)
+    started: AtomicBool,
 }
 
 impl Visualizer {
@@ -80,6 +82,7 @@ impl Visualizer {
     pub fn new() -> Self {
         Self {
             tap: VisualizerTap::new(),
+            started: AtomicBool::new(false),
         }
     }
 
@@ -88,8 +91,12 @@ impl Visualizer {
         self.tap.clone()
     }
 
-    /// Start the FFT processing thread
+    /// Start the FFT processing thread (idempotent — only starts once)
     pub fn start(&self, app_handle: AppHandle) {
+        if self.started.swap(true, Ordering::SeqCst) {
+            log::debug!("Visualizer FFT thread already started, skipping");
+            return;
+        }
         let state = VisualizerState {
             ring_buffer: self.tap.ring_buffer.clone(),
             enabled: self.tap.enabled.clone(),

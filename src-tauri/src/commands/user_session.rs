@@ -6,7 +6,7 @@
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::api_cache::ApiCacheState;
 use crate::artist_blacklist::BlacklistState;
@@ -69,6 +69,7 @@ pub fn get_last_user_id() -> Option<u64> {
 /// and cache stores at `~/.cache/qbz/users/{user_id}/`.
 #[tauri::command]
 pub async fn activate_user_session(
+    app: tauri::AppHandle,
     user_id: u64,
     user_paths: State<'_, UserDataPaths>,
     session_store: State<'_, SessionStoreState>,
@@ -179,6 +180,19 @@ pub async fn activate_user_session(
     if let Err(e) = UserDataPaths::save_last_user_id(user_id) {
         log::warn!("Failed to save last_user_id: {}", e);
     }
+
+    // Start visualizer FFT thread (idempotent — only starts once even if called twice)
+    app.state::<crate::AppState>()
+        .visualizer
+        .start(app.clone());
+
+    // Start remote control API server if enabled in user settings
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = crate::api_server::sync_server(&app_clone).await {
+            log::error!("Remote control API init failed: {}", e);
+        }
+    });
 
     log::info!("User session activated for user_id={}", user_id);
     Ok(())

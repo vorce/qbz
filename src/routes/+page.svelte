@@ -240,7 +240,7 @@
   import { t } from '$lib/i18n';
 
   // App bootstrap
-  import { bootstrapApp } from '$lib/app/bootstrap';
+  import { bootstrapApp, restoreLastfmSession } from '$lib/app/bootstrap';
 
   // Recommendation scoring
   import { trainScores } from '$lib/services/recoService';
@@ -2204,6 +2204,9 @@
         console.error('[Session] Failed to activate user session:', err);
       }
     }
+
+    // Restore Last.fm session now that backend session is active
+    restoreLastfmSession();
 
     showToast($t('toast.welcomeUser', { values: { name: info.userName } }), 'success');
 
