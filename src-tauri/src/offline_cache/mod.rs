@@ -129,7 +129,7 @@ pub struct TrackCacheInfo {
 
 /// Offline cache state manager
 pub struct OfflineCacheState {
-    pub db: Arc<Mutex<OfflineCacheDb>>,
+    pub db: Arc<Mutex<Option<OfflineCacheDb>>>,
     pub fetcher: Arc<StreamFetcher>,
     pub cache_dir: PathBuf,
     /// Cache limit in bytes (None = unlimited)
@@ -160,7 +160,7 @@ impl OfflineCacheState {
         let default_limit = Some(2 * 1024 * 1024 * 1024u64);
 
         let state = Self {
-            db: Arc::new(Mutex::new(db)),
+            db: Arc::new(Mutex::new(Some(db))),
             fetcher: Arc::new(StreamFetcher::new()),
             cache_dir: cache_dir.clone(),
             limit_bytes: Arc::new(Mutex::new(default_limit)),
@@ -170,6 +170,41 @@ impl OfflineCacheState {
         log::info!("Offline cache initialized at: {:?}", cache_dir);
 
         Ok(state)
+    }
+
+    pub fn new_empty() -> Self {
+        let cache_dir = dirs::cache_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("qbz")
+            .join("audio");
+        Self {
+            db: Arc::new(Mutex::new(None)),
+            fetcher: Arc::new(StreamFetcher::new()),
+            cache_dir,
+            limit_bytes: Arc::new(Mutex::new(Some(2 * 1024 * 1024 * 1024u64))),
+            cache_semaphore: Arc::new(Semaphore::new(3)),
+        }
+    }
+
+    pub fn init_at(&self, cache_base_dir: &std::path::Path) -> Result<(), String> {
+        let cache_dir = cache_base_dir.join("audio");
+        std::fs::create_dir_all(&cache_dir)
+            .map_err(|e| format!("Failed to create cache directory: {}", e))?;
+        std::fs::create_dir_all(cache_dir.join("tracks"))
+            .map_err(|e| format!("Failed to create tracks directory: {}", e))?;
+        std::fs::create_dir_all(cache_dir.join("artwork"))
+            .map_err(|e| format!("Failed to create artwork directory: {}", e))?;
+        let db_path = cache_dir.join("index.db");
+        let new_db = OfflineCacheDb::new(&db_path)?;
+        let mut guard = self.db.blocking_lock();
+        *guard = Some(new_db);
+        log::info!("Offline cache initialized at: {:?}", cache_dir);
+        Ok(())
+    }
+
+    pub fn teardown(&self) {
+        let mut guard = self.db.blocking_lock();
+        *guard = None;
     }
 
     /// Get the path for a track's audio file
