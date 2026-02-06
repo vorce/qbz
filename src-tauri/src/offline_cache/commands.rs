@@ -364,7 +364,7 @@ pub async fn remove_cached_track(
 
             // Clean up empty album folder (and artist folder if also empty)
             if let Some(album_dir) = path.parent() {
-                cleanup_empty_folder(album_dir, &cache_state.cache_dir);
+                cleanup_empty_folder(album_dir, &cache_state.cache_dir.read().unwrap());
             }
         }
     }
@@ -444,7 +444,8 @@ pub async fn purge_all_cached_files(
     }
 
     // Also clear the tracks directory (legacy unorganized files)
-    let tracks_dir = cache_state.cache_dir.join("tracks");
+    let cache_dir = cache_state.cache_dir.read().unwrap().clone();
+    let tracks_dir = cache_dir.join("tracks");
     if tracks_dir.exists() {
         if let Ok(entries) = std::fs::read_dir(&tracks_dir) {
             for entry in entries.flatten() {
@@ -455,7 +456,7 @@ pub async fn purge_all_cached_files(
 
     // Clear organized artist/album folders
     // Look for any subdirectories in cache_dir that are not "tracks" or system files
-    if let Ok(entries) = std::fs::read_dir(&cache_state.cache_dir) {
+    if let Ok(entries) = std::fs::read_dir(&cache_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
@@ -512,7 +513,7 @@ pub async fn open_offline_cache_folder(
 ) -> Result<(), String> {
     log::info!("Command: open_offline_cache_folder");
 
-    let path = cache_state.cache_dir.clone();
+    let path = cache_state.cache_dir.read().unwrap().clone();
 
     // Ensure directory exists
     std::fs::create_dir_all(&path)
@@ -662,7 +663,7 @@ async fn evict_if_needed(
 
             // Clean up empty album folder (and artist folder if also empty)
             if let Some(album_dir) = path.parent() {
-                cleanup_empty_folder(album_dir, &cache_state.cache_dir);
+                cleanup_empty_folder(album_dir, &cache_state.cache_dir.read().unwrap());
             }
         }
     }
@@ -678,7 +679,7 @@ pub async fn check_offline_root_mounted(
 ) -> Result<bool, String> {
     log::info!("Command: check_offline_root_mounted");
 
-    let root_path = cache_state.cache_dir.to_string_lossy().to_string();
+    let root_path = cache_state.cache_dir.read().unwrap().to_string_lossy().to_string();
     super::path_validator::is_offline_root_available(&root_path)
 }
 
@@ -695,7 +696,7 @@ pub async fn move_offline_cache_to_path(
 ) -> Result<super::path_validator::MoveReport, String> {
     log::info!("Command: move_offline_cache_to_path: {}", new_path);
 
-    let old_path = cache_state.cache_dir.to_string_lossy().to_string();
+    let old_path = cache_state.cache_dir.read().unwrap().to_string_lossy().to_string();
     super::path_validator::move_cached_files_to_new_path(&old_path, &new_path)
 }
 
@@ -706,7 +707,7 @@ pub async fn detect_legacy_cached_files(
 ) -> Result<super::MigrationStatus, String> {
     log::info!("Command: detect_legacy_cached_files");
 
-    let tracks_dir = cache_state.cache_dir.join("tracks");
+    let tracks_dir = cache_state.cache_dir.read().unwrap().join("tracks");
 
     match super::detect_legacy_cached_files(&tracks_dir) {
         Ok(track_ids) => {
@@ -730,7 +731,7 @@ pub async fn start_legacy_migration(
 ) -> Result<(), String> {
     log::info!("Command: start_legacy_migration");
 
-    let tracks_dir = cache_state.cache_dir.join("tracks");
+    let tracks_dir = cache_state.cache_dir.read().unwrap().join("tracks");
     let track_ids = super::detect_legacy_cached_files(&tracks_dir)?;
 
     if track_ids.is_empty() {

@@ -14,7 +14,7 @@ pub mod metadata;
 pub mod migration;
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tokio::sync::{Mutex, Semaphore};
 use serde::{Deserialize, Serialize};
 
@@ -131,7 +131,7 @@ pub struct TrackCacheInfo {
 pub struct OfflineCacheState {
     pub db: Arc<Mutex<Option<OfflineCacheDb>>>,
     pub fetcher: Arc<StreamFetcher>,
-    pub cache_dir: PathBuf,
+    pub cache_dir: Arc<RwLock<PathBuf>>,
     /// Cache limit in bytes (None = unlimited)
     pub limit_bytes: Arc<Mutex<Option<u64>>>,
     pub cache_semaphore: Arc<Semaphore>,
@@ -162,7 +162,7 @@ impl OfflineCacheState {
         let state = Self {
             db: Arc::new(Mutex::new(Some(db))),
             fetcher: Arc::new(StreamFetcher::new()),
-            cache_dir: cache_dir.clone(),
+            cache_dir: Arc::new(RwLock::new(cache_dir.clone())),
             limit_bytes: Arc::new(Mutex::new(default_limit)),
             cache_semaphore: Arc::new(Semaphore::new(3)),
         };
@@ -180,7 +180,7 @@ impl OfflineCacheState {
         Self {
             db: Arc::new(Mutex::new(None)),
             fetcher: Arc::new(StreamFetcher::new()),
-            cache_dir,
+            cache_dir: Arc::new(RwLock::new(cache_dir)),
             limit_bytes: Arc::new(Mutex::new(Some(2 * 1024 * 1024 * 1024u64))),
             cache_semaphore: Arc::new(Semaphore::new(3)),
         }
@@ -198,6 +198,10 @@ impl OfflineCacheState {
         let new_db = OfflineCacheDb::new(&db_path)?;
         let mut guard = self.db.lock().await;
         *guard = Some(new_db);
+        // Update cache_dir to user-scoped path
+        if let Ok(mut dir_guard) = self.cache_dir.write() {
+            *dir_guard = cache_dir.clone();
+        }
         log::info!("Offline cache initialized at: {:?}", cache_dir);
         Ok(())
     }
@@ -209,16 +213,19 @@ impl OfflineCacheState {
 
     /// Get the path for a track's audio file
     pub fn track_file_path(&self, track_id: u64, format: &str) -> PathBuf {
-        self.cache_dir.join("tracks").join(format!("{}.{}", track_id, format))
+        let dir = self.cache_dir.read().unwrap();
+        dir.join("tracks").join(format!("{}.{}", track_id, format))
     }
 
     /// Get the path for an album's artwork
     pub fn artwork_path(&self, album_id: &str) -> PathBuf {
-        self.cache_dir.join("artwork").join(format!("{}.jpg", album_id))
+        let dir = self.cache_dir.read().unwrap();
+        dir.join("artwork").join(format!("{}.jpg", album_id))
     }
 
     /// Get the cache directory path
     pub fn get_cache_path(&self) -> String {
-        self.cache_dir.to_string_lossy().to_string()
+        let dir = self.cache_dir.read().unwrap();
+        dir.to_string_lossy().to_string()
     }
 }
