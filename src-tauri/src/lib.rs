@@ -21,6 +21,7 @@ pub mod library;
 pub mod listenbrainz;
 pub mod lyrics;
 pub mod media_controls;
+pub mod migration;
 pub mod musicbrainz;
 pub mod network;
 pub mod offline;
