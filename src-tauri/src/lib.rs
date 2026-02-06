@@ -217,12 +217,8 @@ pub fn run() {
     // Initialize API server state for remote control
     let api_server_state = api_server::ApiServerState::new();
     // Initialize legal settings state (ToS acceptance persistence)
-    let legal_settings_state = config::legal_settings::LegalSettingsState::new(
-        std::sync::Mutex::new(
-            config::legal_settings::LegalSettingsStore::new()
-                .expect("Failed to initialize legal settings")
-        )
-    );
+    let legal_settings_state = config::legal_settings::create_legal_settings_state()
+        .expect("Failed to initialize legal settings");
     // Initialize updates state
     let updates_state = updates::UpdatesState::new()
         .expect("Failed to initialize updates state");
@@ -254,9 +250,11 @@ pub fn run() {
         .store
         .lock()
         .ok()
-        .and_then(|store| {
-            store.get_settings().ok().map(|settings| {
-                (settings.output_device.clone(), settings)
+        .and_then(|guard| {
+            guard.as_ref().and_then(|store| {
+                store.get_settings().ok().map(|settings| {
+                    (settings.output_device.clone(), settings)
+                })
             })
         })
         .unwrap_or_else(|| {
@@ -338,17 +336,17 @@ pub fn run() {
                     .inner()
                     .clone();
                 let should_purge = {
-                    let store = match subscription_state.lock() {
+                    let guard = match subscription_state.lock() {
                         Ok(s) => s,
                         Err(e) => {
                             log::warn!("Subscription state lock error: {}", e);
                             return;
                         }
                     };
-                    match store.should_purge_offline_cache(now) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            log::warn!("Failed to evaluate purge condition: {}", e);
+                    match guard.as_ref().and_then(|s| s.should_purge_offline_cache(now).ok()) {
+                        Some(v) => v,
+                        None => {
+                            log::warn!("Failed to evaluate purge condition");
                             false
                         }
                     }
@@ -366,15 +364,17 @@ pub fn run() {
                     return;
                 }
 
-                let store = match subscription_state.lock() {
+                let guard = match subscription_state.lock() {
                     Ok(s) => s,
                     Err(e) => {
                         log::warn!("Subscription state lock error: {}", e);
                         return;
                     }
                 };
-                if let Err(e) = store.mark_offline_cache_purged(now) {
-                    log::warn!("Failed to persist purge timestamp: {}", e);
+                if let Some(store) = guard.as_ref() {
+                    if let Err(e) = store.mark_offline_cache_purged(now) {
+                        log::warn!("Failed to persist purge timestamp: {}", e);
+                    }
                 }
             });
 

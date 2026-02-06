@@ -40,10 +40,10 @@ async fn maybe_purge_offline_cache_for_invalid_subscription(
                 return;
             }
         };
-        match store.should_purge_offline_cache(now) {
-            Ok(v) => v,
-            Err(e) => {
-                log::warn!("Failed to evaluate purge condition: {}", e);
+        match store.as_ref().and_then(|s| s.should_purge_offline_cache(now).ok()) {
+            Some(v) => v,
+            None => {
+                log::warn!("Failed to evaluate purge condition");
                 false
             }
         }
@@ -59,9 +59,11 @@ async fn maybe_purge_offline_cache_for_invalid_subscription(
         return;
     }
 
-    if let Ok(store) = subscription_state.lock() {
-        if let Err(e) = store.mark_offline_cache_purged(now) {
-            log::warn!("Failed to persist purge timestamp: {}", e);
+    if let Ok(guard) = subscription_state.lock() {
+        if let Some(store) = guard.as_ref() {
+            if let Err(e) = store.mark_offline_cache_purged(now) {
+                log::warn!("Failed to persist purge timestamp: {}", e);
+            }
         }
     }
 }
@@ -80,8 +82,10 @@ pub async fn login(
 
     match client.login(&email, &password).await {
         Ok(session) => {
-            if let Ok(store) = subscription_state.lock() {
-                let _ = store.mark_valid(now);
+            if let Ok(guard) = subscription_state.lock() {
+                if let Some(store) = guard.as_ref() {
+                    let _ = store.mark_valid(now);
+                }
             }
             Ok(LoginResponse {
                 success: true,
@@ -93,8 +97,10 @@ pub async fn login(
             })
         }
         Err(ApiError::IneligibleUser) => {
-            if let Ok(store) = subscription_state.lock() {
-                let _ = store.mark_invalid(now);
+            if let Ok(guard) = subscription_state.lock() {
+                if let Some(store) = guard.as_ref() {
+                    let _ = store.mark_invalid(now);
+                }
             }
             maybe_purge_offline_cache_for_invalid_subscription(
                 now,
@@ -221,8 +227,10 @@ pub async fn auto_login(
     let now = now_unix_secs();
     match client.login(&creds.email, &creds.password).await {
         Ok(session) => {
-            if let Ok(store) = subscription_state.lock() {
-                let _ = store.mark_valid(now);
+            if let Ok(guard) = subscription_state.lock() {
+                if let Some(store) = guard.as_ref() {
+                    let _ = store.mark_valid(now);
+                }
             }
             Ok(LoginResponse {
                 success: true,
@@ -234,8 +242,10 @@ pub async fn auto_login(
             })
         }
         Err(ApiError::IneligibleUser) => {
-            if let Ok(store) = subscription_state.lock() {
-                let _ = store.mark_invalid(now);
+            if let Ok(guard) = subscription_state.lock() {
+                if let Some(store) = guard.as_ref() {
+                    let _ = store.mark_invalid(now);
+                }
             }
             maybe_purge_offline_cache_for_invalid_subscription(
                 now,
