@@ -1615,10 +1615,13 @@ impl Player {
                             log::error!("Audio thread: failed to reinitialize device");
                         }
 
+                        // Preserve position so Resume can seek back to it.
+                        // pause_playback_timer() captures the real-time position
+                        // into thread_state.position before clearing the timer.
+                        thread_state.pause_playback_timer();
                         thread_state.is_playing.store(false, Ordering::SeqCst);
-                        thread_state.position.store(0, Ordering::SeqCst);
-                        thread_state.playback_start_millis.store(0, Ordering::SeqCst);
-                        *current_audio_data = None;
+                        // Keep current_audio_data and current_streaming_source
+                        // intact so Resume can recreate the engine and seek.
                     }
                 }
             };

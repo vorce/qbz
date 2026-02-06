@@ -1621,17 +1621,9 @@
       outputDevice = 'System Default';
       await invoke('set_audio_output_device', { device: null });
 
-      // Reinitialize audio - this will recreate the stream completely
+      // Reinitialize audio - recreates stream with new backend.
+      // Position and audio data are preserved so the user can resume.
       await invoke('reinit_audio_device', { device: null });
-
-      // Stop current playback to prevent stuck/dead streams
-      try {
-        await invoke('stop_playback');
-        console.log('[Audio] Stopped playback after backend change');
-      } catch (err) {
-        // Ignore error if nothing was playing
-        console.log('[Audio] No playback to stop');
-      }
     } catch (err) {
       console.error('[Audio] Failed to change backend:', err);
     }
@@ -1727,16 +1719,9 @@
       await invoke('set_audio_output_device', { device: deviceId });
       // Store device's max sample rate for quality limiting
       await invoke('set_audio_device_max_sample_rate', { rate: maxSampleRate });
+      // Reinitialize audio - position and audio data preserved for resume.
       await invoke('reinit_audio_device', { device: deviceId });
       console.log('[Audio] Backend device changed:', deviceName, '(id:', deviceId ?? 'default', ', max_rate:', maxSampleRate ?? 'unknown', ')');
-
-      // Stop current playback to prevent stuck/dead streams
-      try {
-        await invoke('stop_playback');
-        console.log('[Audio] Stopped playback after device change');
-      } catch (err) {
-        console.log('[Audio] No playback to stop');
-      }
     } catch (err) {
       console.error('[Audio] Failed to change backend device:', err);
     }
