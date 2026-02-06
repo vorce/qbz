@@ -86,16 +86,6 @@ parts:
     plugin: rust
     source: https://github.com/vicrodh/qbz.git
     source-tag: v1.1.8
-    build-environment:
-      - PKG_CONFIG_PATH: /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pkgconfig:/usr/share/pkgconfig:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pkgconfig:/snap/gnome-42-2204-sdk/current/usr/share/pkgconfig
-      - LIBRARY_PATH: /usr/lib/$SNAPCRAFT_ARCH_TRIPLET:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET
-      - LD_LIBRARY_PATH: /usr/lib/$SNAPCRAFT_ARCH_TRIPLET:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET
-      - LIBSQLITE3_SYS_USE_PKG_CONFIG: "1"
-      - SQLITE3_LIB_DIR: /usr/lib/$SNAPCRAFT_ARCH_TRIPLET
-      - SQLITE3_INCLUDE_DIR: /usr/include
-      - SQLITE3_STATIC: "0"
-      - RUSTFLAGS: -L native=/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L native=/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L native=/snap/gnome-42-2204-sdk/current/usr/lib -C link-arg=-Wl,-rpath-link,/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib
-      - LDFLAGS: -L/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L/snap/gnome-42-2204-sdk/current/usr/lib -Wl,-rpath-link,/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib
     build-packages:
       - libwebkit2gtk-4.1-dev
       - libgtk-3-dev
@@ -122,6 +112,16 @@ parts:
       # Include alsa-utils in the snap for aplay -L command
       - alsa-utils
     override-build: |
+      export PKG_CONFIG_PATH="/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pkgconfig:/usr/share/pkgconfig:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pkgconfig:/snap/gnome-42-2204-sdk/current/usr/share/pkgconfig"
+      export LIBRARY_PATH="/usr/lib/$SNAPCRAFT_ARCH_TRIPLET:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET"
+      export LD_LIBRARY_PATH="/usr/lib/$SNAPCRAFT_ARCH_TRIPLET:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET"
+      export LIBSQLITE3_SYS_USE_PKG_CONFIG="1"
+      export SQLITE3_LIB_DIR="/usr/lib/$SNAPCRAFT_ARCH_TRIPLET"
+      export SQLITE3_INCLUDE_DIR="/usr/include"
+      export SQLITE3_STATIC="0"
+      export RUSTFLAGS="-L native=/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L native=/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L native=/snap/gnome-42-2204-sdk/current/usr/lib -C link-arg=-Wl,-rpath-link,/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib"
+      export LDFLAGS="-L/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L/snap/gnome-42-2204-sdk/current/usr/lib -Wl,-rpath-link,/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib"
+
       # Allow sandboxed builds to override GTK_USE_PORTAL.
       perl -0pi -e 'if ($_ !~ /var_os\\(\"GTK_USE_PORTAL\"\\)/) { s/std::env::set_var\\(\"GTK_USE_PORTAL\", \"1\"\\);/if std::env::var_os\\(\"GTK_USE_PORTAL\"\\).is_none() {\\n        std::env::set_var(\"GTK_USE_PORTAL\", \"1\");\\n    }/ }' src-tauri/src/main.rs
 
