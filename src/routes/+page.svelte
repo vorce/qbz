@@ -97,7 +97,7 @@
     getAuthState,
     type UserInfo
   } from '$lib/stores/authStore';
-  import { setStorageUserId, migrateLocalStorage } from '$lib/utils/userStorage';
+  import { setStorageUserId, migrateLocalStorage, getUserItem, setUserItem } from '$lib/utils/userStorage';
 
   // Favorites state management
   import { loadFavorites } from '$lib/stores/favoritesStore';
@@ -1603,7 +1603,7 @@
     infinitePlayEnabled = !infinitePlayEnabled;
     // Persist to localStorage
     try {
-      localStorage.setItem('qbz-infinite-play', JSON.stringify(infinitePlayEnabled));
+      setUserItem('qbz-infinite-play', JSON.stringify(infinitePlayEnabled));
     } catch {
       // Ignore storage errors
     }
@@ -2505,7 +2505,7 @@
 
     // Load infinite play preference
     try {
-      const stored = localStorage.getItem('qbz-infinite-play');
+      const stored = getUserItem('qbz-infinite-play');
       if (stored !== null) {
         infinitePlayEnabled = JSON.parse(stored);
       }
