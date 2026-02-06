@@ -34,6 +34,7 @@ pub mod session_store;
 pub mod share;
 pub mod tray;
 pub mod updates;
+pub mod user_data;
 pub mod visualizer;
 
 use std::sync::Arc;
@@ -285,11 +286,15 @@ pub fn run() {
     let enable_tray = tray_settings.enable_tray;
     let close_to_tray = tray_settings.close_to_tray;
 
+    // Initialize per-user data paths (no user active yet until login)
+    let user_data_paths = user_data::UserDataPaths::new();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(AppState::with_device_and_settings(saved_device, audio_settings))
+        .manage(user_data_paths)
         .setup(move |app| {
             // Initialize system tray icon (only if enabled)
             if enable_tray {
