@@ -121,7 +121,7 @@ impl QobuzClient {
         let response = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&[
                 ("track_id", test_track_id.to_string()),
                 ("format_id", "5".to_string()),
@@ -141,7 +141,7 @@ impl QobuzClient {
         let response = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&[("email", email), ("password", password)])
             .send()
             .await?;
@@ -197,6 +197,50 @@ impl QobuzClient {
             .ok_or_else(|| ApiError::AuthenticationError("Not logged in".to_string()))
     }
 
+    // === Header helpers ===
+
+    /// Build standard API headers.
+    /// Always includes X-App-Id. Includes X-User-Auth-Token when logged in.
+    async fn api_headers(&self) -> Result<reqwest::header::HeaderMap> {
+        use reqwest::header::{HeaderMap, HeaderValue};
+        let mut headers = HeaderMap::new();
+
+        let app_id = self.app_id().await?;
+        headers.insert(
+            "X-App-Id",
+            HeaderValue::from_str(&app_id).map_err(|_| ApiError::InvalidAppId)?,
+        );
+
+        if let Ok(token) = self.auth_token().await {
+            if let Ok(val) = HeaderValue::from_str(&token) {
+                headers.insert("X-User-Auth-Token", val);
+            }
+        }
+
+        Ok(headers)
+    }
+
+    /// Build headers that REQUIRE authentication. Fails if not logged in.
+    async fn authenticated_headers(&self) -> Result<reqwest::header::HeaderMap> {
+        use reqwest::header::{HeaderMap, HeaderValue};
+        let mut headers = HeaderMap::new();
+
+        let app_id = self.app_id().await?;
+        headers.insert(
+            "X-App-Id",
+            HeaderValue::from_str(&app_id).map_err(|_| ApiError::InvalidAppId)?,
+        );
+
+        let token = self.auth_token().await?;
+        headers.insert(
+            "X-User-Auth-Token",
+            HeaderValue::from_str(&token)
+                .map_err(|_| ApiError::AuthenticationError("Invalid auth token format".into()))?,
+        );
+
+        Ok(headers)
+    }
+
     // === Search endpoints ===
 
     /// Search for albums
@@ -225,7 +269,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&params)
             .send()
             .await?
@@ -265,7 +309,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&params)
             .send()
             .await?
@@ -305,7 +349,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&params)
             .send()
             .await?
@@ -325,7 +369,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&[
                 ("artist_id", artist_id.to_string()),
                 ("limit", limit.to_string()),
@@ -351,7 +395,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&[
                 ("artist_id", artist_id.to_string()),
                 ("extra", "tracks".to_string()),
@@ -376,41 +420,17 @@ impl QobuzClient {
     /// Get album by ID
     pub async fn get_album(&self, album_id: &str) -> Result<Album> {
         let url = endpoints::build_url(paths::ALBUM_GET);
-        log::info!("[DEBUG-43] API get_album request: album_id={}", album_id);
-
-        let mut request = self
+        let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .query(&[("album_id", album_id)]);
+            .headers(self.api_headers().await?)
+            .query(&[("album_id", album_id)])
+            .send()
+            .await?
+            .json()
+            .await?;
 
-        if let Ok(token) = self.auth_token().await {
-            request = request.header("X-User-Auth-Token", token);
-        }
-
-        let http_response = request.send().await?;
-
-        let status = http_response.status();
-        log::info!("[DEBUG-43] API get_album response status: {}", status);
-
-        let response_text = http_response.text().await?;
-        let preview = if response_text.len() > 500 {
-            format!("{}...(truncated)", &response_text[..500])
-        } else {
-            response_text.clone()
-        };
-        log::info!("[DEBUG-43] API get_album response body: {}", preview);
-
-        let response: Value = serde_json::from_str(&response_text)
-            .map_err(|e| {
-                log::warn!("[DEBUG-43] API get_album JSON parse error: {}", e);
-                ApiError::ParseError(e)
-            })?;
-
-        serde_json::from_value(response).map_err(|e| {
-            log::warn!("[DEBUG-43] API get_album deserialize error: {}", e);
-            ApiError::ParseError(e)
-        })
+        Ok(serde_json::from_value(response)?)
     }
 
     /// Get featured albums by type (new-releases, press-awards, most-streamed)
@@ -435,7 +455,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&query)
             .send()
             .await?
@@ -464,7 +484,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&query)
             .send()
             .await?
@@ -498,8 +518,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&query)
             .send()
             .await?
@@ -550,8 +569,7 @@ impl QobuzClient {
         let raw_response: serde_json::Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&query)
             .send()
             .await?
@@ -576,41 +594,17 @@ impl QobuzClient {
     /// Get track by ID
     pub async fn get_track(&self, track_id: u64) -> Result<Track> {
         let url = endpoints::build_url(paths::TRACK_GET);
-        log::info!("[DEBUG-43] API get_track request: track_id={}", track_id);
-
-        let mut request = self
+        let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .query(&[("track_id", track_id.to_string())]);
+            .headers(self.api_headers().await?)
+            .query(&[("track_id", track_id.to_string())])
+            .send()
+            .await?
+            .json()
+            .await?;
 
-        if let Ok(token) = self.auth_token().await {
-            request = request.header("X-User-Auth-Token", token);
-        }
-
-        let http_response = request.send().await?;
-
-        let status = http_response.status();
-        log::info!("[DEBUG-43] API get_track response status: {}", status);
-
-        let response_text = http_response.text().await?;
-        let preview = if response_text.len() > 500 {
-            format!("{}...(truncated)", &response_text[..500])
-        } else {
-            response_text.clone()
-        };
-        log::info!("[DEBUG-43] API get_track response body: {}", preview);
-
-        let response: Value = serde_json::from_str(&response_text)
-            .map_err(|e| {
-                log::warn!("[DEBUG-43] API get_track JSON parse error: {}", e);
-                ApiError::ParseError(e)
-            })?;
-
-        serde_json::from_value(response).map_err(|e| {
-            log::warn!("[DEBUG-43] API get_track deserialize error: {}", e);
-            ApiError::ParseError(e)
-        })
+        Ok(serde_json::from_value(response)?)
     }
 
     /// Get artist by ID (basic info only - no albums, faster response)
@@ -626,7 +620,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&query)
             .send()
             .await?
@@ -669,7 +663,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&query)
             .send()
             .await?
@@ -722,7 +716,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&query)
             .send()
             .await?
@@ -735,21 +729,19 @@ impl QobuzClient {
     /// Get playlist by ID
     pub async fn get_playlist(&self, playlist_id: u64) -> Result<Playlist> {
         let url = endpoints::build_url(paths::PLAYLIST_GET);
-        let mut request = self
+        let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&[
                 ("playlist_id", playlist_id.to_string()),
                 ("limit", "500".to_string()),
                 ("extra", "tracks".to_string()),
-            ]);
-
-        if let Ok(token) = self.auth_token().await {
-            request = request.header("X-User-Auth-Token", token);
-        }
-
-        let response: Value = request.send().await?.json().await?;
+            ])
+            .send()
+            .await?
+            .json()
+            .await?;
 
         Ok(serde_json::from_value(response)?)
     }
@@ -762,7 +754,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&[
                 ("label_id", label_id.to_string()),
                 ("extra", "albums".to_string()),
@@ -794,8 +786,7 @@ impl QobuzClient {
         let response = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&[
                 ("track_id", track_id.to_string()),
                 ("format_id", quality.id().to_string()),
@@ -907,8 +898,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&[
                 ("type", fav_type),
                 ("limit", &limit.to_string()),
@@ -930,8 +920,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .send()
             .await?
             .json()
@@ -951,7 +940,7 @@ impl QobuzClient {
         let response: Value = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
+            .headers(self.api_headers().await?)
             .query(&[
                 ("query", query),
                 ("limit", &limit.to_string()),
@@ -984,8 +973,7 @@ impl QobuzClient {
         let response: Playlist = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&params)
             .send()
             .await?
@@ -1001,8 +989,7 @@ impl QobuzClient {
 
         self.http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&[("playlist_id", playlist_id.to_string())])
             .send()
             .await?;
@@ -1017,8 +1004,7 @@ impl QobuzClient {
 
         self.http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&[
                 ("playlist_id", playlist_id.to_string()),
                 ("track_ids", track_ids_str),
@@ -1036,8 +1022,7 @@ impl QobuzClient {
 
         self.http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&[
                 ("playlist_id", playlist_id.to_string()),
                 ("playlist_track_ids", track_ids_str),
@@ -1066,8 +1051,7 @@ impl QobuzClient {
         let response: Playlist = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&params)
             .send()
             .await?
@@ -1085,8 +1069,7 @@ impl QobuzClient {
         let response = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&[(&type_key, item_id)])
             .send()
             .await?;
@@ -1106,8 +1089,7 @@ impl QobuzClient {
         let response = self
             .http
             .get(&url)
-            .header("X-App-Id", self.app_id().await?)
-            .header("X-User-Auth-Token", self.auth_token().await?)
+            .headers(self.authenticated_headers().await?)
             .query(&[(&type_key, item_id)])
             .send()
             .await?;
