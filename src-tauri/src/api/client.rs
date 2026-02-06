@@ -266,15 +266,15 @@ impl QobuzClient {
             params.push(("type", st));
         }
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&params)
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] search_albums status={}", http_response.status());
+        let response: Value = http_response.json().await?;
 
         let albums = response
             .get("albums")
@@ -306,15 +306,15 @@ impl QobuzClient {
             params.push(("type", st));
         }
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&params)
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] search_tracks status={}", http_response.status());
+        let response: Value = http_response.json().await?;
 
         let tracks = response
             .get("tracks")
@@ -346,15 +346,15 @@ impl QobuzClient {
             params.push(("type", st));
         }
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&params)
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] search_artists status={}", http_response.status());
+        let response: Value = http_response.json().await?;
 
         let artists = response
             .get("artists")
@@ -366,7 +366,7 @@ impl QobuzClient {
     /// Get similar artists for an artist ID
     pub async fn get_similar_artists(&self, artist_id: u64, limit: u32, offset: u32) -> Result<SearchResultsPage<Artist>> {
         let url = endpoints::build_url(paths::ARTIST_GET_SIMILAR);
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
@@ -376,9 +376,9 @@ impl QobuzClient {
                 ("offset", offset.to_string()),
             ])
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_similar_artists({}) status={}", artist_id, http_response.status());
+        let response: Value = http_response.json().await?;
 
         let artists = response
             .get("artists")
@@ -392,7 +392,7 @@ impl QobuzClient {
         let url = endpoints::build_url(paths::ARTIST_GET);
         let locale = self.locale().await;
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
@@ -404,9 +404,9 @@ impl QobuzClient {
                 ("offset", offset.to_string()),
             ])
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_artist_tracks({}) status={}", artist_id, http_response.status());
+        let response: Value = http_response.json().await?;
 
         let tracks = response
             .get("tracks")
@@ -420,16 +420,26 @@ impl QobuzClient {
     /// Get album by ID
     pub async fn get_album(&self, album_id: &str) -> Result<Album> {
         let url = endpoints::build_url(paths::ALBUM_GET);
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&[("album_id", album_id)])
             .send()
-            .await?
-            .json()
             .await?;
+        let status = http_response.status();
+        log::debug!("[API] get_album({}) status={}", album_id, status);
 
+        if status == StatusCode::NOT_FOUND {
+            log::warn!("[API] get_album({}) returned 404 — album not found", album_id);
+            return Err(ApiError::ApiResponse(format!("Album {} not found (404)", album_id)));
+        }
+        if !status.is_success() {
+            log::error!("[API] get_album({}) unexpected status={}", album_id, status);
+            return Err(ApiError::ApiResponse(format!("get_album({}) status {}", album_id, status)));
+        }
+
+        let response: Value = http_response.json().await?;
         Ok(serde_json::from_value(response)?)
     }
 
@@ -452,15 +462,15 @@ impl QobuzClient {
             query.push(("genre_id".to_string(), gid.to_string()));
         }
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&query)
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_featured_albums({}) status={}", featured_type, http_response.status());
+        let response: Value = http_response.json().await?;
 
         let albums = response
             .get("albums")
@@ -481,15 +491,15 @@ impl QobuzClient {
             query.push(("parent_id", pid.to_string()));
         }
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&query)
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_genres(parent={:?}) status={}", parent_id, http_response.status());
+        let response: Value = http_response.json().await?;
 
         let genres = response
             .get("genres")
@@ -515,15 +525,15 @@ impl QobuzClient {
             }
         }
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.authenticated_headers().await?)
             .query(&query)
             .send()
-            .await?
-            .json()
             .await?;
+        log::info!("[API] get_discover_index status={}", http_response.status());
+        let response: Value = http_response.json().await?;
 
         // Debug: log the response structure
         if let Some(obj) = response.as_object() {
@@ -594,16 +604,26 @@ impl QobuzClient {
     /// Get track by ID
     pub async fn get_track(&self, track_id: u64) -> Result<Track> {
         let url = endpoints::build_url(paths::TRACK_GET);
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&[("track_id", track_id.to_string())])
             .send()
-            .await?
-            .json()
             .await?;
+        let status = http_response.status();
+        log::debug!("[API] get_track({}) status={}", track_id, status);
 
+        if status == StatusCode::NOT_FOUND {
+            log::warn!("[API] get_track({}) returned 404 — track no longer available", track_id);
+            return Err(ApiError::TrackUnavailable(track_id));
+        }
+        if !status.is_success() {
+            log::error!("[API] get_track({}) unexpected status={}", track_id, status);
+            return Err(ApiError::ApiResponse(format!("get_track({}) status {}", track_id, status)));
+        }
+
+        let response: Value = http_response.json().await?;
         Ok(serde_json::from_value(response)?)
     }
 
@@ -617,15 +637,15 @@ impl QobuzClient {
             // No "extra" parameter = only basic info (id, name, image)
         ];
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&query)
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_artist_basic({}) status={}", artist_id, http_response.status());
+        let response: Value = http_response.json().await?;
 
         Ok(serde_json::from_value(response)?)
     }
@@ -660,15 +680,15 @@ impl QobuzClient {
             query.push(("offset", o.to_string()));
         }
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&query)
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_artist_detail({}) status={}", artist_id, http_response.status());
+        let response: Value = http_response.json().await?;
 
         Ok(serde_json::from_value(response)?)
     }
@@ -713,15 +733,15 @@ impl QobuzClient {
             query.push(("offset", o.to_string()));
         }
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
             .query(&query)
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_artist({}, albums={}) status={}", artist_id, with_albums, http_response.status());
+        let response: Value = http_response.json().await?;
 
         Ok(serde_json::from_value(response)?)
     }
@@ -729,7 +749,7 @@ impl QobuzClient {
     /// Get playlist by ID
     pub async fn get_playlist(&self, playlist_id: u64) -> Result<Playlist> {
         let url = endpoints::build_url(paths::PLAYLIST_GET);
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
@@ -739,9 +759,9 @@ impl QobuzClient {
                 ("extra", "tracks".to_string()),
             ])
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_playlist({}) status={}", playlist_id, http_response.status());
+        let response: Value = http_response.json().await?;
 
         Ok(serde_json::from_value(response)?)
     }
@@ -751,7 +771,7 @@ impl QobuzClient {
         let url = endpoints::build_url(paths::LABEL_GET);
         let locale = self.locale().await;
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
@@ -763,9 +783,9 @@ impl QobuzClient {
                 ("lang", locale),
             ])
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_label({}) status={}", label_id, http_response.status());
+        let response: Value = http_response.json().await?;
 
         Ok(serde_json::from_value(response)?)
     }
@@ -895,7 +915,7 @@ impl QobuzClient {
         let secret = self.secret().await?;
         let signature = sign_get_favorites(timestamp, &secret);
 
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.authenticated_headers().await?)
@@ -907,9 +927,9 @@ impl QobuzClient {
                 ("request_sig", &signature),
             ])
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_favorites({}) status={}", fav_type, http_response.status());
+        let response: Value = http_response.json().await?;
 
         Ok(response)
     }
@@ -917,14 +937,14 @@ impl QobuzClient {
     /// Get user's playlists
     pub async fn get_user_playlists(&self) -> Result<Vec<Playlist>> {
         let url = endpoints::build_url(paths::PLAYLIST_GET_USER_PLAYLISTS);
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.authenticated_headers().await?)
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] get_user_playlists status={}", http_response.status());
+        let response: Value = http_response.json().await?;
 
         let playlists = response
             .get("playlists")
@@ -937,7 +957,7 @@ impl QobuzClient {
     /// Search playlists
     pub async fn search_playlists(&self, query: &str, limit: u32, offset: u32) -> Result<SearchResultsPage<Playlist>> {
         let url = endpoints::build_url(paths::PLAYLIST_SEARCH);
-        let response: Value = self
+        let http_response = self
             .http
             .get(&url)
             .headers(self.api_headers().await?)
@@ -947,9 +967,9 @@ impl QobuzClient {
                 ("offset", &offset.to_string()),
             ])
             .send()
-            .await?
-            .json()
             .await?;
+        log::debug!("[API] search_playlists status={}", http_response.status());
+        let response: Value = http_response.json().await?;
 
         let playlists = response
             .get("playlists")
