@@ -329,11 +329,10 @@ pub async fn get_album(
             .map_err(|e| format!("Failed to serialize album: {}", e))?;
         if let Err(e) = cache.set_album(&album_id, &json) {
             log::warn!("[DEBUG-43] get_album cache write error: id={} err={}", album_id, e);
-        } else {
-            log::debug!("Cached album {}", album_id);
         }
     }
 
+    log::info!("[DEBUG-43] get_album OK: id={}", album_id);
     Ok(album)
 }
 
@@ -346,18 +345,20 @@ pub async fn get_featured_albums(
     genre_id: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<SearchResultsPage<Album>, String> {
-    log::debug!(
-        "Command: get_featured_albums type={} limit={:?} offset={:?} genre_id={:?}",
-        featured_type,
-        limit,
-        offset,
-        genre_id
+    log::info!(
+        "[DEBUG-43] get_featured_albums called: type={} limit={:?} genre_id={:?}",
+        featured_type, limit, genre_id
     );
     let client = state.client.lock().await;
-    client
+    let result = client
         .get_featured_albums(&featured_type, limit.unwrap_or(12), offset.unwrap_or(0), genre_id)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| {
+            log::error!("[DEBUG-43] get_featured_albums FAILED: type={} err={}", featured_type, e);
+            e.to_string()
+        })?;
+    log::info!("[DEBUG-43] get_featured_albums OK: type={} items={}", featured_type, result.items.len());
+    Ok(result)
 }
 
 #[tauri::command]
@@ -408,6 +409,7 @@ pub async fn get_track(
         }
     }
 
+    log::info!("[DEBUG-43] get_track OK: id={}", track_id);
     Ok(track)
 }
 
@@ -464,7 +466,7 @@ pub async fn get_artist_basic(
     state: State<'_, AppState>,
     cache_state: State<'_, ApiCacheState>,
 ) -> Result<Artist, String> {
-    log::debug!("Command: get_artist_basic {}", artist_id);
+    log::info!("[DEBUG-43] get_artist_basic called: id={}", artist_id);
 
     // Get current locale
     let locale = {
@@ -489,7 +491,10 @@ pub async fn get_artist_basic(
     let artist = client
         .get_artist_basic(artist_id)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            log::error!("[DEBUG-43] get_artist_basic FAILED: id={} err={}", artist_id, e);
+            e.to_string()
+        })?;
 
     // Cache the result
     {
@@ -500,6 +505,7 @@ pub async fn get_artist_basic(
         cache.set_artist(artist_id, &locale, &json)?;
     }
 
+    log::info!("[DEBUG-43] get_artist_basic OK: id={}", artist_id);
     Ok(artist)
 }
 
@@ -681,13 +687,18 @@ pub async fn get_discover_index(
     genre_ids: Option<Vec<u64>>,
     state: State<'_, AppState>,
 ) -> Result<DiscoverResponse, String> {
-    log::debug!("Command: get_discover_index genre_ids={:?}", genre_ids);
+    log::info!("[DEBUG-43] get_discover_index called: genre_ids={:?}", genre_ids);
 
     let client = state.client.lock().await;
-    client
+    let result = client
         .get_discover_index(genre_ids)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| {
+            log::error!("[DEBUG-43] get_discover_index FAILED: {}", e);
+            e.to_string()
+        })?;
+    log::info!("[DEBUG-43] get_discover_index OK: returning to frontend");
+    Ok(result)
 }
 
 /// Get discover playlists with optional tag filter
