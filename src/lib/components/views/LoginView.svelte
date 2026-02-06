@@ -86,13 +86,25 @@
         return;
       }
 
-      // Load ToS acceptance from Rust (persisted, survives app updates)
-      initStatus = 'Loading preferences...';
-      await loadTosAcceptance();
-
-      // Check for saved credentials and auto-login
+      // Check for saved credentials and last user session
       initStatus = 'Checking saved credentials...';
       const hasSavedCreds = await invoke<boolean>('has_saved_credentials');
+      const lastUserId = await invoke<number | null>('get_last_user_id');
+
+      // Restore per-user session before reading ToS or auto-login
+      if (hasSavedCreds && lastUserId) {
+        initStatus = 'Restoring session...';
+        try {
+          await invoke('activate_user_session', { userId: lastUserId });
+          console.log('Restored user session for', lastUserId);
+        } catch (e) {
+          console.warn('Failed to restore user session:', e);
+        }
+      }
+
+      // Load ToS acceptance from Rust (now available after session restore)
+      initStatus = 'Loading preferences...';
+      await loadTosAcceptance();
 
       if (hasSavedCreds && get(qobuzTosAccepted)) {
         initStatus = 'Logging in...';

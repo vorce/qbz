@@ -82,4 +82,34 @@ impl UserDataPaths {
             .ok_or_else(|| "Could not determine cache directory".to_string())
             .map(|d| d.join("qbz"))
     }
+
+    /// Save the last active user_id to a flat-path file so the session
+    /// can be restored on next app launch (when "remember me" is active).
+    pub fn save_last_user_id(user_id: u64) -> Result<(), String> {
+        let path = Self::last_user_id_path()?;
+        std::fs::write(&path, user_id.to_string())
+            .map_err(|e| format!("Failed to save last user id: {}", e))?;
+        log::info!("Saved last_user_id={} to {:?}", user_id, path);
+        Ok(())
+    }
+
+    /// Read the last active user_id (returns None if file doesn't exist or is invalid).
+    pub fn load_last_user_id() -> Option<u64> {
+        let path = Self::last_user_id_path().ok()?;
+        let contents = std::fs::read_to_string(&path).ok()?;
+        contents.trim().parse::<u64>().ok()
+    }
+
+    /// Clear the last user_id file (called on explicit logout).
+    pub fn clear_last_user_id() {
+        if let Ok(path) = Self::last_user_id_path() {
+            let _ = std::fs::remove_file(&path);
+            log::info!("Cleared last_user_id file");
+        }
+    }
+
+    fn last_user_id_path() -> Result<PathBuf, String> {
+        let dir = Self::global_data_dir()?;
+        Ok(dir.join("last_user_id"))
+    }
 }

@@ -429,6 +429,7 @@ pub fn run() {
             commands::clear_saved_credentials,
             commands::auto_login,
             // User session lifecycle
+            commands::get_last_user_id,
             commands::activate_user_session,
             commands::deactivate_user_session,
             // Search commands

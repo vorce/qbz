@@ -55,6 +55,13 @@ fn teardown_type_alias_state<S>(state: &Arc<Mutex<Option<S>>>) {
     }
 }
 
+/// Get the last active user_id for session restore on startup.
+/// Returns None if no previous session or after explicit logout.
+#[tauri::command]
+pub fn get_last_user_id() -> Option<u64> {
+    UserDataPaths::load_last_user_id()
+}
+
 /// Activate the per-user session after login.
 ///
 /// This runs the one-time migration (if needed) and initializes all
@@ -168,6 +175,11 @@ pub async fn activate_user_session(
         }
     }
 
+    // Persist last user_id for session restore on next launch
+    if let Err(e) = UserDataPaths::save_last_user_id(user_id) {
+        log::warn!("Failed to save last_user_id: {}", e);
+    }
+
     log::info!("User session activated for user_id={}", user_id);
     Ok(())
 }
@@ -229,8 +241,9 @@ pub async fn deactivate_user_session(
     teardown_type_alias_state(&*download_settings);
     teardown_type_alias_state(&*legal_settings);
 
-    // Clear the active user
+    // Clear the active user and persisted last_user_id
     user_paths.clear_user();
+    UserDataPaths::clear_last_user_id();
 
     log::info!("User session deactivated");
     Ok(())
