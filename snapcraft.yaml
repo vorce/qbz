@@ -87,11 +87,15 @@ parts:
     source: https://github.com/vicrodh/qbz.git
     source-tag: v1.1.8
     build-environment:
-      - PKG_CONFIG_PATH: /snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pkgconfig:/snap/gnome-42-2204-sdk/current/usr/share/pkgconfig
-      - LIBRARY_PATH: /snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET
-      - LD_LIBRARY_PATH: /snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET
-      - RUSTFLAGS: -L native=/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L native=/snap/gnome-42-2204-sdk/current/usr/lib -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib
-      - LDFLAGS: -L/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L/snap/gnome-42-2204-sdk/current/usr/lib -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib
+      - PKG_CONFIG_PATH: /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pkgconfig:/usr/share/pkgconfig:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pkgconfig:/snap/gnome-42-2204-sdk/current/usr/share/pkgconfig
+      - LIBRARY_PATH: /usr/lib/$SNAPCRAFT_ARCH_TRIPLET:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET
+      - LD_LIBRARY_PATH: /usr/lib/$SNAPCRAFT_ARCH_TRIPLET:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET
+      - LIBSQLITE3_SYS_USE_PKG_CONFIG: "1"
+      - SQLITE3_LIB_DIR: /usr/lib/$SNAPCRAFT_ARCH_TRIPLET
+      - SQLITE3_INCLUDE_DIR: /usr/include
+      - SQLITE3_STATIC: "0"
+      - RUSTFLAGS: -L native=/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L native=/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L native=/snap/gnome-42-2204-sdk/current/usr/lib -C link-arg=-Wl,-rpath-link,/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib
+      - LDFLAGS: -L/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L/snap/gnome-42-2204-sdk/current/usr/lib -Wl,-rpath-link,/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib
     build-packages:
       - libwebkit2gtk-4.1-dev
       - libgtk-3-dev
@@ -100,6 +104,7 @@ parts:
       - patchelf
       - libssl-dev
       - libasound2-dev
+      - libsqlite3-dev
       - pkg-config
       # alsa-utils for aplay command (device enumeration)
       - alsa-utils
@@ -110,6 +115,7 @@ parts:
       - libasound2
       - libasound2-data
       - libasound2-plugins
+      - libsqlite3-0
       - libssl3
       - pipewire-bin
       - pulseaudio-utils
