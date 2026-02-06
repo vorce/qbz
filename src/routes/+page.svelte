@@ -97,6 +97,7 @@
     getAuthState,
     type UserInfo
   } from '$lib/stores/authStore';
+  import { setStorageUserId, migrateLocalStorage, getUserItem, setUserItem } from '$lib/utils/userStorage';
 
   // Favorites state management
   import { loadFavorites } from '$lib/stores/favoritesStore';
@@ -1602,7 +1603,7 @@
     infinitePlayEnabled = !infinitePlayEnabled;
     // Persist to localStorage
     try {
-      localStorage.setItem('qbz-infinite-play', JSON.stringify(infinitePlayEnabled));
+      setUserItem('qbz-infinite-play', JSON.stringify(infinitePlayEnabled));
     } catch {
       // Ignore storage errors
     }
@@ -2172,6 +2173,7 @@
     await setManualOffline(true);
     setLoggedIn({
       userName: 'Offline User',
+      userId: 0,
       subscription: 'Local Library Only'
     });
     navigateTo('library');
@@ -2179,8 +2181,30 @@
   }
 
   async function handleLoginSuccess(info: UserInfo) {
+    // Activate per-user backend state before anything else
+    if (info.userId) {
+      try {
+        await invoke('activate_user_session', { userId: info.userId });
+        console.log('[Session] Per-user session activated for user', info.userId);
+      } catch (err) {
+        console.error('[Session] Failed to activate user session:', err);
+        // Non-fatal: app works but uses empty stores
+      }
+    }
+
+    // Set up per-user localStorage scoping and migrate old keys
+    setStorageUserId(info.userId || null);
+    if (info.userId) {
+      migrateLocalStorage(info.userId);
+    }
+
     setLoggedIn(info);
     showToast($t('toast.welcomeUser', { values: { name: info.userName } }), 'success');
+
+    // Initialize per-user stores now that the backend session is active
+    initOfflineCacheStates(); // has internal try/catch
+    initPlaybackPreferences().catch(err => console.debug('[PlaybackPrefs] Init deferred:', err));
+    initBlacklistStore().catch(err => console.debug('[Blacklist] Init deferred:', err));
 
     // Load favorites now that login is confirmed (sync with Qobuz)
     loadFavorites();        // Track favorites
@@ -2303,6 +2327,15 @@
         console.error('Failed to clear credentials:', clearErr);
         // Don't block logout if clearing fails
       }
+      // Deactivate per-user backend state (closes DB connections)
+      try {
+        await invoke('deactivate_user_session');
+        console.log('[Session] Per-user session deactivated');
+      } catch (deactivateErr) {
+        console.error('[Session] Failed to deactivate user session:', deactivateErr);
+      }
+      // Clear per-user localStorage scoping
+      setStorageUserId(null);
       // Clear session state
       await clearSession();
       setLoggedOut();
@@ -2466,18 +2499,15 @@
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Initialize download states
-    initOfflineCacheStates();
+    // Start listening for offline cache events (just event listeners, no backend calls)
     startOfflineCacheEventListeners();
 
-    // Initialize playback context and preferences stores
+    // Initialize playback context store (local state only, no backend calls)
     initPlaybackContextStore();
-    initPlaybackPreferences();
-    initBlacklistStore();
 
     // Load infinite play preference
     try {
-      const stored = localStorage.getItem('qbz-infinite-play');
+      const stored = getUserItem('qbz-infinite-play');
       if (stored !== null) {
         infinitePlayEnabled = JSON.parse(stored);
       }
