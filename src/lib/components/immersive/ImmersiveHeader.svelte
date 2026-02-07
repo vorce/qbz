@@ -75,11 +75,12 @@
   }
 
   // Split mode tabs
+  // Use labelKey pattern — never call $t() inside $derived()
   const splitTabs = $derived([
-    { id: 'lyrics' as const, label: $t('player.lyrics'), icon: Music2, enabled: hasLyrics },
-    { id: 'trackInfo' as const, label: $t('player.trackInfo') || 'Track Info', icon: Info, enabled: hasTrackInfo },
-    { id: 'suggestions' as const, label: $t('player.suggestions') || 'Suggestions', icon: Radio, enabled: hasSuggestions },
-    { id: 'queue' as const, label: $t('player.queue') || 'Queue', icon: ListMusic, enabled: true },
+    { id: 'lyrics' as const, labelKey: 'player.lyrics', icon: Music2, enabled: hasLyrics },
+    { id: 'trackInfo' as const, labelKey: 'player.trackInfo', icon: Info, enabled: hasTrackInfo },
+    { id: 'suggestions' as const, labelKey: 'player.suggestions', icon: Radio, enabled: hasSuggestions },
+    { id: 'queue' as const, labelKey: 'player.queue', icon: ListMusic, enabled: true },
   ].filter(tab => tab.enabled));
 
   // Focus mode tabs
@@ -134,7 +135,7 @@
           onclick={() => onTabChange(tab.id)}
         >
           <tab.icon size={16} />
-          <span class="tab-label">{tab.label}</span>
+          <span class="tab-label">{$t(tab.labelKey)}</span>
         </button>
       {/each}
     {/if}

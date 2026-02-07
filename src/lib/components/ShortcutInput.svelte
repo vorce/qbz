@@ -30,11 +30,14 @@
   let inputElement: HTMLButtonElement | null = $state(null);
 
   const isModified = $derived(currentShortcut !== defaultShortcut);
-  const displayShortcut = $derived(
-    isRecording
-      ? (recordedShortcut || $t('keybindings.pressKeys') || 'Press keys...')
-      : formatShortcutDisplay(currentShortcut)
-  );
+
+  // Never call $t() inside $derived() — use a function instead
+  function getDisplayShortcut(): string {
+    if (isRecording) {
+      return recordedShortcut || $t('keybindings.pressKeys') || 'Press keys...';
+    }
+    return formatShortcutDisplay(currentShortcut);
+  }
 
   function startRecording() {
     isRecording = true;
@@ -121,7 +124,7 @@
       onkeydown={handleKeydown}
       onblur={handleBlur}
     >
-      <span class="shortcut-text">{displayShortcut}</span>
+      <span class="shortcut-text">{getDisplayShortcut()}</span>
       {#if isModified && !isRecording}
         <span class="modified-indicator" title={$t('keybindings.modified') || 'Modified'}>*</span>
       {/if}
