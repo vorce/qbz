@@ -176,7 +176,7 @@ function validateAndCleanStoredGenreIds(): void {
     }
 
     if (invalidIds.length > 0) {
-      console.warn(`[DEBUG-43] Found ${invalidIds.length} stale genre ID(s) in ${context} context:`, invalidIds);
+      console.debug(`Cleaned ${invalidIds.length} stale genre ID(s) in ${context} context`);
       for (const id of invalidIds) {
         ctxState.selectedGenreIds.delete(id);
       }
@@ -186,7 +186,7 @@ function validateAndCleanStoredGenreIds(): void {
   }
 
   if (cleaned) {
-    console.warn('[DEBUG-43] Cleaned stale genre IDs from localStorage');
+    console.debug('Cleaned stale genre IDs from localStorage');
   }
 }
 
