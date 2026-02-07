@@ -2,6 +2,13 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Music, User, Loader2 } from 'lucide-svelte';
+  import {
+    getHomeCache,
+    setHomeCache,
+    clearHomeCache,
+    isHomeCacheValid,
+    updateHomeCacheScrollTop
+  } from '$lib/stores/homeDataCache';
   import { t } from '$lib/i18n';
   import HorizontalScrollRow from '../HorizontalScrollRow.svelte';
   import AlbumCard from '../AlbumCard.svelte';
@@ -299,18 +306,86 @@
   );
 
 
+  let homeViewEl: HTMLDivElement | undefined;
+
   onMount(() => {
-    // Subscribe to home settings changes
+    // Subscribe to home settings changes — invalidate cache on change
     const unsubscribe = subscribeHomeSettings(() => {
       homeSettings = getSettings();
       homeLimits = getSettings().limits;
+      clearHomeCache();
     });
 
-    // Load home data
-    loadHome();
+    // Try to restore from cache
+    const currentGenreIds = Array.from(getSelectedGenreIds());
+    if (isHomeCacheValid(currentGenreIds)) {
+      const cached = getHomeCache()!;
+      // Restore all data instantly
+      newReleases = cached.newReleases;
+      pressAwards = cached.pressAwards;
+      mostStreamed = cached.mostStreamed;
+      qobuzissimes = cached.qobuzissimes;
+      editorPicks = cached.editorPicks;
+      recentAlbums = cached.recentAlbums;
+      continueTracks = cached.continueTracks;
+      topArtists = cached.topArtists;
+      favoriteAlbums = cached.favoriteAlbums;
+      qobuzPlaylists = cached.qobuzPlaylists;
+      essentialDiscography = cached.essentialDiscography;
+      playlistTags = cached.playlistTags;
+
+      // Mark all sections as loaded
+      loadingNewReleases = false;
+      loadingPressAwards = false;
+      loadingMostStreamed = false;
+      loadingQobuzissimes = false;
+      loadingEditorPicks = false;
+      loadingRecentAlbums = false;
+      loadingContinueTracks = false;
+      loadingTopArtists = false;
+      loadingFavoriteAlbums = false;
+      loadingQobuzPlaylists = false;
+      loadingEssentialDiscography = false;
+
+      // Restore scroll position after DOM renders
+      requestAnimationFrame(() => {
+        if (homeViewEl && cached.scrollTop > 0) {
+          homeViewEl.scrollTop = cached.scrollTop;
+        }
+      });
+
+      // Fire-and-forget: refresh download statuses in background
+      const allAlbums = [
+        ...cached.newReleases, ...cached.pressAwards, ...cached.mostStreamed,
+        ...cached.qobuzissimes, ...cached.editorPicks,
+        ...cached.recentAlbums, ...cached.favoriteAlbums
+      ];
+      loadAllAlbumDownloadStatuses(allAlbums);
+    } else {
+      loadHome();
+    }
 
     return unsubscribe;
   });
+
+  // Save cache when all sections finish loading successfully
+  $effect(() => {
+    if (!anyLoading && hasContent) {
+      const genreIds = Array.from(getSelectedGenreIds());
+      setHomeCache({
+        newReleases, pressAwards, mostStreamed, qobuzissimes, editorPicks,
+        recentAlbums, continueTracks, topArtists, favoriteAlbums,
+        qobuzPlaylists, essentialDiscography, playlistTags,
+        genreIds
+      });
+    }
+  });
+
+  // Save scroll position incrementally
+  function handleHomeScroll(e: Event) {
+    const target = e.target as HTMLElement;
+    updateHomeCacheScrollTop(target.scrollTop);
+  }
 
   function handleArtistImageError(artistId: number) {
     failedArtistImages = new Set([...failedArtistImages, artistId]);
@@ -577,7 +652,7 @@
   }
 
   function handleGenreFilterChange() {
-    // Reload home page with new genre filter
+    clearHomeCache();
     loadHome();
   }
 
@@ -826,7 +901,7 @@
   }
 </script>
 
-<div class="home-view">
+<div class="home-view" bind:this={homeViewEl} onscroll={handleHomeScroll}>
   <!-- Header with greeting, filter and settings -->
   <div class="home-header">
     {#if homeSettings.greeting.enabled}
