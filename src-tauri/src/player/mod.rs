@@ -37,7 +37,7 @@ use symphonia::core::probe::Hint;
 use symphonia::default::{get_codecs, get_probe};
 
 use crate::api::{client::QobuzClient, models::Quality};
-use crate::audio::{AudioBackendType, BackendConfig, BackendManager};
+use crate::audio::{AudioBackendType, AudioDiagnostic, BackendConfig, BackendManager, DiagnosticSource};
 use crate::config::audio_settings::AudioSettings;
 use crate::visualizer::{VisualizerTap, TappedSource};
 use playback_engine::PlaybackEngine;
@@ -651,11 +651,13 @@ pub struct Player {
     /// Visualizer tap for audio sample capture (optional)
     #[allow(dead_code)]
     visualizer_tap: Option<VisualizerTap>,
+    /// Bit-depth diagnostic capture (always available, zero-cost when idle)
+    pub diagnostic: AudioDiagnostic,
 }
 
 impl Default for Player {
     fn default() -> Self {
-        Self::new(None, AudioSettings::default(), None)
+        Self::new(None, AudioSettings::default(), None, AudioDiagnostic::new())
     }
 }
 
@@ -663,7 +665,7 @@ impl Player {
     /// Create a new player with an optional specific output device and audio settings
     /// If device_name is None, uses the system default device
     /// visualizer_tap is optional - if provided, audio samples are captured for visualization
-    pub fn new(device_name: Option<String>, audio_settings: AudioSettings, visualizer_tap: Option<VisualizerTap>) -> Self {
+    pub fn new(device_name: Option<String>, audio_settings: AudioSettings, visualizer_tap: Option<VisualizerTap>, diagnostic: AudioDiagnostic) -> Self {
         let (tx, rx) = mpsc::channel::<AudioCommand>();
         let state = SharedState::new();
         let thread_state = state.clone();
@@ -672,16 +674,21 @@ impl Player {
         let settings = Arc::new(Mutex::new(audio_settings.clone()));
         let thread_settings = settings.clone();
 
-        // Clone visualizer tap for audio thread
+        // Clone visualizer tap and diagnostic for audio thread
         let thread_viz_tap = visualizer_tap.clone();
+        let thread_diagnostic = diagnostic.clone();
 
         // Spawn dedicated audio thread
         thread::spawn(move || {
             log::info!("Audio thread starting...");
 
-            // Helper to wrap source with visualizer tap (if enabled)
-            // This captures audio samples for visualization without affecting playback
+            // Helper to wrap source with visualizer tap and diagnostic capture
             let wrap_source = |source: Box<dyn Source<Item = f32> + Send>| -> Box<dyn Source<Item = f32> + Send> {
+                // Diagnostic tap (innermost — captures raw decoded samples)
+                let source: Box<dyn Source<Item = f32> + Send> =
+                    Box::new(DiagnosticSource::new(source, thread_diagnostic.clone()));
+
+                // Visualizer tap (outermost)
                 if let Some(ref tap) = thread_viz_tap {
                     Box::new(TappedSource::new(source, tap.ring_buffer.clone(), tap.enabled.clone()))
                 } else {
@@ -1725,7 +1732,7 @@ impl Player {
             }
         });
 
-        Self { tx, state, audio_settings: settings, visualizer_tap }
+        Self { tx, state, audio_settings: settings, visualizer_tap, diagnostic }
     }
 
     /// Play a track by ID (downloads audio)

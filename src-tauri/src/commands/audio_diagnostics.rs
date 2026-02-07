@@ -1,6 +1,11 @@
 //! Audio diagnostics commands for detecting actual hardware sample rate
+//! and verifying effective bit depth of the audio pipeline.
 
 use std::fs;
+
+use tauri::Manager;
+use crate::AppState;
+use crate::audio::BitDepthResult;
 
 /// Hardware audio status
 #[derive(Debug, Clone, serde::Serialize)]
@@ -70,4 +75,35 @@ pub fn get_hardware_audio_status() -> Result<HardwareAudioStatus, String> {
         hardware_format: None,
         is_active: false,
     })
+}
+
+/// Start bit-depth diagnostic capture on the currently playing audio.
+/// Samples are analyzed on-the-fly with zero allocation (OR-mask of i32 values).
+/// Call `stop_bitdepth_capture` after a few seconds to get the result.
+#[tauri::command]
+pub fn start_bitdepth_capture(
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let state = app.state::<AppState>();
+    let sample_rate = state.player.state.get_sample_rate();
+    if sample_rate == 0 {
+        return Err("No audio playing — cannot start capture".to_string());
+    }
+    // Default to 2 channels (stereo) — SharedState doesn't track channels
+    state.player.diagnostic.start_capture(sample_rate, 2);
+    Ok(format!("Capture started at {}Hz", sample_rate))
+}
+
+/// Stop bit-depth capture and return analysis.
+///
+/// The `effective_bits` field is the key result:
+/// - 24 → source data has 24-bit precision (f32 pipeline working)
+/// - 16 → source data truncated to 16-bit (bug)
+/// - Other values → intermediate precision or pipeline issue
+#[tauri::command]
+pub fn stop_bitdepth_capture(
+    app: tauri::AppHandle,
+) -> Result<BitDepthResult, String> {
+    let state = app.state::<AppState>();
+    Ok(state.player.diagnostic.stop_and_analyze())
 }

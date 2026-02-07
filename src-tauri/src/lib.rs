@@ -100,7 +100,7 @@ impl AppState {
 
         Self {
             client: Arc::new(Mutex::new(QobuzClient::default())),
-            player: Player::new(device_name, audio_settings, Some(viz_tap)),
+            player: Player::new(device_name, audio_settings, Some(viz_tap), audio::AudioDiagnostic::new()),
             queue: QueueManager::new(),
             context: ContextManager::new(),
             media_controls: MediaControlsManager::new(),
@@ -458,6 +458,8 @@ pub fn run() {
             commands::set_pipewire_default_sink,
             commands::reinit_audio_device,
             commands::get_hardware_audio_status,
+            commands::start_bitdepth_capture,
+            commands::stop_bitdepth_capture,
             // Queue commands
             commands::add_to_queue,
             commands::add_to_queue_next,
