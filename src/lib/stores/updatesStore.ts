@@ -30,7 +30,8 @@ let preferences: UpdatePreferences = {
 };
 
 let currentVersion = '';
-let initialized = false;
+let versionLoaded = false;
+let prefsLoaded = false;
 
 const listeners = new Set<() => void>();
 
@@ -55,23 +56,27 @@ export function getCurrentVersion(): string {
 }
 
 export async function initUpdatesStore(): Promise<void> {
-  if (initialized) return;
-  initialized = true;
-
   // get_current_version never needs a session (compile-time value).
-  // get_update_preferences needs the SQLite store which is only
-  // available after login.  Fetch them independently so a preference
-  // failure doesn't lose the version.
-  try {
-    currentVersion = await invoke<string>('get_current_version');
-  } catch (error) {
-    console.error('[Updates] Failed to get current version:', error);
+  // Only fetch once.
+  if (!versionLoaded) {
+    try {
+      currentVersion = await invoke<string>('get_current_version');
+      versionLoaded = true;
+    } catch (error) {
+      console.error('[Updates] Failed to get current version:', error);
+    }
   }
 
-  try {
-    preferences = await invoke<UpdatePreferences>('get_update_preferences');
-  } catch {
-    // Expected before login — store not initialised yet.
+  // get_update_preferences needs the SQLite store which is only
+  // available after login. Retry on each call until it succeeds,
+  // so a pre-login failure doesn't lock in stale defaults.
+  if (!prefsLoaded) {
+    try {
+      preferences = await invoke<UpdatePreferences>('get_update_preferences');
+      prefsLoaded = true;
+    } catch {
+      // Expected before login — store not initialised yet.
+    }
   }
 
   notify();

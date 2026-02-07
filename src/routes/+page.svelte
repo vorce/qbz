@@ -323,6 +323,7 @@
   import KeyboardShortcutsModal from '$lib/components/KeyboardShortcutsModal.svelte';
   import KeybindingsSettings from '$lib/components/KeybindingsSettings.svelte';
   import type { ReleaseInfo } from '$lib/stores/updatesStore';
+  import { refreshUpdatePreferences } from '$lib/stores/updatesStore';
   import {
     decideLaunchModals,
     disableUpdateChecks,
@@ -2207,6 +2208,7 @@
     initOfflineCacheStates(); // has internal try/catch
     initPlaybackPreferences().catch(err => console.debug('[PlaybackPrefs] Init deferred:', err));
     initBlacklistStore().catch(err => console.debug('[Blacklist] Init deferred:', err));
+    refreshUpdatePreferences().catch(err => console.debug('[Updates] Prefs refresh deferred:', err));
 
     // Load favorites now that login is confirmed (sync with Qobuz)
     loadFavorites();        // Track favorites

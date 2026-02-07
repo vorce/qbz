@@ -10,6 +10,7 @@ import {
   ignoreRelease,
   initUpdatesStore,
   markWhatsNewShown,
+  refreshUpdatePreferences,
   setCheckOnLaunch,
 } from '$lib/stores/updatesStore';
 import type { ReleaseInfo } from '$lib/stores/updatesStore';
@@ -175,6 +176,10 @@ export async function decideLaunchModals(): Promise<LaunchUpdateDecision> {
   ensureSessionId();
 
   await initUpdatesStore();
+  // Always refresh preferences from the backend to ensure we have
+  // the user's saved settings (initUpdatesStore may have loaded
+  // defaults if the session wasn't ready on first call).
+  await refreshUpdatePreferences();
   const prefs = getPreferences();
   const currentVersion = getCurrentVersion();
 
