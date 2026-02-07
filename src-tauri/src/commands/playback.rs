@@ -26,6 +26,7 @@ fn parse_quality(quality_str: Option<&str>) -> Quality {
 
 /// Limit quality based on device's max sample rate
 /// This ensures bit-perfect playback by not requesting tracks that exceed device capabilities
+#[allow(dead_code)]
 fn limit_quality_for_device(quality: Quality, max_sample_rate: Option<u32>) -> Quality {
     let Some(max_rate) = max_sample_rate else {
         return quality; // No limit if device max rate unknown
@@ -85,7 +86,7 @@ pub async fn play_track(
     offline_cache: State<'_, OfflineCacheState>,
     audio_settings: State<'_, AudioSettingsState>,
 ) -> Result<PlayTrackResult, String> {
-    let mut preferred_quality = parse_quality(quality.as_deref());
+    let preferred_quality = parse_quality(quality.as_deref());
 
     // NOTE: limit_quality_to_device disabled in 1.1.9 — was causing incorrect downgrades (#45)
     // The feature code is preserved but disconnected until the detection logic is reliable.
@@ -333,7 +334,7 @@ pub async fn prefetch_track(
     offline_cache: State<'_, OfflineCacheState>,
     _audio_settings: State<'_, AudioSettingsState>,
 ) -> Result<(), String> {
-    let mut preferred_quality = parse_quality(quality.as_deref());
+    let preferred_quality = parse_quality(quality.as_deref());
 
     // NOTE: limit_quality_to_device disabled in 1.1.9 — was causing incorrect downgrades (#45)
     // The feature code is preserved but disconnected until the detection logic is reliable.
