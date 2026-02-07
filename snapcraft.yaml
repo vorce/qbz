@@ -93,7 +93,6 @@ parts:
       - patchelf
       - libssl-dev
       - libasound2-dev
-      - libsqlite3-dev
       - pkg-config
       - curl
       # alsa-utils for aplay command (device enumeration)
@@ -105,7 +104,6 @@ parts:
       - libasound2
       - libasound2-data
       - libasound2-plugins
-      - libsqlite3-0
       - libssl3
       - pipewire-bin
       - pulseaudio-utils
@@ -118,10 +116,9 @@ parts:
       export PKG_CONFIG_PATH="/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pkgconfig:/usr/share/pkgconfig:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pkgconfig:/snap/gnome-42-2204-sdk/current/usr/share/pkgconfig"
       export LIBRARY_PATH="/usr/lib/$SNAPCRAFT_ARCH_TRIPLET:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET"
       export LD_LIBRARY_PATH="/usr/lib/$SNAPCRAFT_ARCH_TRIPLET:/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET"
-      export LIBSQLITE3_SYS_USE_PKG_CONFIG="1"
-      export SQLITE3_LIB_DIR="/usr/lib/$SNAPCRAFT_ARCH_TRIPLET"
-      export SQLITE3_INCLUDE_DIR="/usr/include"
-      export SQLITE3_STATIC="0"
+      # Let rusqlite use its bundled SQLite (Cargo feature "bundled")
+      # instead of the system libsqlite3 which is too old on core22 (3.37
+      # vs 3.38+ required for sqlite3_error_offset).
       export RUSTFLAGS="-L native=/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L native=/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L native=/snap/gnome-42-2204-sdk/current/usr/lib -C link-arg=-Wl,-rpath-link,/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -C link-arg=-Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib"
       export LDFLAGS="-L/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -L/snap/gnome-42-2204-sdk/current/usr/lib -Wl,-rpath-link,/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET -Wl,-rpath-link,/snap/gnome-42-2204-sdk/current/usr/lib"
 
