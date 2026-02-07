@@ -1161,5 +1161,23 @@
       "verify": "Überprüfen",
       "done": "Fertig"
     }
+  },
+  "playlistImport": {
+    "title": "Playlist importieren",
+    "urlLabel": "Playlist-URL",
+    "allowedSources": "Erlaubte Quellen",
+    "playlistName": "Playlist-Name",
+    "folder": "Ordner",
+    "noFolder": "Kein Ordner",
+    "fetchPlaylist": "Playlist abrufen",
+    "fetching": "Wird abgerufen...",
+    "importAction": "Importieren",
+    "importing": "Wird importiert...",
+    "tracksFound": "{count} Titel von {provider} gefunden.",
+    "progress": "Konvertierungsfortschritt",
+    "summary": "Zusammenfassung",
+    "playlistLabel": "Playlist: {name}",
+    "tracksMatched": "Titel zugeordnet: {matched} / {total}",
+    "skipped": "Übersprungen: {count}"
   }
 }
