@@ -1171,12 +1171,17 @@
 
 <ViewTransition duration={200} distance={12} direction="down">
 <div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'artists' && artistViewMode === 'sidepanel')} bind:this={scrollContainer} onscroll={handleFavoritesScroll}>
-  {#if onBack}
-    <button class="back-btn" onclick={onBack}>
-      <ArrowLeft size={16} />
-      <span>{$t('actions.back')}</span>
+  <div class="top-bar">
+    {#if onBack}
+      <button class="back-btn" onclick={onBack}>
+        <ArrowLeft size={16} />
+        <span>{$t('actions.back')}</span>
+      </button>
+    {/if}
+    <button class="edit-btn" onclick={() => editModalOpen = true} title={$t('favorites.editSettings')}>
+      <Edit3 size={16} />
     </button>
-  {/if}
+  </div>
   <!-- Header -->
   <div class="header">
     <div
@@ -1240,9 +1245,6 @@
         </div>
       {/if}
     </div>
-    <button class="edit-btn" onclick={() => editModalOpen = true} title={$t('favorites.editSettings')}>
-      <Edit3 size={16} />
-    </button>
   </div>
 
   <!-- Navigation Bar (Artist-style) -->
@@ -2153,6 +2155,13 @@
     height: 100%;
   }
 
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
   .back-btn {
     display: flex;
     align-items: center;
@@ -2162,7 +2171,6 @@
     background: none;
     border: none;
     cursor: pointer;
-    margin-bottom: 16px;
     padding: 0;
     transition: color 150ms ease;
   }
@@ -2215,7 +2223,6 @@
     align-items: center;
     gap: 20px;
     margin-bottom: 16px;
-    position: relative;
   }
 
   .header-icon {
@@ -2254,9 +2261,6 @@
   }
 
   .edit-btn {
-    position: absolute;
-    top: 0;
-    right: 0;
     width: 36px;
     height: 36px;
     display: flex;
@@ -2266,6 +2270,7 @@
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
+    margin-left: auto;
     transition: all 150ms ease;
   }
 
