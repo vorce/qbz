@@ -3382,7 +3382,7 @@
         <span class="setting-label">{$t('settings.developer.forceDmabuf')}</span>
         <small class="setting-note">{$t('settings.developer.forceDmabufDesc')}</small>
       </div>
-      <Toggle checked={forceDmabuf} onChange={handleForceDmabufChange} />
+      <Toggle enabled={forceDmabuf} onchange={handleForceDmabufChange} />
     </div>
     <div class="setting-row">
       <div class="setting-info">
