@@ -1171,14 +1171,14 @@
 
 <ViewTransition duration={200} distance={12} direction="down">
 <div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'artists' && artistViewMode === 'sidepanel')} bind:this={scrollContainer} onscroll={handleFavoritesScroll}>
+  {#if onBack}
+    <button class="back-btn" onclick={onBack}>
+      <ArrowLeft size={16} />
+      <span>{$t('actions.back')}</span>
+    </button>
+  {/if}
   <!-- Header -->
   <div class="header">
-    {#if onBack}
-      <button class="back-btn" onclick={onBack}>
-        <ArrowLeft size={16} />
-        <span>{$t('actions.back')}</span>
-      </button>
-    {/if}
     <div
       class="header-icon"
       style={favoritesPreferences.icon_background ? `background: ${favoritesPreferences.icon_background};` : ''}
@@ -2154,18 +2154,15 @@
   }
 
   .back-btn {
-    position: absolute;
-    top: 0;
-    left: 0;
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 36px;
-    font-size: 13px;
+    gap: 8px;
+    font-size: 14px;
     color: var(--text-muted);
     background: none;
     border: none;
     cursor: pointer;
+    margin-bottom: 16px;
     padding: 0;
     transition: color 150ms ease;
   }
