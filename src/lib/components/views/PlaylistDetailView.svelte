@@ -18,6 +18,7 @@
     type OfflineStatus
   } from '$lib/stores/offlineStore';
   import { consumeContextTrackFocus, setPlaybackContext } from '$lib/stores/playbackContextStore';
+  import { saveScrollPosition, getSavedScrollPosition } from '$lib/stores/navigationStore';
   import { isTrackUnavailable, clearTrackUnavailable, subscribe as subscribeUnavailable } from '$lib/stores/unavailableTracksStore';
   import { isBlacklisted as isArtistBlacklisted } from '$lib/stores/artistBlacklistStore';
   import { showToast } from '$lib/stores/toastStore';
@@ -309,6 +310,14 @@
     // Subscribe to unavailable tracks store
     const unsubscribeUnavailable = subscribeUnavailable(() => {
       unavailableVersion++;
+    });
+
+    // Restore scroll position
+    requestAnimationFrame(() => {
+      const saved = getSavedScrollPosition('playlist');
+      if (scrollContainer && saved > 0) {
+        scrollContainer.scrollTop = saved;
+      }
     });
 
     return () => {
@@ -1581,7 +1590,7 @@
 </script>
 
 <ViewTransition duration={200} distance={12} direction="down">
-<div class="playlist-detail" bind:this={scrollContainer}>
+<div class="playlist-detail" bind:this={scrollContainer} onscroll={(e) => saveScrollPosition('playlist', (e.target as HTMLElement).scrollTop)}>
   <!-- Navigation Row -->
   <div class="nav-row">
     <button class="back-btn" onclick={onBack}>

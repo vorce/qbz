@@ -10,6 +10,7 @@
   import { getSearchState, setSearchState, subscribeSearchFocus, subscribeSearchQuery, setSearchQuery, type SearchResults, type SearchAllResults, type SearchTab, type SearchFilterType, type Playlist } from '$lib/stores/searchState';
   import { setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { togglePlay } from '$lib/stores/playerStore';
+  import { saveScrollPosition, getSavedScrollPosition } from '$lib/stores/navigationStore';
   import { t } from '$lib/i18n';
 
   let searchInput: HTMLInputElement | null = null;
@@ -30,6 +31,14 @@
     searchInput?.focus();
     calculateAlbumsPerPage();
     calculateArtistsPerPage();
+
+    // Restore scroll position
+    requestAnimationFrame(() => {
+      const saved = getSavedScrollPosition('search');
+      if (scrollContainer && saved > 0) {
+        scrollContainer.scrollTop = saved;
+      }
+    });
     window.addEventListener('resize', handleResize);
 
     // Auto-search if query is pre-filled (e.g., from performer link)
@@ -61,6 +70,7 @@
   function handleScroll(event: Event) {
     const target = event.target as HTMLDivElement;
     isScrolled = target.scrollTop > 60;
+    saveScrollPosition('search', target.scrollTop);
   }
 
   function handleResize() {
