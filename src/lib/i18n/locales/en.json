@@ -420,7 +420,7 @@
     "resamplingError": "ERROR: PipeWire is resampling",
     "resamplingDetail": "File: {trackRate} kHz → Hardware: {hwRate} kHz",
     "resamplingFix": "Fix: Configure PipeWire sample rate switching",
-    "dacBitPerfect": "DAC Passthrough: Bit-perfect",
+    "dacPassthroughActive": "DAC Passthrough: Active",
     "dacDisabled": "DAC Passthrough: Disabled",
     "exclusiveMode": "Exclusive Mode"
   },
@@ -510,6 +510,8 @@
       "exclusiveModeNotAvailable": "Exclusive mode is only available with ALSA Direct backend. PipeWire and PulseAudio are multiplexed audio servers and cannot provide true exclusive access.",
       "dacPassthrough": "DAC Passthrough",
       "dacPassthroughDesc": "Bypass system mixer for bit-perfect output",
+      "dacPassthroughNote": "Refers to decoded audio content. DAC displays may show transport format, not content resolution.",
+      "dacPassthroughDisabledDesc": "DAC Passthrough uses pw-metadata to force PipeWire sample rates. It is only compatible with the PipeWire backend.",
       "dacPassthroughExtendedDesc": "When enabled, overrides the quality setting above if your audio device doesn't support the selected sample rate. Prevents resampling to guarantee bit-perfect playback.",
       "audioBackend": "Audio Backend",
       "audioBackendDesc": "Choose audio system: Auto (recommended), PipeWire (modern), ALSA Direct (bit-perfect, exclusive), or PulseAudio (legacy).",

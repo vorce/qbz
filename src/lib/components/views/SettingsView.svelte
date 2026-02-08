@@ -585,9 +585,9 @@
       : null
   );
   let dacPassthroughDisabled = $derived(selectedBackend !== 'PipeWire');
-  let dacPassthroughTooltipOverride = $derived(
+  let dacPassthroughTooltipOverrideKey = $derived(
     dacPassthroughDisabled
-      ? 'DAC Passthrough uses pw-metadata to force PipeWire sample rates. It is only compatible with the PipeWire backend.'
+      ? 'settings.audio.dacPassthroughDisabledDesc'
       : null
   );
   let gaplessDisabled = $derived(dacPassthrough);
@@ -2339,10 +2339,13 @@
     <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{$t('settings.audio.dacPassthrough')}</span>
-        <span class="setting-desc">{dacPassthroughTooltipOverride ?? $t('settings.audio.dacPassthroughDesc')}</span>
+        <span class="setting-desc">{dacPassthroughTooltipOverrideKey ? $t(dacPassthroughTooltipOverrideKey) : $t('settings.audio.dacPassthroughDesc')}</span>
       </div>
       <Toggle enabled={dacPassthrough} onchange={handleDacPassthroughChange} disabled={dacPassthroughDisabled} />
     </div>
+    {#if dacPassthrough}
+    <small class="setting-note">{$t('settings.audio.dacPassthroughNote')}</small>
+    {/if}
     {#if isFlatpak && selectedBackend === 'PipeWire' && dacPassthrough}
     <div class="flatpak-warning">
       <div class="warning-icon">⚠️</div>

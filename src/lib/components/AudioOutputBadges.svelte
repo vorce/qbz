@@ -318,7 +318,7 @@
                     <br><span class="setting-help">{$t('audioBadges.resamplingFix')}</span>
                   {/if}
                 {:else if dacBadgeState === 'active'}
-                  ✓ {$t('audioBadges.dacBitPerfect')}
+                  ✓ {$t('audioBadges.dacPassthroughActive')}
                   {#if hardwareStatus?.hardware_sample_rate}
                     <br><span class="setting-detail">{$t('audioBadges.kHzNative', { values: { rate: (hardwareStatus.hardware_sample_rate / 1000).toFixed(1) } })}</span>
                   {/if}
