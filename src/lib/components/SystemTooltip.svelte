@@ -29,9 +29,14 @@
   });
 
   function handleEnter(e: PointerEvent) {
-    const el = (e.target as HTMLElement)?.closest?.('[title]') as HTMLElement | null;
+    const target = e.target as HTMLElement;
+    if (!target?.closest) return;
+
+    // Match elements with title (first hover) or data-sys-tooltip (subsequent hovers)
+    const el = (target.closest('[title]') || target.closest('[data-sys-tooltip]')) as HTMLElement | null;
     if (!el) return;
 
+    // On first hover, migrate title → data-sys-tooltip
     const titleText = el.getAttribute('title');
     if (titleText) {
       el.setAttribute('data-sys-tooltip', titleText);
