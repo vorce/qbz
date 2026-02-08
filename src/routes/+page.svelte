@@ -3278,6 +3278,7 @@
           />
         {:else}
           <FavoritesView
+            onBack={navGoBack}
             onAlbumClick={handleAlbumClick}
             onAlbumPlay={playAlbumById}
             onAlbumPlayNext={queueAlbumNextById}

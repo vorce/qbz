@@ -3,7 +3,7 @@
   import { onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
   import { t } from '$lib/i18n';
-  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library, CloudDownload, Shuffle, MoreHorizontal, PanelLeftClose, Loader2 } from 'lucide-svelte';
+  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library, CloudDownload, Shuffle, MoreHorizontal, PanelLeftClose, Loader2, ArrowLeft } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import QualityBadge from '../QualityBadge.svelte';
@@ -26,6 +26,7 @@
     type GenreFilterContext
   } from '$lib/stores/genreFilterStore';
   import type { FavoritesPreferences, QobuzAlbum } from '$lib/types';
+  import { saveScrollPosition, getSavedScrollPosition, getActiveView } from '$lib/stores/navigationStore';
 
   const GENRE_CONTEXT: GenreFilterContext = 'favorites';
 
@@ -71,6 +72,7 @@
   }
 
   interface Props {
+    onBack?: () => void;
     onAlbumClick?: (albumId: string) => void;
     onAlbumPlay?: (albumId: string) => void;
     onAlbumPlayNext?: (albumId: string) => void;
@@ -127,6 +129,7 @@
   }
 
   let {
+    onBack,
     onAlbumClick,
     onAlbumPlay,
     onAlbumPlayNext,
@@ -568,8 +571,21 @@
         activeTab = favoritesPreferences.tab_order[0] as TabType;
       }
       loadTabIfNeeded(activeTab);
+      // Restore scroll position after content loads
+      await tick();
+      requestAnimationFrame(() => {
+        const saved = getSavedScrollPosition(getActiveView());
+        if (scrollContainer && saved > 0) {
+          scrollContainer.scrollTop = saved;
+        }
+      });
     });
   });
+
+  function handleFavoritesScroll(e: Event) {
+    const target = e.target as HTMLElement;
+    saveScrollPosition(getActiveView(), target.scrollTop);
+  }
 
   async function loadFavoritesPreferences() {
     try {
@@ -1154,7 +1170,13 @@
 </script>
 
 <ViewTransition duration={200} distance={12} direction="down">
-<div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'artists' && artistViewMode === 'sidepanel')} bind:this={scrollContainer}>
+<div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'artists' && artistViewMode === 'sidepanel')} bind:this={scrollContainer} onscroll={handleFavoritesScroll}>
+  {#if onBack}
+    <button class="back-btn" onclick={onBack}>
+      <ArrowLeft size={16} />
+      <span>{$t('actions.back')}</span>
+    </button>
+  {/if}
   <!-- Header -->
   <div class="header">
     <div
@@ -2129,6 +2151,24 @@
     padding-bottom: 100px;
     overflow-y: auto;
     height: 100%;
+  }
+
+  .back-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin-bottom: 16px;
+    padding: 0;
+    transition: color 150ms ease;
+  }
+
+  .back-btn:hover {
+    color: var(--text-secondary);
   }
 
   /* Custom scrollbar */
