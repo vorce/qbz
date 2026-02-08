@@ -695,7 +695,7 @@
       if (type === 'tracks') {
         favoriteTracks = items as FavoriteTrack[];
         // Sync to local cache for other views
-        const trackIds = favoriteTracks.map(t => t.id);
+        const trackIds = favoriteTracks.map(trk => trk.id);
         void syncTrackCache(trackIds);
       } else if (type === 'albums') {
         favoriteAlbums = items as FavoriteAlbum[];
@@ -1041,32 +1041,32 @@
   }
 
   function buildFavoritesQueueTracks(tracks: FavoriteTrack[]) {
-    return tracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.performer?.name || 'Unknown Artist',
-      album: t.album?.title || 'Favorites',
-      duration_secs: t.duration,
-      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || '',
-      hires: t.hires ?? false,
-      bit_depth: t.maximum_bit_depth ?? null,
-      sample_rate: t.maximum_sampling_rate ?? null,
+    return tracks.map(trk => ({
+      id: trk.id,
+      title: trk.title,
+      artist: trk.performer?.name || 'Unknown Artist',
+      album: trk.album?.title || 'Favorites',
+      duration_secs: trk.duration,
+      artwork_url: trk.album?.image?.large || trk.album?.image?.thumbnail || trk.album?.image?.small || '',
+      hires: trk.hires ?? false,
+      bit_depth: trk.maximum_bit_depth ?? null,
+      sample_rate: trk.maximum_sampling_rate ?? null,
       is_local: false,
-      album_id: t.album?.id || null,
-      artist_id: t.performer?.id ?? null,
+      album_id: trk.album?.id || null,
+      artist_id: trk.performer?.id ?? null,
     }));
   }
 
   // Accessor functions for VirtualizedTrackList (adapts FavoriteTrack to expected interface)
-  const getFavoriteTrackId = (t: FavoriteTrack) => t.id;
-  const getFavoriteTrackNumber = (t: FavoriteTrack, idx: number) => t.track_number || idx + 1;
-  const getFavoriteTrackTitle = (t: FavoriteTrack) => t.title;
-  const getFavoriteTrackArtist = (t: FavoriteTrack) => t.performer?.name;
-  const getFavoriteTrackDuration = (t: FavoriteTrack) => t.duration;
-  const getFavoriteTrackAlbumKey = (t: FavoriteTrack) => t.album?.id;
-  const getFavoriteTrackAlbum = (t: FavoriteTrack) => t.album?.title;
-  const getFavoriteArtistId = (t: FavoriteTrack) => t.performer?.id;
-  const getFavoriteAlbumId = (t: FavoriteTrack) => t.album?.id;
+  const getFavoriteTrackId = (trk: FavoriteTrack) => trk.id;
+  const getFavoriteTrackNumber = (trk: FavoriteTrack, idx: number) => trk.track_number || idx + 1;
+  const getFavoriteTrackTitle = (trk: FavoriteTrack) => trk.title;
+  const getFavoriteTrackArtist = (trk: FavoriteTrack) => trk.performer?.name;
+  const getFavoriteTrackDuration = (trk: FavoriteTrack) => trk.duration;
+  const getFavoriteTrackAlbumKey = (trk: FavoriteTrack) => trk.album?.id;
+  const getFavoriteTrackAlbum = (trk: FavoriteTrack) => trk.album?.title;
+  const getFavoriteArtistId = (trk: FavoriteTrack) => trk.performer?.id;
+  const getFavoriteAlbumId = (trk: FavoriteTrack) => trk.album?.id;
 
   // VirtualizedTrackList requires this but we don't have disc info in favorites
   function buildFavoritesAlbumSections(tracks: FavoriteTrack[]) {
@@ -1104,7 +1104,7 @@
   }
 
   async function handleTrackClick(track: FavoriteTrack, index: number) {
-    const trackIds = filteredTracks.map(t => t.id);
+    const trackIds = filteredTracks.map(trk => trk.id);
     await setFavoritesContext(trackIds, index);
 
     try {
@@ -1123,7 +1123,7 @@
 
     try {
       await setFavoritesQueue(0);
-      await setFavoritesContext(filteredTracks.map(t => t.id), 0);
+      await setFavoritesContext(filteredTracks.map(trk => trk.id), 0);
       onTrackPlay(buildDisplayTrack(filteredTracks[0], 0));
     } catch (err) {
       console.error('Failed to set queue:', err);
@@ -1138,7 +1138,7 @@
       const shuffled = [...filteredTracks].sort(() => Math.random() - 0.5);
       const queueTracks = buildFavoritesQueueTracks(shuffled);
       await invoke('set_queue', { tracks: queueTracks, startIndex: 0 });
-      await setFavoritesContext(shuffled.map(t => t.id), 0);
+      await setFavoritesContext(shuffled.map(trk => trk.id), 0);
       onTrackPlay(buildDisplayTrack(shuffled[0], 0));
     } catch (err) {
       console.error('Failed to shuffle queue:', err);
@@ -1573,8 +1573,8 @@
               getQualityBadge={getQualityLabel}
               buildAlbumSections={buildFavoritesAlbumSections}
               onTrackPlay={handleVirtualizedTrackPlay}
-              onTrackPlayNext={onTrackPlayNext ? (t) => onTrackPlayNext(buildDisplayTrackFromFavorite(t)) : undefined}
-              onTrackPlayLater={onTrackPlayLater ? (t) => onTrackPlayLater(buildDisplayTrackFromFavorite(t)) : undefined}
+              onTrackPlayNext={onTrackPlayNext ? (trk) => onTrackPlayNext(buildDisplayTrackFromFavorite(trk)) : undefined}
+              onTrackPlayLater={onTrackPlayLater ? (trk) => onTrackPlayLater(buildDisplayTrackFromFavorite(trk)) : undefined}
               onTrackAddToPlaylist={onTrackAddToPlaylist}
               getTrackId={getFavoriteTrackId}
               getTrackNumber={getFavoriteTrackNumber}
@@ -1591,14 +1591,14 @@
               hideFavorite={false}
               isFavoriteOverride={true}
               getOfflineCacheStatus={getTrackOfflineCacheStatus}
-              onDownload={onTrackDownload ? (t) => onTrackDownload(buildDisplayTrackFromFavorite(t)) : undefined}
+              onDownload={onTrackDownload ? (trk) => onTrackDownload(buildDisplayTrackFromFavorite(trk)) : undefined}
               onRemoveDownload={onTrackRemoveDownload}
               onShareQobuz={onTrackShareQobuz}
-              onShareSonglink={onTrackShareSonglink ? (t) => onTrackShareSonglink(buildDisplayTrackFromFavorite(t)) : undefined}
+              onShareSonglink={onTrackShareSonglink ? (trk) => onTrackShareSonglink(buildDisplayTrackFromFavorite(trk)) : undefined}
               onGoToAlbum={onTrackGoToAlbum}
               onGoToArtist={onTrackGoToArtist}
               onShowInfo={onTrackShowInfo}
-              onReDownload={onTrackReDownload ? (t) => onTrackReDownload(buildDisplayTrackFromFavorite(t)) : undefined}
+              onReDownload={onTrackReDownload ? (trk) => onTrackReDownload(buildDisplayTrackFromFavorite(trk)) : undefined}
             />
           </div>
         </div>

@@ -907,19 +907,19 @@
     if (!album?.tracks?.length) return;
 
     const artwork = album.artwork || '';
-    const queueTracks: BackendQueueTrack[] = album.tracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.artist || album.artist || 'Unknown Artist',
+    const queueTracks: BackendQueueTrack[] = album.tracks.map(trk => ({
+      id: trk.id,
+      title: trk.title,
+      artist: trk.artist || album.artist || 'Unknown Artist',
       album: album.title || '',
-      duration_secs: t.durationSeconds,
+      duration_secs: trk.durationSeconds,
       artwork_url: artwork || null,
-      hires: t.hires ?? false,
-      bit_depth: t.bitDepth ?? null,
-      sample_rate: t.samplingRate ?? null,
+      hires: trk.hires ?? false,
+      bit_depth: trk.bitDepth ?? null,
+      sample_rate: trk.samplingRate ?? null,
       is_local: false,
       album_id: album.id,
-      artist_id: t.artistId ?? album.artistId
+      artist_id: trk.artistId ?? album.artistId
     }));
 
     await setQueue(queueTracks, 0, true);
@@ -951,20 +951,20 @@
 
     const artwork = album.artwork || '';
     for (let i = album.tracks.length - 1; i >= 0; i--) {
-      const t = album.tracks[i];
+      const trk = album.tracks[i];
       queueTrackNext({
-        id: t.id,
-        title: t.title,
-        artist: t.artist || album.artist || 'Unknown Artist',
+        id: trk.id,
+        title: trk.title,
+        artist: trk.artist || album.artist || 'Unknown Artist',
         album: album.title || '',
-        duration_secs: t.durationSeconds,
+        duration_secs: trk.durationSeconds,
         artwork_url: artwork || null,
-        hires: t.hires ?? false,
-        bit_depth: t.bitDepth ?? null,
-        sample_rate: t.samplingRate ?? null,
+        hires: trk.hires ?? false,
+        bit_depth: trk.bitDepth ?? null,
+        sample_rate: trk.samplingRate ?? null,
         is_local: false,
         album_id: album.id,
-        artist_id: t.artistId ?? album.artistId
+        artist_id: trk.artistId ?? album.artistId
       });
     }
     showToast($t('toast.playingTracksNext', { values: { count: album.tracks.length } }), 'success');
@@ -975,19 +975,19 @@
     if (!album?.tracks?.length) return;
 
     const artwork = album.artwork || '';
-    const queueTracks: BackendQueueTrack[] = album.tracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.artist || album.artist || 'Unknown Artist',
+    const queueTracks: BackendQueueTrack[] = album.tracks.map(trk => ({
+      id: trk.id,
+      title: trk.title,
+      artist: trk.artist || album.artist || 'Unknown Artist',
       album: album.title || '',
-      duration_secs: t.durationSeconds,
+      duration_secs: trk.durationSeconds,
       artwork_url: artwork || null,
-      hires: t.hires ?? false,
-      bit_depth: t.bitDepth ?? null,
-      sample_rate: t.samplingRate ?? null,
+      hires: trk.hires ?? false,
+      bit_depth: trk.bitDepth ?? null,
+      sample_rate: trk.samplingRate ?? null,
       is_local: false,
       album_id: album.id,
-      artist_id: t.artistId ?? album.artistId
+      artist_id: trk.artistId ?? album.artistId
     }));
 
     const success = await addTracksToQueue(queueTracks);
@@ -1107,19 +1107,19 @@
     }
 
     const tracks = playlist.tracks.items;
-    const queueTracks: BackendQueueTrack[] = tracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.performer?.name || 'Unknown Artist',
-      album: t.album?.title || '',
-      duration_secs: t.duration,
-      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || null,
-      hires: t.hires_streamable ?? false,
-      bit_depth: t.maximum_bit_depth ?? null,
-      sample_rate: t.maximum_sampling_rate ?? null,
+    const queueTracks: BackendQueueTrack[] = tracks.map(trk => ({
+      id: trk.id,
+      title: trk.title,
+      artist: trk.performer?.name || 'Unknown Artist',
+      album: trk.album?.title || '',
+      duration_secs: trk.duration,
+      artwork_url: trk.album?.image?.large || trk.album?.image?.thumbnail || trk.album?.image?.small || null,
+      hires: trk.hires_streamable ?? false,
+      bit_depth: trk.maximum_bit_depth ?? null,
+      sample_rate: trk.maximum_sampling_rate ?? null,
       is_local: false,
-      album_id: t.album?.id,
-      artist_id: t.performer?.id
+      album_id: trk.album?.id,
+      artist_id: trk.performer?.id
     }));
 
     await setQueue(queueTracks, 0);
@@ -1157,20 +1157,20 @@
     const tracks = playlist.tracks.items;
     // Add in reverse order so they play in correct sequence
     for (let i = tracks.length - 1; i >= 0; i--) {
-      const t = tracks[i];
+      const trk = tracks[i];
       queueTrackNext({
-        id: t.id,
-        title: t.title,
-        artist: t.performer?.name || 'Unknown Artist',
-        album: t.album?.title || '',
-        duration_secs: t.duration,
-        artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || null,
-        hires: t.hires_streamable ?? false,
-        bit_depth: t.maximum_bit_depth ?? null,
-        sample_rate: t.maximum_sampling_rate ?? null,
+        id: trk.id,
+        title: trk.title,
+        artist: trk.performer?.name || 'Unknown Artist',
+        album: trk.album?.title || '',
+        duration_secs: trk.duration,
+        artwork_url: trk.album?.image?.large || trk.album?.image?.thumbnail || trk.album?.image?.small || null,
+        hires: trk.hires_streamable ?? false,
+        bit_depth: trk.maximum_bit_depth ?? null,
+        sample_rate: trk.maximum_sampling_rate ?? null,
         is_local: false,
-        album_id: t.album?.id,
-        artist_id: t.performer?.id
+        album_id: trk.album?.id,
+        artist_id: trk.performer?.id
       });
     }
     showToast($t('toast.playingTracksNext', { values: { count: tracks.length } }), 'success');
@@ -1184,19 +1184,19 @@
     }
 
     const tracks = playlist.tracks.items;
-    const queueTracks: BackendQueueTrack[] = tracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.performer?.name || 'Unknown Artist',
-      album: t.album?.title || '',
-      duration_secs: t.duration,
-      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || null,
-      hires: t.hires_streamable ?? false,
-      bit_depth: t.maximum_bit_depth ?? null,
-      sample_rate: t.maximum_sampling_rate ?? null,
+    const queueTracks: BackendQueueTrack[] = tracks.map(trk => ({
+      id: trk.id,
+      title: trk.title,
+      artist: trk.performer?.name || 'Unknown Artist',
+      album: trk.album?.title || '',
+      duration_secs: trk.duration,
+      artwork_url: trk.album?.image?.large || trk.album?.image?.thumbnail || trk.album?.image?.small || null,
+      hires: trk.hires_streamable ?? false,
+      bit_depth: trk.maximum_bit_depth ?? null,
+      sample_rate: trk.maximum_sampling_rate ?? null,
       is_local: false,
-      album_id: t.album?.id,
-      artist_id: t.performer?.id
+      album_id: trk.album?.id,
+      artist_id: trk.performer?.id
     }));
 
     const success = await addTracksToQueue(queueTracks);
@@ -1270,8 +1270,8 @@
     // ALWAYS create context when playing from an album
     // The setting only affects menu options visibility, not implicit behavior
     if (selectedAlbum?.tracks) {
-      const trackIndex = selectedAlbum.tracks.findIndex(t => t.id === track.id);
-      const trackIds = selectedAlbum.tracks.map(t => t.id);
+      const trackIndex = selectedAlbum.tracks.findIndex(trk => trk.id === track.id);
+      const trackIds = selectedAlbum.tracks.map(trk => trk.id);
       
       console.log('[Album] Creating context with', trackIds.length, 'tracks, starting at', trackIndex);
       await setPlaybackContext(
@@ -1299,29 +1299,29 @@
       console.log('[Album Queue] Building queue from', selectedAlbum.tracks.length, 'album tracks');
 
       // Filter out blacklisted tracks
-      const playableTracks = selectedAlbum.tracks.filter(t => {
-        const artistId = t.artistId ?? selectedAlbum.artistId;
+      const playableTracks = selectedAlbum.tracks.filter(trk => {
+        const artistId = trk.artistId ?? selectedAlbum.artistId;
         return !artistId || !isArtistBlacklisted(artistId);
       });
 
-      const trackIndex = playableTracks.findIndex(t => t.id === track.id);
-      const queueTracks: BackendQueueTrack[] = playableTracks.map(t => ({
-        id: t.id,
-        title: t.title,
-        artist: t.artist || selectedAlbum?.artist || 'Unknown Artist',
+      const trackIndex = playableTracks.findIndex(trk => trk.id === track.id);
+      const queueTracks: BackendQueueTrack[] = playableTracks.map(trk => ({
+        id: trk.id,
+        title: trk.title,
+        artist: trk.artist || selectedAlbum?.artist || 'Unknown Artist',
         album: selectedAlbum?.title || '',
-        duration_secs: t.durationSeconds,
+        duration_secs: trk.durationSeconds,
         artwork_url: artwork || null,
-        hires: t.hires ?? false,
-        bit_depth: t.bitDepth ?? null,
-        sample_rate: t.samplingRate ?? null,
+        hires: trk.hires ?? false,
+        bit_depth: trk.bitDepth ?? null,
+        sample_rate: trk.samplingRate ?? null,
         is_local: false,
         album_id: selectedAlbum?.id,
-        artist_id: t.artistId ?? selectedAlbum?.artistId
+        artist_id: trk.artistId ?? selectedAlbum?.artistId
       }));
 
       console.log('[Album Queue] Mapped to', queueTracks.length, 'queue tracks (filtered), startIndex:', trackIndex);
-      console.log('[Album Queue] Track IDs:', queueTracks.map(t => t.id));
+      console.log('[Album Queue] Track IDs:', queueTracks.map(trk => trk.id));
 
       // Set the queue starting at the clicked track
       await setQueue(queueTracks, trackIndex >= 0 ? trackIndex : 0, true);
@@ -1544,7 +1544,7 @@
       }
 
       const allTracks = [queueState.current_track, ...queueState.upcoming].filter(Boolean) as BackendQueueTrack[];
-      const trackIndex = allTracks.findIndex(t => String(t.id) === trackId);
+      const trackIndex = allTracks.findIndex(trk => String(trk.id) === trackId);
 
       if (trackIndex >= 0) {
         // If it's the current track (index 0), just ensure it's playing
@@ -1640,7 +1640,7 @@
 
       // Find the track in history
       const numericId = parseInt(trackId, 10);
-      const historyTrack = queueState.history.find(t => t.id === numericId);
+      const historyTrack = queueState.history.find(trk => trk.id === numericId);
       if (!historyTrack) {
         showToast($t('toast.trackNotInHistory'), 'error');
         return;
@@ -1668,8 +1668,8 @@
   async function handlePlayAllAlbum() {
     if (!selectedAlbum?.tracks?.length) return;
     // Find first non-blacklisted track
-    const firstPlayableTrack = selectedAlbum.tracks.find(t => {
-      const artistId = t.artistId ?? selectedAlbum.artistId;
+    const firstPlayableTrack = selectedAlbum.tracks.find(trk => {
+      const artistId = trk.artistId ?? selectedAlbum.artistId;
       return !artistId || !isArtistBlacklisted(artistId);
     });
     if (!firstPlayableTrack) return;
@@ -1681,8 +1681,8 @@
     if (!selectedAlbum?.tracks?.length) return;
 
     // Filter out blacklisted tracks
-    const playableTracks = selectedAlbum.tracks.filter(t => {
-      const artistId = t.artistId ?? selectedAlbum.artistId;
+    const playableTracks = selectedAlbum.tracks.filter(trk => {
+      const artistId = trk.artistId ?? selectedAlbum.artistId;
       return !artistId || !isArtistBlacklisted(artistId);
     });
 
@@ -1714,8 +1714,8 @@
     if (!selectedAlbum?.tracks?.length) return;
 
     // Filter out blacklisted tracks
-    const playableTracks = selectedAlbum.tracks.filter(t => {
-      const artistId = t.artistId ?? selectedAlbum.artistId;
+    const playableTracks = selectedAlbum.tracks.filter(trk => {
+      const artistId = trk.artistId ?? selectedAlbum.artistId;
       return !artistId || !isArtistBlacklisted(artistId);
     });
 
@@ -1724,20 +1724,20 @@
     const artwork = selectedAlbum.artwork || '';
     // Add in reverse order so first track ends up right after current
     for (let i = playableTracks.length - 1; i >= 0; i--) {
-      const t = playableTracks[i];
+      const trk = playableTracks[i];
       queueTrackNext({
-        id: t.id,
-        title: t.title,
-        artist: t.artist || selectedAlbum?.artist || 'Unknown Artist',
+        id: trk.id,
+        title: trk.title,
+        artist: trk.artist || selectedAlbum?.artist || 'Unknown Artist',
         album: selectedAlbum?.title || '',
-        duration_secs: t.durationSeconds,
+        duration_secs: trk.durationSeconds,
         artwork_url: artwork || null,
-        hires: t.hires ?? false,
-        bit_depth: t.bitDepth ?? null,
-        sample_rate: t.samplingRate ?? null,
+        hires: trk.hires ?? false,
+        bit_depth: trk.bitDepth ?? null,
+        sample_rate: trk.samplingRate ?? null,
         is_local: false,
         album_id: selectedAlbum?.id,
-        artist_id: t.artistId ?? selectedAlbum?.artistId
+        artist_id: trk.artistId ?? selectedAlbum?.artistId
       });
     }
     showToast($t('toast.playingTracksNext', { values: { count: playableTracks.length } }), 'success');
@@ -1748,27 +1748,27 @@
     if (!selectedAlbum?.tracks?.length) return;
 
     // Filter out blacklisted tracks
-    const playableTracks = selectedAlbum.tracks.filter(t => {
-      const artistId = t.artistId ?? selectedAlbum.artistId;
+    const playableTracks = selectedAlbum.tracks.filter(trk => {
+      const artistId = trk.artistId ?? selectedAlbum.artistId;
       return !artistId || !isArtistBlacklisted(artistId);
     });
 
     if (playableTracks.length === 0) return;
 
     const artwork = selectedAlbum.artwork || '';
-    const queueTracks: BackendQueueTrack[] = playableTracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.artist || selectedAlbum?.artist || 'Unknown Artist',
+    const queueTracks: BackendQueueTrack[] = playableTracks.map(trk => ({
+      id: trk.id,
+      title: trk.title,
+      artist: trk.artist || selectedAlbum?.artist || 'Unknown Artist',
       album: selectedAlbum?.title || '',
-      duration_secs: t.durationSeconds,
+      duration_secs: trk.durationSeconds,
       artwork_url: artwork || null,
-      hires: t.hires ?? false,
-      bit_depth: t.bitDepth ?? null,
-      sample_rate: t.samplingRate ?? null,
+      hires: trk.hires ?? false,
+      bit_depth: trk.bitDepth ?? null,
+      sample_rate: trk.samplingRate ?? null,
       is_local: false,
       album_id: selectedAlbum?.id,
-      artist_id: t.artistId ?? selectedAlbum?.artistId
+      artist_id: trk.artistId ?? selectedAlbum?.artistId
     }));
 
     const success = await addTracksToQueue(queueTracks);
@@ -1786,7 +1786,7 @@
 
   function addAlbumToPlaylist(album: AlbumDetail | null) {
     if (!album?.tracks?.length) return;
-    const trackIds = album.tracks.map(t => t.id);
+    const trackIds = album.tracks.map(trk => trk.id);
     openAddToPlaylist(trackIds);
   }
 
@@ -2258,19 +2258,19 @@
         console.log('[Session] Restoring previous session...');
 
         // Restore queue
-        const tracks: BackendQueueTrack[] = session.queue_tracks.map(t => ({
-          id: t.id,
-          title: t.title,
-          artist: t.artist,
-          album: t.album,
-          duration_secs: t.duration_secs,
-          artwork_url: t.artwork_url,
-          hires: t.hires ?? false,
-          bit_depth: t.bit_depth ?? null,
-          sample_rate: t.sample_rate ?? null,
-          is_local: t.is_local ?? false,
-          album_id: t.album_id ?? null,
-          artist_id: t.artist_id ?? null
+        const tracks: BackendQueueTrack[] = session.queue_tracks.map(trk => ({
+          id: trk.id,
+          title: trk.title,
+          artist: trk.artist,
+          album: trk.album,
+          duration_secs: trk.duration_secs,
+          artwork_url: trk.artwork_url,
+          hires: trk.hires ?? false,
+          bit_depth: trk.bit_depth ?? null,
+          sample_rate: trk.sample_rate ?? null,
+          is_local: trk.is_local ?? false,
+          album_id: trk.album_id ?? null,
+          artist_id: trk.artist_id ?? null
         }));
 
         await setQueue(tracks, session.current_index ?? 0, true);
@@ -2942,13 +2942,13 @@
       }
 
       if (state.history) {
-        historyTracks = state.history.map(t => ({
-          id: String(t.id),
-          artwork: t.artwork_url || '',
-          title: t.title,
-          artist: t.artist,
-          duration: formatDuration(t.duration_secs),
-          trackId: t.id
+        historyTracks = state.history.map(trk => ({
+          id: String(trk.id),
+          artwork: trk.artwork_url || '',
+          title: trk.title,
+          artist: trk.artist,
+          duration: formatDuration(trk.duration_secs),
+          trackId: trk.id
         }));
       }
     }
@@ -3626,7 +3626,7 @@
       onTrackPlay={(trackCredits) => {
         // Find the corresponding track in the selected album and play it
         if (selectedAlbum?.tracks) {
-          const track = selectedAlbum.tracks.find(t => t.id === trackCredits.id);
+          const track = selectedAlbum.tracks.find(trk => trk.id === trackCredits.id);
           if (track) {
             handleAlbumTrackPlay(track);
           }

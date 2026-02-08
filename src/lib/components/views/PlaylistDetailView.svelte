@@ -370,7 +370,7 @@
     }
 
     try {
-      const qobuzTrackIds = tracks.filter(t => !t.isLocal).map(t => t.id);
+      const qobuzTrackIds = tracks.filter(trk => !trk.isLocal).map(trk => trk.id);
       if (qobuzTrackIds.length === 0) {
         tracksWithLocalCopies = new Set();
         return;
@@ -436,7 +436,7 @@
             ...track,
             playlist_position: pending.trackIds.length + idx // Local tracks come after Qobuz tracks
           }));
-          localTracksMap = new Map(localTracks.map(t => [t.id, t]));
+          localTracksMap = new Map(localTracks.map(trk => [trk.id, trk]));
         } else {
           localTracks = [];
           localTracksMap = new Map();
@@ -445,7 +445,7 @@
         // Regular playlist - use existing command
         const result = await invoke<PlaylistLocalTrack[]>('playlist_get_local_tracks_with_position', { playlistId });
         localTracks = result;
-        localTracksMap = new Map(result.map(t => [t.id, t]));
+        localTracksMap = new Map(result.map(trk => [trk.id, trk]));
       }
     } catch (err) {
       console.error('Failed to load local tracks:', err);
@@ -704,15 +704,15 @@
     const trackIds: [number, boolean][] = [];
 
     // Add Qobuz tracks first (in original order)
-    for (const t of allTracks) {
-      if (!t.isLocal) {
-        trackIds.push([t.id, false]);
+    for (const trk of allTracks) {
+      if (!trk.isLocal) {
+        trackIds.push([trk.id, false]);
       }
     }
 
     // Add local tracks (by their position)
-    for (const t of localTracksInPlaylist) {
-      trackIds.push([t.id, true]);
+    for (const trk of localTracksInPlaylist) {
+      trackIds.push([trk.id, true]);
     }
 
     // Save to backend
@@ -880,9 +880,9 @@
     if (selectedIndices[0] === 0) return;
 
     // Build new order: swap each selected with the one above
-    const currentOrder = displayTracks.map(t => ({
-      id: t.isLocal ? Math.abs(t.id) : t.id,
-      isLocal: t.isLocal ?? false
+    const currentOrder = displayTracks.map(trk => ({
+      id: trk.isLocal ? Math.abs(trk.id) : trk.id,
+      isLocal: trk.isLocal ?? false
     }));
 
     // Move from top to bottom to avoid conflicts
@@ -923,9 +923,9 @@
     if (selectedIndices[0] === displayTracks.length - 1) return;
 
     // Build new order: swap each selected with the one below
-    const currentOrder = displayTracks.map(t => ({
-      id: t.isLocal ? Math.abs(t.id) : t.id,
-      isLocal: t.isLocal ?? false
+    const currentOrder = displayTracks.map(trk => ({
+      id: trk.isLocal ? Math.abs(trk.id) : trk.id,
+      isLocal: trk.isLocal ?? false
     }));
 
     // Move from bottom to top to avoid conflicts
@@ -1037,10 +1037,10 @@
     let filtered = result;
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = result.filter(t =>
-        t.title.toLowerCase().includes(query) ||
-        (t.artist?.toLowerCase().includes(query)) ||
-        (t.album?.toLowerCase().includes(query))
+      filtered = result.filter(trk =>
+        trk.title.toLowerCase().includes(query) ||
+        (trk.artist?.toLowerCase().includes(query)) ||
+        (trk.album?.toLowerCase().includes(query))
       );
     }
 
@@ -1135,30 +1135,30 @@
 
   function buildQueueTracks(tracks: DisplayTrack[]) {
     // Filter out blacklisted artists before building queue
-    const filteredTracks = tracks.filter(t => {
-      if (t.isLocal) return true; // Local tracks are never blacklisted
-      if (!t.artistId) return true; // No artist ID, can't check blacklist
-      return !isArtistBlacklisted(t.artistId);
+    const filteredTracks = tracks.filter(trk => {
+      if (trk.isLocal) return true; // Local tracks are never blacklisted
+      if (!trk.artistId) return true; // No artist ID, can't check blacklist
+      return !isArtistBlacklisted(trk.artistId);
     });
 
-    const queueTracks = filteredTracks.map(t => ({
-      id: t.isLocal ? Math.abs(t.id) : t.id,
-      title: t.title,
-      artist: t.artist || 'Unknown Artist',
-      album: t.album || playlist?.name || 'Playlist',
-      duration_secs: t.durationSeconds,
-      artwork_url: t.albumArt || getPlaylistImage(),
-      hires: t.hires ?? false,
-      bit_depth: t.bitDepth ?? null,
-      sample_rate: t.samplingRate != null ? (t.isLocal ? t.samplingRate * 1000 : t.samplingRate) : null,
-      is_local: t.isLocal ?? false,
-      album_id: t.isLocal ? null : (t.albumId || null),
-      artist_id: t.isLocal ? null : (t.artistId ?? null),
+    const queueTracks = filteredTracks.map(trk => ({
+      id: trk.isLocal ? Math.abs(trk.id) : trk.id,
+      title: trk.title,
+      artist: trk.artist || 'Unknown Artist',
+      album: trk.album || playlist?.name || 'Playlist',
+      duration_secs: trk.durationSeconds,
+      artwork_url: trk.albumArt || getPlaylistImage(),
+      hires: trk.hires ?? false,
+      bit_depth: trk.bitDepth ?? null,
+      sample_rate: trk.samplingRate != null ? (trk.isLocal ? trk.samplingRate * 1000 : trk.samplingRate) : null,
+      is_local: trk.isLocal ?? false,
+      album_id: trk.isLocal ? null : (trk.albumId || null),
+      artist_id: trk.isLocal ? null : (trk.artistId ?? null),
     }));
 
     const localIds = filteredTracks
-      .filter(t => t.isLocal)
-      .map(t => Math.abs(t.id));
+      .filter(trk => trk.isLocal)
+      .map(trk => Math.abs(trk.id));
 
     return { queueTracks, localIds };
   }
@@ -1177,9 +1177,9 @@
     // Create playlist context before playing
     if (playlist) {
       const trackIds = displayTracks
-        .filter(t => !t.isLocal) // Only Qobuz tracks in context
-        .map(t => t.id);
-      
+        .filter(trk => !trk.isLocal) // Only Qobuz tracks in context
+        .map(trk => trk.id);
+
       const contextIndex = trackIds.indexOf(track.id);
       
       if (contextIndex >= 0 && trackIds.length > 0) {
@@ -1288,7 +1288,7 @@
 
     try {
       // Get the current position of the track being replaced
-      const currentIndex = displayTracks.findIndex(t => t.id === trackToReplace!.id);
+      const currentIndex = displayTracks.findIndex(trk => trk.id === trackToReplace!.id);
 
       // Remove the old track
       await invoke('remove_tracks_from_playlist', {
@@ -1416,10 +1416,10 @@
     if (allTracks.length === 0) return;
 
     // Filter out blacklisted tracks
-    const playableTracks = allTracks.filter(t => {
-      if (t.isLocal) return true;
-      if (!t.artistId) return true;
-      return !isArtistBlacklisted(t.artistId);
+    const playableTracks = allTracks.filter(trk => {
+      if (trk.isLocal) return true;
+      if (!trk.artistId) return true;
+      return !isArtistBlacklisted(trk.artistId);
     });
 
     if (playableTracks.length === 0) return;
@@ -1427,8 +1427,8 @@
     // Set playback context for playlist
     if (playlist) {
       const trackIds = playableTracks
-        .filter(t => !t.isLocal) // Only Qobuz tracks in context
-        .map(t => t.id);
+        .filter(trk => !trk.isLocal) // Only Qobuz tracks in context
+        .map(trk => trk.id);
 
       if (trackIds.length > 0) {
         await setPlaybackContext(
@@ -1449,7 +1449,7 @@
       // Play first playable track (handle local vs Qobuz)
       const firstTrack = playableTracks[0];
       if (firstTrack.isLocal && onLocalTrackPlay) {
-        const localTrack = localTracks.find(t => t.id === Math.abs(firstTrack.id));
+        const localTrack = localTracks.find(trk => trk.id === Math.abs(firstTrack.id));
         if (localTrack) onLocalTrackPlay(localTrack);
       } else if (onTrackPlay) {
         onTrackPlay(firstTrack);
@@ -1493,37 +1493,37 @@
     if (allTracks.length === 0) return;
 
     // Filter out blacklisted tracks
-    const playableTracks = allTracks.filter(t => {
-      if (t.isLocal) return true;
-      if (!t.artistId) return true;
-      return !isArtistBlacklisted(t.artistId);
+    const playableTracks = allTracks.filter(trk => {
+      if (trk.isLocal) return true;
+      if (!trk.artistId) return true;
+      return !isArtistBlacklisted(trk.artistId);
     });
 
     if (playableTracks.length === 0) return;
 
     // Collect local track IDs to add to set
     const localIds = playableTracks
-      .filter(t => t.isLocal)
-      .map(t => Math.abs(t.id));
+      .filter(trk => trk.isLocal)
+      .map(trk => Math.abs(trk.id));
 
     // Add in reverse order so first track ends up right after current
     for (let i = playableTracks.length - 1; i >= 0; i--) {
-      const t = playableTracks[i];
+      const trk = playableTracks[i];
       try {
         await invoke('add_to_queue_next', {
           track: {
-            id: t.isLocal ? Math.abs(t.id) : t.id,
-            title: t.title,
-            artist: t.artist || 'Unknown Artist',
-            album: t.album || playlist?.name || 'Playlist',
-            duration_secs: t.durationSeconds,
-            artwork_url: t.albumArt || getPlaylistImage(),
-            hires: t.hires ?? false,
-            bit_depth: t.bitDepth ?? null,
-            sample_rate: t.samplingRate != null ? (t.isLocal ? t.samplingRate * 1000 : t.samplingRate) : null,
-            is_local: t.isLocal ?? false,
-            album_id: t.isLocal ? null : (t.albumId || null),
-            artist_id: t.isLocal ? null : (t.artistId ?? null),
+            id: trk.isLocal ? Math.abs(trk.id) : trk.id,
+            title: trk.title,
+            artist: trk.artist || 'Unknown Artist',
+            album: trk.album || playlist?.name || 'Playlist',
+            duration_secs: trk.durationSeconds,
+            artwork_url: trk.albumArt || getPlaylistImage(),
+            hires: trk.hires ?? false,
+            bit_depth: trk.bitDepth ?? null,
+            sample_rate: trk.samplingRate != null ? (trk.isLocal ? trk.samplingRate * 1000 : trk.samplingRate) : null,
+            is_local: trk.isLocal ?? false,
+            album_id: trk.isLocal ? null : (trk.albumId || null),
+            artist_id: trk.isLocal ? null : (trk.artistId ?? null),
           }
         });
       } catch (err) {
@@ -1542,33 +1542,33 @@
     if (allTracks.length === 0) return;
 
     // Filter out blacklisted tracks
-    const playableTracks = allTracks.filter(t => {
-      if (t.isLocal) return true;
-      if (!t.artistId) return true;
-      return !isArtistBlacklisted(t.artistId);
+    const playableTracks = allTracks.filter(trk => {
+      if (trk.isLocal) return true;
+      if (!trk.artistId) return true;
+      return !isArtistBlacklisted(trk.artistId);
     });
 
     if (playableTracks.length === 0) return;
 
-    const queueTracks = playableTracks.map(t => ({
-      id: t.isLocal ? Math.abs(t.id) : t.id,
-      title: t.title,
-      artist: t.artist || 'Unknown Artist',
-      album: t.album || playlist?.name || 'Playlist',
-      duration_secs: t.durationSeconds,
-      artwork_url: t.albumArt || getPlaylistImage(),
-      hires: t.hires ?? false,
-      bit_depth: t.bitDepth ?? null,
-      sample_rate: t.samplingRate != null ? (t.isLocal ? t.samplingRate * 1000 : t.samplingRate) : null,
-      is_local: t.isLocal ?? false,
-      album_id: t.isLocal ? null : (t.albumId || null),
-      artist_id: t.isLocal ? null : (t.artistId ?? null),
+    const queueTracks = playableTracks.map(trk => ({
+      id: trk.isLocal ? Math.abs(trk.id) : trk.id,
+      title: trk.title,
+      artist: trk.artist || 'Unknown Artist',
+      album: trk.album || playlist?.name || 'Playlist',
+      duration_secs: trk.durationSeconds,
+      artwork_url: trk.albumArt || getPlaylistImage(),
+      hires: trk.hires ?? false,
+      bit_depth: trk.bitDepth ?? null,
+      sample_rate: trk.samplingRate != null ? (trk.isLocal ? trk.samplingRate * 1000 : trk.samplingRate) : null,
+      is_local: trk.isLocal ?? false,
+      album_id: trk.isLocal ? null : (trk.albumId || null),
+      artist_id: trk.isLocal ? null : (trk.artistId ?? null),
     }));
 
     // Collect local track IDs
     const localIds = playableTracks
-      .filter(t => t.isLocal)
-      .map(t => Math.abs(t.id));
+      .filter(trk => trk.isLocal)
+      .map(trk => Math.abs(trk.id));
 
     try {
       await invoke('add_tracks_to_queue', { tracks: queueTracks });
@@ -1633,7 +1633,7 @@
         {:else}
           <div class="collage-wrapper">
             <PlaylistCollage
-              artworks={tracks.slice(0, 4).map(t => t.albumArt).filter((a): a is string => !!a)}
+              artworks={tracks.slice(0, 4).map(trk => trk.albumArt).filter((a): a is string => !!a)}
               size={200}
             />
             <div class="artwork-overlay">
@@ -1920,7 +1920,7 @@
         playlistId={playlistId}
         artists={playlistArtists}
         excludeTrackIds={excludeTrackIds}
-        existingTracks={tracks.filter(t => !t.isLocal).map(t => ({ title: t.title, artist: t.artist }))}
+        existingTracks={tracks.filter(trk => !trk.isLocal).map(trk => ({ title: trk.title, artist: trk.artist }))}
         onAddTrack={handleAddSuggestedTrack}
         onGoToAlbum={onTrackGoToAlbum}
         onGoToArtist={onTrackGoToArtist}

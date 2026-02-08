@@ -75,7 +75,7 @@
         limit: 20
       });
       // Filter out non-streamable tracks
-      results = response.items.filter(t => t.streamable !== false);
+      results = response.items.filter(trk => trk.streamable !== false);
     } catch (err) {
       console.error('Search failed:', err);
       results = [];
@@ -111,7 +111,7 @@
   }
 
   function handleConfirm() {
-    const selected = results.find(t => t.id === selectedTrackId);
+    const selected = results.find(trk => trk.id === selectedTrackId);
     if (selected) {
       onSelect(selected);
     }

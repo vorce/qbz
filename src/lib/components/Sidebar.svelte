@@ -722,7 +722,7 @@
     try {
       const prefs = await invoke<FavoritesPreferences>('get_favorites_preferences');
       // Filter out 'playlists' from tab order for sidebar display
-      favoritesTabOrder = (prefs.tab_order || ['tracks', 'albums', 'artists']).filter(t => t !== 'playlists');
+      favoritesTabOrder = (prefs.tab_order || ['tracks', 'albums', 'artists']).filter(tab => tab !== 'playlists');
     } catch (err) {
       console.debug('[Sidebar] Failed to load favorites preferences:', err);
     }
