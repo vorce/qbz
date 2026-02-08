@@ -577,16 +577,19 @@
     align-items: center;
     justify-content: center;
     width: 28px;
-    opacity: 0.3;
+    opacity: 0;
     transition: opacity 150ms ease;
+    pointer-events: none;
   }
 
   .download-indicator.has-download {
     opacity: 1;
+    pointer-events: auto;
   }
 
   .track-row:hover .download-indicator {
     opacity: 0.6;
+    pointer-events: auto;
   }
 
   .track-row:hover .download-indicator.has-download,

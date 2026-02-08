@@ -130,14 +130,13 @@
     padding: 0;
   }
 
-  .download-button:hover:not(:disabled) {
+  .download-button:hover:not(:disabled):not(.downloading) {
     color: var(--text-primary);
     background: var(--bg-hover);
   }
 
   .download-button:disabled {
     cursor: default;
-    opacity: 0.5;
   }
 
   .download-button.ready {
