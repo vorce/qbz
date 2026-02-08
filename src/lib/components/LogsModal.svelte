@@ -19,6 +19,7 @@
   let consoleLogs = $state('');
   let isUploading = $state(false);
   let isLoading = $state(false);
+  let uploadedUrl = $state('');
 
   async function loadLogs() {
     isLoading = true;
@@ -47,6 +48,7 @@
     try {
       const combined = `=== QBZ Terminal Logs ===\n${terminalLogs}\n\n=== QBZ Console Logs ===\n${consoleLogs}`;
       const url: string = await invoke('upload_logs_to_paste', { content: combined });
+      uploadedUrl = url;
       await copyToClipboard(url);
       showToast($t('settings.developer.uploadSuccess'), 'success');
     } catch (e) {
@@ -88,18 +90,23 @@
   {/snippet}
 
   {#snippet footer()}
-    <button
-      class="upload-btn"
-      onclick={handleUpload}
-      disabled={isUploading}
-    >
-      {#if isUploading}
-        <Loader2 size={14} class="spin" />
-        {$t('settings.developer.uploading')}
-      {:else}
-        {$t('settings.developer.uploadLogs')}
+    <div class="footer-content">
+      <button
+        class="upload-btn"
+        onclick={handleUpload}
+        disabled={isUploading}
+      >
+        {#if isUploading}
+          <Loader2 size={14} class="spin" />
+          {$t('settings.developer.uploading')}
+        {:else}
+          {$t('settings.developer.uploadLogs')}
+        {/if}
+      </button>
+      {#if uploadedUrl}
+        <code class="uploaded-url">{uploadedUrl}</code>
       {/if}
-    </button>
+    </div>
   {/snippet}
 </Modal>
 
@@ -180,6 +187,26 @@
   .upload-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .footer-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .uploaded-url {
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    font-size: 12px;
+    color: var(--accent-primary);
+    background: var(--bg-secondary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    user-select: all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   :global(.spin) {
