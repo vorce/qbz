@@ -37,6 +37,8 @@
     downloadStateVersion?: number;
     /** Source badge for local library: 'user' for local files, 'qobuz_download' for Qobuz offline */
     sourceBadge?: 'user' | 'qobuz_download';
+    artistId?: number;
+    onArtistClick?: (artistId: number) => void;
   }
 
   let {
@@ -64,7 +66,9 @@
     onOpenContainingFolder,
     onReDownloadAlbum,
     downloadStateVersion,
-    sourceBadge
+    sourceBadge,
+    artistId,
+    onArtistClick
   }: Props = $props();
   
   const isDownloaded = $derived.by(() => {
@@ -123,8 +127,18 @@
     onPlay?.();
   }
 
+  function handleArtistClick(event: MouseEvent) {
+    event.stopPropagation();
+    if (artistId && onArtistClick) {
+      onArtistClick(artistId);
+    }
+  }
+
+  const artistClickable = $derived(!!(artistId && onArtistClick));
+
   function isOverlayAction(target: EventTarget | null) {
-    return target instanceof HTMLElement && !!target.closest('.action-buttons');
+    if (!(target instanceof HTMLElement)) return false;
+    return !!target.closest('.action-buttons') || !!target.closest('.artist-link');
   }
 
   function handleCardClick(event: MouseEvent) {
@@ -282,14 +296,27 @@
     >
       <span class="title-text" bind:this={titleTextRef}>{title}</span>
     </div>
-    <div
-      class="artist"
-      class:scrollable={artistOverflow > 0}
-      style="--ticker-offset: {artistOffset}; --ticker-duration: {artistDuration};"
-      bind:this={artistRef}
-    >
-      <span class="artist-text" bind:this={artistTextRef}>{artist}</span>
-    </div>
+    {#if artistClickable}
+      <button
+        class="artist artist-link"
+        class:scrollable={artistOverflow > 0}
+        style="--ticker-offset: {artistOffset}; --ticker-duration: {artistDuration};"
+        bind:this={artistRef}
+        onclick={handleArtistClick}
+        type="button"
+      >
+        <span class="artist-text" bind:this={artistTextRef}>{artist}</span>
+      </button>
+    {:else}
+      <div
+        class="artist"
+        class:scrollable={artistOverflow > 0}
+        style="--ticker-offset: {artistOffset}; --ticker-duration: {artistDuration};"
+        bind:this={artistRef}
+      >
+        <span class="artist-text" bind:this={artistTextRef}>{artist}</span>
+      </div>
+    {/if}
     {#if quality}
       <div class="quality-badge">{quality}</div>
     {/if}
@@ -607,6 +634,23 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .artist.artist-link {
+    all: unset;
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .artist.artist-link:hover {
+    color: var(--text-primary);
   }
 
   .artist.scrollable {
