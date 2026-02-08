@@ -1304,6 +1304,8 @@
                 hideFavorite={trackBlacklisted}
                 downloadStatus={cacheStatus.status}
                 downloadProgress={cacheStatus.progress}
+                onDownload={!trackBlacklisted && onTrackDownload ? () => onTrackDownload(track) : undefined}
+                onRemoveDownload={isTrackDownloaded && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
                 onArtistClick={track.artistId && onArtistClick ? () => onArtistClick(track.artistId!) : undefined}
                 onAlbumClick={track.albumId && onAlbumClick ? () => onAlbumClick(track.albumId!) : undefined}
                 onPlay={trackBlacklisted ? undefined : () => handleContinueTrackPlay(track, index)}
