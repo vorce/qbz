@@ -439,7 +439,8 @@
     "bitDepth": "{depth}-bit",
     "sampleRate": "{rate} kHz",
     "lossless": "Lossless",
-    "max": "Max"
+    "max": "Max",
+    "degradedTooltip": "{original} → {current} (resampled). Enable DAC Passthrough or Exclusive Mode in Settings → Audio."
   },
   "actions": {
     "play": "Play",

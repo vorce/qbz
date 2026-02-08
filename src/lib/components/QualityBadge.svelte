@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
+
   interface Props {
     quality?: string;
     bitDepth?: number;
@@ -138,7 +140,7 @@
   <div
     class="quality-badge"
     class:downgraded={isDowngraded}
-    title={isDowngraded ? `Playing at ${displayText} (original: ${originalQualityText})` : `${tierLabel}: ${displayText}`}
+    title={isDowngraded ? $t('quality.degradedTooltip', { values: { original: originalQualityText, current: displayText } }) : `${tierLabel}: ${displayText}`}
   >
     <!-- Icon container with fixed width -->
     <div class="icon-container">
