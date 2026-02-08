@@ -535,8 +535,6 @@
   let isFavorite = $state(false);
   let normalizationEnabled = $state(false);
   let normalizationGain = $state<number | null>(null);
-  let gaplessEnabled = $state(true);
-
   // Queue/Shuffle State (from queueStore subscription)
   let isShuffle = $state(false);
   let repeatMode = $state<RepeatMode>('off');
@@ -1394,16 +1392,6 @@
       normalizationEnabled = newState;
     } catch (err) {
       console.error('Failed to toggle normalization:', err);
-    }
-  }
-
-  async function toggleGapless() {
-    const newState = !gaplessEnabled;
-    try {
-      await invoke('set_audio_gapless_enabled', { enabled: newState });
-      gaplessEnabled = newState;
-    } catch (err) {
-      console.error('Failed to toggle gapless:', err);
     }
   }
 
@@ -2555,10 +2543,9 @@
       // Ignore storage errors
     }
 
-    // Load normalization + gapless enabled state from audio settings
-    invoke<{ normalization_enabled: boolean; gapless_enabled: boolean }>('get_audio_settings').then((settings) => {
+    // Load normalization enabled state from audio settings
+    invoke<{ normalization_enabled: boolean }>('get_audio_settings').then((settings) => {
       normalizationEnabled = settings.normalization_enabled;
-      gaplessEnabled = settings.gapless_enabled;
     }).catch((err) => {
       console.error('Failed to load audio settings:', err);
     });
@@ -3418,8 +3405,6 @@
         {normalizationEnabled}
         {normalizationGain}
         onToggleNormalization={toggleNormalization}
-        {gaplessEnabled}
-        onToggleGapless={toggleGapless}
         onTrackClick={() => {
           if (currentTrack && !currentTrack.isLocal) {
             trackInfoTrackId = currentTrack.id;

@@ -590,11 +590,15 @@
       ? 'settings.audio.dacPassthroughDisabledDesc'
       : null
   );
-  let gaplessDisabled = $derived(dacPassthrough);
-  let gaplessTooltipOverride = $derived(
-    gaplessDisabled
-      ? 'Gapless playback is disabled when DAC Passthrough is enabled. Bit-perfect audio requires recreating streams for each sample rate change.'
-      : null
+  let gaplessDisabled = $derived(
+    selectedBackend === 'ALSA Direct' || streamingOnly
+  );
+  let gaplessDisabledReasonKey = $derived(
+    selectedBackend === 'ALSA Direct'
+      ? 'settings.playback.gaplessDisabledAlsa'
+      : streamingOnly
+        ? 'settings.playback.gaplessDisabledStreaming'
+        : null
   );
 
   // Playback settings
@@ -1523,18 +1527,7 @@
       streamBufferSeconds = settings.stream_buffer_seconds ?? 3;
       streamingOnly = settings.streaming_only ?? false;
       limitQualityToDevice = settings.limit_quality_to_device ?? true;
-
-      // Validate mutual exclusion: DAC Passthrough disables Gapless + Crossfade
-      if (dacPassthrough) {
-        if (gaplessPlayback) {
-          console.warn('DAC Passthrough and Gapless both enabled - disabling Gapless');
-          gaplessPlayback = false;
-        }
-        if (crossfade > 0) {
-          console.warn('DAC Passthrough and Crossfade both enabled - disabling Crossfade');
-          crossfade = 0;
-        }
-      }
+      gaplessPlayback = settings.gapless_enabled ?? true;
     } catch (err) {
       console.error('Failed to load audio settings:', err);
     }
@@ -1588,13 +1581,6 @@
   async function handleDacPassthroughChange(enabled: boolean) {
     dacPassthrough = enabled;
 
-    // Auto-disable incompatible playback settings
-    if (enabled) {
-      gaplessPlayback = false;
-      crossfade = 0;
-      console.log('[Audio] DAC passthrough enabled: disabled gapless playback and crossfade');
-    }
-
     try {
       await invoke('set_audio_dac_passthrough', { enabled });
 
@@ -1630,6 +1616,15 @@
         exclusiveMode = false;
         await invoke('set_audio_exclusive_mode', { enabled: false });
         console.log('[Audio] Disabled exclusive mode (only compatible with ALSA Direct)');
+      }
+    }
+
+    // Gapless not compatible with ALSA Direct
+    if (backendName === 'ALSA Direct') {
+      if (gaplessPlayback) {
+        gaplessPlayback = false;
+        await invoke('set_audio_gapless_enabled', { enabled: false });
+        console.log('[Audio] Disabled gapless playback (not compatible with ALSA Direct)');
       }
     }
 
@@ -1714,6 +1709,14 @@
 
   async function handleStreamingOnlyChange(enabled: boolean) {
     streamingOnly = enabled;
+
+    // Gapless not compatible with streaming-only
+    if (enabled && gaplessPlayback) {
+      gaplessPlayback = false;
+      await invoke('set_audio_gapless_enabled', { enabled: false });
+      console.log('[Audio] Disabled gapless playback (not compatible with streaming-only)');
+    }
+
     try {
       await invoke('set_audio_streaming_only', { enabled });
       console.log('[Audio] Streaming-only mode changed:', enabled);
@@ -1759,20 +1762,11 @@
 
   async function handleGaplessPlaybackChange(enabled: boolean) {
     gaplessPlayback = enabled;
-
-    // Auto-disable DAC passthrough if incompatible
-    if (enabled && dacPassthrough) {
-      dacPassthrough = false;
-      console.log('[Audio] Gapless playback enabled: disabled DAC passthrough');
-      try {
-        await invoke('set_audio_dac_passthrough', { enabled: false });
-
-        // Reinitialize audio with currently selected device
-        const deviceName = getCurrentDeviceSinkName();
-        await reinitAndResume(deviceName);
-      } catch (err) {
-        console.error('[Audio] Failed to disable DAC passthrough:', err);
-      }
+    try {
+      await invoke('set_audio_gapless_enabled', { enabled });
+      console.log('[Audio] Gapless playback changed:', enabled);
+    } catch (err) {
+      console.error('[Audio] Failed to change gapless playback:', err);
     }
   }
 
@@ -2419,17 +2413,15 @@
       </div>
       <Toggle enabled={showContextIcon} onchange={handleShowContextIconChange} />
     </div>
-    <!-- Gapless, Crossfade, Normalize Volume hidden until properly implemented (see issue #29) -->
-    <!-- <div class="setting-row">
+    <div class="setting-row">
       <div class="setting-info">
-        <span class="setting-label">{$t('settings.playback.gapless')}</span>
-        {#if gaplessTooltipOverride}
-          <span class="setting-desc">{gaplessTooltipOverride}</span>
-        {/if}
+        <span class="setting-label">{$t('settings.playback.gapless')} <span class="experimental-inline">{$t('settings.playback.experimental')}</span></span>
+        <span class="setting-desc">{gaplessDisabledReasonKey ? $t(gaplessDisabledReasonKey) : $t('settings.playback.gaplessDesc')}</span>
       </div>
       <Toggle enabled={gaplessPlayback} onchange={handleGaplessPlaybackChange} disabled={gaplessDisabled} />
     </div>
-    <div class="setting-row">
+    <!-- Crossfade, Normalize Volume hidden until properly implemented (see issue #29) -->
+    <!-- <div class="setting-row">
       <span class="setting-label">{$t('settings.playback.crossfade')}</span>
       <div class="slider-container">
         <VolumeSlider value={crossfade} onchange={handleCrossfadeChange} max={12} showValue />
@@ -3611,6 +3603,15 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     background: rgba(239, 68, 68, 0.15);
     color: #ef4444;
     border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .experimental-inline {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+    opacity: 0.7;
   }
 
   .setup-guide-btn {
