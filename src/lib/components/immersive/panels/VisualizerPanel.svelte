@@ -13,6 +13,9 @@
     quality?: string;
     bitDepth?: number;
     samplingRate?: number;
+    originalBitDepth?: number;
+    originalSamplingRate?: number;
+    format?: string;
   }
 
   let {
@@ -23,7 +26,10 @@
     album = '',
     quality,
     bitDepth,
-    samplingRate
+    samplingRate,
+    originalBitDepth,
+    originalSamplingRate,
+    format
   }: Props = $props();
 
   let canvasRef: HTMLCanvasElement | null = $state(null);
@@ -264,7 +270,7 @@
         <p class="track-album">{album}</p>
       {/if}
       <div class="quality-badge-wrapper">
-        <QualityBadge {quality} {bitDepth} {samplingRate} />
+        <QualityBadge {quality} {bitDepth} {samplingRate} {originalBitDepth} {originalSamplingRate} {format} />
       </div>
     </div>
   </div>
