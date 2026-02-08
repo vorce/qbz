@@ -324,6 +324,7 @@ pub fn run() {
                             queue::RepeatMode::All => "all",
                             queue::RepeatMode::One => "one",
                         };
+                        let normalization_gain = player_state.get_normalization_gain();
                         let event = player::PlaybackEvent {
                             is_playing,
                             position,
@@ -334,6 +335,7 @@ pub fn run() {
                             bit_depth: if bit_depth > 0 { Some(bit_depth) } else { None },
                             shuffle: Some(shuffle),
                             repeat: Some(repeat.to_string()),
+                            normalization_gain,
                         };
                         let _ = app_handle.emit("playback:state", &event);
                         api_server::broadcast_playback_event(&app_handle, &event);

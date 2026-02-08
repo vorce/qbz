@@ -493,6 +493,8 @@ pub struct PlaybackEvent {
     pub shuffle: Option<bool>,
     /// Queue repeat mode ("off", "all", "one")
     pub repeat: Option<String>,
+    /// Normalization gain factor being applied (None = normalization not active)
+    pub normalization_gain: Option<f32>,
 }
 
 /// Shared state between main thread and audio thread
@@ -520,6 +522,8 @@ pub struct SharedState {
     sample_rate: Arc<AtomicU32>,
     /// Actual bit depth of the current stream
     bit_depth: Arc<AtomicU32>,
+    /// Current normalization gain factor (f32 stored as u32 bits, 0 = not applied)
+    normalization_gain: Arc<AtomicU32>,
 }
 
 impl Default for SharedState {
@@ -542,6 +546,7 @@ impl SharedState {
             stream_error: Arc::new(AtomicBool::new(false)),
             sample_rate: Arc::new(AtomicU32::new(0)),
             bit_depth: Arc::new(AtomicU32::new(0)),
+            normalization_gain: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -564,6 +569,21 @@ impl SharedState {
 
     pub fn get_bit_depth(&self) -> u32 {
         self.bit_depth.load(Ordering::SeqCst)
+    }
+
+    /// Set the current normalization gain factor.
+    /// Stores f32 as u32 bits. Pass None (or 0.0) to indicate no normalization.
+    pub fn set_normalization_gain(&self, gain: Option<f32>) {
+        let bits = gain.unwrap_or(0.0).to_bits();
+        self.normalization_gain.store(bits, Ordering::SeqCst);
+    }
+
+    /// Get the current normalization gain factor.
+    /// Returns None if normalization is not active (gain is 0.0).
+    pub fn get_normalization_gain(&self) -> Option<f32> {
+        let bits = self.normalization_gain.load(Ordering::SeqCst);
+        let gain = f32::from_bits(bits);
+        if gain == 0.0 { None } else { Some(gain) }
     }
 
     pub fn set_current_device(&self, device: Option<String>) {
@@ -1152,6 +1172,7 @@ impl Player {
                                 extract_replaygain(&data).map(|rg| calculate_gain_factor(&rg, target))
                             });
                         *current_normalization_gain = normalization;
+                        thread_state.set_normalization_gain(normalization);
 
                         // Wrap source with diagnostic, normalization, and visualizer
                         let source = wrap_source(source, normalization);
@@ -1391,6 +1412,7 @@ impl Player {
                                 })
                             });
                         *current_normalization_gain = normalization;
+                        thread_state.set_normalization_gain(normalization);
 
                         // Box the incremental source to match the expected type
                         let source_to_play: Box<dyn Source<Item = f32> + Send> = Box::new(incremental_source);
@@ -1538,6 +1560,7 @@ impl Player {
                         *current_audio_data = None;
                         *current_streaming_source = None;
                         *current_normalization_gain = None;
+                        thread_state.set_normalization_gain(None);
                         thread_state.is_playing.store(false, Ordering::SeqCst);
                         thread_state.position.store(0, Ordering::SeqCst);
                         thread_state.playback_start_millis.store(0, Ordering::SeqCst);
@@ -2073,6 +2096,7 @@ impl Player {
             bit_depth: if bit_depth > 0 { Some(bit_depth) } else { None },
             shuffle: None,  // Set by caller with access to queue state
             repeat: None,   // Set by caller with access to queue state
+            normalization_gain: self.state.get_normalization_gain(),
         }
     }
 }
