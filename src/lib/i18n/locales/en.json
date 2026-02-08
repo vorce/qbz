@@ -712,6 +712,22 @@
       "factoryResetConfirmButton": "Yes, delete everything",
       "factoryResetError": "Failed to delete application data: {error}"
     },
+    "developer": {
+      "title": "Developer Mode",
+      "summary": "Advanced options for debugging and development",
+      "forceDmabuf": "Force DMA-BUF Renderer",
+      "forceDmabufDesc": "Override the NVIDIA + Wayland DMA-BUF workaround. Only enable if you know your system doesn't crash. Reset from terminal: qbz --reset-dmabuf",
+      "restartRequired": "Restart QBZ for this change to take effect",
+      "viewLogs": "View Logs",
+      "viewLogsDesc": "View backend and console logs for debugging",
+      "logsTitle": "Application Logs",
+      "tabTerminal": "Terminal",
+      "tabConsole": "Console",
+      "uploadLogs": "Upload to 0x0.st",
+      "uploadSuccess": "Log URL copied to clipboard",
+      "uploadError": "Failed to upload logs",
+      "uploading": "Uploading..."
+    },
     "blacklist": {
       "title": "Artist Blacklist",
       "description": "Blacklisted artists are hidden from search results, radio, suggestions, and similar artists.",

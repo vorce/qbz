@@ -692,6 +692,22 @@
       "factoryResetConfirmButton": "Ja, alles löschen",
       "factoryResetError": "Fehler beim Löschen der Anwendungsdaten: {error}"
     },
+    "developer": {
+      "title": "Entwicklermodus",
+      "summary": "Erweiterte Optionen für Fehlersuche und Entwicklung",
+      "forceDmabuf": "DMA-BUF-Renderer erzwingen",
+      "forceDmabufDesc": "Überschreibt den NVIDIA + Wayland DMA-BUF-Workaround. Nur aktivieren, wenn Ihr System nicht abstürzt. Zurücksetzen über Terminal: qbz --reset-dmabuf",
+      "restartRequired": "Starten Sie QBZ neu, damit die Änderung wirksam wird",
+      "viewLogs": "Logs anzeigen",
+      "viewLogsDesc": "Backend- und Konsolen-Logs zur Fehlersuche anzeigen",
+      "logsTitle": "Anwendungs-Logs",
+      "tabTerminal": "Terminal",
+      "tabConsole": "Konsole",
+      "uploadLogs": "Zu 0x0.st hochladen",
+      "uploadSuccess": "Log-URL in Zwischenablage kopiert",
+      "uploadError": "Fehler beim Hochladen der Logs",
+      "uploading": "Wird hochgeladen..."
+    },
     "blacklist": {
       "title": "Künstler-Blacklist",
       "description": "Gesperrte Künstler sind in Suchergebnissen, Radio, Empfehlungen und ähnlichen Künstlern verborgen.",
