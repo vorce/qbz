@@ -49,7 +49,7 @@ where
 }
 
 /// Helper to teardown a type-alias state
-fn teardown_type_alias_state<S>(state: &Arc<Mutex<Option<S>>>) {
+pub fn teardown_type_alias_state<S>(state: &Arc<Mutex<Option<S>>>) {
     if let Ok(mut guard) = state.lock() {
         *guard = None;
     }

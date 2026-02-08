@@ -427,6 +427,7 @@ pub fn run() {
             commands::get_last_user_id,
             commands::activate_user_session,
             commands::deactivate_user_session,
+            commands::factory_reset,
             // Search commands
             commands::search_albums,
             commands::search_tracks,
