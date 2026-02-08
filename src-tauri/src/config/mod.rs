@@ -27,6 +27,7 @@ pub use audio_settings::{
     set_audio_exclusive_mode,
     set_audio_dac_passthrough,
     set_audio_sample_rate,
+    reset_audio_settings,
 };
 
 pub use download_settings::{

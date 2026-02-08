@@ -162,6 +162,18 @@ impl PlaybackPreferencesStore {
             .map_err(|e| format!("Failed to set show context icon: {}", e))?;
         Ok(())
     }
+
+    /// Reset all playback preferences to their default values
+    pub fn reset_all(&self) -> Result<PlaybackPreferences, String> {
+        let defaults = PlaybackPreferences::default();
+        self.conn
+            .execute(
+                "UPDATE playback_preferences SET autoplay_mode = ?1, show_context_icon = ?2 WHERE id = 1",
+                params![defaults.autoplay_mode.to_db_value(), if defaults.show_context_icon { 1 } else { 0 }],
+            )
+            .map_err(|e| format!("Failed to reset playback preferences: {}", e))?;
+        Ok(defaults)
+    }
 }
 
 /// Global state wrapper for thread-safe access

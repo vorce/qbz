@@ -319,6 +319,60 @@ impl AudioSettingsStore {
             .map_err(|e| format!("Failed to set normalization target LUFS: {}", e))?;
         Ok(())
     }
+
+    /// Reset all audio settings to their default values
+    pub fn reset_all(&self) -> Result<AudioSettings, String> {
+        let defaults = AudioSettings::default();
+        let backend_json: Option<String> = defaults.backend_type
+            .map(|b| serde_json::to_string(&b))
+            .transpose()
+            .map_err(|e| format!("Failed to serialize backend type: {}", e))?;
+        let plugin_json: Option<String> = defaults.alsa_plugin
+            .map(|p| serde_json::to_string(&p))
+            .transpose()
+            .map_err(|e| format!("Failed to serialize ALSA plugin: {}", e))?;
+
+        self.conn
+            .execute(
+                "UPDATE audio_settings SET
+                    output_device = ?1,
+                    exclusive_mode = ?2,
+                    dac_passthrough = ?3,
+                    preferred_sample_rate = ?4,
+                    backend_type = ?5,
+                    alsa_plugin = ?6,
+                    alsa_hardware_volume = ?7,
+                    stream_first_track = ?8,
+                    stream_buffer_seconds = ?9,
+                    streaming_only = ?10,
+                    limit_quality_to_device = ?11,
+                    device_max_sample_rate = ?12,
+                    normalization_enabled = ?13,
+                    normalization_target_lufs = ?14,
+                    gapless_enabled = ?15
+                WHERE id = 1",
+                params![
+                    defaults.output_device,
+                    defaults.exclusive_mode as i64,
+                    defaults.dac_passthrough as i64,
+                    defaults.preferred_sample_rate.map(|r| r as i64),
+                    backend_json,
+                    plugin_json,
+                    defaults.alsa_hardware_volume as i64,
+                    defaults.stream_first_track as i64,
+                    defaults.stream_buffer_seconds as i64,
+                    defaults.streaming_only as i64,
+                    defaults.limit_quality_to_device as i64,
+                    defaults.device_max_sample_rate.map(|r| r as i64),
+                    defaults.normalization_enabled as i64,
+                    defaults.normalization_target_lufs as f64,
+                    defaults.gapless_enabled as i64,
+                ],
+            )
+            .map_err(|e| format!("Failed to reset audio settings: {}", e))?;
+
+        Ok(defaults)
+    }
 }
 
 /// Thread-safe wrapper
@@ -528,4 +582,24 @@ pub fn set_audio_gapless_enabled(
     let guard = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
     let store = guard.as_ref().ok_or("No active session - please log in")?;
     store.set_gapless_enabled(enabled)
+}
+
+#[tauri::command]
+pub fn reset_audio_settings(
+    audio_state: tauri::State<'_, AudioSettingsState>,
+    playback_state: tauri::State<'_, crate::config::playback_preferences::PlaybackPreferencesState>,
+) -> Result<AudioSettings, String> {
+    log::info!("Command: reset_audio_settings (resetting audio + playback to defaults)");
+
+    // Reset audio settings
+    let guard = audio_state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let store = guard.as_ref().ok_or("No active session - please log in")?;
+    let defaults = store.reset_all()?;
+
+    // Reset playback preferences
+    let pb_guard = playback_state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let pb_store = pb_guard.as_ref().ok_or("No active session - please log in")?;
+    pb_store.reset_all()?;
+
+    Ok(defaults)
 }

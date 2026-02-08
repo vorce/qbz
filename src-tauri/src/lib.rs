@@ -741,6 +741,7 @@ pub fn run() {
             config::audio_settings::set_audio_normalization_enabled,
             config::audio_settings::set_audio_normalization_target,
             config::audio_settings::set_audio_gapless_enabled,
+            config::audio_settings::reset_audio_settings,
             // Audio backend commands
             commands::get_available_backends,
             commands::get_devices_for_backend,
