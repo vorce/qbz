@@ -3373,9 +3373,6 @@
         }}
         onContextClick={handleContextNavigation}
         queueOpen={isQueueOpen}
-        {normalizationEnabled}
-        {normalizationGain}
-        onToggleNormalization={toggleNormalization}
         onTrackClick={() => {
           if (currentTrack && !currentTrack.isLocal) {
             trackInfoTrackId = currentTrack.id;
@@ -3393,9 +3390,6 @@
         queueOpen={isQueueOpen}
         {volume}
         onVolumeChange={handleVolumeChange}
-        {normalizationEnabled}
-        {normalizationGain}
-        onToggleNormalization={toggleNormalization}
       />
     {/if}
 

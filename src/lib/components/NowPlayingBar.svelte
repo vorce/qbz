@@ -69,9 +69,10 @@
     onTrackClick?: () => void;
     onContextClick?: () => void;
     queueOpen?: boolean;
-    normalizationEnabled?: boolean;
-    normalizationGain?: number | null;
-    onToggleNormalization?: () => void;
+    // Normalization UI hidden until Phase 2 (EBU R128 analysis)
+    // normalizationEnabled?: boolean;
+    // normalizationGain?: number | null;
+    // onToggleNormalization?: () => void;
   }
 
   let {
@@ -113,10 +114,7 @@
     onAlbumClick,
     onTrackClick,
     onContextClick,
-    queueOpen = false,
-    normalizationEnabled = false,
-    normalizationGain = null,
-    onToggleNormalization
+    queueOpen = false
   }: Props = $props();
 
   let progressRef: HTMLDivElement;
@@ -388,7 +386,7 @@
         <Maximize2 size={16} />
       </button>
 
-      <!-- Normalization Toggle -->
+      <!-- Normalization Toggle (hidden until Phase 2 — ReplayGain-only is not useful for streaming)
       <button
         class="control-btn"
         class:active={normalizationEnabled && normalizationGain !== null && normalizationGain !== 1.0}
@@ -406,6 +404,7 @@
           aria-hidden="true"
         ></span>
       </button>
+      -->
 
       <!-- Volume Control -->
       <div class="volume-control">
