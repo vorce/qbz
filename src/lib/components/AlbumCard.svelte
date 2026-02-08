@@ -364,13 +364,13 @@
     font-family: 'LINE Seed JP', var(--font-sans);
     font-size: 10px;
     font-weight: 100;
-    line-height: 1.2;
+    line-height: 1;
     color: var(--alpha-85);
     background: var(--alpha-10);
     border: 1px solid var(--alpha-15);
     border-radius: 4px;
-    padding: 2px 6px;
-    min-width: 72px;
+    padding: 1px 6px;
+    min-width: 90px;
     text-align: center;
     box-sizing: border-box;
   }
