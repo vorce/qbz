@@ -36,11 +36,13 @@ pub async fn search_albums(
     state: State<'_, AppState>,
     blacklist_state: State<'_, BlacklistState>,
 ) -> Result<SearchResultsPage<Album>, String> {
-    let client = state.client.lock().await;
-    let mut results = client
-        .search_albums(&query, limit.unwrap_or(20), offset.unwrap_or(0), search_type.as_deref())
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut results = {
+        let client = state.client.lock().await;
+        client
+            .search_albums(&query, limit.unwrap_or(20), offset.unwrap_or(0), search_type.as_deref())
+            .await
+            .map_err(|e| e.to_string())?
+    };
 
     // Filter out albums from blacklisted artists
     let original_count = results.items.len();
@@ -64,11 +66,13 @@ pub async fn search_tracks(
     state: State<'_, AppState>,
     blacklist_state: State<'_, BlacklistState>,
 ) -> Result<SearchResultsPage<Track>, String> {
-    let client = state.client.lock().await;
-    let mut results = client
-        .search_tracks(&query, limit.unwrap_or(20), offset.unwrap_or(0), search_type.as_deref())
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut results = {
+        let client = state.client.lock().await;
+        client
+            .search_tracks(&query, limit.unwrap_or(20), offset.unwrap_or(0), search_type.as_deref())
+            .await
+            .map_err(|e| e.to_string())?
+    };
 
     // Filter out tracks from blacklisted artists
     let original_count = results.items.len();
@@ -99,11 +103,13 @@ pub async fn search_artists(
     state: State<'_, AppState>,
     blacklist_state: State<'_, BlacklistState>,
 ) -> Result<SearchResultsPage<Artist>, String> {
-    let client = state.client.lock().await;
-    let mut results = client
-        .search_artists(&query, limit.unwrap_or(20), offset.unwrap_or(0), search_type.as_deref())
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut results = {
+        let client = state.client.lock().await;
+        client
+            .search_artists(&query, limit.unwrap_or(20), offset.unwrap_or(0), search_type.as_deref())
+            .await
+            .map_err(|e| e.to_string())?
+    };
 
     // Filter out blacklisted artists
     let original_count = results.items.len();
@@ -125,27 +131,30 @@ pub async fn search_all(
     blacklist_state: State<'_, BlacklistState>,
 ) -> Result<SearchAllResults, String> {
     log::debug!("search_all called with query: {}", query);
-    let client = state.client.lock().await;
 
     // Use catalog/search endpoint which returns everything including most_popular
     let url = endpoints::build_url(paths::CATALOG_SEARCH);
 
-    let response: Value = client
-        .get_http()
-        .get(&url)
-        .header("X-App-Id", client.app_id().await.map_err(|e| e.to_string())?)
-        .header("X-User-Auth-Token", client.auth_token().await.map_err(|e| e.to_string())?)
-        .query(&[
-            ("query", query.as_str()),
-            ("limit", "30"),
-            ("offset", "0"),
-        ])
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {}", e))?
-        .json()
-        .await
-        .map_err(|e| format!("JSON parse failed: {}", e))?;
+    // Acquire lock only for HTTP request, drop before parsing
+    let response: Value = {
+        let client = state.client.lock().await;
+        client
+            .get_http()
+            .get(&url)
+            .header("X-App-Id", client.app_id().await.map_err(|e| e.to_string())?)
+            .header("X-User-Auth-Token", client.auth_token().await.map_err(|e| e.to_string())?)
+            .query(&[
+                ("query", query.as_str()),
+                ("limit", "30"),
+                ("offset", "0"),
+            ])
+            .send()
+            .await
+            .map_err(|e| format!("Request failed: {}", e))?
+            .json()
+            .await
+            .map_err(|e| format!("JSON parse failed: {}", e))?
+    };
 
     // Parse albums
     let albums: SearchResultsPage<Album> = response

@@ -466,8 +466,9 @@
           results.most_popular = allResults.most_popular;
         }
         allResults = results;
+        await tick(); // Yield to UI loop — render results before background work
         if (allResults && allResults.albums.items) {
-          await loadAllAlbumDownloadStatuses(allResults.albums.items);
+          loadAllAlbumDownloadStatuses(allResults.albums.items); // fire-and-forget
         }
       } else if (activeTab === 'albums') {
         const results = await invoke<SearchResults<Album>>('search_albums', {
@@ -479,8 +480,9 @@
         if (query.trim() !== searchQuery) return;
         albumResults = results;
         console.log('Album results:', albumResults);
+        await tick(); // Yield to UI loop
         if (albumResults && albumResults.items) {
-          await loadAllAlbumDownloadStatuses(albumResults.items);
+          loadAllAlbumDownloadStatuses(albumResults.items); // fire-and-forget
         }
       } else if (activeTab === 'tracks') {
         const results = await invoke<SearchResults<Track>>('search_tracks', {
@@ -541,12 +543,12 @@
           offset: newOffset,
           searchType: filterType
         });
-        await loadAllAlbumDownloadStatuses(moreResults.items);
         albumResults = {
           ...moreResults,
           items: [...albumResults.items, ...moreResults.items],
           offset: 0 // Keep offset at 0 since we're accumulating
         };
+        loadAllAlbumDownloadStatuses(moreResults.items); // fire-and-forget
       } else if (activeTab === 'tracks' && trackResults && hasMoreTracks) {
         const newOffset = trackResults.offset + trackResults.items.length;
         const moreResults = await invoke<SearchResults<Track>>('search_tracks', {
