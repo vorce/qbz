@@ -414,7 +414,11 @@
 
   async function loadAllAlbumDownloadStatuses(albums: { id: string }[]) {
     if (!checkAlbumFullyDownloaded || albums.length === 0) return;
-    await Promise.all(albums.map(album => loadAlbumDownloadStatus(album.id)));
+    const BATCH = 10;
+    for (let i = 0; i < albums.length; i += BATCH) {
+      await Promise.all(albums.slice(i, i + BATCH).map(album => loadAlbumDownloadStatus(album.id)));
+      if (i + BATCH < albums.length) await new Promise(r => setTimeout(r, 0));
+    }
   }
 
   function isAlbumDownloaded(albumId: string): boolean {
