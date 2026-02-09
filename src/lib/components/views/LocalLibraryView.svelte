@@ -1042,12 +1042,15 @@
 
       // If not found in loaded albums, we need to fetch album list first
       if (!album) {
+        const includePlex = isPlexLibraryEnabled();
         const [localAlbums, plexAlbumsRaw] = await Promise.all([
           invoke<LocalAlbum[]>('library_get_albums', {
             includeHidden: false,
             excludeNetworkFolders: shouldExcludeNetworkFolders()
           }),
-          invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => [])
+          includePlex
+            ? invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => [])
+            : Promise.resolve([])
         ]);
         const allAlbums = [...localAlbums, ...plexAlbumsRaw.map(mapPlexAlbum)];
         albums = allAlbums;
@@ -1106,6 +1109,10 @@
       console.error('[LocalLibrary] Error in shouldExcludeNetworkFolders:', err);
       return false; // On error, don't filter
     }
+  }
+
+  function isPlexLibraryEnabled(): boolean {
+    return getUserItem('qbz-plex-enabled') === 'true';
   }
 
   function buildPlexArtworkUrl(path: string): string {
@@ -1269,17 +1276,21 @@
       console.log('[LocalLibrary] Calling library_get_albums with excludeNetwork:', excludeNetwork);
 
       const fetchStart = performance.now();
+      const includePlex = isPlexLibraryEnabled();
       const [albumsResult, statsResult, plexAlbumsRaw] = await Promise.all([
         invoke<LocalAlbum[]>('library_get_albums', {
           includeHidden: false,
           excludeNetworkFolders: excludeNetwork
         }),
         invoke<LibraryStats>('library_get_stats'),
-        invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => [])
+        includePlex
+          ? invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => [])
+          : Promise.resolve([])
       ]);
       const fetchMs = performance.now() - fetchStart;
       let workingPlexAlbumsRaw = plexAlbumsRaw;
       const shouldAttemptRepair =
+        includePlex &&
         !plexRepairAttempted &&
         (isLikelyLegacyPlexCache(workingPlexAlbumsRaw) || workingPlexAlbumsRaw.length <= 1);
       if (shouldAttemptRepair) {
@@ -1382,11 +1393,14 @@
     loading = true;
     try {
       console.log('[LocalLibrary] Calling library_get_artists + plex_cache_get_albums');
+      const includePlex = isPlexLibraryEnabled();
       const [localArtists, plexAlbumsRaw] = await Promise.all([
         invoke<LocalArtist[]>('library_get_artists', {
           excludeNetworkFolders: shouldExcludeNetworkFolders()
         }),
-        invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => [])
+        includePlex
+          ? invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => [])
+          : Promise.resolve([])
       ]);
 
       const plexArtistMap = new Map<string, { albumCount: number; trackCount: number }>();
@@ -1441,15 +1455,18 @@
     loading = true;
     try {
       console.log('[LocalLibrary] Calling library_search + plex_cache_search_tracks');
+      const includePlex = isPlexLibraryEnabled();
       const [localTracks, plexTracksRaw] = await Promise.all([
         invoke<LocalTrack[]>('library_search', {
           query,
           limit: 0, // 0 = no limit, virtualization handles any list size
           excludeNetworkFolders: shouldExcludeNetworkFolders()
         }),
-        invoke<PlexCachedTrack[]>('plex_cache_search_tracks', {
-          query
-        }).catch(() => [])
+        includePlex
+          ? invoke<PlexCachedTrack[]>('plex_cache_search_tracks', {
+              query
+            }).catch(() => [])
+          : Promise.resolve([])
       ]);
       const mappedPlexTracks = plexTracksRaw.map(mapPlexTrack);
       tracks = [...localTracks, ...mappedPlexTracks];
@@ -1933,6 +1950,9 @@
   async function fetchAlbumTracks(album: LocalAlbum): Promise<LocalTrack[]> {
     try {
       if (album.source === 'plex') {
+        if (!isPlexLibraryEnabled()) {
+          return [];
+        }
         const plexTracks = await invoke<PlexCachedTrack[]>('plex_cache_get_album_tracks', {
           albumKey: album.id
         });
