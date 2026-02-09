@@ -8,7 +8,6 @@
  * - useSystemTitleBar: Use OS native window decorations instead of custom title bar (default: false)
  */
 
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 
 const STORAGE_KEY_HIDE = 'qbz-hide-titlebar';
@@ -107,27 +106,26 @@ export function setHideTitleBar(value: boolean): void {
 }
 
 /**
- * Set whether to use system (OS native) title bar
- * Toggles Tauri window decorations and hides the custom title bar.
- * Persists to both localStorage (for fast frontend init) and Rust backend
- * (so decorations are set before the window is shown on next launch).
+ * Set whether to use system (OS native) title bar.
+ * Persists to both localStorage and Rust backend, then restarts the app.
+ * Restart is required because the window must be created with the correct
+ * decorations value — runtime toggling doesn't work on Linux/Wayland.
  */
-export function setUseSystemTitleBar(value: boolean): void {
+export async function setUseSystemTitleBar(value: boolean): Promise<void> {
   useSystemTitleBar = value;
   try {
     localStorage.setItem(STORAGE_KEY_SYSTEM, String(value));
   } catch (e) {
     console.error('[TitleBarStore] Failed to save system titlebar setting:', e);
   }
-  // Persist to Rust backend (read at startup before window creation)
-  invoke('set_use_system_titlebar', { value }).catch((e) => {
-    console.error('[TitleBarStore] Failed to persist system titlebar to backend:', e);
-  });
-  // Apply runtime decoration change for immediate effect
-  getCurrentWindow().setDecorations(value).catch((e) => {
-    console.error('[TitleBarStore] Failed to set window decorations:', e);
-  });
-  notifyListeners();
+  // Persist to Rust backend, then restart so the window is recreated
+  // with the correct decoration state
+  try {
+    await invoke('set_use_system_titlebar', { value });
+    await invoke('restart_app');
+  } catch (e) {
+    console.error('[TitleBarStore] Failed to persist/restart:', e);
+  }
 }
 
 export interface TitleBarState {

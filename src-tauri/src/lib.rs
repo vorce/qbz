@@ -140,6 +140,12 @@ pub fn update_media_controls_metadata(
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle) {
+    log::info!("App restart requested by user");
+    app.restart();
+}
+
 pub fn run() {
     // Load .env file if present (for development)
     // Silently ignore if not found (production builds use compile-time env vars)
@@ -982,6 +988,8 @@ pub fn run() {
             // Window settings commands
             config::window_settings::get_window_settings,
             config::window_settings::set_use_system_titlebar,
+            // App lifecycle commands
+            restart_app,
             // Log capture commands
             logging::get_backend_logs,
             logging::upload_logs_to_paste,
