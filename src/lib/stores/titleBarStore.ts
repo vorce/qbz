@@ -41,8 +41,14 @@ export function initTitleBarStore(): void {
     if (savedSystem !== null) {
       useSystemTitleBar = savedSystem === 'true';
     }
-    // Note: decorations are set by Rust at window creation (before show),
-    // so no need to call setDecorations() here on init.
+    // Sync localStorage value to Rust backend so it's available at next
+    // startup (before window creation). Handles migration from the
+    // localStorage-only era and keeps both stores in sync.
+    if (useSystemTitleBar) {
+      invoke('set_use_system_titlebar', { value: true }).catch((e) => {
+        console.error('[TitleBarStore] Failed to sync system titlebar to backend:', e);
+      });
+    }
   } catch (e) {
     console.error('[TitleBarStore] Failed to initialize:', e);
   }
