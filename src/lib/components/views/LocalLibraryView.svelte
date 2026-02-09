@@ -90,6 +90,7 @@
     sample_rate: number;
     directory_path: string;
     source?: string; // 'user' | 'qobuz_download' | 'plex'
+    likely_single_file_album?: boolean;
   }
 
   interface PlexCachedAlbum {
@@ -103,6 +104,7 @@
     bitDepth?: number;
     sampleRate: number;
     source: string;
+    likelySingleFileAlbum?: boolean;
   }
 
   interface PlexCachedTrack {
@@ -1112,7 +1114,11 @@
   }
 
   function isPlexLibraryEnabled(): boolean {
-    return getUserItem('qbz-plex-enabled') === 'true';
+    if (getUserItem('qbz-plex-enabled') !== 'true') return false;
+    // Disable Plex when no network is detected — Plex streams from a server
+    // manual_override keeps Plex active: local Plex server may still be reachable
+    if (isOffline && getOfflineReason() === 'no_network') return false;
+    return true;
   }
 
   function buildPlexArtworkUrl(path: string): string {
@@ -1232,7 +1238,8 @@
       bit_depth: plexAlbum.bitDepth,
       sample_rate: plexAlbum.sampleRate,
       directory_path: '',
-      source: 'plex'
+      source: 'plex',
+      likely_single_file_album: plexAlbum.likelySingleFileAlbum
     };
   }
 
@@ -1322,6 +1329,11 @@
         totalMs: Number((performance.now() - startedAt).toFixed(1)),
         repairQueued: shouldAttemptRepair
       });
+
+      // Background hydration: fetch quality for Plex tracks with missing data
+      if (includePlex && plexAlbums.length > 0) {
+        void hydrateUnhydratedPlexTracks();
+      }
     } catch (err) {
       console.error('[LocalLibrary] Failed to load library:', err);
       if (!background) {
@@ -2031,6 +2043,63 @@
         sample_rate: metadata.samplingRateHz ?? track.sample_rate
       };
     });
+  }
+
+  async function hydrateUnhydratedPlexTracks(): Promise<void> {
+    try {
+      const baseUrl = getUserItem('qbz-plex-poc-base-url') || '';
+      const token = getUserItem('qbz-plex-poc-token') || '';
+      if (!baseUrl || !token) return;
+
+      const ratingKeys = await invoke<string[]>('plex_cache_get_tracks_needing_hydration', { limit: 50 });
+      if (ratingKeys.length === 0) return;
+      console.log('[LocalLibrary] Background hydration: fetching quality for', ratingKeys.length, 'tracks');
+
+      const qualityUpdates: PlexTrackQualityUpdate[] = [];
+      // Fetch metadata in small batches to avoid overwhelming the Plex server
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < ratingKeys.length; i += BATCH_SIZE) {
+        const batch = ratingKeys.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map(async (ratingKey) => {
+            try {
+              const metadata = await invoke<PlexTrackMetadata>('plex_get_track_metadata', {
+                baseUrl, token, ratingKey
+              });
+              return { ratingKey, metadata };
+            } catch {
+              return null;
+            }
+          })
+        );
+        for (const result of results) {
+          if (!result) continue;
+          qualityUpdates.push({
+            ratingKey: result.ratingKey,
+            container: result.metadata.container ?? result.metadata.codec,
+            samplingRateHz: result.metadata.samplingRateHz,
+            bitDepth: result.metadata.bitDepth
+          });
+        }
+      }
+
+      if (qualityUpdates.length === 0) return;
+
+      // Persist hydrated quality to cache
+      await invoke<number>('plex_cache_update_track_quality', { updates: qualityUpdates });
+      console.log('[LocalLibrary] Background hydration: persisted quality for', qualityUpdates.length, 'tracks');
+
+      // Refresh album list to show updated quality badges
+      const plexAlbumsRaw = await invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => []);
+      if (plexAlbumsRaw.length > 0) {
+        const plexAlbums = plexAlbumsRaw.map(mapPlexAlbum);
+        const localOnly = albums.filter(a => a.source !== 'plex');
+        albums = [...localOnly, ...plexAlbums];
+        console.log('[LocalLibrary] Background hydration: refreshed album list with updated quality');
+      }
+    } catch (err) {
+      console.warn('[LocalLibrary] Background hydration failed:', err);
+    }
   }
 
   async function setQueueForLocalTracks(tracks: LocalTrack[], startIndex = 0) {
@@ -3058,6 +3127,12 @@
               <span class="spec-item">{formatBitDepth(firstTrack.bit_depth)}</span>
               <span class="spec-item">{formatSampleRate(firstTrack.sample_rate)}</span>
               <span class="spec-item">{firstTrack.channels === 2 ? 'Stereo' : firstTrack.channels === 1 ? 'Mono' : `${firstTrack.channels}ch`}</span>
+            </div>
+          {/if}
+          {#if selectedAlbum.likely_single_file_album}
+            <div class="single-file-notice">
+              <AlertCircle size={14} />
+              <span>{$t('library.singleFileAlbumNotice')}</span>
             </div>
           {/if}
           <div class="album-actions">
@@ -5414,6 +5489,19 @@
     padding: 4px 8px;
     background: var(--bg-secondary);
     border-radius: 4px;
+  }
+
+  .single-file-notice {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    max-width: fit-content;
   }
 
   .album-actions {
