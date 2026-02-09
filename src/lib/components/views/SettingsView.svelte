@@ -3671,6 +3671,14 @@
         {/if}
       </div>
 
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">{$t('settings.integrations.plexMetadataWrite')}</span>
+          <small class="setting-note">{$t('settings.integrations.plexMetadataWriteDesc')}</small>
+        </div>
+        <Toggle enabled={plexMetadataWriteEnabled} onchange={handlePlexMetadataWriteToggle} />
+      </div>
+
       <div class="setting-row plex-two-column-row">
         <span class="setting-label">{$t('settings.integrations.plexDisconnectRowLabel')}</span>
         <button
