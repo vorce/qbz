@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Mic2 } from 'lucide-svelte';
+  import { t } from 'svelte-i18n';
   import LyricsLines from './LyricsLines.svelte';
 
   interface LyricsLine {
@@ -35,7 +36,7 @@
       <Mic2 size={18} />
     </div>
     <div class="header-text">
-      <div class="header-title">Lyrics</div>
+      <div class="header-title">{$t('player.lyrics')}</div>
       {#if title || artist}
         <div class="header-meta">{title}{title && artist ? ' - ' : ''}{artist}</div>
       {/if}
@@ -46,7 +47,7 @@
     {#if isLoading}
       <div class="state">
         <div class="loading-spinner"></div>
-        <span>Loading lyrics...</span>
+        <span>{$t('player.fetchingLyrics')}</span>
       </div>
     {:else if error}
       <div class="state error">{error}</div>

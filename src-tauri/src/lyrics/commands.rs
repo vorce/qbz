@@ -40,7 +40,8 @@ pub async fn lyrics_get(
     }
 
     // Provider chain: LRCLIB -> lyrics.ovh
-    if let Some(data) = fetch_lrclib(title_trimmed, artist_trimmed, duration_secs).await? {
+    // Each provider returns Option (errors are logged internally and treated as "not found")
+    if let Some(data) = fetch_lrclib(title_trimmed, artist_trimmed, duration_secs).await {
         let payload = LyricsPayload {
             track_id,
             title: title_trimmed.to_string(),
@@ -59,7 +60,7 @@ pub async fn lyrics_get(
         return Ok(Some(payload));
     }
 
-    if let Some(data) = fetch_lyrics_ovh(title_trimmed, artist_trimmed).await? {
+    if let Some(data) = fetch_lyrics_ovh(title_trimmed, artist_trimmed).await {
         let payload = LyricsPayload {
             track_id,
             title: title_trimmed.to_string(),

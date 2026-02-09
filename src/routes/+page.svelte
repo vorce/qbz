@@ -3377,7 +3377,7 @@
         activeProgress={lyricsActiveProgress}
         isSynced={lyricsIsSynced}
         isLoading={lyricsStatus === 'loading'}
-        error={lyricsStatus === 'error' ? lyricsError : (lyricsStatus === 'not_found' ? 'No lyrics found' : null)}
+        error={lyricsStatus === 'error' ? lyricsError : (lyricsStatus === 'not_found' ? $t('player.noLyrics') : null)}
       />
     {/if}
     </div>
@@ -3518,7 +3518,7 @@
         lyricsActiveProgress={lyricsActiveProgress}
         lyricsSynced={lyricsIsSynced}
         lyricsLoading={lyricsStatus === 'loading'}
-        lyricsError={lyricsStatus === 'error' ? lyricsError : (lyricsStatus === 'not_found' ? 'No lyrics found' : null)}
+        lyricsError={lyricsStatus === 'error' ? lyricsError : (lyricsStatus === 'not_found' ? $t('player.noLyrics') : null)}
         enableCredits={true}
         enableSuggestions={true}
         queueTracks={[

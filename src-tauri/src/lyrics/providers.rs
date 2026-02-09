@@ -3,9 +3,18 @@
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json;
+use std::time::Duration;
 use urlencoding::encode;
 
 use super::{normalize, LyricsProvider};
+
+/// Build a shared HTTP client with reasonable timeout
+fn build_client() -> Result<Client, String> {
+    Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))
+}
 
 #[derive(Debug, Clone)]
 pub struct LyricsData {
@@ -33,11 +42,23 @@ pub async fn fetch_lrclib(
     title: &str,
     artist: &str,
     duration_secs: Option<u64>,
-) -> Result<Option<LyricsData>, String> {
-    let client = Client::new();
+) -> Option<LyricsData> {
+    let client = match build_client() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[Lyrics] {}", e);
+            return None;
+        }
+    };
 
-    // Try direct GET first
-    let mut best = fetch_lrclib_get(&client, title, artist).await?;
+    // Try direct GET first (network errors are soft failures)
+    let mut best = match fetch_lrclib_get(&client, title, artist).await {
+        Ok(item) => item,
+        Err(e) => {
+            eprintln!("[Lyrics] LRCLIB GET failed (will try search): {}", e);
+            None
+        }
+    };
 
     // Check if GET result has synced lyrics
     let get_has_synced = best.as_ref()
@@ -47,7 +68,13 @@ pub async fn fetch_lrclib(
 
     // If no result OR no synced lyrics, try search for a better match
     if best.is_none() || !get_has_synced {
-        let results = fetch_lrclib_search(&client, title, artist).await?;
+        let results = match fetch_lrclib_search(&client, title, artist).await {
+            Ok(items) => items,
+            Err(e) => {
+                eprintln!("[Lyrics] LRCLIB search failed: {}", e);
+                Vec::new()
+            }
+        };
         if let Some(search_result) = pick_best_match(&results, title, artist, duration_secs) {
             // Check if search result has synced lyrics
             let search_has_synced = search_result.synced_lyrics.as_ref()
@@ -61,29 +88,35 @@ pub async fn fetch_lrclib(
         }
     }
 
-    let Some(item) = best else {
-        return Ok(None);
-    };
+    let item = best?;
 
     if item.instrumental.unwrap_or(false) {
-        return Ok(None);
+        return None;
     }
 
     let plain = item.plain_lyrics.and_then(clean_lyrics);
     let synced = item.synced_lyrics.and_then(clean_lyrics);
 
     if plain.is_none() && synced.is_none() {
-        return Ok(None);
+        return None;
     }
 
-    Ok(Some(LyricsData {
+    Some(LyricsData {
         plain,
         synced_lrc: synced,
         provider: LyricsProvider::Lrclib,
-    }))
+    })
 }
 
-pub async fn fetch_lyrics_ovh(title: &str, artist: &str) -> Result<Option<LyricsData>, String> {
+pub async fn fetch_lyrics_ovh(title: &str, artist: &str) -> Option<LyricsData> {
+    let client = match build_client() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[Lyrics] {}", e);
+            return None;
+        }
+    };
+
     let artist_encoded = encode(artist);
     let title_encoded = encode(title);
     let url = format!(
@@ -91,14 +124,16 @@ pub async fn fetch_lyrics_ovh(title: &str, artist: &str) -> Result<Option<Lyrics
         artist_encoded, title_encoded
     );
 
-    let response = Client::new()
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("lyrics.ovh request failed: {}", e))?;
+    let response = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[Lyrics] lyrics.ovh request failed: {}", e);
+            return None;
+        }
+    };
 
     if !response.status().is_success() {
-        return Ok(None);
+        return None;
     }
 
     #[derive(Deserialize)]
@@ -106,21 +141,24 @@ pub async fn fetch_lyrics_ovh(title: &str, artist: &str) -> Result<Option<Lyrics
         lyrics: Option<String>,
     }
 
-    let data: OvhResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("lyrics.ovh response parse failed: {}", e))?;
+    let data: OvhResponse = match response.json().await {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("[Lyrics] lyrics.ovh response parse failed: {}", e);
+            return None;
+        }
+    };
 
     let plain = data.lyrics.and_then(clean_lyrics);
     if plain.is_none() {
-        return Ok(None);
+        return None;
     }
 
-    Ok(Some(LyricsData {
+    Some(LyricsData {
         plain,
         synced_lrc: None,
         provider: LyricsProvider::Ovh,
-    }))
+    })
 }
 
 async fn fetch_lrclib_get(

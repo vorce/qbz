@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { t } from 'svelte-i18n';
 
   interface LyricsLine {
     text: string;
@@ -140,7 +141,7 @@
   bind:this={container}
 >
   {#if lines.length === 0}
-    <div class="lyrics-empty">No lyrics available</div>
+    <div class="lyrics-empty">{$t('player.noLyrics')}</div>
   {:else}
     <!-- Spacer at top to allow first lines to scroll to center (only for synced) -->
     {#if isSynced}
