@@ -146,15 +146,6 @@ fn restart_app(app: tauri::AppHandle) {
     app.restart();
 }
 
-#[tauri::command]
-fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("main") {
-        window.show().map_err(|e| format!("Failed to show window: {}", e))
-    } else {
-        Err("Main window not found".to_string())
-    }
-}
-
 pub fn run() {
     // Load .env file if present (for development)
     // Silently ignore if not found (production builds use compile-time env vars)
@@ -312,7 +303,6 @@ pub fn run() {
             .min_inner_size(800.0, 600.0)
             .decorations(use_system_titlebar)
             .transparent(true)
-            .visible(false)
             .resizable(true)
             .zoom_hotkeys_enabled(true)
             .build()
@@ -1000,7 +990,6 @@ pub fn run() {
             config::window_settings::set_use_system_titlebar,
             // App lifecycle commands
             restart_app,
-            show_main_window,
             // Log capture commands
             logging::get_backend_logs,
             logging::upload_logs_to_paste,
