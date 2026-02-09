@@ -38,6 +38,12 @@
     getActiveMenuId,
     MENU_INACTIVITY_TIMEOUT
   } from '$lib/stores/floatingMenuStore';
+  import {
+    getSidebarCache,
+    getSidebarCacheStatus,
+    setSidebarCache,
+    clearSidebarCache
+  } from '$lib/stores/sidebarDataCache';
 
   interface Playlist {
     id: number;
@@ -430,9 +436,9 @@
   }
 
   export function refreshPlaylists() {
+    clearSidebarCache();
     playlistTooltipCache.clear();
-    loadUserPlaylists();
-    loadPlaylistSettings();
+    loadSidebarData();
   }
 
   export function refreshPlaylistSettings() {
@@ -445,9 +451,9 @@
 
   // Call this when tracks are added/removed from a playlist
   export function onPlaylistTracksChanged(playlistId: number) {
+    clearSidebarCache();
     invalidatePlaylistTooltip(playlistId);
-    loadUserPlaylists();
-    loadLocalTrackCounts();
+    loadSidebarData();
   }
 
   // Focus and clear the search input (for keybinding)
@@ -927,14 +933,33 @@
     }
   }
 
+  async function loadSidebarData() {
+    await Promise.all([
+      loadUserPlaylists(),
+      loadPlaylistSettings(),
+      loadLocalTrackCounts()
+    ]);
+    saveSidebarToCache();
+  }
+
   onMount(() => {
     loadSortPreference();
-    loadUserPlaylists();
-    loadPlaylistSettings();
-    loadLocalTrackCounts();
     loadFolders(); // Load playlist folders
     loadFavoritesPreferences(); // Load favorites tab order
     loadSidebarCollapseState(); // Load collapse states
+
+    // SWR: try cache first for playlists/settings/counts
+    const cacheStatus = getSidebarCacheStatus();
+    if (cacheStatus === 'fresh') {
+      restoreFromSidebarCache();
+    } else if (cacheStatus === 'stale') {
+      restoreFromSidebarCache();
+      // Background refresh
+      loadSidebarData();
+    } else {
+      // Empty: normal load with loading indicator
+      loadSidebarData();
+    }
 
     // Subscribe to offline state changes
     const unsubscribeOffline = subscribeOffline(() => {
@@ -1013,6 +1038,42 @@
       handleSidebarSearchClear();
       e.preventDefault();
     }
+  }
+
+  function saveSidebarToCache() {
+    if (isOffline) return; // Don't cache offline data
+    const settingsArray = Array.from(playlistSettings.values());
+    const countsRecord: Record<string, number> = {};
+    for (const [id, count] of localTrackCounts) {
+      countsRecord[String(id)] = count;
+    }
+    setSidebarCache({
+      playlists: userPlaylists,
+      playlistSettings: settingsArray,
+      localTrackCounts: countsRecord,
+    });
+  }
+
+  function restoreFromSidebarCache(): boolean {
+    const cached = getSidebarCache();
+    if (!cached) return false;
+
+    userPlaylists = cached.playlists as Playlist[];
+
+    const settingsMap = new Map<number, PlaylistSettings>();
+    for (const s of cached.playlistSettings as PlaylistSettings[]) {
+      settingsMap.set(s.qobuz_playlist_id, s);
+    }
+    playlistSettings = settingsMap;
+
+    const countsMap = new Map<number, number>();
+    for (const [id, count] of Object.entries(cached.localTrackCounts)) {
+      countsMap.set(Number(id), count);
+    }
+    localTrackCounts = countsMap;
+
+    playlistsLoading = false;
+    return true;
   }
 
   async function loadUserPlaylists() {
