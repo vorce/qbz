@@ -178,11 +178,23 @@ fn main() {
         }
 
         // --- GDK backend selection ---
+        // AppImage + Wayland: force X11 (XWayland) to prevent EGL crash.
+        // WebKitGTK's Wayland platform init calls eglGetPlatformDisplay() which
+        // fails with EGL_BAD_PARAMETER when the AppImage bundles an EGL loader
+        // incompatible with the host's Mesa/driver.  Neither LIBGL_ALWAYS_SOFTWARE
+        // nor WEBKIT_DISABLE_DMABUF_RENDERER prevent this — the call happens in
+        // PlatformDisplayWayland before any renderer decision.
+        // X11 via XWayland uses GLX instead of EGL, avoiding the crash entirely.
+        // Users who want native Wayland can override with GDK_BACKEND=wayland.
         if force_x11 && is_wayland {
             qbz_nix_lib::logging::log_startup("[QBZ] User override: Forcing X11 backend (QBZ_FORCE_X11=1)");
             std::env::set_var("GDK_BACKEND", "x11");
+        } else if is_wayland && is_appimage && std::env::var_os("GDK_BACKEND").is_none() {
+            qbz_nix_lib::logging::log_startup("[QBZ] AppImage on Wayland: using X11 backend (XWayland) to prevent EGL crash");
+            qbz_nix_lib::logging::log_startup("[QBZ] To force native Wayland: set GDK_BACKEND=wayland");
+            std::env::set_var("GDK_BACKEND", "x11");
         } else if is_wayland && std::env::var_os("GDK_BACKEND").is_none() {
-            // Force Wayland backend to avoid fallback issues
+            // Non-AppImage Wayland: use native Wayland backend
             std::env::set_var("GDK_BACKEND", "wayland");
 
             // Prefer client-side decorations (we use custom titlebar anyway)
