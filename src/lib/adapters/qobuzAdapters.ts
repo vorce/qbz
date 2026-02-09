@@ -728,7 +728,7 @@ export function convertPageArtist(response: PageArtistResponse): ArtistDetail {
   let image: string | undefined;
   if (response.images?.portrait) {
     const { hash, format } = response.images.portrait;
-    image = `https://static.qobuz.com/images/artists/covers/${hash}_600.${format}`;
+    image = `https://static.qobuz.com/images/artists/covers/medium/${hash}.${format}`;
   }
 
   // Biography: the page endpoint has content but not a separate summary

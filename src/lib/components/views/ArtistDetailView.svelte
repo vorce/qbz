@@ -373,7 +373,7 @@
       let image: { small?: string; thumbnail?: string; large?: string } | undefined;
       if (item.images?.portrait) {
         const { hash, format } = item.images.portrait;
-        const url = `https://static.qobuz.com/images/artists/covers/${hash}_600.${format}`;
+        const url = `https://static.qobuz.com/images/artists/covers/medium/${hash}.${format}`;
         image = { large: url, thumbnail: url, small: url };
       }
       return {
