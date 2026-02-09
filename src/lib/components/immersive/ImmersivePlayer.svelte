@@ -44,6 +44,9 @@
     quality?: string;
     bitDepth?: number;
     samplingRate?: number;
+    originalBitDepth?: number;
+    originalSamplingRate?: number;
+    format?: string;
     // Playback state
     isPlaying: boolean;
     currentTime: number;
@@ -96,6 +99,9 @@
     quality,
     bitDepth,
     samplingRate,
+    originalBitDepth,
+    originalSamplingRate,
+    format,
     isPlaying,
     currentTime,
     duration,
@@ -382,6 +388,9 @@
           {quality}
           {bitDepth}
           {samplingRate}
+          {originalBitDepth}
+          {originalSamplingRate}
+          {format}
           {queueTracks}
           {queueCurrentIndex}
           onNavigate={(index) => onQueuePlayTrack?.(index)}
@@ -397,6 +406,9 @@
           {quality}
           {bitDepth}
           {samplingRate}
+          {originalBitDepth}
+          {originalSamplingRate}
+          {format}
         />
       {:else if activeFocusTab === 'vinyl'}
         <!-- Vinyl: Spinning record with album cover -->
@@ -409,6 +421,9 @@
           {quality}
           {bitDepth}
           {samplingRate}
+          {originalBitDepth}
+          {originalSamplingRate}
+          {format}
         />
       {:else if activeFocusTab === 'visualizer'}
         <!-- Visualizer: Audio spectrum with mirror mode -->
@@ -421,6 +436,9 @@
           {quality}
           {bitDepth}
           {samplingRate}
+          {originalBitDepth}
+          {originalSamplingRate}
+          {format}
         />
       {:else if activeFocusTab === 'lyrics-focus'}
         <!-- Lyrics Focus: Single line, large, centered -->
@@ -458,7 +476,7 @@
               <p class="split-track-album">{album}</p>
             {/if}
             <div class="split-quality-badge">
-              <QualityBadge {quality} {bitDepth} {samplingRate} />
+              <QualityBadge {quality} {bitDepth} {samplingRate} {originalBitDepth} {originalSamplingRate} {format} />
             </div>
           </div>
         </div>

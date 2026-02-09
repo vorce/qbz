@@ -51,14 +51,14 @@ impl Default for AudioSettings {
             backend_type: None,  // Auto-detect (PipeWire if available, else ALSA)
             alsa_plugin: Some(AlsaPlugin::Hw),  // Default to hw (bit-perfect)
             alsa_hardware_volume: false,  // Disabled by default (maximum compatibility)
-            stream_first_track: true,  // Enabled by default for faster playback start
+            stream_first_track: false,  // Disabled by default — user opts in
             stream_buffer_seconds: 3,  // 3 seconds initial buffer
             streaming_only: false,  // Disabled by default (cache tracks for instant replay)
             limit_quality_to_device: false,  // Disabled in 1.1.9 — detection logic unreliable (#45)
             device_max_sample_rate: None,   // Set when device is selected
             normalization_enabled: false,   // Off by default — preserves bit-perfect pipeline
             normalization_target_lufs: -14.0, // Spotify/YouTube standard
-            gapless_enabled: true, // On by default — seamless track transitions
+            gapless_enabled: false, // Off by default — user opts in
         }
     }
 }
@@ -104,7 +104,7 @@ impl AudioSettingsStore {
         let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN device_max_sample_rate INTEGER", []);
         let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN normalization_enabled INTEGER DEFAULT 0", []);
         let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN normalization_target_lufs REAL DEFAULT -14.0", []);
-        let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN gapless_enabled INTEGER DEFAULT 1", []);
+        let _ = conn.execute("ALTER TABLE audio_settings ADD COLUMN gapless_enabled INTEGER DEFAULT 0", []);
 
         Ok(Self { conn })
     }
@@ -151,7 +151,7 @@ impl AudioSettingsStore {
                         device_max_sample_rate: row.get::<_, Option<i64>>(11)?.map(|r| r as u32),
                         normalization_enabled: row.get::<_, Option<i64>>(12)?.unwrap_or(0) != 0,
                         normalization_target_lufs: row.get::<_, Option<f64>>(13)?.unwrap_or(-14.0) as f32,
-                        gapless_enabled: row.get::<_, Option<i64>>(14)?.unwrap_or(1) != 0,
+                        gapless_enabled: row.get::<_, Option<i64>>(14)?.unwrap_or(0) != 0,
                     })
                 },
             )
@@ -318,6 +318,60 @@ impl AudioSettingsStore {
             )
             .map_err(|e| format!("Failed to set normalization target LUFS: {}", e))?;
         Ok(())
+    }
+
+    /// Reset all audio settings to their default values
+    pub fn reset_all(&self) -> Result<AudioSettings, String> {
+        let defaults = AudioSettings::default();
+        let backend_json: Option<String> = defaults.backend_type
+            .map(|b| serde_json::to_string(&b))
+            .transpose()
+            .map_err(|e| format!("Failed to serialize backend type: {}", e))?;
+        let plugin_json: Option<String> = defaults.alsa_plugin
+            .map(|p| serde_json::to_string(&p))
+            .transpose()
+            .map_err(|e| format!("Failed to serialize ALSA plugin: {}", e))?;
+
+        self.conn
+            .execute(
+                "UPDATE audio_settings SET
+                    output_device = ?1,
+                    exclusive_mode = ?2,
+                    dac_passthrough = ?3,
+                    preferred_sample_rate = ?4,
+                    backend_type = ?5,
+                    alsa_plugin = ?6,
+                    alsa_hardware_volume = ?7,
+                    stream_first_track = ?8,
+                    stream_buffer_seconds = ?9,
+                    streaming_only = ?10,
+                    limit_quality_to_device = ?11,
+                    device_max_sample_rate = ?12,
+                    normalization_enabled = ?13,
+                    normalization_target_lufs = ?14,
+                    gapless_enabled = ?15
+                WHERE id = 1",
+                params![
+                    defaults.output_device,
+                    defaults.exclusive_mode as i64,
+                    defaults.dac_passthrough as i64,
+                    defaults.preferred_sample_rate.map(|r| r as i64),
+                    backend_json,
+                    plugin_json,
+                    defaults.alsa_hardware_volume as i64,
+                    defaults.stream_first_track as i64,
+                    defaults.stream_buffer_seconds as i64,
+                    defaults.streaming_only as i64,
+                    defaults.limit_quality_to_device as i64,
+                    defaults.device_max_sample_rate.map(|r| r as i64),
+                    defaults.normalization_enabled as i64,
+                    defaults.normalization_target_lufs as f64,
+                    defaults.gapless_enabled as i64,
+                ],
+            )
+            .map_err(|e| format!("Failed to reset audio settings: {}", e))?;
+
+        Ok(defaults)
     }
 }
 
@@ -528,4 +582,24 @@ pub fn set_audio_gapless_enabled(
     let guard = state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
     let store = guard.as_ref().ok_or("No active session - please log in")?;
     store.set_gapless_enabled(enabled)
+}
+
+#[tauri::command]
+pub fn reset_audio_settings(
+    audio_state: tauri::State<'_, AudioSettingsState>,
+    playback_state: tauri::State<'_, crate::config::playback_preferences::PlaybackPreferencesState>,
+) -> Result<AudioSettings, String> {
+    log::info!("Command: reset_audio_settings (resetting audio + playback to defaults)");
+
+    // Reset audio settings
+    let guard = audio_state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let store = guard.as_ref().ok_or("No active session - please log in")?;
+    let defaults = store.reset_all()?;
+
+    // Reset playback preferences
+    let pb_guard = playback_state.store.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let pb_store = pb_guard.as_ref().ok_or("No active session - please log in")?;
+    pb_store.reset_all()?;
+
+    Ok(defaults)
 }

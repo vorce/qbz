@@ -3,7 +3,7 @@
   import { onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
   import { t } from '$lib/i18n';
-  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library, CloudDownload, Shuffle, MoreHorizontal, PanelLeftClose, Loader2 } from 'lucide-svelte';
+  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library, CloudDownload, Shuffle, MoreHorizontal, PanelLeftClose, Loader2, ArrowLeft } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import QualityBadge from '../QualityBadge.svelte';
@@ -29,6 +29,7 @@
     type GenreFilterContext
   } from '$lib/stores/genreFilterStore';
   import type { FavoritesPreferences, QobuzAlbum } from '$lib/types';
+  import { saveScrollPosition, getSavedScrollPosition, getActiveView } from '$lib/stores/navigationStore';
 
   const GENRE_CONTEXT: GenreFilterContext = 'favorites';
 
@@ -74,6 +75,7 @@
   }
 
   interface Props {
+    onBack?: () => void;
     onAlbumClick?: (albumId: string) => void;
     onAlbumPlay?: (albumId: string) => void;
     onAlbumPlayNext?: (albumId: string) => void;
@@ -130,6 +132,7 @@
   }
 
   let {
+    onBack,
     onAlbumClick,
     onAlbumPlay,
     onAlbumPlayNext,
@@ -542,7 +545,7 @@
     trackGroupingEnabled = loadStoredBool('qbz-favorites-track-group-enabled', false);
     artistGroupingEnabled = loadStoredBool('qbz-favorites-artist-group-enabled', false);
     artistViewMode = loadStoredString('qbz-favorites-artist-view-mode', 'grid', ['grid', 'sidepanel']) as ArtistViewMode;
-    loadFavoritesPreferences().then(() => {
+    loadFavoritesPreferences().then(async () => {
       preferencesLoaded = true;
       if (selectedTab) {
         activeTab = selectedTab;
@@ -550,8 +553,21 @@
         activeTab = favoritesPreferences.tab_order[0] as TabType;
       }
       loadTabIfNeeded(activeTab);
+      // Restore scroll position after content loads
+      await tick();
+      requestAnimationFrame(() => {
+        const saved = getSavedScrollPosition(getActiveView());
+        if (scrollContainer && saved > 0) {
+          scrollContainer.scrollTop = saved;
+        }
+      });
     });
   });
+
+  function handleFavoritesScroll(e: Event) {
+    const target = e.target as HTMLElement;
+    saveScrollPosition(getActiveView(), target.scrollTop);
+  }
 
   async function loadFavoritesPreferences() {
     try {
@@ -661,7 +677,7 @@
       if (type === 'tracks') {
         favoriteTracks = items as FavoriteTrack[];
         // Sync to local cache for other views
-        const trackIds = favoriteTracks.map(t => t.id);
+        const trackIds = favoriteTracks.map(trk => trk.id);
         void syncTrackCache(trackIds);
       } else if (type === 'albums') {
         favoriteAlbums = items as FavoriteAlbum[];
@@ -1007,32 +1023,32 @@
   }
 
   function buildFavoritesQueueTracks(tracks: FavoriteTrack[]) {
-    return tracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.performer?.name || 'Unknown Artist',
-      album: t.album?.title || 'Favorites',
-      duration_secs: t.duration,
-      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || '',
-      hires: t.hires ?? false,
-      bit_depth: t.maximum_bit_depth ?? null,
-      sample_rate: t.maximum_sampling_rate ?? null,
+    return tracks.map(trk => ({
+      id: trk.id,
+      title: trk.title,
+      artist: trk.performer?.name || 'Unknown Artist',
+      album: trk.album?.title || 'Favorites',
+      duration_secs: trk.duration,
+      artwork_url: trk.album?.image?.large || trk.album?.image?.thumbnail || trk.album?.image?.small || '',
+      hires: trk.hires ?? false,
+      bit_depth: trk.maximum_bit_depth ?? null,
+      sample_rate: trk.maximum_sampling_rate ?? null,
       is_local: false,
-      album_id: t.album?.id || null,
-      artist_id: t.performer?.id ?? null,
+      album_id: trk.album?.id || null,
+      artist_id: trk.performer?.id ?? null,
     }));
   }
 
   // Accessor functions for VirtualizedTrackList (adapts FavoriteTrack to expected interface)
-  const getFavoriteTrackId = (t: FavoriteTrack) => t.id;
-  const getFavoriteTrackNumber = (t: FavoriteTrack, idx: number) => t.track_number || idx + 1;
-  const getFavoriteTrackTitle = (t: FavoriteTrack) => t.title;
-  const getFavoriteTrackArtist = (t: FavoriteTrack) => t.performer?.name;
-  const getFavoriteTrackDuration = (t: FavoriteTrack) => t.duration;
-  const getFavoriteTrackAlbumKey = (t: FavoriteTrack) => t.album?.id;
-  const getFavoriteTrackAlbum = (t: FavoriteTrack) => t.album?.title;
-  const getFavoriteArtistId = (t: FavoriteTrack) => t.performer?.id;
-  const getFavoriteAlbumId = (t: FavoriteTrack) => t.album?.id;
+  const getFavoriteTrackId = (trk: FavoriteTrack) => trk.id;
+  const getFavoriteTrackNumber = (trk: FavoriteTrack, idx: number) => trk.track_number || idx + 1;
+  const getFavoriteTrackTitle = (trk: FavoriteTrack) => trk.title;
+  const getFavoriteTrackArtist = (trk: FavoriteTrack) => trk.performer?.name;
+  const getFavoriteTrackDuration = (trk: FavoriteTrack) => trk.duration;
+  const getFavoriteTrackAlbumKey = (trk: FavoriteTrack) => trk.album?.id;
+  const getFavoriteTrackAlbum = (trk: FavoriteTrack) => trk.album?.title;
+  const getFavoriteArtistId = (trk: FavoriteTrack) => trk.performer?.id;
+  const getFavoriteAlbumId = (trk: FavoriteTrack) => trk.album?.id;
 
   // VirtualizedTrackList requires this but we don't have disc info in favorites
   function buildFavoritesAlbumSections(tracks: FavoriteTrack[]) {
@@ -1070,7 +1086,7 @@
   }
 
   async function handleTrackClick(track: FavoriteTrack, index: number) {
-    const trackIds = filteredTracks.map(t => t.id);
+    const trackIds = filteredTracks.map(trk => trk.id);
     await setFavoritesContext(trackIds, index);
 
     try {
@@ -1089,7 +1105,7 @@
 
     try {
       await setFavoritesQueue(0);
-      await setFavoritesContext(filteredTracks.map(t => t.id), 0);
+      await setFavoritesContext(filteredTracks.map(trk => trk.id), 0);
       onTrackPlay(buildDisplayTrack(filteredTracks[0], 0));
     } catch (err) {
       console.error('Failed to set queue:', err);
@@ -1104,7 +1120,7 @@
       const shuffled = [...filteredTracks].sort(() => Math.random() - 0.5);
       const queueTracks = buildFavoritesQueueTracks(shuffled);
       await invoke('set_queue', { tracks: queueTracks, startIndex: 0 });
-      await setFavoritesContext(shuffled.map(t => t.id), 0);
+      await setFavoritesContext(shuffled.map(trk => trk.id), 0);
       onTrackPlay(buildDisplayTrack(shuffled[0], 0));
     } catch (err) {
       console.error('Failed to shuffle queue:', err);
@@ -1136,7 +1152,18 @@
 </script>
 
 <ViewTransition duration={200} distance={12} direction="down">
-<div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'albums' && !loading && filteredAlbums.length > 0) || (activeTab === 'artists' && !loading && filteredArtists.length > 0)} bind:this={scrollContainer}>
+<div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'albums' && !loading && filteredAlbums.length > 0) || (activeTab === 'artists' && !loading && filteredArtists.length > 0)} bind:this={scrollContainer} onscroll={handleFavoritesScroll}>
+  <div class="top-bar">
+    {#if onBack}
+      <button class="back-btn" onclick={onBack}>
+        <ArrowLeft size={16} />
+        <span>{$t('actions.back')}</span>
+      </button>
+    {/if}
+    <button class="edit-btn" onclick={() => editModalOpen = true} title={$t('favorites.editSettings')}>
+      <Edit3 size={16} />
+    </button>
+  </div>
   <!-- Header -->
   <div class="header">
     <div
@@ -1200,9 +1227,6 @@
         </div>
       {/if}
     </div>
-    <button class="edit-btn" onclick={() => editModalOpen = true} title={$t('favorites.editSettings')}>
-      <Edit3 size={16} />
-    </button>
   </div>
 
   <!-- Navigation Bar (Artist-style) -->
@@ -1531,8 +1555,8 @@
               getQualityBadge={getQualityLabel}
               buildAlbumSections={buildFavoritesAlbumSections}
               onTrackPlay={handleVirtualizedTrackPlay}
-              onTrackPlayNext={onTrackPlayNext ? (t) => onTrackPlayNext(buildDisplayTrackFromFavorite(t)) : undefined}
-              onTrackPlayLater={onTrackPlayLater ? (t) => onTrackPlayLater(buildDisplayTrackFromFavorite(t)) : undefined}
+              onTrackPlayNext={onTrackPlayNext ? (trk) => onTrackPlayNext(buildDisplayTrackFromFavorite(trk)) : undefined}
+              onTrackPlayLater={onTrackPlayLater ? (trk) => onTrackPlayLater(buildDisplayTrackFromFavorite(trk)) : undefined}
               onTrackAddToPlaylist={onTrackAddToPlaylist}
               getTrackId={getFavoriteTrackId}
               getTrackNumber={getFavoriteTrackNumber}
@@ -1549,14 +1573,14 @@
               hideFavorite={false}
               isFavoriteOverride={true}
               getOfflineCacheStatus={getTrackOfflineCacheStatus}
-              onDownload={onTrackDownload ? (t) => onTrackDownload(buildDisplayTrackFromFavorite(t)) : undefined}
+              onDownload={onTrackDownload ? (trk) => onTrackDownload(buildDisplayTrackFromFavorite(trk)) : undefined}
               onRemoveDownload={onTrackRemoveDownload}
               onShareQobuz={onTrackShareQobuz}
-              onShareSonglink={onTrackShareSonglink ? (t) => onTrackShareSonglink(buildDisplayTrackFromFavorite(t)) : undefined}
+              onShareSonglink={onTrackShareSonglink ? (trk) => onTrackShareSonglink(buildDisplayTrackFromFavorite(trk)) : undefined}
               onGoToAlbum={onTrackGoToAlbum}
               onGoToArtist={onTrackGoToArtist}
               onShowInfo={onTrackShowInfo}
-              onReDownload={onTrackReDownload ? (t) => onTrackReDownload(buildDisplayTrackFromFavorite(t)) : undefined}
+              onReDownload={onTrackReDownload ? (trk) => onTrackReDownload(buildDisplayTrackFromFavorite(trk)) : undefined}
             />
           </div>
         </div>
@@ -1711,6 +1735,8 @@
                           artwork={getQobuzImage(album.image)}
                           title={album.title}
                           artist={album.artist.name}
+                          artistId={album.artist.id}
+                          onArtistClick={onArtistClick}
                           genre={album.genre?.name}
                           releaseDate={album.release_date_original}
                           quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
@@ -1763,6 +1789,8 @@
                           artwork={getQobuzImage(album.image)}
                           title={album.title}
                           artist={album.artist.name}
+                          artistId={album.artist.id}
+                          onArtistClick={onArtistClick}
                           genre={album.genre?.name}
                           releaseDate={album.release_date_original}
                           quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
@@ -1815,6 +1843,8 @@
                           artwork={getQobuzImage(album.image)}
                           title={album.title}
                           artist={album.artist.name}
+                          artistId={album.artist.id}
+                          onArtistClick={onArtistClick}
                           genre={album.genre?.name}
                           releaseDate={album.release_date_original}
                           quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
@@ -1940,6 +1970,30 @@
     height: 100%;
   }
 
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .back-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: color 150ms ease;
+  }
+
+  .back-btn:hover {
+    color: var(--text-secondary);
+  }
+
   /* Custom scrollbar */
   .favorites-view::-webkit-scrollbar {
     width: 6px;
@@ -1984,7 +2038,6 @@
     align-items: center;
     gap: 20px;
     margin-bottom: 16px;
-    position: relative;
   }
 
   .header-icon {
@@ -2023,9 +2076,6 @@
   }
 
   .edit-btn {
-    position: absolute;
-    top: 0;
-    right: 0;
     width: 36px;
     height: 36px;
     display: flex;
@@ -2035,6 +2085,7 @@
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
+    margin-left: auto;
     transition: all 150ms ease;
   }
 
@@ -2517,6 +2568,7 @@
   .alpha-index {
     position: sticky;
     top: 120px;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     gap: 6px;

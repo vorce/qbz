@@ -425,7 +425,13 @@
     "bitDepth": "{depth} bits",
     "sampleRate": "{rate} kHz",
     "lossless": "Sans perte",
-    "max": "Max"
+    "max": "Max",
+    "tooltip": {
+      "source": "Source",
+      "output": "Sortie",
+      "resampled": "Rééchantillonné par le système",
+      "fix": "Activez DAC Passthrough ou Mode Exclusif dans les Paramètres"
+    }
   },
   "actions": {
     "play": "Lecture",
@@ -433,6 +439,7 @@
     "playNow": "Lire maintenant",
     "shuffle": "Lecture aléatoire",
     "shuffleAll": "Tout mélanger",
+    "playNext": "Lire ensuite",
     "addToQueue": "Ajouter à la file d'attente",
     "addToPlaylist": "Ajouter à la playlist",
     "addToFavorites": "Ajouter aux favoris",
@@ -518,17 +525,6 @@
       "flatpakWarningDesc": "PipeWire ne peut pas garantir une lecture bit-perfect dans les environnements en bac à sable en raison des restrictions d'accès au démon.",
       "flatpakRecommended": "Recommandé :",
       "flatpakRecommendedDesc": "Passez au backend ALSA Direct pour un vrai son bit-perfect.",
-      "streamUncached": "Streamer les pistes non mises en cache",
-      "streamUncachedDesc": "Démarrez la lecture plus rapidement lorsque la piste n'est pas dans le cache. La recherche peut être limitée pendant la mise en tampon initiale.",
-      "initialBuffer": "Taille du tampon initiale",
-      "initialBufferDesc": "Secondes de tampon avant de démarrer la lecture ({seconds}s)",
-      "streamingOnly": "Streaming uniquement",
-      "streamingOnlyDesc": "Désactive le cache temporaire. Non recommandé sans connexion rapide. Les pistes de la bibliothèque hors ligne sont toujours lues en premier.",
-      "streamBuffer": "Mise en mémoire tampon du flux",
-      "streamBufferDesc": "Démarrez la lecture plus rapidement lorsque la piste n'est pas dans le cache. La recherche peut être limitée pendant la mise en tampon initiale.",
-      "streamBufferSeconds": "Secondes de tampon avant de démarrer la lecture ({seconds}s)",
-      "disableCache": "Désactiver le cache de lecture",
-      "disableCacheDesc": "Désactive le cache temporaire. Non recommandé sans connexion rapide. Les pistes de la bibliothèque hors ligne sont toujours lues en premier.",
       "bitPerfectHelp": "Aide pour la détection de périphériques bit-perfect",
       "bitPerfectDetection": "Détection de périphérique bit-perfect",
       "isInstalled": "est installé",
@@ -536,7 +532,14 @@
       "alsaUtilsDesc": "Le paquet alsa-utils fournit des outils d'énumération du matériel que QBZ utilise pour détecter les appareils capables de bit-perfect (hw:X,Y).",
       "alsaUtilsNotInstalled": "Sans cela, seuls les périphériques ALSA génériques sont affichés et vous ne verrez pas le badge BP pour les véritables sorties bit-perfect.",
       "systemConfigured": "Votre système est correctement configuré pour la détection des périphériques bit-perfect.",
-      "deviceNotListed": "Si vous ne voyez pas votre appareil listé comme bit-perfect, assurez-vous qu'il est connecté et reconnu par votre système."
+      "deviceNotListed": "Si vous ne voyez pas votre appareil listé comme bit-perfect, assurez-vous qu'il est connecté et reconnu par votre système.",
+      "resetTitle": "Réinitialiser les paramètres audio et de lecture",
+      "resetDesc": "Restaure tous les paramètres audio et de lecture à leurs valeurs par défaut. Utile en cas de problèmes audio.",
+      "resetButton": "Réinitialiser les paramètres",
+      "resetConfirmTitle": "Réinitialiser les paramètres audio et de lecture ?",
+      "resetConfirmDesc": "Cela réinitialisera tous les paramètres de sortie audio, de backend et de lecture aux valeurs par défaut. La lecture sera arrêtée.",
+      "resetSuccess": "Les paramètres audio et de lecture ont été réinitialisés aux valeurs par défaut.",
+      "resetError": "Échec de la réinitialisation des paramètres audio : {error}"
     },
     "playback": {
       "title": "Lecture",
@@ -553,7 +556,18 @@
       "continueWithinSource": "Continuer au sein de la source",
       "playOnlySelectedTrack": "Lire uniquement la piste sélectionnée",
       "showContextIcon": "Afficher le contexte de la piste en cours de lecture dans le lecteur",
-      "showContextIconTooltip": "Affiche le contexte depuis lequel la piste actuelle est lue (album, artiste, playlist, etc.)"
+      "showContextIconTooltip": "Affiche le contexte depuis lequel la piste actuelle est lue (album, artiste, playlist, etc.)",
+      "streamUncached": "Streamer les pistes non mises en cache",
+      "streamUncachedDesc": "Démarrez la lecture plus rapidement lorsque la piste n'est pas dans le cache. La recherche peut être limitée pendant la mise en tampon initiale.",
+      "initialBuffer": "Taille du tampon initiale",
+      "initialBufferDesc": "Secondes de tampon avant de démarrer la lecture ({seconds}s)",
+      "streamingOnly": "Streaming uniquement",
+      "streamingOnlyDesc": "Désactive le cache temporaire. Non recommandé sans connexion rapide. Les pistes de la bibliothèque hors ligne sont toujours lues en premier.",
+      "streamBuffer": "Mise en mémoire tampon du flux",
+      "streamBufferDesc": "Démarrez la lecture plus rapidement lorsque la piste n'est pas dans le cache. La recherche peut être limitée pendant la mise en tampon initiale.",
+      "streamBufferSeconds": "Secondes de tampon avant de démarrer la lecture ({seconds}s)",
+      "disableCache": "Désactiver le cache de lecture",
+      "disableCacheDesc": "Désactive le cache temporaire. Non recommandé sans connexion rapide. Les pistes de la bibliothèque hors ligne sont toujours lues en premier."
     },
     "appearance": {
       "title": "Apparence",
@@ -675,7 +689,32 @@
       "cachedTracks": "Pistes mises en cache dans la file d'attente",
       "cacheSize": "Taille du cache de la file d'attente",
       "clearCache": "Effacer le cache de la file d'attente",
-      "clearing": "Effacement..."
+      "clearing": "Effacement...",
+      "factoryResetTitle": "Supprimer toutes les données de l'application",
+      "factoryResetDesc": "Supprime définitivement tous les paramètres, caches, identifiants et données utilisateur. Vous serez déconnecté et l'application reviendra à son état initial.",
+      "factoryResetCheckbox": "Je comprends que toutes les données seront définitivement supprimées et que cela ne peut pas être annulé",
+      "factoryResetButton": "Supprimer toutes les données",
+      "factoryResetFinalConfirm": "Êtes-vous absolument sûr ? Cela supprimera toutes les données de l'application, y compris vos identifiants, paramètres, caches et bibliothèque hors ligne. Cette action est irréversible.",
+      "factoryResetConfirmButton": "Oui, tout supprimer",
+      "factoryResetError": "Échec de la suppression des données de l'application : {error}"
+    },
+    "developer": {
+      "title": "Mode Développeur",
+      "summary": "Options avancées pour le débogage et le développement",
+      "forceDmabuf": "Forcer le rendu DMA-BUF",
+      "forceDmabufDesc": "Remplace le contournement DMA-BUF pour NVIDIA + Wayland. N'activez que si votre système ne plante pas. Réinitialiser depuis le terminal : qbz --reset-dmabuf",
+      "restartRequired": "Redémarrez QBZ pour que ce changement prenne effet",
+      "viewLogs": "Voir les logs",
+      "viewLogsDesc": "Afficher les logs backend et console pour le débogage",
+      "logsTitle": "Logs de l'application",
+      "tabTerminal": "Terminal",
+      "tabConsole": "Console",
+      "uploadLogs": "Téléverser sur 0x0.st",
+      "uploadTab": "Téléverser {tab}",
+      "uploadSuccess": "URL du log copiée dans le presse-papiers",
+      "uploadError": "Échec du téléversement des logs",
+      "uploading": "Téléversement...",
+      "bugReportHint": "Vous signalez un bug ? Téléversez les deux onglets et partagez les deux URLs — cela nous aide a résoudre les problèmes plus vite. Merci !"
     },
     "blacklist": {
       "title": "Liste noire des artistes",

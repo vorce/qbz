@@ -30,6 +30,9 @@ let activeView: ViewType = 'home';
 let viewHistory: ViewType[] = ['home'];
 let forwardHistory: ViewType[] = [];
 
+// Scroll position memory — keyed by ViewType
+const scrollPositions = new Map<ViewType, number>();
+
 // Selected playlist ID (album/artist are full data objects in +page.svelte)
 let selectedPlaylistId: number | null = null;
 
@@ -220,6 +223,22 @@ export function getSelectedLocalAlbumId(): string | null {
 export function navigateToFavorites(tab?: FavoritesTab): void {
   const targetTab = tab ?? lastFavoritesTab;
   navigateTo(favoritesViewForTab(targetTab));
+}
+
+// ============ Scroll Position ============
+
+/**
+ * Save scroll position for a view (call before navigating away)
+ */
+export function saveScrollPosition(view: ViewType, scrollTop: number): void {
+  scrollPositions.set(view, scrollTop);
+}
+
+/**
+ * Get saved scroll position for a view (0 if none saved)
+ */
+export function getSavedScrollPosition(view: ViewType): number {
+  return scrollPositions.get(view) ?? 0;
 }
 
 // ============ Getters ============

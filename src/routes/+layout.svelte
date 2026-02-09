@@ -3,6 +3,7 @@
   import type { Snippet } from 'svelte';
   import { initI18n } from '$lib/i18n';
   import { isLoading } from 'svelte-i18n';
+  import SystemTooltip from '$lib/components/SystemTooltip.svelte';
 
   // Props
   let { children }: { children: Snippet } = $props();
@@ -18,6 +19,7 @@
 
 {#if isReady()}
   {@render children()}
+  <SystemTooltip />
 {:else}
   <div class="loading">
     <div class="spinner"></div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Music, User, Loader2 } from 'lucide-svelte';
   import {
@@ -71,6 +71,7 @@
     artwork: string;
     title: string;
     artist: string;
+    artistId?: number;
     genre: string;
     quality?: string;
     releaseDate?: string;
@@ -554,6 +555,7 @@
       artwork: getQobuzImage(album.image),
       title: album.title,
       artist: album.artist?.name || 'Unknown Artist',
+      artistId: album.artist?.id,
       genre: album.genre?.name || 'Unknown genre',
       quality: formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate),
       releaseDate: album.release_date_original
@@ -745,10 +747,11 @@
 
     // Start Qobuz API calls in parallel (don't await)
     if (isSectionVisible('newReleases')) {
-      fetchFeaturedAlbums('new-releases', homeLimits.featuredAlbums, genreIds).then(albums => {
+      fetchFeaturedAlbums('new-releases', homeLimits.featuredAlbums, genreIds).then(async (albums) => {
         newReleases = albums;
         loadingNewReleases = false;
-        loadAllAlbumDownloadStatuses(albums);
+        await tick();
+        loadAllAlbumDownloadStatuses(albums).catch(() => {});
       }).catch(err => {
         console.error('Failed to load newReleases:', err);
         loadingNewReleases = false;
@@ -758,10 +761,11 @@
     }
 
     if (isSectionVisible('pressAwards')) {
-      fetchFeaturedAlbums('press-awards', homeLimits.featuredAlbums, genreIds).then(albums => {
+      fetchFeaturedAlbums('press-awards', homeLimits.featuredAlbums, genreIds).then(async (albums) => {
         pressAwards = albums;
         loadingPressAwards = false;
-        loadAllAlbumDownloadStatuses(albums);
+        await tick();
+        loadAllAlbumDownloadStatuses(albums).catch(() => {});
       }).catch(err => {
         console.error('Failed to load pressAwards:', err);
         loadingPressAwards = false;
@@ -771,10 +775,11 @@
     }
 
     if (isSectionVisible('mostStreamed')) {
-      fetchFeaturedAlbums('most-streamed', homeLimits.featuredAlbums, genreIds).then(albums => {
+      fetchFeaturedAlbums('most-streamed', homeLimits.featuredAlbums, genreIds).then(async (albums) => {
         mostStreamed = albums;
         loadingMostStreamed = false;
-        loadAllAlbumDownloadStatuses(albums);
+        await tick();
+        loadAllAlbumDownloadStatuses(albums).catch(() => {});
       }).catch(err => {
         console.error('Failed to load mostStreamed:', err);
         loadingMostStreamed = false;
@@ -784,10 +789,11 @@
     }
 
     if (isSectionVisible('qobuzissimes')) {
-      fetchFeaturedAlbums('qobuzissimes', homeLimits.featuredAlbums, genreIds).then(albums => {
+      fetchFeaturedAlbums('qobuzissimes', homeLimits.featuredAlbums, genreIds).then(async (albums) => {
         qobuzissimes = albums;
         loadingQobuzissimes = false;
-        loadAllAlbumDownloadStatuses(albums);
+        await tick();
+        loadAllAlbumDownloadStatuses(albums).catch(() => {});
       }).catch(err => {
         console.error('Failed to load qobuzissimes:', err);
         loadingQobuzissimes = false;
@@ -797,10 +803,11 @@
     }
 
     if (isSectionVisible('editorPicks')) {
-      fetchFeaturedAlbums('editor-picks', homeLimits.featuredAlbums, genreIds).then(albums => {
+      fetchFeaturedAlbums('editor-picks', homeLimits.featuredAlbums, genreIds).then(async (albums) => {
         editorPicks = albums;
         loadingEditorPicks = false;
-        loadAllAlbumDownloadStatuses(albums);
+        await tick();
+        loadAllAlbumDownloadStatuses(albums).catch(() => {});
       }).catch(err => {
         console.error('Failed to load editorPicks:', err);
         loadingEditorPicks = false;
@@ -841,11 +848,12 @@
         const recentAlbumIds = normalizeAlbumIds(seeds.recentlyPlayedAlbumIds);
         // Fetch more if filtering, to have enough after filter
         const fetchLimit = hasGenreFilter() ? homeLimits.recentAlbums * 3 : homeLimits.recentAlbums;
-        fetchAlbums(recentAlbumIds.slice(0, fetchLimit)).then(albums => {
+        fetchAlbums(recentAlbumIds.slice(0, fetchLimit)).then(async (albums) => {
           const filtered = filterAlbumsByGenre(albums).slice(0, homeLimits.recentAlbums);
           recentAlbums = filtered;
           loadingRecentAlbums = false;
-          loadAllAlbumDownloadStatuses(filtered);
+          await tick();
+          loadAllAlbumDownloadStatuses(filtered).catch(() => {});
         }).catch(err => {
           console.error('Failed to load recentAlbums:', err);
           loadingRecentAlbums = false;
@@ -881,7 +889,8 @@
           const filtered = filterAlbumsByGenre(albums).slice(0, homeLimits.favoriteAlbums);
           favoriteAlbums = filtered;
           loadingFavoriteAlbums = false;
-          loadAllAlbumDownloadStatuses(filtered);
+          await tick();
+          loadAllAlbumDownloadStatuses(filtered).catch(() => {});
         }).catch(err => {
           console.error('Failed to load favoriteAlbums:', err);
           loadingFavoriteAlbums = false;
@@ -946,6 +955,8 @@
                 artwork={album.artwork}
                 title={album.title}
                 artist={album.artist}
+                artistId={album.artistId}
+                onArtistClick={onArtistClick}
                 genre={album.genre}
                 releaseDate={album.releaseDate}
                 size="large"
@@ -987,6 +998,8 @@
                 artwork={album.artwork}
                 title={album.title}
                 artist={album.artist}
+                artistId={album.artistId}
+                onArtistClick={onArtistClick}
                 genre={album.genre}
                 releaseDate={album.releaseDate}
                 size="large"
@@ -1028,6 +1041,8 @@
                 artwork={album.artwork}
                 title={album.title}
                 artist={album.artist}
+                artistId={album.artistId}
+                onArtistClick={onArtistClick}
                 genre={album.genre}
                 releaseDate={album.releaseDate}
                 size="large"
@@ -1069,6 +1084,8 @@
                 artwork={album.artwork}
                 title={album.title}
                 artist={album.artist}
+                artistId={album.artistId}
+                onArtistClick={onArtistClick}
                 genre={album.genre}
                 releaseDate={album.releaseDate}
                 size="large"
@@ -1110,6 +1127,8 @@
                 artwork={album.artwork}
                 title={album.title}
                 artist={album.artist}
+                artistId={album.artistId}
+                onArtistClick={onArtistClick}
                 genre={album.genre}
                 releaseDate={album.releaseDate}
                 size="large"
@@ -1201,6 +1220,8 @@
                 artwork={album.image?.large || album.image?.small || ''}
                 title={album.title}
                 artist={album.artists?.[0]?.name || 'Unknown Artist'}
+                artistId={album.artists?.[0]?.id}
+                onArtistClick={onArtistClick}
                 genre={album.genre?.name || ''}
                 releaseDate={album.dates?.original}
                 size="large"
@@ -1246,6 +1267,8 @@
                 artwork={album.artwork}
                 title={album.title}
                 artist={album.artist}
+                artistId={album.artistId}
+                onArtistClick={onArtistClick}
                 genre={album.genre}
                 releaseDate={album.releaseDate}
                 size="large"
@@ -1304,6 +1327,8 @@
                 hideFavorite={trackBlacklisted}
                 downloadStatus={cacheStatus.status}
                 downloadProgress={cacheStatus.progress}
+                onDownload={!trackBlacklisted && onTrackDownload ? () => onTrackDownload(track) : undefined}
+                onRemoveDownload={isTrackDownloaded && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
                 onArtistClick={track.artistId && onArtistClick ? () => onArtistClick(track.artistId!) : undefined}
                 onAlbumClick={track.albumId && onAlbumClick ? () => onAlbumClick(track.albumId!) : undefined}
                 onPlay={trackBlacklisted ? undefined : () => handleContinueTrackPlay(track, index)}
@@ -1390,6 +1415,8 @@
                 artwork={album.artwork}
                 title={album.title}
                 artist={album.artist}
+                artistId={album.artistId}
+                onArtistClick={onArtistClick}
                 genre={album.genre}
                 releaseDate={album.releaseDate}
                 size="large"

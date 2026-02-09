@@ -10,6 +10,7 @@
   import { getSearchState, setSearchState, subscribeSearchFocus, subscribeSearchQuery, setSearchQuery, type SearchResults, type SearchAllResults, type SearchTab, type SearchFilterType, type Playlist } from '$lib/stores/searchState';
   import { setPlaybackContext } from '$lib/stores/playbackContextStore';
   import { togglePlay } from '$lib/stores/playerStore';
+  import { saveScrollPosition, getSavedScrollPosition } from '$lib/stores/navigationStore';
   import { t } from '$lib/i18n';
 
   let searchInput: HTMLInputElement | null = null;
@@ -30,6 +31,14 @@
     searchInput?.focus();
     calculateAlbumsPerPage();
     calculateArtistsPerPage();
+
+    // Restore scroll position
+    requestAnimationFrame(() => {
+      const saved = getSavedScrollPosition('search');
+      if (scrollContainer && saved > 0) {
+        scrollContainer.scrollTop = saved;
+      }
+    });
     window.addEventListener('resize', handleResize);
 
     // Auto-search if query is pre-filled (e.g., from performer link)
@@ -61,6 +70,7 @@
   function handleScroll(event: Event) {
     const target = event.target as HTMLDivElement;
     isScrolled = target.scrollTop > 60;
+    saveScrollPosition('search', target.scrollTop);
   }
 
   function handleResize() {
@@ -470,8 +480,9 @@
           results.most_popular = allResults.most_popular;
         }
         allResults = results;
+        await tick(); // Yield to UI loop — render results before background work
         if (allResults && allResults.albums.items) {
-          await loadAllAlbumDownloadStatuses(allResults.albums.items);
+          loadAllAlbumDownloadStatuses(allResults.albums.items); // fire-and-forget
         }
       } else if (activeTab === 'albums') {
         const results = await invoke<SearchResults<Album>>('search_albums', {
@@ -483,8 +494,9 @@
         if (query.trim() !== searchQuery) return;
         albumResults = results;
         console.log('Album results:', albumResults);
+        await tick(); // Yield to UI loop
         if (albumResults && albumResults.items) {
-          await loadAllAlbumDownloadStatuses(albumResults.items);
+          loadAllAlbumDownloadStatuses(albumResults.items); // fire-and-forget
         }
       } else if (activeTab === 'tracks') {
         const results = await invoke<SearchResults<Track>>('search_tracks', {
@@ -545,12 +557,12 @@
           offset: newOffset,
           searchType: filterType
         });
-        await loadAllAlbumDownloadStatuses(moreResults.items);
         albumResults = {
           ...moreResults,
           items: [...albumResults.items, ...moreResults.items],
           offset: 0 // Keep offset at 0 since we're accumulating
         };
+        loadAllAlbumDownloadStatuses(moreResults.items); // fire-and-forget
       } else if (activeTab === 'tracks' && trackResults && hasMoreTracks) {
         const newOffset = trackResults.offset + trackResults.items.length;
         const moreResults = await invoke<SearchResults<Track>>('search_tracks', {
@@ -1576,6 +1588,8 @@
                           artwork={getAlbumArtwork(album)}
                           title={album.title}
                           artist={album.artist?.name || 'Unknown Artist'}
+                          artistId={album.artist?.id}
+                          onArtistClick={onArtistClick}
                           genre={getGenreLabel(album)}
                           releaseDate={album.release_date_original}
                           size="large"

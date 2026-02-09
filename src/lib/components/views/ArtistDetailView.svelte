@@ -14,6 +14,7 @@
   import TrackMenu from '../TrackMenu.svelte';
   import QualityBadge from '../QualityBadge.svelte';
   import { consumeContextTrackFocus, setPlaybackContext, getPlaybackContext } from '$lib/stores/playbackContextStore';
+  import { saveScrollPosition, getSavedScrollPosition } from '$lib/stores/navigationStore';
   import { togglePlay } from '$lib/stores/playerStore';
   import { getQueue, syncQueueState, playQueueIndex } from '$lib/stores/queueStore';
   import { subscribeContentSidebar, toggleContentSidebar, type ContentSidebarType } from '$lib/stores/sidebarStore';
@@ -175,6 +176,14 @@
     // Subscribe to track favorites changes
     unsubscribeTrackFavorites = subscribeFavorites(() => {
       trackFavoritesVersion++;
+    });
+
+    // Restore scroll position
+    requestAnimationFrame(() => {
+      const saved = getSavedScrollPosition('artist');
+      if (artistDetailEl && saved > 0) {
+        artistDetailEl.scrollTop = saved;
+      }
     });
   });
 
@@ -1144,7 +1153,7 @@
   });
 </script>
 
-<div class="artist-detail" bind:this={artistDetailEl}>
+<div class="artist-detail" bind:this={artistDetailEl} onscroll={(e) => saveScrollPosition('artist', (e.target as HTMLElement).scrollTop)}>
   <!-- Back Navigation -->
   <button class="back-btn" onclick={onBack}>
     <ArrowLeft size={16} />

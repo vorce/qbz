@@ -12,6 +12,7 @@
   import AlsaUtilsHelpModal from '../AlsaUtilsHelpModal.svelte';
   import DACSetupWizard from '../DACSetupWizard.svelte';
   import RemoteControlSetupGuide from '../RemoteControlSetupGuide.svelte';
+  import LogsModal from '../LogsModal.svelte';
   import VolumeSlider from '../VolumeSlider.svelte';
   import UpdateCheckResultModal from '../updates/UpdateCheckResultModal.svelte';
   import WhatsNewModal from '../updates/WhatsNewModal.svelte';
@@ -166,6 +167,11 @@
   let artworkCacheStats = $state<{ artwork_cache_bytes: number; thumbnails_cache_bytes: number; artwork_file_count: number; thumbnail_file_count: number } | null>(null);
   let isClearingAllCaches = $state(false);
 
+  // Reset & factory reset state
+  let isResettingAudio = $state(false);
+  let factoryResetConfirmed = $state(false);
+  let isFactoryResetting = $state(false);
+
   // Migration state
   let showMigrationModal = $state(false);
   let legacyTracksCount = $state(0);
@@ -218,6 +224,9 @@
   // Collapsible sections state (closed by default)
   let offlineLibraryCollapsed = $state(true);
   let storageCollapsed = $state(true);
+  let developerCollapsed = $state(true);
+  let forceDmabuf = $state(false);
+  let showLogsModal = $state(false);
 
   // Navigation section IDs with translation keys
   const navSectionIds = [
@@ -796,6 +805,11 @@
 
     // Check for legacy cached files
     checkLegacyCachedFiles();
+
+    // Load developer settings
+    invoke('get_developer_settings').then((settings: any) => {
+      forceDmabuf = settings.force_dmabuf;
+    }).catch(() => {});
 
     // Subscribe to offline state changes
     const unsubscribeOffline = subscribeOffline(() => {
@@ -2103,6 +2117,71 @@
     }
   }
 
+  async function handleResetAudioSettings() {
+    if (isResettingAudio) return;
+    const confirmed = await ask($t('settings.audio.resetConfirmDesc'), {
+      title: $t('settings.audio.resetConfirmTitle'),
+      kind: 'warning',
+    });
+    if (!confirmed) return;
+    isResettingAudio = true;
+    try {
+      await invoke('stop_playback');
+      await invoke('reset_audio_settings');
+      await invoke('reinit_audio_device', { device: null });
+      // Reset all audio UI state to defaults
+      outputDevice = 'System Default';
+      exclusiveMode = false;
+      dacPassthrough = false;
+      selectedBackend = 'Auto';
+      selectedAlsaPlugin = 'hw (Direct Hardware)';
+      alsaHardwareVolume = false;
+      streamFirstTrack = false;
+      streamBufferSeconds = 3;
+      streamingOnly = false;
+      limitQualityToDevice = false;
+      // Reset playback UI state to defaults
+      autoplayMode = 'continue';
+      showContextIcon = false;
+      gaplessPlayback = false;
+      showToast($t('settings.audio.resetSuccess'), 'success');
+    } catch (err) {
+      console.error('Failed to reset audio settings:', err);
+      showToast($t('settings.audio.resetError', { values: { error: String(err) } }), 'error');
+    } finally {
+      isResettingAudio = false;
+    }
+  }
+
+  async function handleFactoryReset() {
+    if (isFactoryResetting) return;
+    const confirmed = await ask($t('settings.storage.factoryResetFinalConfirm'), {
+      title: $t('settings.storage.factoryResetTitle'),
+      kind: 'warning',
+    });
+    if (!confirmed) return;
+    isFactoryResetting = true;
+    try {
+      await invoke('factory_reset');
+      onLogout?.();
+    } catch (err) {
+      console.error('Factory reset failed:', err);
+      showToast($t('settings.storage.factoryResetError', { values: { error: String(err) } }), 'error');
+      isFactoryResetting = false;
+    }
+  }
+
+  async function handleForceDmabufChange(enabled: boolean) {
+    try {
+      await invoke('set_developer_force_dmabuf', { enabled });
+      forceDmabuf = enabled;
+      showToast($t('settings.developer.restartRequired'), 'info');
+    } catch (err) {
+      console.error('Failed to set force_dmabuf:', err);
+      showToast(String(err), 'error');
+    }
+  }
+
   function formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -2351,37 +2430,6 @@
     </div>
     {/if}
     <div class="setting-row">
-      <div class="setting-info">
-        <span class="setting-label">{$t('settings.audio.streamUncached')}</span>
-        <span class="setting-desc">{$t('settings.audio.streamUncachedDesc')}</span>
-      </div>
-      <Toggle enabled={streamFirstTrack} onchange={handleStreamFirstTrackChange} />
-    </div>
-    {#if streamFirstTrack}
-    <div class="setting-row">
-      <div class="setting-info">
-        <span class="setting-label">{$t('settings.audio.initialBuffer')}</span>
-        <span class="setting-desc">{$t('settings.audio.initialBufferDesc', { values: { seconds: streamBufferSeconds } })}</span>
-      </div>
-      <input
-        type="range"
-        min="1"
-        max="10"
-        step="1"
-        value={streamBufferSeconds}
-        oninput={(e) => handleStreamBufferSecondsChange(parseInt(e.currentTarget.value))}
-        class="buffer-slider"
-      />
-    </div>
-    {/if}
-    <div class="setting-row">
-      <div class="setting-info">
-        <span class="setting-label">{$t('settings.audio.streamingOnly')}</span>
-        <span class="setting-desc">{$t('settings.audio.streamingOnlyDesc')}</span>
-      </div>
-      <Toggle enabled={streamingOnly} onchange={handleStreamingOnlyChange} />
-    </div>
-    <div class="setting-row last">
       <span class="setting-label">{$t('settings.audio.currentSampleRate')}</span>
       <span class="setting-value" class:muted={!hardwareStatus?.is_active}>
         {#if hardwareStatus?.is_active && hardwareStatus.hardware_sample_rate}
@@ -2393,6 +2441,19 @@
           {$t('settings.audio.noActivePlayback')}
         {/if}
       </span>
+    </div>
+    <div class="setting-row last">
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.audio.resetTitle')}</span>
+        <span class="setting-desc">{$t('settings.audio.resetDesc')}</span>
+      </div>
+      <button
+        class="reset-btn"
+        onclick={handleResetAudioSettings}
+        disabled={isResettingAudio}
+      >
+        {isResettingAudio ? $t('settings.storage.clearing') : $t('settings.audio.resetButton')}
+      </button>
     </div>
   </section>
 
@@ -2406,7 +2467,7 @@
       </div>
       <Toggle enabled={autoplayMode === 'continue'} onchange={(enabled) => handleAutoplayModeChange(enabled ? 'continue' : 'track_only')} />
     </div>
-    <div class="setting-row last">
+    <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{$t('settings.playback.showContextIcon')}</span>
         <span class="setting-desc">{$t('settings.playback.showContextIconTooltip')}</span>
@@ -2419,6 +2480,37 @@
         <span class="setting-desc">{gaplessDisabledReasonKey ? $t(gaplessDisabledReasonKey) : $t('settings.playback.gaplessDesc')}</span>
       </div>
       <Toggle enabled={gaplessPlayback} onchange={handleGaplessPlaybackChange} disabled={gaplessDisabled} />
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.playback.streamUncached')}</span>
+        <span class="setting-desc">{$t('settings.playback.streamUncachedDesc')}</span>
+      </div>
+      <Toggle enabled={streamFirstTrack} onchange={handleStreamFirstTrackChange} />
+    </div>
+    {#if streamFirstTrack}
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.playback.initialBuffer')}</span>
+        <span class="setting-desc">{$t('settings.playback.initialBufferDesc', { values: { seconds: streamBufferSeconds } })}</span>
+      </div>
+      <input
+        type="range"
+        min="1"
+        max="10"
+        step="1"
+        value={streamBufferSeconds}
+        oninput={(e) => handleStreamBufferSecondsChange(parseInt(e.currentTarget.value))}
+        class="buffer-slider"
+      />
+    </div>
+    {/if}
+    <div class="setting-row last">
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.playback.streamingOnly')}</span>
+        <span class="setting-desc">{$t('settings.playback.streamingOnlyDesc')}</span>
+      </div>
+      <Toggle enabled={streamingOnly} onchange={handleStreamingOnlyChange} />
     </div>
     <!-- Crossfade, Normalize Volume hidden until properly implemented (see issue #29) -->
     <!-- <div class="setting-row">
@@ -3234,7 +3326,7 @@
         {isClearingArtwork ? $t('settings.storage.clearing') : $t('actions.clear')}
       </button>
     </div>
-    <div class="setting-row last">
+    <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">Clear All Caches</span>
         <small class="setting-note">
@@ -3249,8 +3341,62 @@
         {isClearingAllCaches ? $t('settings.storage.clearing') : $t('actions.clearAll')}
       </button>
     </div>
+    <div class="setting-row last">
+      <div class="danger-zone">
+        <div class="danger-zone-header">
+          <span class="setting-label danger-label">{$t('settings.storage.factoryResetTitle')}</span>
+          <span class="setting-desc">{$t('settings.storage.factoryResetDesc')}</span>
+        </div>
+        <div class="factory-reset-controls">
+          <label class="checkbox-label">
+            <input type="checkbox" bind:checked={factoryResetConfirmed} />
+            <span>{$t('settings.storage.factoryResetCheckbox')}</span>
+          </label>
+          <button
+            class="factory-reset-btn"
+            onclick={handleFactoryReset}
+            disabled={!factoryResetConfirmed || isFactoryResetting}
+          >
+            {isFactoryResetting ? $t('settings.storage.clearing') : $t('settings.storage.factoryResetButton')}
+          </button>
+        </div>
+      </div>
+    </div>
     {/if}
   </section>
+
+  <!-- Developer Mode Section (not in jump-nav, collapsed by default) -->
+  <section class="section collapsible-section">
+    <button class="section-title-btn" onclick={() => developerCollapsed = !developerCollapsed}>
+      <h3 class="section-title">{$t('settings.developer.title')}</h3>
+      <span class="section-summary">{$t('settings.developer.summary')}</span>
+      {#if developerCollapsed}
+        <ChevronDown size={16} />
+      {:else}
+        <ChevronUp size={16} />
+      {/if}
+    </button>
+    {#if !developerCollapsed}
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.developer.forceDmabuf')}</span>
+        <small class="setting-note">{$t('settings.developer.forceDmabufDesc')}</small>
+      </div>
+      <Toggle enabled={forceDmabuf} onchange={handleForceDmabufChange} />
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.developer.viewLogs')}</span>
+        <small class="setting-note">{$t('settings.developer.viewLogsDesc')}</small>
+      </div>
+      <button class="clear-btn" onclick={() => showLogsModal = true}>
+        {$t('settings.developer.viewLogs')}
+      </button>
+    </div>
+    {/if}
+  </section>
+
+  <LogsModal isOpen={showLogsModal} onClose={() => showLogsModal = false} />
 
   <!-- Flatpak Section (only shown when running in Flatpak) -->
   <!-- NOTE: Keep this section LAST. If adding new settings sections, add them BEFORE this one. -->
@@ -3923,6 +4069,93 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
 
   .clear-btn:disabled {
     opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .reset-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--text-muted);
+    background: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+    white-space: nowrap;
+  }
+
+  .reset-btn:hover:not(:disabled) {
+    background-color: rgba(255, 107, 107, 0.1);
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+  }
+
+  .reset-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .danger-zone {
+    width: 100%;
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    border-radius: 8px;
+    padding: 16px;
+    background: rgba(255, 107, 107, 0.05);
+  }
+
+  .danger-zone-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .danger-label {
+    color: #ff6b6b;
+  }
+
+  .factory-reset-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: #ff6b6b;
+  }
+
+  .factory-reset-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+    color: #ff6b6b;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+    align-self: flex-start;
+  }
+
+  .factory-reset-btn:hover:not(:disabled) {
+    background-color: rgba(255, 107, 107, 0.2);
+  }
+
+  .factory-reset-btn:disabled {
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
