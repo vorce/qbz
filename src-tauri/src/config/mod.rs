@@ -12,6 +12,7 @@
 pub mod audio_settings;
 pub mod developer_settings;
 pub mod download_settings;
+pub mod graphics_settings;
 pub mod playback_preferences;
 pub mod favorites_preferences;
 pub mod favorites_cache;
@@ -110,4 +111,11 @@ pub use developer_settings::{
     DeveloperSettingsState,
     get_developer_settings,
     set_developer_force_dmabuf,
+};
+
+pub use graphics_settings::{
+    GraphicsSettings,
+    GraphicsSettingsState,
+    get_graphics_settings,
+    set_hardware_acceleration,
 };

@@ -20,10 +20,12 @@ Share your thoughts, impressions, or experience using QBZ.
 
 ## Environment (optional)
 
+- QBZ version:
+- Installation method: <!-- AppImage / .deb / .rpm / AUR / Tarball / Flatpak / Built from source -->
 - Distribution:
 - Desktop environment:
 - Audio backend:
 
 ## Additional notes
 
-Anything else you’d like to share.
+Anything else you'd like to share.

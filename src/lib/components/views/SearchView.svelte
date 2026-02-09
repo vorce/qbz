@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { Search, Disc3, Music, Mic2, User, X, ChevronLeft, ChevronRight, Crown, Heart, Play, MoreHorizontal, ListPlus } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
@@ -424,7 +424,11 @@
 
   async function loadAllAlbumDownloadStatuses(albums: { id: string }[]) {
     if (!checkAlbumFullyDownloaded || albums.length === 0) return;
-    await Promise.all(albums.map(album => loadAlbumDownloadStatus(album.id)));
+    const BATCH = 10;
+    for (let i = 0; i < albums.length; i += BATCH) {
+      await Promise.all(albums.slice(i, i + BATCH).map(album => loadAlbumDownloadStatus(album.id)));
+      if (i + BATCH < albums.length) await new Promise(r => setTimeout(r, 0));
+    }
   }
 
   function isAlbumDownloaded(albumId: string): boolean {
@@ -658,26 +662,26 @@
   }
 
   function buildSearchQueueTracks(tracks: Track[]) {
-    return tracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.performer?.name || 'Unknown Artist',
-      album: t.album?.title || '',
-      duration_secs: t.duration,
-      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || '',
-      hires: t.hires_streamable ?? false,
-      bit_depth: t.maximum_bit_depth ?? null,
-      sample_rate: t.maximum_sampling_rate ?? null,
+    return tracks.map(track => ({
+      id: track.id,
+      title: track.title,
+      artist: track.performer?.name || 'Unknown Artist',
+      album: track.album?.title || '',
+      duration_secs: track.duration,
+      artwork_url: track.album?.image?.large || track.album?.image?.thumbnail || track.album?.image?.small || '',
+      hires: track.hires_streamable ?? false,
+      bit_depth: track.maximum_bit_depth ?? null,
+      sample_rate: track.maximum_sampling_rate ?? null,
       is_local: false,
-      album_id: t.album?.id || null,
-      artist_id: t.performer?.id ?? null,
+      album_id: track.album?.id || null,
+      artist_id: track.performer?.id ?? null,
     }));
   }
 
   async function handleSearchTrackPlay(track: Track, trackIndex: number) {
     // Create search results context
     if (trackResults && trackResults.items.length > 0) {
-      const trackIds = trackResults.items.map(t => t.id);
+      const trackIds = trackResults.items.map(track => track.id);
 
       await setPlaybackContext(
         'home_list', // Using home_list for search results (search type doesn't exist yet)
@@ -771,6 +775,303 @@
   let visibleArtists = $derived(
     artistsWithViewMore().slice(currentArtistPage * artistsPerPage, (currentArtistPage + 1) * artistsPerPage)
   );
+
+  // ==========================================
+  // Inline virtualization for tab result lists
+  // ==========================================
+
+  // Shared virtualization helpers
+  function vBinarySearchStart(tops: number[], heights: number[], targetTop: number): number {
+    let low = 0;
+    let high = tops.length - 1;
+    let result = 0;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      if (tops[mid] + heights[mid] > targetTop) {
+        result = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+    return result;
+  }
+
+  function vBinarySearchEnd(tops: number[], targetBottom: number, startFrom: number): number {
+    let low = startFrom;
+    let high = tops.length - 1;
+    let result = high;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      if (tops[mid] > targetBottom) {
+        result = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+    return result;
+  }
+
+  // --- Albums tab virtualization ---
+  const ALBUM_CARD_WIDTH = 180;
+  const ALBUM_CARD_HEIGHT = 290;
+  const ALBUM_GAP_X = 14;
+  const ALBUM_GAP_Y = 24;
+  const LOAD_MORE_HEIGHT = 80;
+  const V_BUFFER = 5;
+
+  let albumsVirtualEl: HTMLDivElement | null = $state(null);
+  let albumsScrollTop = $state(0);
+  let albumsContainerHeight = $state(0);
+  let albumsContainerWidth = $state(0);
+  let albumsResizeObs: ResizeObserver | null = null;
+
+  let albumGridCols = $derived.by(() => {
+    if (albumsContainerWidth === 0) return 1;
+    return Math.max(1, Math.floor((albumsContainerWidth + ALBUM_GAP_X) / (ALBUM_CARD_WIDTH + ALBUM_GAP_X)));
+  });
+
+  interface AlbumVirtualRow {
+    type: 'row';
+    startIdx: number;
+    count: number;
+    top: number;
+    height: number;
+  }
+
+  interface LoadMoreVirtualItem {
+    type: 'load-more';
+    top: number;
+    height: number;
+  }
+
+  type AlbumVirtualItem = AlbumVirtualRow | LoadMoreVirtualItem;
+
+  let albumVirtualItems = $derived.by((): AlbumVirtualItem[] => {
+    if (!albumResults) return [];
+    const items: AlbumVirtualItem[] = [];
+    const total = albumResults.items.length;
+    const cols = albumGridCols;
+    const rowH = ALBUM_CARD_HEIGHT + ALBUM_GAP_Y;
+    let top = 0;
+
+    for (let i = 0; i < total; i += cols) {
+      items.push({
+        type: 'row',
+        startIdx: i,
+        count: Math.min(cols, total - i),
+        top,
+        height: ALBUM_CARD_HEIGHT,
+      });
+      top += rowH;
+    }
+
+    if (hasMoreAlbums) {
+      items.push({ type: 'load-more', top, height: LOAD_MORE_HEIGHT });
+    }
+
+    return items;
+  });
+
+  let albumTotalHeight = $derived(
+    albumVirtualItems.length > 0
+      ? albumVirtualItems[albumVirtualItems.length - 1].top + albumVirtualItems[albumVirtualItems.length - 1].height
+      : 0
+  );
+
+  let albumVisibleItems = $derived.by(() => {
+    if (albumVirtualItems.length === 0) return [];
+    const tops = albumVirtualItems.map(vi => vi.top);
+    const heights = albumVirtualItems.map(vi => vi.height);
+    const first = vBinarySearchStart(tops, heights, albumsScrollTop);
+    const last = vBinarySearchEnd(tops, albumsScrollTop + albumsContainerHeight, first);
+    const s = Math.max(0, first - V_BUFFER);
+    const e = Math.min(albumVirtualItems.length - 1, last + V_BUFFER);
+    return albumVirtualItems.slice(s, e + 1);
+  });
+
+  function handleAlbumsScroll(e: Event) {
+    albumsScrollTop = (e.target as HTMLDivElement).scrollTop;
+  }
+
+  // --- Tracks tab virtualization ---
+  const TRACK_ROW_HEIGHT = 72;
+  const TRACK_ROW_GAP = 4;
+
+  let tracksVirtualEl: HTMLDivElement | null = $state(null);
+  let tracksScrollTop = $state(0);
+  let tracksContainerHeight = $state(0);
+  let tracksResizeObs: ResizeObserver | null = null;
+
+  interface TrackVirtualItem {
+    type: 'track';
+    index: number;
+    top: number;
+    height: number;
+  }
+
+  type TrackOrLoadMore = TrackVirtualItem | LoadMoreVirtualItem;
+
+  let trackVirtualItems = $derived.by((): TrackOrLoadMore[] => {
+    if (!trackResults) return [];
+    const items: TrackOrLoadMore[] = [];
+    const rowH = TRACK_ROW_HEIGHT + TRACK_ROW_GAP;
+    let top = 0;
+
+    for (let i = 0; i < trackResults.items.length; i++) {
+      items.push({ type: 'track', index: i, top, height: TRACK_ROW_HEIGHT });
+      top += rowH;
+    }
+
+    if (hasMoreTracks) {
+      items.push({ type: 'load-more', top, height: LOAD_MORE_HEIGHT });
+    }
+
+    return items;
+  });
+
+  let trackTotalHeight = $derived(
+    trackVirtualItems.length > 0
+      ? trackVirtualItems[trackVirtualItems.length - 1].top + trackVirtualItems[trackVirtualItems.length - 1].height
+      : 0
+  );
+
+  let trackVisibleItems = $derived.by(() => {
+    if (trackVirtualItems.length === 0) return [];
+    const tops = trackVirtualItems.map(vi => vi.top);
+    const heights = trackVirtualItems.map(vi => vi.height);
+    const first = vBinarySearchStart(tops, heights, tracksScrollTop);
+    const last = vBinarySearchEnd(tops, tracksScrollTop + tracksContainerHeight, first);
+    const s = Math.max(0, first - V_BUFFER);
+    const e = Math.min(trackVirtualItems.length - 1, last + V_BUFFER);
+    return trackVirtualItems.slice(s, e + 1);
+  });
+
+  function handleTracksScroll(e: Event) {
+    tracksScrollTop = (e.target as HTMLDivElement).scrollTop;
+  }
+
+  // --- Artists tab virtualization ---
+  const ARTIST_CARD_WIDTH = 160;
+  const ARTIST_CARD_HEIGHT = 220;
+  const ARTIST_GAP = 24;
+
+  let artistsVirtualEl: HTMLDivElement | null = $state(null);
+  let artistsScrollTop = $state(0);
+  let artistsContainerHeight = $state(0);
+  let artistsContainerWidth = $state(0);
+  let artistsResizeObs: ResizeObserver | null = null;
+
+  let artistGridCols = $derived.by(() => {
+    if (artistsContainerWidth === 0) return 1;
+    return Math.max(1, Math.floor((artistsContainerWidth + ARTIST_GAP) / (ARTIST_CARD_WIDTH + ARTIST_GAP)));
+  });
+
+  interface ArtistVirtualRow {
+    type: 'row';
+    startIdx: number;
+    count: number;
+    top: number;
+    height: number;
+  }
+
+  type ArtistVirtualItem = ArtistVirtualRow | LoadMoreVirtualItem;
+
+  let artistVirtualItems = $derived.by((): ArtistVirtualItem[] => {
+    if (!artistResults) return [];
+    const items: ArtistVirtualItem[] = [];
+    const total = artistResults.items.length;
+    const cols = artistGridCols;
+    const rowH = ARTIST_CARD_HEIGHT + ARTIST_GAP;
+    let top = 0;
+
+    for (let i = 0; i < total; i += cols) {
+      items.push({
+        type: 'row',
+        startIdx: i,
+        count: Math.min(cols, total - i),
+        top,
+        height: ARTIST_CARD_HEIGHT,
+      });
+      top += rowH;
+    }
+
+    if (hasMoreArtists) {
+      items.push({ type: 'load-more', top, height: LOAD_MORE_HEIGHT });
+    }
+
+    return items;
+  });
+
+  let artistTotalHeight = $derived(
+    artistVirtualItems.length > 0
+      ? artistVirtualItems[artistVirtualItems.length - 1].top + artistVirtualItems[artistVirtualItems.length - 1].height
+      : 0
+  );
+
+  let artistVisibleItems = $derived.by(() => {
+    if (artistVirtualItems.length === 0) return [];
+    const tops = artistVirtualItems.map(vi => vi.top);
+    const heights = artistVirtualItems.map(vi => vi.height);
+    const first = vBinarySearchStart(tops, heights, artistsScrollTop);
+    const last = vBinarySearchEnd(tops, artistsScrollTop + artistsContainerHeight, first);
+    const s = Math.max(0, first - V_BUFFER);
+    const e = Math.min(artistVirtualItems.length - 1, last + V_BUFFER);
+    return artistVirtualItems.slice(s, e + 1);
+  });
+
+  function handleArtistsScroll(e: Event) {
+    artistsScrollTop = (e.target as HTMLDivElement).scrollTop;
+  }
+
+  // --- ResizeObserver setup/teardown ---
+  function setupResizeObservers() {
+    if (albumsVirtualEl && !albumsResizeObs) {
+      albumsContainerHeight = albumsVirtualEl.clientHeight;
+      albumsContainerWidth = albumsVirtualEl.clientWidth;
+      albumsResizeObs = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          albumsContainerHeight = entry.contentRect.height;
+          albumsContainerWidth = entry.contentRect.width;
+        }
+      });
+      albumsResizeObs.observe(albumsVirtualEl);
+    }
+    if (tracksVirtualEl && !tracksResizeObs) {
+      tracksContainerHeight = tracksVirtualEl.clientHeight;
+      tracksResizeObs = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          tracksContainerHeight = entry.contentRect.height;
+        }
+      });
+      tracksResizeObs.observe(tracksVirtualEl);
+    }
+    if (artistsVirtualEl && !artistsResizeObs) {
+      artistsContainerHeight = artistsVirtualEl.clientHeight;
+      artistsContainerWidth = artistsVirtualEl.clientWidth;
+      artistsResizeObs = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          artistsContainerHeight = entry.contentRect.height;
+          artistsContainerWidth = entry.contentRect.width;
+        }
+      });
+      artistsResizeObs.observe(artistsVirtualEl);
+    }
+  }
+
+  // Setup observers when elements bind
+  $effect(() => {
+    if (albumsVirtualEl || tracksVirtualEl || artistsVirtualEl) {
+      setupResizeObservers();
+    }
+  });
+
+  onDestroy(() => {
+    albumsResizeObs?.disconnect();
+    tracksResizeObs?.disconnect();
+    artistsResizeObs?.disconnect();
+  });
 </script>
 
 <svelte:window onclick={handleClickOutsidePopularMenu} />
@@ -1454,183 +1755,202 @@
       {#if albumResults.items.length === 0}
         <div class="no-results">{$t('search.noAlbumsFor', { values: { query } })}</div>
       {:else}
-        <div class="albums-grid">
-          {#each albumResults.items as album}
-            <AlbumCard
-              albumId={album.id}
-              artwork={getAlbumArtwork(album)}
-              title={album.title}
-              artist={album.artist?.name || 'Unknown Artist'}
-              artistId={album.artist?.id}
-              onArtistClick={onArtistClick}
-              genre={getGenreLabel(album)}
-              releaseDate={album.release_date_original}
-              size="large"
-              quality={getQualityLabel(album)}
-              onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
-              onPlayNext={onAlbumPlayNext ? () => onAlbumPlayNext(album.id) : undefined}
-              onPlayLater={onAlbumPlayLater ? () => onAlbumPlayLater(album.id) : undefined}
-              onAddAlbumToPlaylist={onAddAlbumToPlaylist ? () => onAddAlbumToPlaylist(album.id) : undefined}
-              onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
-              onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
-              onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-              isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
-              onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
-              onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
-              {downloadStateVersion}
-              onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
-            />
-          {/each}
-        </div>
-        {#if hasMoreAlbums}
-          <div class="load-more-container">
-            <button class="load-more-btn" onclick={loadMore} disabled={isLoadingMore}>
-              {isLoadingMore ? $t('actions.loading') : $t('artist.loadMore') + ` (${albumResults.items.length} / ${albumResults.total})`}
-            </button>
+        <div class="virtual-scroll-container" bind:this={albumsVirtualEl} onscroll={handleAlbumsScroll}>
+          <div class="virtual-scroll-content" style="height: {albumTotalHeight}px;">
+            {#each albumVisibleItems as vItem (vItem.type === 'row' ? `row-${vItem.startIdx}` : 'load-more')}
+              <div class="virtual-scroll-item" style="transform: translateY({vItem.top}px); height: {vItem.height}px;">
+                {#if vItem.type === 'row'}
+                  <div class="albums-grid-row">
+                    {#each albumResults.items.slice(vItem.startIdx, vItem.startIdx + vItem.count) as album (album.id)}
+                      <AlbumCard
+                        albumId={album.id}
+                        artwork={getAlbumArtwork(album)}
+                        title={album.title}
+                        artist={album.artist?.name || 'Unknown Artist'}
+                        genre={getGenreLabel(album)}
+                        releaseDate={album.release_date_original}
+                        size="large"
+                        quality={getQualityLabel(album)}
+                        onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
+                        onPlayNext={onAlbumPlayNext ? () => onAlbumPlayNext(album.id) : undefined}
+                        onPlayLater={onAlbumPlayLater ? () => onAlbumPlayLater(album.id) : undefined}
+                        onAddAlbumToPlaylist={onAddAlbumToPlaylist ? () => onAddAlbumToPlaylist(album.id) : undefined}
+                        onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
+                        onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
+                        onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
+                        isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
+                        onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
+                        onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
+                        {downloadStateVersion}
+                        onclick={() => { onAlbumClick?.(album.id); loadAlbumDownloadStatus(album.id); }}
+                      />
+                    {/each}
+                  </div>
+                {:else}
+                  <div class="load-more-container">
+                    <button class="load-more-btn" onclick={loadMore} disabled={isLoadingMore}>
+                      {isLoadingMore ? $t('actions.loading') : $t('artist.loadMore') + ` (${albumResults.items.length} / ${albumResults.total})`}
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            {/each}
           </div>
-        {/if}
+        </div>
       {/if}
     {:else if activeTab === 'tracks' && trackResults}
       {#if trackResults.items.length === 0}
         <div class="no-results">{$t('search.noTracksFor', { values: { query } })}</div>
       {:else}
-        <div class="tracks-list">
-          {#each trackResults.items as track, index}
-            {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
-            {@const isTrackDownloaded = checkTrackDownloaded?.(track.id) || false}
-            <div
-              class="track-row"
-              class:playing={isActiveTrack}
-              role="button"
-              tabindex="0"
-              onclick={() => handleSearchTrackPlay(track, index)}
-              onkeydown={(e) => e.key === 'Enter' && handleSearchTrackPlay(track, index)}
-            >
-              <div class="track-number">{index + 1}</div>
-              <div class="track-artwork-container">
-                <!-- Placeholder always visible as background -->
-                <div class="track-artwork-placeholder">
-                  <Music size={20} />
-                </div>
-                <!-- Image overlays placeholder when loaded -->
-                {#if !failedTrackImages.has(track.id) && getTrackArtwork(track)}
-                  <img src={getTrackArtwork(track)} alt={track.title} class="track-artwork" loading="lazy" decoding="async" onerror={() => handleTrackImageError(track.id)} />
-                {/if}
-                <button
-                  class="track-play-overlay"
-                  class:is-playing={isActiveTrack}
-                  onclick={(e) => {
-                    if (isActiveTrack) {
-                      handlePausePlayback(e);
-                    } else {
-                      e.stopPropagation();
-                      handleSearchTrackPlay(track, index);
-                    }
-                  }}
-                  aria-label={isActiveTrack ? 'Pause track' : 'Play track'}
-                >
-                  <span class="play-icon" aria-hidden="true">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                      <path d="M8 5v14l11-7z"/>
-                    </svg>
-                  </span>
-                  <div class="playing-indicator" aria-hidden="true">
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                  </div>
-                  <span class="pause-icon" aria-hidden="true">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
-                    </svg>
-                  </span>
-                </button>
-              </div>
-              <div class="track-info">
-                <div class="track-title">{track.title}</div>
-                {#if track.performer?.id && onTrackGoToArtist}
-                  <button
-                    class="track-artist track-link"
-                    type="button"
-                    onclick={(event) => {
-                      event.stopPropagation();
-                      onTrackGoToArtist?.(track.performer!.id!);
-                    }}
+        <div class="virtual-scroll-container" bind:this={tracksVirtualEl} onscroll={handleTracksScroll}>
+          <div class="virtual-scroll-content" style="height: {trackTotalHeight}px;">
+            {#each trackVisibleItems as vItem (vItem.type === 'track' ? `track-${vItem.index}` : 'load-more')}
+              <div class="virtual-scroll-item" style="transform: translateY({vItem.top}px); height: {vItem.height}px;">
+                {#if vItem.type === 'track'}
+                  {@const track = trackResults.items[vItem.index]}
+                  {@const index = vItem.index}
+                  {@const isActiveTrack = isPlaybackActive && activeTrackId === track.id}
+                  {@const isTrackDownloaded = checkTrackDownloaded?.(track.id) || false}
+                  <div
+                    class="track-row"
+                    class:playing={isActiveTrack}
+                    role="button"
+                    tabindex="0"
+                    onclick={() => handleSearchTrackPlay(track, index)}
+                    onkeydown={(e) => e.key === 'Enter' && handleSearchTrackPlay(track, index)}
                   >
-                    {track.performer?.name || 'Unknown Artist'}
-                  </button>
+                    <div class="track-number">{index + 1}</div>
+                    <div class="track-artwork-container">
+                      <div class="track-artwork-placeholder">
+                        <Music size={20} />
+                      </div>
+                      {#if !failedTrackImages.has(track.id) && getTrackArtwork(track)}
+                        <img src={getTrackArtwork(track)} alt={track.title} class="track-artwork" loading="lazy" decoding="async" onerror={() => handleTrackImageError(track.id)} />
+                      {/if}
+                      <button
+                        class="track-play-overlay"
+                        class:is-playing={isActiveTrack}
+                        onclick={(e) => {
+                          if (isActiveTrack) {
+                            handlePausePlayback(e);
+                          } else {
+                            e.stopPropagation();
+                            handleSearchTrackPlay(track, index);
+                          }
+                        }}
+                        aria-label={isActiveTrack ? 'Pause track' : 'Play track'}
+                      >
+                        <span class="play-icon" aria-hidden="true">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </span>
+                        <div class="playing-indicator" aria-hidden="true">
+                          <div class="bar"></div>
+                          <div class="bar"></div>
+                          <div class="bar"></div>
+                        </div>
+                        <span class="pause-icon" aria-hidden="true">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
+                    <div class="track-info">
+                      <div class="track-title">{track.title}</div>
+                      {#if track.performer?.id && onTrackGoToArtist}
+                        <button
+                          class="track-artist track-link"
+                          type="button"
+                          onclick={(event) => {
+                            event.stopPropagation();
+                            onTrackGoToArtist?.(track.performer!.id!);
+                          }}
+                        >
+                          {track.performer?.name || 'Unknown Artist'}
+                        </button>
+                      {:else}
+                        <div class="track-artist">{track.performer?.name || 'Unknown Artist'}</div>
+                      {/if}
+                    </div>
+                    <div class="track-quality">
+                      <QualityBadge
+                        bitDepth={track.maximum_bit_depth}
+                        samplingRate={track.maximum_sampling_rate}
+                        compact
+                      />
+                    </div>
+                    <div class="track-duration">{formatDuration(track.duration)}</div>
+                    <div class="track-actions">
+                      <TrackMenu
+                        onPlayNow={() => handleSearchTrackPlay(track, index)}
+                        onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
+                        onPlayLater={onTrackPlayLater ? () => onTrackPlayLater(track) : undefined}
+                        onAddFavorite={onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined}
+                        onAddToPlaylist={onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined}
+                        onShareQobuz={onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined}
+                        onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
+                        onGoToAlbum={track.album?.id && onTrackGoToAlbum ? (() => { const albumId = track.album!.id!; return () => onTrackGoToAlbum(albumId); })() : undefined}
+                        onGoToArtist={track.performer?.id && onTrackGoToArtist ? (() => { const artistId = track.performer!.id!; return () => onTrackGoToArtist(artistId); })() : undefined}
+                        onShowInfo={onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined}
+                        onDownload={onTrackDownload ? () => onTrackDownload(track) : undefined}
+                        isTrackDownloaded={isTrackDownloaded}
+                        onReDownload={isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(track) : undefined}
+                        onRemoveDownload={isTrackDownloaded && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
+                      />
+                    </div>
+                  </div>
                 {:else}
-                  <div class="track-artist">{track.performer?.name || 'Unknown Artist'}</div>
+                  <div class="load-more-container">
+                    <button class="load-more-btn" onclick={loadMore} disabled={isLoadingMore}>
+                      {isLoadingMore ? $t('actions.loading') : $t('artist.loadMore') + ` (${trackResults.items.length} / ${trackResults.total})`}
+                    </button>
+                  </div>
                 {/if}
               </div>
-              <div class="track-quality">
-                <QualityBadge
-                  bitDepth={track.maximum_bit_depth}
-                  samplingRate={track.maximum_sampling_rate}
-                  compact
-                />
-              </div>
-              <div class="track-duration">{formatDuration(track.duration)}</div>
-              <div class="track-actions">
-                <TrackMenu
-                  onPlayNow={() => handleSearchTrackPlay(track, index)}
-                  onPlayNext={onTrackPlayNext ? () => onTrackPlayNext(track) : undefined}
-                  onPlayLater={onTrackPlayLater ? () => onTrackPlayLater(track) : undefined}
-                  onAddFavorite={onTrackAddFavorite ? () => onTrackAddFavorite(track.id) : undefined}
-                  onAddToPlaylist={onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined}
-                  onShareQobuz={onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined}
-                  onShareSonglink={onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined}
-                  onGoToAlbum={track.album?.id && onTrackGoToAlbum ? (() => { const albumId = track.album!.id!; return () => onTrackGoToAlbum(albumId); })() : undefined}
-                  onGoToArtist={track.performer?.id && onTrackGoToArtist ? (() => { const artistId = track.performer!.id!; return () => onTrackGoToArtist(artistId); })() : undefined}
-                  onShowInfo={onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined}
-                  onDownload={onTrackDownload ? () => onTrackDownload(track) : undefined}
-                  isTrackDownloaded={isTrackDownloaded}
-                  onReDownload={isTrackDownloaded && onTrackReDownload ? () => onTrackReDownload(track) : undefined}
-                  onRemoveDownload={isTrackDownloaded && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
-                />
-              </div>
-            </div>
-          {/each}
-        </div>
-        {#if hasMoreTracks}
-          <div class="load-more-container">
-            <button class="load-more-btn" onclick={loadMore} disabled={isLoadingMore}>
-              {isLoadingMore ? $t('actions.loading') : $t('artist.loadMore') + ` (${trackResults.items.length} / ${trackResults.total})`}
-            </button>
+            {/each}
           </div>
-        {/if}
+        </div>
       {/if}
     {:else if activeTab === 'artists' && artistResults}
       {#if artistResults.items.length === 0}
         <div class="no-results">{$t('search.noArtistsFor', { values: { query } })}</div>
       {:else}
-        <div class="artists-grid">
-          {#each artistResults.items as artist}
-            <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
-              <div class="artist-image-wrapper">
-                <!-- Placeholder always visible as background -->
-                <div class="artist-image-placeholder">
-                  <User size={40} />
-                </div>
-                <!-- Image overlays placeholder when loaded -->
-                {#if !failedArtistImages.has(artist.id) && getArtistImage(artist)}
-                  <img src={getArtistImage(artist)} alt={artist.name} class="artist-image" loading="lazy" decoding="async" onerror={() => handleArtistImageError(artist.id)} />
+        <div class="virtual-scroll-container" bind:this={artistsVirtualEl} onscroll={handleArtistsScroll}>
+          <div class="virtual-scroll-content" style="height: {artistTotalHeight}px;">
+            {#each artistVisibleItems as vItem (vItem.type === 'row' ? `row-${vItem.startIdx}` : 'load-more')}
+              <div class="virtual-scroll-item" style="transform: translateY({vItem.top}px); height: {vItem.height}px;">
+                {#if vItem.type === 'row'}
+                  <div class="artists-grid-row">
+                    {#each artistResults.items.slice(vItem.startIdx, vItem.startIdx + vItem.count) as artist (artist.id)}
+                      <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
+                        <div class="artist-image-wrapper">
+                          <div class="artist-image-placeholder">
+                            <User size={40} />
+                          </div>
+                          {#if !failedArtistImages.has(artist.id) && getArtistImage(artist)}
+                            <img src={getArtistImage(artist)} alt={artist.name} class="artist-image" loading="lazy" decoding="async" onerror={() => handleArtistImageError(artist.id)} />
+                          {/if}
+                        </div>
+                        <div class="artist-name">{artist.name}</div>
+                        {#if artist.albums_count}
+                          <div class="artist-albums">{$t('library.albumCount', { values: { count: artist.albums_count } })}</div>
+                        {/if}
+                      </button>
+                    {/each}
+                  </div>
+                {:else}
+                  <div class="load-more-container">
+                    <button class="load-more-btn" onclick={loadMore} disabled={isLoadingMore}>
+                      {isLoadingMore ? $t('actions.loading') : $t('artist.loadMore') + ` (${artistResults.items.length} / ${artistResults.total})`}
+                    </button>
+                  </div>
                 {/if}
               </div>
-              <div class="artist-name">{artist.name}</div>
-              {#if artist.albums_count}
-                <div class="artist-albums">{$t('library.albumCount', { values: { count: artist.albums_count } })}</div>
-              {/if}
-            </button>
-          {/each}
-        </div>
-        {#if hasMoreArtists}
-          <div class="load-more-container">
-            <button class="load-more-btn" onclick={loadMore} disabled={isLoadingMore}>
-              {isLoadingMore ? $t('actions.loading') : $t('artist.loadMore') + ` (${artistResults.items.length} / ${artistResults.total})`}
-            </button>
+            {/each}
           </div>
-        {/if}
+        </div>
       {/if}
 
     {:else if activeTab === 'playlists' && playlistResults}
@@ -1946,6 +2266,55 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* Virtual scroll containers for tab results */
+  .virtual-scroll-container {
+    height: calc(100vh - 280px);
+    min-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  .virtual-scroll-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .virtual-scroll-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .virtual-scroll-container::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+  }
+
+  .virtual-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  .virtual-scroll-content {
+    position: relative;
+    width: 100%;
+  }
+
+  .virtual-scroll-item {
+    position: absolute;
+    left: 0;
+    right: 0;
+    will-change: transform;
+  }
+
+  .albums-grid-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px 14px;
+  }
+
+  .artists-grid-row {
+    display: flex;
+    gap: 24px;
   }
 
   .albums-grid {

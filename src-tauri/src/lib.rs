@@ -27,6 +27,7 @@ pub mod musicbrainz;
 pub mod network;
 pub mod offline;
 pub mod playback_context;
+pub mod plex;
 pub mod player;
 pub mod playlist_import;
 pub mod queue;
@@ -241,6 +242,11 @@ pub fn run() {
             log::warn!("Failed to initialize developer settings: {}. Using empty state.", e);
             config::developer_settings::DeveloperSettingsState::new_empty()
         });
+    let graphics_settings_state = config::graphics_settings::GraphicsSettingsState::new()
+        .unwrap_or_else(|e| {
+            log::warn!("Failed to initialize graphics settings: {}. Using empty state.", e);
+            config::graphics_settings::GraphicsSettingsState::new_empty()
+        });
 
     // Clone settings for use in closures
     let enable_tray = tray_settings.enable_tray;
@@ -418,6 +424,7 @@ pub fn run() {
         .manage(artist_vectors_state)
         .manage(blacklist_state)
         .manage(developer_settings_state)
+        .manage(graphics_settings_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -681,6 +688,24 @@ pub fn run() {
             cast::dlna::commands::dlna_stop,
             cast::dlna::commands::dlna_seek,
             cast::dlna::commands::dlna_set_volume,
+            // Plex LAN-only POC commands
+            plex::plex_ping,
+            plex::plex_get_music_sections,
+            plex::plex_get_section_tracks,
+            plex::plex_get_track_metadata,
+            plex::plex_play_track,
+            plex::plex_auth_pin_start,
+            plex::plex_auth_pin_check,
+            plex::plex_open_auth_url,
+            plex::plex_cache_get_sections,
+            plex::plex_cache_save_sections,
+            plex::plex_cache_get_tracks,
+            plex::plex_cache_save_tracks,
+            plex::plex_cache_update_track_quality,
+            plex::plex_cache_get_albums,
+            plex::plex_cache_get_album_tracks,
+            plex::plex_cache_search_tracks,
+            plex::plex_cache_clear,
             // AirPlay casting commands - DISABLED until RAOP implementation is complete
             // See docs/AIRPLAY_IMPLEMENTATION_STATUS.md for details
             // cast::airplay::commands::airplay_start_discovery,
@@ -903,6 +928,9 @@ pub fn run() {
             // Developer settings commands
             config::developer_settings::get_developer_settings,
             config::developer_settings::set_developer_force_dmabuf,
+            // Graphics settings commands
+            config::graphics_settings::get_graphics_settings,
+            config::graphics_settings::set_hardware_acceleration,
             // Log capture commands
             logging::get_backend_logs,
             logging::upload_logs_to_paste,

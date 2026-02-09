@@ -13,7 +13,7 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
@@ -80,8 +80,15 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
+          # Pin WebKitGTK to 2.44.0-2 to prevent EGL_BAD_PARAMETER crash in AppImage
+          # See: https://github.com/tauri-apps/tauri/issues/11994
           sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
+            libwebkit2gtk-4.1-0=2.44.0-2 \
+            libwebkit2gtk-4.1-dev=2.44.0-2 \
+            libjavascriptcoregtk-4.1-0=2.44.0-2 \
+            libjavascriptcoregtk-4.1-dev=2.44.0-2 \
+            gir1.2-javascriptcoregtk-4.1=2.44.0-2 \
+            gir1.2-webkit2-4.1=2.44.0-2 \
             libgtk-3-dev \
             libappindicator3-dev \
             librsvg2-dev \
