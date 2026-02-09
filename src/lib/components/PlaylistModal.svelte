@@ -820,12 +820,12 @@
 {/if}
 
 <PlaylistDuplicateConfirmModal
-  bind:isOpen={showDuplicateConfirm}
-  bind:duplicateResult={duplicateResult}
-  bind:loading={loading}
-  on:addAll={handleDuplicateAddAll}
-  on:skipDuplicates={handleDuplicateSkipDuplicates}
-  on:cancel={handleDuplicateCancel}
+  isOpen={showDuplicateConfirm}
+  {duplicateResult}
+  {loading}
+  onAddAll={handleDuplicateAddAll}
+  onSkipDuplicates={handleDuplicateSkipDuplicates}
+  onCancel={handleDuplicateCancel}
 />
 
 <style>

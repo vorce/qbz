@@ -271,7 +271,14 @@
     "createNewPlaylist": "Créer une nouvelle playlist",
     "newPlaylist": "Nouvelle playlist",
     "editPlaylist": "Modifier la playlist",
-    "addToPlaylist": "Ajouter à la playlist"
+    "addToPlaylist": "Ajouter à la playlist",
+    "duplicates": {
+      "title": "Certaines de ces pistes ont déjà été ajoutées",
+      "description": "Cette playlist contient déjà {duplicateCount} des {totalCount} pistes que vous ajoutez. Ajoutez uniquement les nouvelles ou ajoutez tout y compris les doublons.",
+      "addAll": "Ajouter toutes les pistes",
+      "addNew": "Ajouter uniquement les nouvelles",
+      "adding": "Ajout en cours..."
+    }
   },
   "favorites": {
     "title": "Favoris",

@@ -273,7 +273,14 @@
     "hideFromSidebar": "Hide from sidebar",
     "createAndAdd": "Create & Add",
     "playlistWithTracks": "{name} ({count} tracks)",
-    "copyToLibrary": "Copy to library"
+    "copyToLibrary": "Copy to library",
+    "duplicates": {
+      "title": "Some of these tracks were already added",
+      "description": "This playlist already contains {duplicateCount} of the {totalCount} tracks you're adding. Add only the new ones, or add everything including duplicates.",
+      "addAll": "Add all tracks",
+      "addNew": "Add only new tracks",
+      "adding": "Adding..."
+    }
   },
   "sort": {
     "nameAZ": "Name (A-Z)",

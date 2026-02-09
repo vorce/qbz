@@ -273,7 +273,14 @@
     "hideFromSidebar": "Ocultar de la barra lateral",
     "createAndAdd": "Crear y Agregar",
     "playlistWithTracks": "{name} ({count} pistas)",
-    "copyToLibrary": "Copiar a mi biblioteca"
+    "copyToLibrary": "Copiar a mi biblioteca",
+    "duplicates": {
+      "title": "Algunas de estas pistas ya fueron agregadas",
+      "description": "Esta lista ya contiene {duplicateCount} de las {totalCount} pistas que estás agregando. Agrega solo las nuevas o agrega todas incluyendo duplicadas.",
+      "addAll": "Agregar todas",
+      "addNew": "Agregar solo nuevas",
+      "adding": "Agregando..."
+    }
   },
   "sort": {
     "nameAZ": "Nombre (A-Z)",

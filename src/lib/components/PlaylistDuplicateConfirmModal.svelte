@@ -1,67 +1,65 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { t } from '$lib/i18n';
   import Modal from './Modal.svelte';
   import type { PlaylistDuplicateResult } from '$lib/types/index';
 
-  export let isOpen = false;
-  export let duplicateResult: PlaylistDuplicateResult | null = null;
-  export let loading = false;
-
-  const dispatch = createEventDispatcher();
-
-  function handleAddAll() {
-    dispatch('addAll');
+  interface Props {
+    isOpen: boolean;
+    duplicateResult: PlaylistDuplicateResult | null;
+    loading?: boolean;
+    onAddAll: () => void;
+    onSkipDuplicates: () => void;
+    onCancel: () => void;
   }
 
-  function handleSkipDuplicates() {
-    dispatch('skipDuplicates');
-  }
-
-  function handleCancel() {
-    dispatch('cancel');
-  }
+  let {
+    isOpen,
+    duplicateResult,
+    loading = false,
+    onAddAll,
+    onSkipDuplicates,
+    onCancel
+  }: Props = $props();
 
   function handleClose() {
     if (!loading) {
-      dispatch('cancel');
+      onCancel();
     }
   }
 </script>
 
-<Modal {isOpen} onClose={handleClose} title={'You\'ve added some of these tracks before'}>
+<Modal {isOpen} onClose={handleClose} title={$t('playlist.duplicates.title')}>
   {#if duplicateResult}
     <div class="duplicate-info">
       <p>
-        This playlist already contains <strong>{duplicateResult.duplicate_count}</strong> of the
-        track{duplicateResult.duplicate_count !== 1 ? 's' : ''} you're adding.
-        Add only the new ones, or add everything including duplicates ({duplicateResult.total_tracks} track{duplicateResult.total_tracks !== 1 ? 's' : ''}).
+        {$t('playlist.duplicates.description', { values: { duplicateCount: duplicateResult.duplicate_count, totalCount: duplicateResult.total_tracks } })}
       </p>
     </div>
   {/if}
 
   {#snippet footer()}
     <div class="footer-right">
-      <button 
-        class="btn btn-secondary" 
-        on:click={handleAddAll}
+      <button
+        class="btn btn-secondary"
+        onclick={onAddAll}
         disabled={loading}
       >
         {#if loading}
-          Adding...
+          {$t('playlist.duplicates.adding')}
         {:else}
-          Add all tracks
+          {$t('playlist.duplicates.addAll')}
         {/if}
       </button>
-      
-      <button 
-        class="btn btn-primary" 
-        on:click={handleSkipDuplicates}
+
+      <button
+        class="btn btn-primary"
+        onclick={onSkipDuplicates}
         disabled={loading || duplicateResult?.duplicate_count === 0}
       >
         {#if loading}
-          Adding...
+          {$t('playlist.duplicates.adding')}
         {:else}
-          Add only new tracks
+          {$t('playlist.duplicates.addNew')}
         {/if}
       </button>
     </div>
