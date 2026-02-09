@@ -277,20 +277,33 @@ pub fn run() {
         .manage(AppState::with_device_and_settings(saved_device, audio_settings))
         .manage(user_data_paths)
         .setup(move |app| {
-            // Apply window decorations before showing the window.
-            // The window starts with visible:false so the WM sees correct
-            // decoration state when it is first mapped (shown).
-            if let Some(main_window) = app.get_webview_window("main") {
-                if use_system_titlebar {
-                    log::info!("Enabling system window decorations (user setting)");
-                    if let Err(e) = main_window.set_decorations(true) {
-                        log::error!("Failed to set window decorations: {}", e);
-                    }
-                }
-                if let Err(e) = main_window.show() {
-                    log::error!("Failed to show main window: {}", e);
-                }
-            }
+            // Create main window programmatically so we can set the correct
+            // decoration state at creation time. On Linux/Wayland, windows
+            // created with decorations:false cannot reliably switch to
+            // decorations:true at runtime (WM buttons don't work). By
+            // creating the window with the right value from the start, the
+            // WM sees the correct state when the window is first mapped.
+            log::info!(
+                "Creating main window (decorations={})",
+                use_system_titlebar
+            );
+            tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App(std::path::PathBuf::from("index.html")),
+            )
+            .title("QBZ")
+            .inner_size(1280.0, 800.0)
+            .min_inner_size(800.0, 600.0)
+            .decorations(use_system_titlebar)
+            .transparent(true)
+            .resizable(true)
+            .zoom_hotkeys_enabled(true)
+            .build()
+            .map_err(|e| {
+                log::error!("Failed to create main window: {}", e);
+                e
+            })?;
 
             // Initialize system tray icon (only if enabled)
             if enable_tray {
