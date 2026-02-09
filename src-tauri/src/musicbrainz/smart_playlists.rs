@@ -62,8 +62,6 @@ pub struct ArtistTracksResult {
 pub struct PlaylistGenerationConfig {
     /// Maximum tracks per related artist
     pub max_tracks_per_artist: usize,
-    /// Maximum total tracks in playlist
-    pub max_total_tracks: usize,
     /// Only include tracks available in user's region
     pub filter_unavailable: bool,
 }
@@ -71,8 +69,7 @@ pub struct PlaylistGenerationConfig {
 impl Default for PlaylistGenerationConfig {
     fn default() -> Self {
         Self {
-            max_tracks_per_artist: 10,
-            max_total_tracks: 100,
+            max_tracks_per_artist: 25,
             filter_unavailable: true,
         }
     }

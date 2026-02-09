@@ -120,14 +120,9 @@ async fn generate_band_members_playlist(
             }
         }
 
-        // Check if we've hit the limit
-        if all_track_ids.len() >= config.max_total_tracks {
-            break;
-        }
     }
 
     let total_found = all_track_ids.len();
-    all_track_ids.truncate(config.max_total_tracks);
 
     Ok(GeneratedPlaylist {
         suggested_name: format!("{} Members", band_name),
@@ -213,13 +208,9 @@ async fn generate_artist_groups_playlist(
             }
         }
 
-        if all_track_ids.len() >= config.max_total_tracks {
-            break;
-        }
     }
 
     let total_found = all_track_ids.len();
-    all_track_ids.truncate(config.max_total_tracks);
 
     Ok(GeneratedPlaylist {
         suggested_name: format!("{}'s Groups", artist_name),
@@ -300,13 +291,9 @@ async fn generate_collaborator_playlist(
             }
         }
 
-        if all_track_ids.len() >= config.max_total_tracks {
-            break;
-        }
     }
 
     let total_found = all_track_ids.len();
-    all_track_ids.truncate(config.max_total_tracks);
 
     Ok(GeneratedPlaylist {
         suggested_name: format!("{} Collaborations", artist_name),
