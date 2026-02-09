@@ -11,7 +11,10 @@ import type {
   QobuzPlaylist,
   QobuzTrack,
   AlbumDetail,
-  ArtistDetail
+  ArtistDetail,
+  PageArtistResponse,
+  PageArtistRelease,
+  PageArtistReleaseGroup
 } from '$lib/types';
 
 // ============ Formatting Utilities ============
@@ -560,5 +563,195 @@ export function appendArtistAlbums(
     labels,
     totalAlbums: totalAlbums ?? artist.totalAlbums,
     albumsFetched: albumsFetched ?? artist.albumsFetched + newAlbums.length
+  };
+}
+
+// ============ Artist Page Converters (/artist/page) ============
+
+type ArtistAlbumSummaryFromPage = ArtistDetail['albums'][number];
+
+/**
+ * Map /artist/page release_type to our UI category.
+ * The API pre-categorizes releases, so we trust its classification instead
+ * of doing heuristic regex matching (which categorizeAlbum() does).
+ */
+function mapReleaseType(releaseType: string): 'albums' | 'eps' | 'live' | 'others' {
+  switch (releaseType) {
+    case 'album':
+      return 'albums';
+    case 'ep':
+    case 'single':
+      return 'eps';
+    case 'live':
+      return 'live';
+    case 'compilation':
+    case 'other':
+    default:
+      return 'others';
+  }
+}
+
+/**
+ * Convert a PageArtistRelease to our ArtistAlbumSummary shape.
+ * Filters out releases by other artists (the "no foreign discs" rule).
+ */
+function pageReleaseToSummary(
+  release: PageArtistRelease,
+  mainArtistId: number
+): ArtistAlbumSummaryFromPage | null {
+  // Filter out releases by other artists
+  if (release.artist?.id && release.artist.id !== mainArtistId) {
+    return null;
+  }
+
+  const image = release.image;
+  const artwork = image?.large || image?.thumbnail || image?.small || '';
+  const hires = release.rights?.hires_streamable ?? false;
+  const quality = formatQuality(
+    hires,
+    release.audio_info?.maximum_bit_depth,
+    release.audio_info?.maximum_sampling_rate
+  );
+
+  return {
+    id: release.id,
+    title: release.title,
+    artwork,
+    year: release.dates?.original?.split('-')[0],
+    releaseDate: release.dates?.original,
+    quality,
+    genre: release.genre?.name || 'Unknown genre'
+  };
+}
+
+/**
+ * Extract unique labels from PageArtistRelease items (only from 'album' type)
+ */
+function extractLabelsFromPageReleases(
+  releaseGroups: PageArtistReleaseGroup[],
+  mainArtistId: number
+): { id: number; name: string }[] {
+  const labelMap = new Map<number, string>();
+
+  for (const group of releaseGroups) {
+    if (group.type !== 'album') continue;
+    for (const release of group.items) {
+      // Only from own releases
+      if (release.artist?.id && release.artist.id !== mainArtistId) continue;
+      if (release.label?.id && release.label?.name) {
+        if (!labelMap.has(release.label.id)) {
+          labelMap.set(release.label.id, release.label.name);
+        }
+      }
+    }
+  }
+
+  return Array.from(labelMap.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Convert /artist/page response to our ArtistDetail UI model.
+ * Uses the API's release_type categorization instead of heuristic regex.
+ */
+export function convertPageArtist(response: PageArtistResponse): ArtistDetail {
+  const releaseGroups = response.releases || [];
+
+  const albums: ArtistAlbumSummaryFromPage[] = [];
+  const epsSingles: ArtistAlbumSummaryFromPage[] = [];
+  const liveAlbums: ArtistAlbumSummaryFromPage[] = [];
+  const others: ArtistAlbumSummaryFromPage[] = [];
+  let totalAlbums = 0;
+
+  for (const group of releaseGroups) {
+    const category = mapReleaseType(group.type);
+    for (const release of group.items) {
+      const summary = pageReleaseToSummary(release, response.id);
+      if (!summary) continue;
+
+      switch (category) {
+        case 'albums':
+          albums.push(summary);
+          break;
+        case 'eps':
+          epsSingles.push(summary);
+          break;
+        case 'live':
+          liveAlbums.push(summary);
+          break;
+        case 'others':
+          others.push(summary);
+          break;
+      }
+    }
+    // Track total for pagination indication
+    totalAlbums += group.items.length;
+    if (group.has_more) totalAlbums += 1; // signal there's more
+  }
+
+  // Build compilations from tracks_appears_on (albums by other artists featuring this artist)
+  const compilations: ArtistAlbumSummaryFromPage[] = [];
+  if (response.tracks_appears_on) {
+    const seen = new Set<string>();
+    for (const track of response.tracks_appears_on) {
+      const album = track.album;
+      if (!album?.id || seen.has(album.id)) continue;
+      seen.add(album.id);
+      const albumImage = album.image;
+      compilations.push({
+        id: album.id,
+        title: album.title,
+        artwork: albumImage?.large || albumImage?.thumbnail || albumImage?.small || '',
+        year: undefined,
+        releaseDate: undefined,
+        quality: formatQuality(
+          track.rights?.hires_streamable ?? false,
+          track.audio_info?.maximum_bit_depth,
+          track.audio_info?.maximum_sampling_rate
+        ),
+        genre: album.genre?.name || ''
+      });
+    }
+  }
+
+  // Playlists
+  const playlists = (response.playlists?.items || []).map(pl => ({
+    id: pl.id,
+    title: pl.title || '',
+    artwork: pl.images?.rectangle?.[0],
+    trackCount: pl.tracks_count,
+    owner: pl.owner?.name
+  }));
+
+  // Portrait image: construct URL from hash + format
+  let image: string | undefined;
+  if (response.images?.portrait) {
+    const { hash, format } = response.images.portrait;
+    image = `https://static.qobuz.com/images/artists/covers/${hash}_600.${format}`;
+  }
+
+  // Biography: the page endpoint has content but not a separate summary
+  const biography = response.biography ? {
+    content: response.biography.content,
+    source: typeof response.biography.source === 'string' ? response.biography.source : undefined
+  } : undefined;
+
+  return {
+    id: response.id,
+    name: response.name.display,
+    image,
+    albumsCount: totalAlbums,
+    biography,
+    albums,
+    epsSingles,
+    liveAlbums,
+    compilations,
+    tributes: [], // artist/page separates by release_type, foreign discs filtered out
+    others,
+    playlists,
+    labels: extractLabelsFromPageReleases(releaseGroups, response.id),
+    totalAlbums,
+    albumsFetched: totalAlbums
   };
 }
