@@ -2524,6 +2524,13 @@
   }
 
   onMount(() => {
+    // Show window now that the DOM has been painted.
+    // The window starts hidden (visible:false) to avoid showing an
+    // empty frame while the webview loads.
+    invoke('show_main_window').catch((e) => {
+      console.error('Failed to show main window:', e);
+    });
+
     // Bootstrap app (theme, mouse nav, Last.fm restore)
     const { cleanup: cleanupBootstrap } = bootstrapApp();
 
