@@ -8,7 +8,6 @@
  * - useSystemTitleBar: Use OS native window decorations instead of custom title bar (default: false)
  */
 
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 
 const STORAGE_KEY_HIDE = 'qbz-hide-titlebar';
@@ -108,12 +107,9 @@ export function setHideTitleBar(value: boolean): void {
 
 /**
  * Set whether to use system (OS native) title bar.
- *
- * Enabling: persists + restarts the app (window must be born with
- * decorations:true on Linux/Wayland for buttons to work).
- *
- * Disabling: removes OS decorations at runtime and restores the custom
- * title bar immediately — no restart needed.
+ * Persists to both localStorage and Rust backend, then restarts the app.
+ * Restart is required because the window must be created with the correct
+ * decoration state — runtime toggling doesn't work reliably on Linux/Wayland.
  */
 export async function setUseSystemTitleBar(value: boolean): Promise<void> {
   useSystemTitleBar = value;
@@ -124,14 +120,7 @@ export async function setUseSystemTitleBar(value: boolean): Promise<void> {
   }
   try {
     await invoke('set_use_system_titlebar', { value });
-    if (value) {
-      // Enabling: restart so the window is created with decorations:true
-      await invoke('restart_app');
-    } else {
-      // Disabling: remove OS decorations at runtime (this direction works)
-      await getCurrentWindow().setDecorations(false);
-      notifyListeners();
-    }
+    await invoke('restart_app');
   } catch (e) {
     console.error('[TitleBarStore] Failed to apply system titlebar change:', e);
   }
