@@ -72,6 +72,7 @@
     artwork_path?: string;
     last_modified: number;
     indexed_at: number;
+    source?: string; // 'user' | 'qobuz_download' | 'plex'
   }
 
   interface LocalAlbum {
@@ -88,7 +89,56 @@
     bit_depth?: number;
     sample_rate: number;
     directory_path: string;
-    source?: string; // 'user' for local files, 'qobuz_download' for offline cached
+    source?: string; // 'user' | 'qobuz_download' | 'plex'
+  }
+
+  interface PlexCachedAlbum {
+    id: string;
+    title: string;
+    artist: string;
+    artworkPath?: string;
+    trackCount: number;
+    totalDurationSecs: number;
+    format: string;
+    bitDepth?: number;
+    sampleRate: number;
+    source: string;
+  }
+
+  interface PlexCachedTrack {
+    id: number;
+    ratingKey: string;
+    title: string;
+    artist: string;
+    album: string;
+    durationSecs: number;
+    format: string;
+    bitDepth?: number;
+    sampleRate: number;
+    artworkPath?: string;
+    source: string;
+    albumKey: string;
+  }
+
+  interface PlexMusicSection {
+    key: string;
+    title: string;
+  }
+
+  interface PlexTrack {
+    ratingKey: string;
+    title: string;
+    artist?: string;
+    album?: string;
+    durationMs?: number;
+    artworkPath?: string;
+    partKey?: string;
+    container?: string;
+    codec?: string;
+    channels?: number;
+    bitrateKbps?: number;
+    samplingRateHz?: number;
+    bitDepth?: number;
   }
 
   interface LocalArtist {
@@ -157,6 +207,8 @@
     activeTrackId?: number | null;
     isPlaybackActive?: boolean;
   }
+
+  const PLEX_METADATA_WRITE_KEY = 'qbz-plex-poc-metadata-write-enabled';
 
   let {
     onAlbumClick,
@@ -319,7 +371,7 @@
 
     if (sourceFiltersActive) {
       const source = album.source ?? 'user';
-      if (filterLocalFiles && source === 'user') passesSource = true;
+      if (filterLocalFiles && (source === 'user' || source === 'plex')) passesSource = true;
       if (filterOfflineCache && source === 'qobuz_download') passesSource = true;
     }
 
@@ -832,6 +884,9 @@
   let loading = $state(false);
   let scanning = $state(false);
   let error = $state<string | null>(null);
+  let plexRepairAttempted = $state(false);
+  let plexRepairInProgress = $state(false);
+  let plexRepairQueued = $state(false);
   let fetchingArtwork = $state(false);
   let updatingArtwork = $state(false);
   let hasDiscogsCredentials = $state(false);
@@ -971,19 +1026,21 @@
 
       // If not found in loaded albums, we need to fetch album list first
       if (!album) {
-        const allAlbums = await invoke<LocalAlbum[]>('library_get_albums', {
-          includeHidden: false,
-          excludeNetworkFolders: shouldExcludeNetworkFolders()
-        });
+        const [localAlbums, plexAlbumsRaw] = await Promise.all([
+          invoke<LocalAlbum[]>('library_get_albums', {
+            includeHidden: false,
+            excludeNetworkFolders: shouldExcludeNetworkFolders()
+          }),
+          invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => [])
+        ]);
+        const allAlbums = [...localAlbums, ...plexAlbumsRaw.map(mapPlexAlbum)];
         albums = allAlbums;
         album = allAlbums.find(a => a.id === albumId);
       }
 
       if (album) {
         selectedAlbum = album;
-        albumTracks = await invoke<LocalTrack[]>('library_get_album_tracks', {
-          albumGroupKey: album.id
-        });
+        albumTracks = await fetchAlbumTracks(album);
       }
     } catch (err) {
       console.error('Failed to load album:', err);
@@ -1035,33 +1092,219 @@
     }
   }
 
-  async function loadLibraryData() {
-    console.log('[LocalLibrary] loadLibraryData START, isOffline:', isOffline);
-    loading = true;
-    error = null;
+  function buildPlexArtworkUrl(path: string): string {
+    const baseUrl = getUserItem('qbz-plex-poc-base-url') || '';
+    const token = getUserItem('qbz-plex-poc-token') || '';
+    if (!baseUrl || !token) return path;
+    const base = baseUrl.replace(/\/+$/, '');
+    const separator = path.includes('?') ? '&' : '?';
+    return `${base}${path}${separator}X-Plex-Token=${encodeURIComponent(token)}`;
+  }
+
+  function normalizePlexAlbumTitle(artist: string, album: string): string {
+    const artistName = artist.trim();
+    const albumTitle = album.trim();
+    if (!artistName || !albumTitle) return albumTitle;
+
+    for (const sep of [' - ', ' — ', ' – ', ': ']) {
+      const prefix = `${artistName}${sep}`;
+      if (albumTitle.startsWith(prefix)) {
+        return albumTitle.slice(prefix.length).trim();
+      }
+    }
+    return albumTitle;
+  }
+
+  function isLikelyLegacyPlexCache(plexAlbums: PlexCachedAlbum[]): boolean {
+    if (plexAlbums.length < 20) return false;
+    const suspicious = plexAlbums.filter(album =>
+      album.title.trim().toLowerCase() === album.artist.trim().toLowerCase()
+    ).length;
+    return suspicious >= 20 || suspicious / plexAlbums.length >= 0.2;
+  }
+
+  async function repairLegacyPlexCache(): Promise<boolean> {
+    if (plexRepairInProgress) return false;
+
+    const baseUrl = getUserItem('qbz-plex-poc-base-url') || '';
+    const token = getUserItem('qbz-plex-poc-token') || '';
+    if (!baseUrl || !token) return false;
+
+    plexRepairInProgress = true;
+    try {
+      const startedAt = performance.now();
+      const sections = await invoke<PlexMusicSection[]>('plex_get_music_sections', {
+        baseUrl,
+        token
+      });
+      await invoke('plex_cache_save_sections', { serverId: null, sections });
+
+      const sectionMetrics = await Promise.all(
+        sections.map(async (section) => {
+          const sectionStart = performance.now();
+          const sectionTracks = await invoke<PlexTrack[]>('plex_get_section_tracks', {
+            baseUrl,
+            token,
+            sectionKey: section.key
+          });
+          await invoke('plex_cache_save_tracks', {
+            serverId: null,
+            sectionKey: section.key,
+            tracks: sectionTracks
+          });
+          return {
+            key: section.key,
+            tracks: sectionTracks.length,
+            ms: performance.now() - sectionStart
+          };
+        })
+      );
+
+      const totalTracks = sectionMetrics.reduce((sum, item) => sum + item.tracks, 0);
+      const elapsedMs = performance.now() - startedAt;
+      console.log('[PlexBench] cache repair completed', {
+        sections: sections.length,
+        totalTracks,
+        elapsedMs: Number(elapsedMs.toFixed(1)),
+        slowestSections: sectionMetrics
+          .slice()
+          .sort((a, b) => b.ms - a.ms)
+          .slice(0, 3)
+          .map((item) => ({ key: item.key, tracks: item.tracks, ms: Number(item.ms.toFixed(1)) }))
+      });
+
+      return true;
+    } catch (err) {
+      console.error('[LocalLibrary] Failed to auto-repair Plex cache:', err);
+      return false;
+    } finally {
+      plexRepairInProgress = false;
+    }
+  }
+
+  async function queuePlexRepairInBackground() {
+    if (plexRepairQueued || plexRepairInProgress) return;
+    plexRepairQueued = true;
+    try {
+      const repaired = await repairLegacyPlexCache();
+      if (repaired) {
+        await loadLibraryData({ background: true });
+      }
+    } finally {
+      plexRepairQueued = false;
+    }
+  }
+
+  function mapPlexAlbum(plexAlbum: PlexCachedAlbum): LocalAlbum {
+    const artist = plexAlbum.artist?.trim() || 'Unknown Artist';
+    const title = normalizePlexAlbumTitle(artist, plexAlbum.title || 'Unknown Album');
+    return {
+      id: plexAlbum.id,
+      title: title || 'Unknown Album',
+      artist,
+      artwork_path: plexAlbum.artworkPath,
+      track_count: plexAlbum.trackCount,
+      total_duration_secs: plexAlbum.totalDurationSecs,
+      format: plexAlbum.format,
+      bit_depth: plexAlbum.bitDepth,
+      sample_rate: plexAlbum.sampleRate,
+      directory_path: '',
+      source: 'plex'
+    };
+  }
+
+  function mapPlexTrack(plexTrack: PlexCachedTrack): LocalTrack {
+    const artist = plexTrack.artist?.trim() || 'Unknown Artist';
+    const album = normalizePlexAlbumTitle(artist, plexTrack.album || 'Unknown Album');
+    return {
+      id: plexTrack.id,
+      file_path: plexTrack.ratingKey,
+      title: plexTrack.title,
+      artist,
+      album: album || 'Unknown Album',
+      album_artist: artist,
+      album_group_key: plexTrack.albumKey,
+      album_group_title: album || 'Unknown Album',
+      track_number: undefined,
+      disc_number: undefined,
+      duration_secs: plexTrack.durationSecs,
+      format: plexTrack.format,
+      bit_depth: plexTrack.bitDepth,
+      sample_rate: plexTrack.sampleRate,
+      channels: 2,
+      file_size_bytes: 0,
+      artwork_path: plexTrack.artworkPath,
+      last_modified: 0,
+      indexed_at: 0,
+      source: 'plex'
+    };
+  }
+
+  async function loadLibraryData(options: { background?: boolean } = {}) {
+    const background = options.background === true;
+    const startedAt = performance.now();
+    console.log('[LocalLibrary] loadLibraryData START, isOffline:', isOffline, 'background:', background);
+    if (!background) {
+      loading = true;
+      error = null;
+    }
     try {
       const excludeNetwork = shouldExcludeNetworkFolders();
       console.log('[LocalLibrary] Calling library_get_albums with excludeNetwork:', excludeNetwork);
 
-      const albumsResult = await invoke<LocalAlbum[]>('library_get_albums', {
-        includeHidden: false,
-        excludeNetworkFolders: excludeNetwork
-      });
-      console.log('[LocalLibrary] Received albums:', albumsResult.length);
-
-      console.log('[LocalLibrary] Calling library_get_stats');
-      const statsResult = await invoke<LibraryStats>('library_get_stats');
+      const fetchStart = performance.now();
+      const [albumsResult, statsResult, plexAlbumsRaw] = await Promise.all([
+        invoke<LocalAlbum[]>('library_get_albums', {
+          includeHidden: false,
+          excludeNetworkFolders: excludeNetwork
+        }),
+        invoke<LibraryStats>('library_get_stats'),
+        invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => [])
+      ]);
+      const fetchMs = performance.now() - fetchStart;
+      let workingPlexAlbumsRaw = plexAlbumsRaw;
+      const shouldAttemptRepair =
+        !plexRepairAttempted &&
+        (isLikelyLegacyPlexCache(workingPlexAlbumsRaw) || workingPlexAlbumsRaw.length <= 1);
+      if (shouldAttemptRepair) {
+        plexRepairAttempted = true;
+        void queuePlexRepairInBackground();
+      }
+      const mapStart = performance.now();
+      const plexAlbums = workingPlexAlbumsRaw.map(mapPlexAlbum);
+      const mapMs = performance.now() - mapStart;
+      console.log('[LocalLibrary] Received albums:', albumsResult.length, 'plex albums:', plexAlbums.length);
       console.log('[LocalLibrary] Received stats:', statsResult);
 
-      albums = albumsResult;
-      stats = statsResult;
-      console.log('[LocalLibrary] loadLibraryData COMPLETE');
+      const plexTrackCount = plexAlbums.reduce((sum, album) => sum + album.track_count, 0);
+      const plexDurationSecs = plexAlbums.reduce((sum, album) => sum + album.total_duration_secs, 0);
+
+      albums = [...albumsResult, ...plexAlbums];
+      stats = {
+        ...statsResult,
+        track_count: statsResult.track_count + plexTrackCount,
+        album_count: statsResult.album_count + plexAlbums.length,
+        total_duration_secs: statsResult.total_duration_secs + plexDurationSecs
+      };
+      console.log('[PlexBench] loadLibraryData', {
+        background,
+        localAlbums: albumsResult.length,
+        plexAlbums: plexAlbums.length,
+        fetchMs: Number(fetchMs.toFixed(1)),
+        mapMs: Number(mapMs.toFixed(1)),
+        totalMs: Number((performance.now() - startedAt).toFixed(1)),
+        repairQueued: shouldAttemptRepair
+      });
     } catch (err) {
       console.error('[LocalLibrary] Failed to load library:', err);
-      error = String(err);
+      if (!background) {
+        error = String(err);
+      }
     } finally {
-      console.log('[LocalLibrary] Setting loading = false');
-      loading = false;
+      if (!background) {
+        console.log('[LocalLibrary] Setting loading = false');
+        loading = false;
+      }
     }
   }
 
@@ -1122,11 +1365,44 @@
     console.log('[LocalLibrary] loadArtists START');
     loading = true;
     try {
-      console.log('[LocalLibrary] Calling library_get_artists');
-      artists = await invoke<LocalArtist[]>('library_get_artists', {
-        excludeNetworkFolders: shouldExcludeNetworkFolders()
-      });
-      console.log('[LocalLibrary] Received artists:', artists.length);
+      console.log('[LocalLibrary] Calling library_get_artists + plex_cache_get_albums');
+      const [localArtists, plexAlbumsRaw] = await Promise.all([
+        invoke<LocalArtist[]>('library_get_artists', {
+          excludeNetworkFolders: shouldExcludeNetworkFolders()
+        }),
+        invoke<PlexCachedAlbum[]>('plex_cache_get_albums').catch(() => [])
+      ]);
+
+      const plexArtistMap = new Map<string, { albumCount: number; trackCount: number }>();
+      for (const rawAlbum of plexAlbumsRaw) {
+        const name = (rawAlbum.artist || '').trim();
+        if (!name) continue;
+        const current = plexArtistMap.get(name) ?? { albumCount: 0, trackCount: 0 };
+        current.albumCount += 1;
+        current.trackCount += rawAlbum.trackCount ?? 0;
+        plexArtistMap.set(name, current);
+      }
+
+      const mergedArtistMap = new Map<string, LocalArtist>();
+      for (const localArtist of localArtists) {
+        mergedArtistMap.set(localArtist.name, { ...localArtist });
+      }
+      for (const [name, metrics] of plexArtistMap) {
+        const existing = mergedArtistMap.get(name);
+        if (existing) {
+          existing.album_count += metrics.albumCount;
+          existing.track_count += metrics.trackCount;
+        } else {
+          mergedArtistMap.set(name, {
+            name,
+            album_count: metrics.albumCount,
+            track_count: metrics.trackCount
+          });
+        }
+      }
+
+      artists = Array.from(mergedArtistMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+      console.log('[LocalLibrary] Received artists:', artists.length, 'local:', localArtists.length, 'plex:', plexArtistMap.size);
       // Load cached artist images from database
       await loadCachedArtistImages();
       // Fetch missing images in background if enabled
@@ -1147,13 +1423,19 @@
     console.log('[LocalLibrary] loadTracks START, query:', query);
     loading = true;
     try {
-      console.log('[LocalLibrary] Calling library_search');
-      tracks = await invoke<LocalTrack[]>('library_search', {
-        query,
-        limit: 0, // 0 = no limit, virtualization handles any list size
-        excludeNetworkFolders: shouldExcludeNetworkFolders()
-      });
-      console.log('[LocalLibrary] Received tracks:', tracks.length);
+      console.log('[LocalLibrary] Calling library_search + plex_cache_search_tracks');
+      const [localTracks, plexTracksRaw] = await Promise.all([
+        invoke<LocalTrack[]>('library_search', {
+          query,
+          limit: 0, // 0 = no limit, virtualization handles any list size
+          excludeNetworkFolders: shouldExcludeNetworkFolders()
+        }),
+        invoke<PlexCachedTrack[]>('plex_cache_search_tracks', {
+          query
+        }).catch(() => [])
+      ]);
+      tracks = [...localTracks, ...plexTracksRaw.map(mapPlexTrack)];
+      console.log('[LocalLibrary] Received tracks:', tracks.length, 'local:', localTracks.length, 'plex:', plexTracksRaw.length);
     } catch (err) {
       console.error('[LocalLibrary] Failed to load tracks:', err);
       error = String(err);
@@ -1505,9 +1787,7 @@
     // Also load album data immediately for responsive UI
     selectedAlbum = album;
     try {
-      albumTracks = await invoke<LocalTrack[]>('library_get_album_tracks', {
-        albumGroupKey: album.id
-      });
+      albumTracks = await fetchAlbumTracks(album);
     } catch (err) {
       console.error('Failed to load album tracks:', err);
     }
@@ -1541,6 +1821,7 @@
 
   async function handleTrackPlay(track: LocalTrack) {
     try {
+      const trackSource = track.source === 'plex' ? 'plex' : 'local';
       if (selectedAlbum && albumTracks.length > 0) {
         const trackIndex = albumTracks.findIndex(t => t.id === track.id);
         const trackIds = albumTracks.map(t => t.id);
@@ -1550,7 +1831,7 @@
           'local_library',
           selectedAlbum.id,
           selectedAlbum.title,
-          'local',
+          selectedAlbum.source === 'plex' ? 'plex' : 'local',
           trackIds,
           trackIndex >= 0 ? trackIndex : 0
         );
@@ -1558,24 +1839,30 @@
         await setQueueForAlbumTracks(albumTracks, trackIndex >= 0 ? trackIndex : 0);
       } else if (activeTab === 'tracks' && tracks.length > 0) {
         const orderedTracks = getDisplayedTrackOrder();
-        const trackIndex = orderedTracks.findIndex(t => t.id === track.id);
-        const trackIds = orderedTracks.map(t => t.id);
+        const sameSourceTracks = orderedTracks.filter(item => (item.source === 'plex') === (trackSource === 'plex'));
+        const trackIndex = sameSourceTracks.findIndex(item => item.id === track.id);
+        const trackIds = sameSourceTracks.map(item => item.id);
 
         // Set playback context for Local Library tracks view
         await setPlaybackContext(
           'local_library',
-          'local-tracks',
+          trackSource === 'plex' ? 'plex-tracks' : 'local-tracks',
           'Local Tracks',
-          'local',
+          trackSource,
           trackIds,
           trackIndex >= 0 ? trackIndex : 0
         );
 
-        await setQueueForLocalTracks(orderedTracks, trackIndex >= 0 ? trackIndex : 0);
+        await setQueueForLocalTracks(sameSourceTracks, trackIndex >= 0 ? trackIndex : 0);
       }
 
-      await invoke('library_play_track', { trackId: track.id });
-      onTrackPlay?.(track);
+      if (onTrackPlay) {
+        await Promise.resolve(onTrackPlay(track));
+      } else if (trackSource === 'local') {
+        await invoke('library_play_track', { trackId: track.id });
+      } else {
+        throw new Error('Plex playback handler not available');
+      }
     } catch (err) {
       console.error('Failed to play track:', err);
       alert(`Failed to play: ${err}`);
@@ -1616,6 +1903,13 @@
 
   async function fetchAlbumTracks(album: LocalAlbum): Promise<LocalTrack[]> {
     try {
+      if (album.source === 'plex') {
+        const plexTracks = await invoke<PlexCachedTrack[]>('plex_cache_get_album_tracks', {
+          albumKey: album.id
+        });
+        return plexTracks.map(mapPlexTrack);
+      }
+
       return await invoke<LocalTrack[]>('library_get_album_tracks', {
         albumGroupKey: album.id
       });
@@ -1629,6 +1923,7 @@
     console.log('[LocalLibrary Queue] Setting queue with', tracks.length, 'tracks, startIndex:', startIndex);
 
     const queueTracks = tracks.map(t => ({
+      source: t.source === 'plex' ? 'plex' : 'local',
       id: t.id,
       title: t.title,
       artist: t.artist,
@@ -1638,7 +1933,7 @@
       hires: (t.bit_depth && t.bit_depth > 16) || t.sample_rate > 44100,
       bit_depth: t.bit_depth ?? null,
       sample_rate: t.sample_rate ?? null,
-      is_local: true,
+      is_local: t.source !== 'plex',
       album_id: null,  // Local tracks don't have Qobuz IDs
       artist_id: null,
     }));
@@ -1647,7 +1942,7 @@
     console.log('[LocalLibrary Queue] Track IDs:', queueTracks.map(t => t.id));
 
     await invoke('set_queue', { tracks: queueTracks, startIndex });
-    onSetLocalQueue?.(tracks.map(t => t.id));
+    onSetLocalQueue?.(tracks.filter(t => t.source !== 'plex').map(t => t.id));
 
     console.log('[LocalLibrary Queue] Queue set successfully');
   }
@@ -1724,6 +2019,10 @@
 
   function openAlbumEditModal() {
     if (!selectedAlbum) return;
+    if (selectedAlbum.source === 'plex' && getUserItem(PLEX_METADATA_WRITE_KEY) !== 'true') {
+      showToast($t('settings.integrations.plexWriteDisabledNotice'), 'info');
+      return;
+    }
     editingAlbumHidden = false;
     albumMetadataRefreshed = false;
     discogsImageOptions = [];
@@ -1959,6 +2258,8 @@
 
   function getArtworkUrl(path?: string): string {
     if (!path) return '';
+    if (/^https?:\/\//i.test(path)) return path;
+    if (path.startsWith('/library/')) return buildPlexArtworkUrl(path);
 
     // For grid/list views, prefer thumbnails
     const cachedThumb = thumbnailUrlCache.get(path);
@@ -1991,6 +2292,8 @@
   // For album detail view, always use full resolution
   function getFullArtworkUrl(path?: string): string {
     if (!path) return '';
+    if (/^https?:\/\//i.test(path)) return path;
+    if (path.startsWith('/library/')) return buildPlexArtworkUrl(path);
     const cached = artworkUrlCache.get(path);
     if (cached) return cached;
     const url = convertFileSrc(path);
@@ -2590,7 +2893,14 @@
           <ArrowLeft size={16} />
           <span>{$t('library.backToLibrary')}</span>
         </button>
-        <button class="edit-btn" onclick={openAlbumEditModal} title={$t('actions.edit')}>
+        <button
+          class="edit-btn"
+          onclick={openAlbumEditModal}
+          title={selectedAlbum?.source === 'plex' && getUserItem(PLEX_METADATA_WRITE_KEY) !== 'true'
+            ? $t('settings.integrations.plexWriteDisabledNotice')
+            : $t('actions.edit')}
+          disabled={selectedAlbum?.source === 'plex' && getUserItem(PLEX_METADATA_WRITE_KEY) !== 'true'}
+        >
           <Edit3 size={16} />
         </button>
       </div>
@@ -2675,7 +2985,7 @@
                 onPlayNow: () => handleTrackPlay(track),
                 onPlayNext: onTrackPlayNext ? () => onTrackPlayNext(track) : undefined,
                 onPlayLater: onTrackPlayLater ? () => onTrackPlayLater(track) : undefined,
-                onAddToPlaylist: onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined
+                onAddToPlaylist: onTrackAddToPlaylist && track.source !== 'plex' ? () => onTrackAddToPlaylist(track.id) : undefined
               }}
             />
           {/each}
@@ -3364,7 +3674,7 @@
                         onPlayNext={() => handleAlbumQueueNextFromGrid(album)}
                         onPlayLater={() => handleAlbumQueueLaterFromGrid(album)}
                         onclick={() => handleAlbumClick(album)}
-                        sourceBadge={album.source === 'qobuz_download' ? 'qobuz_download' : 'user'}
+                        sourceBadge={album.source === 'plex' ? 'plex' : (album.source === 'qobuz_download' ? 'qobuz_download' : 'user')}
                       />
                     {/each}
                   </div>

@@ -912,7 +912,14 @@
     <div class="header-actions">
       <GenreFilterButton onFilterChange={handleGenreFilterChange} />
       <button class="settings-btn" onclick={() => isSettingsModalOpen = true} title={$t('home.customizeHome')}>
-        <img src="/home-gear.svg" alt="Settings" class="settings-icon" />
+        <img
+          src="/home-gear.svg"
+          alt="Settings"
+          class="settings-icon"
+          width="22"
+          height="22"
+          style="width:22px;height:22px;filter:invert(1) opacity(0.8);"
+        />
       </button>
     </div>
   </div>
