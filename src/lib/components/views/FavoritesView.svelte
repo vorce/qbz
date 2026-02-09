@@ -8,6 +8,7 @@
   import TrackRow from '../TrackRow.svelte';
   import QualityBadge from '../QualityBadge.svelte';
   import VirtualizedTrackList from '../VirtualizedTrackList.svelte';
+  import VirtualizedFavoritesArtistGrid from '../VirtualizedFavoritesArtistGrid.svelte';
   import FavoritePlaylistCard from '../FavoritePlaylistCard.svelte';
   import FavoritesEditModal from '../FavoritesEditModal.svelte';
   import ViewTransition from '../ViewTransition.svelte';
@@ -1154,7 +1155,7 @@
 </script>
 
 <ViewTransition duration={200} distance={12} direction="down">
-<div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'artists' && artistViewMode === 'sidepanel')} bind:this={scrollContainer}>
+<div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'artists' && !loading && filteredArtists.length > 0)} bind:this={scrollContainer}>
   <!-- Header -->
   <div class="header">
     <div
@@ -1998,74 +1999,37 @@
             {/if}
           </div>
         </div>
-      {:else if artistGroupingEnabled}
-        <!-- Grid view with grouping -->
-        {@const groupedArtists = groupArtists(filteredArtists)}
-        {@const artistAlphaGroups = new Set(groupedArtists.map(group => group.key))}
+      {:else}
+        <!-- Virtualized artist grid (grouped or ungrouped) -->
+        {@const artistGridGroups = artistGroupingEnabled
+          ? groupArtists(filteredArtists)
+          : [{ key: '', id: 'all', artists: filteredArtists }]}
+        {@const artistAlphaGroups = artistGroupingEnabled
+          ? new Set(artistGridGroups.map(grp => grp.key))
+          : new Set<string>()}
 
         <div class="artist-sections">
-          <div class="artist-group-list">
-            {#each groupedArtists as group (group.id)}
-              <div class="artist-group" id={group.id}>
-                <div class="artist-group-header">
-                  <span class="artist-group-title">{group.key}</span>
-                  <span class="artist-group-count">{group.artists.length}</span>
-                </div>
-                <div class="artist-grid">
-                  {#each group.artists as artist (artist.id)}
-                    <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
-                      <div class="artist-image">
-                        {#if artist.image?.large || artist.image?.thumbnail}
-                          <img src={artist.image?.large || artist.image?.thumbnail} alt={artist.name} />
-                        {:else}
-                          <div class="artist-placeholder">
-                            <Mic2 size={32} />
-                          </div>
-                        {/if}
-                      </div>
-                      <div class="artist-name">{artist.name}</div>
-                      {#if artist.albums_count}
-                        <div class="artist-albums">{artist.albums_count} albums</div>
-                      {/if}
-                    </button>
-                  {/each}
-                </div>
-              </div>
-            {/each}
+          <div class="virtualized-artist-grid-container">
+            <VirtualizedFavoritesArtistGrid
+              groups={artistGridGroups}
+              showGroupHeaders={artistGroupingEnabled}
+              onArtistClick={(id) => onArtistClick?.(id)}
+            />
           </div>
 
-          <div class="alpha-index">
-            {#each alphaIndexLetters as letter}
-              <button
-                class="alpha-letter"
-                class:disabled={!artistAlphaGroups.has(letter)}
-                onclick={() => scrollToGroup('artist-alpha', letter, artistAlphaGroups)}
-              >
-                {letter}
-              </button>
-            {/each}
-          </div>
-        </div>
-      {:else}
-        <!-- Grid view without grouping -->
-        <div class="artist-grid">
-          {#each filteredArtists as artist (artist.id)}
-            <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
-              <div class="artist-image">
-                {#if artist.image?.large || artist.image?.thumbnail}
-                  <img src={artist.image?.large || artist.image?.thumbnail} alt={artist.name} />
-                {:else}
-                  <div class="artist-placeholder">
-                    <Mic2 size={32} />
-                  </div>
-                {/if}
-              </div>
-              <div class="artist-name">{artist.name}</div>
-              {#if artist.albums_count}
-                <div class="artist-albums">{artist.albums_count} albums</div>
-              {/if}
-            </button>
-          {/each}
+          {#if artistGroupingEnabled}
+            <div class="alpha-index">
+              {#each alphaIndexLetters as letter}
+                <button
+                  class="alpha-letter"
+                  class:disabled={!artistAlphaGroups.has(letter)}
+                  onclick={() => scrollToGroup('artist-alpha', letter, artistAlphaGroups)}
+                >
+                  {letter}
+                </button>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/if}
       </ViewTransition>
@@ -2723,6 +2687,14 @@
     display: flex;
     gap: 12px;
     align-items: flex-start;
+  }
+
+  .virtualized-artist-grid-container {
+    flex: 1;
+    height: calc(100vh - 380px);
+    min-height: 400px;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .artist-group-list {
