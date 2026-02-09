@@ -55,10 +55,12 @@ fn main() {
     // Wayland and WebKit compatibility fixes for Linux
     // Addresses: https://github.com/vicrodh/qbz/issues/6
     //
-    // WebKit's EGL/DMA-BUF renderer crashes on many GPU/driver/compositor
-    // combinations with "Could not create default EGL display" or fatal
-    // protocol errors (Error 71). Hardware acceleration is disabled by
-    // default and can be opted into with QBZ_HARDWARE_ACCEL=1.
+    // The primary EGL crash ("Could not create default EGL display") in
+    // AppImage is fixed at the build level by pinning WebKitGTK to 2.44.0-2
+    // in the CI workflow (see tauri-apps/tauri#11994).
+    //
+    // Runtime workarounds below handle NVIDIA DMA-BUF issues and provide
+    // escape hatches for edge cases.
     #[cfg(target_os = "linux")]
     {
         let is_wayland = std::env::var_os("WAYLAND_DISPLAY").is_some()
@@ -66,7 +68,8 @@ fn main() {
         let has_nvidia = is_nvidia_gpu();
 
         // User overrides
-        let hardware_accel = std::env::var("QBZ_HARDWARE_ACCEL").as_deref() == Ok("1");
+        let force_dmabuf = std::env::var("QBZ_FORCE_DMABUF").as_deref() == Ok("1");
+        let disable_dmabuf = std::env::var("QBZ_DISABLE_DMABUF").as_deref() == Ok("1");
         let force_x11 = std::env::var("QBZ_FORCE_X11").as_deref() == Ok("1");
 
         // Diagnostic logging
@@ -85,29 +88,20 @@ fn main() {
             std::env::set_var("GTK_CSD", "1");
         }
 
-        // Hardware acceleration control
-        // Default: OFF for all GPUs (EGL crashes on too many configurations)
-        // Opt-in: QBZ_HARDWARE_ACCEL=1
-        //
-        // WEBKIT_DISABLE_DMABUF_RENDERER alone is NOT enough — WebKit still
-        // tries eglGetDisplay() for compositing and crashes with
-        // "Could not create default EGL display: EGL_BAD_PARAMETER" on systems
-        // without working EGL (VMs, some driver combos).
-        // LIBGL_ALWAYS_SOFTWARE forces Mesa to use llvmpipe so EGL init
-        // succeeds through software rasterization instead of crashing.
-        if hardware_accel {
-            eprintln!("[QBZ] Hardware acceleration enabled (QBZ_HARDWARE_ACCEL=1)");
-            if has_nvidia && is_wayland {
-                eprintln!("[QBZ] Warning: NVIDIA + Wayland may cause crashes with hardware acceleration");
-            }
+        // DMA-BUF renderer control
+        // NVIDIA GPUs have known issues with WebKit's DMA-BUF renderer on
+        // Wayland, causing fatal protocol errors (Error 71).
+        if force_dmabuf {
+            eprintln!("[QBZ] User override: DMA-BUF renderer forced ON");
+        } else if disable_dmabuf {
+            eprintln!("[QBZ] User override: DMA-BUF renderer forced OFF");
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        } else if has_nvidia {
+            eprintln!("[QBZ] NVIDIA GPU: disabling WebKit DMA-BUF renderer");
+            eprintln!("[QBZ] To override: set QBZ_FORCE_DMABUF=1");
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         } else {
-            eprintln!("[QBZ] Hardware acceleration disabled (default). Set QBZ_HARDWARE_ACCEL=1 to enable");
-            if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
-                std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-            }
-            if std::env::var_os("LIBGL_ALWAYS_SOFTWARE").is_none() {
-                std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-            }
+            eprintln!("[QBZ] Using default WebKit renderer (hardware accelerated)");
         }
     }
 
