@@ -39,9 +39,23 @@ pub async fn lyrics_get(
         }
     }
 
-    // Provider chain: LRCLIB -> lyrics.ovh
-    // Each provider returns Option (errors are logged internally and treated as "not found")
-    if let Some(data) = fetch_lrclib(title_trimmed, artist_trimmed, duration_secs).await {
+    // Provider chain: LRCLIB (with 1 retry on network error) -> lyrics.ovh
+    let lrclib_data = match fetch_lrclib(title_trimmed, artist_trimmed, duration_secs).await {
+        Ok(data) => data,
+        Err(e) => {
+            // Network error — retry once
+            eprintln!("[Lyrics] LRCLIB attempt 1 failed: {}, retrying…", e);
+            match fetch_lrclib(title_trimmed, artist_trimmed, duration_secs).await {
+                Ok(data) => data,
+                Err(e2) => {
+                    eprintln!("[Lyrics] LRCLIB attempt 2 failed: {}, falling back to lyrics.ovh", e2);
+                    None
+                }
+            }
+        }
+    };
+
+    if let Some(data) = lrclib_data {
         let payload = LyricsPayload {
             track_id,
             title: title_trimmed.to_string(),

@@ -38,24 +38,27 @@ struct LrclibItem {
     pub synced_lyrics: Option<String>,
 }
 
+/// Fetch lyrics from LRCLIB (GET then search).
+///
+/// Returns:
+/// - `Ok(Some(data))` — lyrics found
+/// - `Ok(None)` — not found (API responded but no match)
+/// - `Err(msg)` — network/transport error (caller should retry)
 pub async fn fetch_lrclib(
     title: &str,
     artist: &str,
     duration_secs: Option<u64>,
-) -> Option<LyricsData> {
-    let client = match build_client() {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("[Lyrics] {}", e);
-            return None;
-        }
-    };
+) -> Result<Option<LyricsData>, String> {
+    let client = build_client()?;
 
-    // Try direct GET first (network errors are soft failures)
+    let mut had_network_error = false;
+
+    // Try direct GET first; network errors fall through to search
     let mut best = match fetch_lrclib_get(&client, title, artist).await {
         Ok(item) => item,
         Err(e) => {
             eprintln!("[Lyrics] LRCLIB GET failed (will try search): {}", e);
+            had_network_error = true;
             None
         }
     };
@@ -72,40 +75,46 @@ pub async fn fetch_lrclib(
             Ok(items) => items,
             Err(e) => {
                 eprintln!("[Lyrics] LRCLIB search failed: {}", e);
+                had_network_error = true;
                 Vec::new()
             }
         };
         if let Some(search_result) = pick_best_match(&results, title, artist, duration_secs) {
-            // Check if search result has synced lyrics
             let search_has_synced = search_result.synced_lyrics.as_ref()
                 .map(|s| !s.trim().is_empty())
                 .unwrap_or(false);
 
-            // Prefer search result if it has synced lyrics and GET didn't
             if search_has_synced || best.is_none() {
                 best = Some(search_result);
             }
         }
     }
 
-    let item = best?;
+    // If we got a result despite errors, return it
+    // If no result AND we had network errors, signal error so caller can retry
+    let Some(item) = best else {
+        if had_network_error {
+            return Err("LRCLIB requests failed due to network errors".to_string());
+        }
+        return Ok(None);
+    };
 
     if item.instrumental.unwrap_or(false) {
-        return None;
+        return Ok(None);
     }
 
     let plain = item.plain_lyrics.and_then(clean_lyrics);
     let synced = item.synced_lyrics.and_then(clean_lyrics);
 
     if plain.is_none() && synced.is_none() {
-        return None;
+        return Ok(None);
     }
 
-    Some(LyricsData {
+    Ok(Some(LyricsData {
         plain,
         synced_lrc: synced,
         provider: LyricsProvider::Lrclib,
-    })
+    }))
 }
 
 pub async fn fetch_lyrics_ovh(title: &str, artist: &str) -> Option<LyricsData> {
