@@ -123,6 +123,27 @@ fn main() {
         let is_vm = is_virtual_machine();
         let force_software = std::env::var("QBZ_SOFTWARE_RENDER").as_deref() == Ok("1");
 
+        // Graphics settings: hardware acceleration opt-in (from Settings > Appearance)
+        // Default is OFF — safest for AppImage across heterogeneous hardware.
+        // Env var QBZ_HARDWARE_ACCEL=1|0 ALWAYS overrides the DB value (crash recovery).
+        let hw_accel_db = qbz_nix_lib::config::graphics_settings::GraphicsSettingsStore::new()
+            .ok()
+            .and_then(|store| store.get_settings().ok())
+            .map(|s| s.hardware_acceleration)
+            .unwrap_or(false);
+        let hardware_accel = match std::env::var("QBZ_HARDWARE_ACCEL").as_deref() {
+            Ok("1") => {
+                qbz_nix_lib::logging::log_startup("[QBZ] Env override: QBZ_HARDWARE_ACCEL=1 (GPU rendering forced on)");
+                true
+            }
+            Ok("0") => {
+                qbz_nix_lib::logging::log_startup("[QBZ] Env override: QBZ_HARDWARE_ACCEL=0 (GPU rendering forced off)");
+                false
+            }
+            _ => hw_accel_db,
+        };
+        qbz_nix_lib::logging::log_startup(&format!("[QBZ] Hardware acceleration: {}", if hardware_accel { "enabled" } else { "disabled (default)" }));
+
         // Developer settings: force_dmabuf override (from Settings > Developer Mode)
         let dev_force_dmabuf = qbz_nix_lib::config::developer_settings::DeveloperSettingsStore::new()
             .ok()
@@ -172,18 +193,24 @@ fn main() {
         // --- DMA-BUF renderer control ---
         // NVIDIA GPUs have known issues with WebKit's DMA-BUF renderer on
         // Wayland, causing fatal protocol errors (Error 71).
+        // When hardware_accel is off, we also disable the DMA-BUF renderer
+        // as an extra safety layer for AppImage compatibility.
         if force_dmabuf {
             qbz_nix_lib::logging::log_startup("[QBZ] User override: Forcing DMA-BUF renderer enabled (QBZ_FORCE_DMABUF=1)");
             qbz_nix_lib::logging::log_startup("[QBZ] Warning: This may cause crashes on some Wayland configurations");
         } else if disable_dmabuf {
             qbz_nix_lib::logging::log_startup("[QBZ] User override: Forcing DMA-BUF renderer disabled (QBZ_DISABLE_DMABUF=1)");
             std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        } else if !hardware_accel {
+            qbz_nix_lib::logging::log_startup("[QBZ] Hardware acceleration disabled: disabling WebKit DMA-BUF renderer");
+            qbz_nix_lib::logging::log_startup("[QBZ] To enable: Settings > Appearance > Hardware Acceleration");
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         } else if has_nvidia {
             qbz_nix_lib::logging::log_startup("[QBZ] NVIDIA GPU detected: disabling WebKit DMA-BUF renderer");
             qbz_nix_lib::logging::log_startup("[QBZ] To override: set QBZ_FORCE_DMABUF=1 (not recommended)");
             std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-        } else if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
-            qbz_nix_lib::logging::log_startup("[QBZ] Using default WebKit renderer (hardware accelerated)");
+        } else {
+            qbz_nix_lib::logging::log_startup("[QBZ] Hardware acceleration enabled, using default WebKit renderer");
         }
     }
 
