@@ -486,6 +486,7 @@
   let artistImageFetchInProgress = false; // Guard against concurrent fetches
   let artistImageFetchAborted = false; // Flag to abort fetching
   let trackSearch = $state('');
+  let tracksHydrationRequestId = 0;
   let searchOpen = $state(false);
   let searchInputEl: HTMLInputElement | undefined;
   type TrackGroupMode = 'album' | 'artist' | 'name';
@@ -1436,6 +1437,7 @@
 
   async function loadTracks(query = '') {
     console.log('[LocalLibrary] loadTracks START, query:', query);
+    const requestId = ++tracksHydrationRequestId;
     loading = true;
     try {
       console.log('[LocalLibrary] Calling library_search + plex_cache_search_tracks');
@@ -1449,8 +1451,20 @@
           query
         }).catch(() => [])
       ]);
-      tracks = [...localTracks, ...plexTracksRaw.map(mapPlexTrack)];
+      const mappedPlexTracks = plexTracksRaw.map(mapPlexTrack);
+      tracks = [...localTracks, ...mappedPlexTracks];
       console.log('[LocalLibrary] Received tracks:', tracks.length, 'local:', localTracks.length, 'plex:', plexTracksRaw.length);
+
+      // Hydrate Plex quality in the background; don't block rendering track lists.
+      // Guard with requestId to avoid stale updates after a newer search.
+      void hydratePlexTrackQuality(mappedPlexTracks)
+        .then((hydratedPlexTracks) => {
+          if (requestId !== tracksHydrationRequestId) return;
+          tracks = [...localTracks, ...hydratedPlexTracks];
+        })
+        .catch((error) => {
+          console.warn('[LocalLibrary] Background Plex quality hydration failed:', error);
+        });
     } catch (err) {
       console.error('[LocalLibrary] Failed to load tracks:', err);
       error = String(err);
