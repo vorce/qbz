@@ -5,7 +5,7 @@
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { writeText as copyToClipboard } from '@tauri-apps/plugin-clipboard-manager';
   import { ask } from '@tauri-apps/plugin-dialog';
-  import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Loader2, Sun, Moon, SunMoon, HelpCircle, Ban, Copy } from 'lucide-svelte';
+  import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Loader2, Sun, Moon, SunMoon, HelpCircle, Ban } from 'lucide-svelte';
   import Toggle from '../Toggle.svelte';
   import Dropdown from '../Dropdown.svelte';
   import DeviceDropdown from '../DeviceDropdown.svelte';
@@ -741,10 +741,9 @@
 
   // Plex LAN POC state
   let plexEnabled = $state(getUserItem('qbz-plex-enabled') === 'true');
-  let plexConnectCollapsed = $state(getUserItem('qbz-plex-connect-collapsed') !== 'false');
+  let plexUiCollapsed = $state(getUserItem('qbz-plex-ui-collapsed') === 'true');
   let plexManualTokenMode = $state(false);
   let plexServerUrl = $state('http://127.0.0.1');
-  let plexServerPort = $state('32400');
   let plexBaseUrl = $state(getUserItem('qbz-plex-poc-base-url') || 'http://127.0.0.1:32400');
   let plexToken = $state(getUserItem('qbz-plex-poc-token') || '');
   let plexMetadataWriteEnabled = $state(getUserItem('qbz-plex-poc-metadata-write-enabled') === 'true');
@@ -764,7 +763,7 @@
   let plexAuthPollTimer: ReturnType<typeof setInterval> | null = null;
 
   const PLEX_ENABLED_KEY = 'qbz-plex-enabled';
-  const PLEX_CONNECT_COLLAPSED_KEY = 'qbz-plex-connect-collapsed';
+  const PLEX_UI_COLLAPSED_KEY = 'qbz-plex-ui-collapsed';
   const PLEX_CACHE_SELECTED_SECTIONS_KEY = 'qbz-plex-poc-selected-sections';
   const PLEX_CACHE_SELECTED_SECTION_KEY = 'qbz-plex-poc-selected-section';
   const PLEX_CACHE_SERVER_ID_KEY = 'qbz-plex-poc-machine-id';
@@ -1142,17 +1141,6 @@
     }
   }
 
-  function sanitizePlexPort(value: string): string {
-    const digits = value.replace(/\D+/g, '');
-    if (!digits) return '32400';
-    const num = Math.max(1, Math.min(65535, Number(digits)));
-    return String(num);
-  }
-
-  function isValidPlexPort(value: string): boolean {
-    return /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 65535;
-  }
-
   function normalizePlexServerUrl(value: string): string {
     const trimmed = value.trim();
     if (!trimmed) return '';
@@ -1191,7 +1179,9 @@
     try {
       const parsed = new URL(normalizedUrl);
       if (!['http:', 'https:'].includes(parsed.protocol)) return '';
-      parsed.port = sanitizePlexPort(plexServerPort);
+      if (!parsed.port) {
+        parsed.port = '32400';
+      }
       return `${parsed.protocol}//${parsed.host}`;
     } catch {
       return '';
@@ -1201,20 +1191,17 @@
   function hydratePlexAddressFieldsFromBaseUrl() {
     try {
       const parsed = new URL(plexBaseUrl || 'http://127.0.0.1:32400');
-      plexServerUrl = `${parsed.protocol}//${parsed.hostname}`;
-      plexServerPort = parsed.port || '32400';
+      plexServerUrl = `${parsed.protocol}//${parsed.host}`;
     } catch {
       plexServerUrl = 'http://127.0.0.1';
-      plexServerPort = '32400';
     }
   }
 
   function canUsePlexRequests(): boolean {
-    return plexEnabled && isLocalPlexAddress(plexServerUrl) && isValidPlexPort(plexServerPort) && !!plexToken.trim();
+    return plexEnabled && isLocalPlexAddress(plexServerUrl) && !!resolvePlexBaseUrl() && !!plexToken.trim();
   }
 
   function persistPlexConfig() {
-    plexServerPort = sanitizePlexPort(plexServerPort);
     plexBaseUrl = resolvePlexBaseUrl();
     setUserItem('qbz-plex-poc-base-url', plexBaseUrl);
     setUserItem('qbz-plex-poc-token', plexToken.trim());
@@ -1245,11 +1232,6 @@
     return legacySingle ? [legacySingle] : [];
   }
 
-  function togglePlexConnectionBlock() {
-    plexConnectCollapsed = !plexConnectCollapsed;
-    setUserItem(PLEX_CONNECT_COLLAPSED_KEY, plexConnectCollapsed ? 'true' : 'false');
-  }
-
   function handlePlexEnabledToggle(enabled: boolean) {
     plexEnabled = enabled;
     setUserItem(PLEX_ENABLED_KEY, enabled ? 'true' : 'false');
@@ -1262,6 +1244,11 @@
     plexStatusValues = {};
     void loadPlexCachedState();
     void refreshPlexInBackground();
+  }
+
+  function togglePlexUiCollapsed() {
+    plexUiCollapsed = !plexUiCollapsed;
+    setUserItem(PLEX_UI_COLLAPSED_KEY, plexUiCollapsed ? 'true' : 'false');
   }
 
   function handlePlexMetadataWriteToggle(enabled: boolean) {
@@ -1280,7 +1267,7 @@
   }
 
   async function handlePlexConnectEasy() {
-    if (!plexEnabled || plexAuthBusy || !isLocalPlexAddress(plexServerUrl) || !isValidPlexPort(plexServerPort)) return;
+    if (!plexEnabled || plexAuthBusy || !isLocalPlexAddress(plexServerUrl) || !resolvePlexBaseUrl()) return;
     plexAuthBusy = true;
     plexLastError = '';
     persistPlexConfig();
@@ -3494,126 +3481,114 @@
     <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{$t('settings.integrations.plexConnection')}</span>
-      </div>
-      <Toggle enabled={plexEnabled} onchange={handlePlexEnabledToggle} />
-    </div>
-
-    {#if plexEnabled}
-      <div class="setting-row">
         <small class="setting-note">{$t('settings.integrations.plexConnectionLore')}</small>
       </div>
-
-      <div class="setting-row plex-server-row">
-        <div class="plex-server-field">
-          <label for="plex-server-url">{$t('settings.integrations.plexServerUrl')}</label>
-          <input
-            id="plex-server-url"
-            type="text"
-            bind:value={plexServerUrl}
-            placeholder={$t('settings.integrations.plexServerUrlPlaceholder')}
-            onblur={() => persistPlexConfig()}
-          />
-        </div>
-        <div class="plex-port-field">
-          <label for="plex-server-port">{$t('settings.integrations.plexServerPort')}</label>
-          <input
-            id="plex-server-port"
-            class="remote-control-input plex-port-input"
-            type="number"
-            min="1"
-            max="65535"
-            bind:value={plexServerPort}
-            oninput={() => plexServerPort = sanitizePlexPort(plexServerPort)}
-            onblur={() => persistPlexConfig()}
-          />
-        </div>
-      </div>
-
-      {#if !isLocalPlexAddress(plexServerUrl)}
-        <small class="setting-note plex-error-note">{$t('settings.integrations.plexLocalAddressRequired')}</small>
-      {/if}
-
-      <div class="setting-row">
-        <button class="setting-link-button plex-collapse-trigger" onclick={togglePlexConnectionBlock}>
-          <span class="setting-label">{$t('settings.integrations.plexAuthorizeSectionTitle')}</span>
-          {#if plexConnectCollapsed}
+      <div class="setting-row-controls">
+        <Toggle enabled={plexEnabled} onchange={handlePlexEnabledToggle} />
+        <button
+          class="setting-link-button section-collapse-btn"
+          onclick={togglePlexUiCollapsed}
+          title={$t('settings.integrations.plexCollapseHint')}
+        >
+          {#if plexUiCollapsed}
             <ChevronDown size={16} />
           {:else}
             <ChevronUp size={16} />
           {/if}
         </button>
       </div>
+    </div>
 
-      {#if !plexConnectCollapsed}
-        <div class="setting-row">
-          <small class="setting-note">{$t('settings.integrations.plexAuthorizeSectionLore')}</small>
+    {#if plexEnabled && !plexUiCollapsed}
+      <div class="setting-row plex-two-column-row">
+        <div class="setting-info">
+          <span class="setting-label">{$t('settings.integrations.plexServerUrl')}:</span>
+          <small class="setting-note">{$t('settings.integrations.plexServerUrlHelp')}</small>
         </div>
-        <div class="setting-row">
-          <small class="setting-note">{$t('settings.integrations.plexAuthorizeHelp')}</small>
-        </div>
-        <div class="setting-row plex-two-column-row">
+        <input
+          id="plex-server-url"
+          class="remote-control-input plex-server-url-input"
+          type="text"
+          bind:value={plexServerUrl}
+          placeholder={$t('settings.integrations.plexServerUrlPlaceholder')}
+          oninput={() => persistPlexConfig()}
+          onblur={() => persistPlexConfig()}
+        />
+      </div>
+
+      <div class="setting-row plex-two-column-row">
+        <div class="setting-info">
           <span class="setting-label">{$t('settings.integrations.plexAuthorizeLabel')}</span>
-          <button
-            class="connect-btn"
-            onclick={handlePlexConnectEasy}
-            disabled={plexBusy || plexAuthBusy || !isLocalPlexAddress(plexServerUrl) || !isValidPlexPort(plexServerPort)}
-          >
-            {plexAuthBusy ? $t('actions.loading') : $t('settings.integrations.plexActionEasyConnect')}
-          </button>
+          <small class="setting-note">{$t('settings.integrations.plexAuthorizeGenerateHelp')}</small>
         </div>
+        <button
+          class="connect-btn plex-action-btn"
+          onclick={handlePlexConnectEasy}
+          disabled={plexBusy || plexAuthBusy || !isLocalPlexAddress(plexServerUrl) || !resolvePlexBaseUrl()}
+        >
+          {plexAuthBusy ? $t('actions.loading') : $t('settings.integrations.plexActionGenerateCode')}
+        </button>
+      </div>
 
+      {#if plexAuthCode}
         <div class="plex-divider"></div>
 
-        <div class="setting-row plex-code-row">
-          <input
-            class="remote-control-input plex-code-input"
-            type="text"
-            readonly
-            value={plexAuthCode || $t('settings.integrations.plexCodeEmpty')}
-            title={plexAuthCode ? $t('settings.integrations.plexCodeTooltip') : $t('settings.integrations.plexCodeEmpty')}
-          />
-          <button
-            class="copy-icon-btn"
-            onclick={handleCopyPlexCode}
-            disabled={!plexAuthCode}
-            title={$t('settings.integrations.plexCodeTooltip')}
-          >
-            <Copy size={16} />
-          </button>
-        </div>
-
         <div class="setting-row plex-two-column-row">
-          <span class="setting-label"></span>
+          <div class="setting-info">
+            <span class="setting-label">{$t('settings.integrations.plexLinkWithPlex')}</span>
+            <small class="setting-note">{$t('settings.integrations.plexLinkWithPlexHelp')}</small>
+          </div>
+          <div class="plex-code-row">
+            <input
+              class="remote-control-input plex-code-input"
+              type="text"
+              readonly
+              value={plexAuthCode}
+              title={$t('settings.integrations.plexCodeTooltip')}
+            />
+            <button
+              class="connect-btn plex-action-btn"
+              onclick={handleCopyPlexCode}
+              title={$t('settings.integrations.plexCodeTooltip')}
+            >
+              {$t('settings.integrations.plexActionCopyCode')}
+            </button>
+          </div>
+        </div>
+        <div class="setting-row plex-two-column-row">
+          <div class="setting-info">
+            <span class="setting-label">{$t('settings.integrations.plexAuthorizeUsingCode')}</span>
+            <small class="setting-note">{$t('settings.integrations.plexAuthorizeHelp')}</small>
+          </div>
           <button
-            class="connect-btn"
+            class="connect-btn plex-action-btn"
             onclick={handleOpenPlexAuthUrl}
             disabled={!plexAuthUrl}
           >
             {$t('settings.integrations.plexActionOpenAuth')}
           </button>
         </div>
+      {/if}
 
-        <div class="plex-divider"></div>
-
-        <div class="setting-row">
-          <label class="setting-label plex-manual-toggle">
-            <input type="checkbox" bind:checked={plexManualTokenMode} />
-            <span>{$t('settings.integrations.plexManualTokenToggle')}</span>
-          </label>
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">{$t('settings.integrations.plexManualTokenToggle')}</span>
+          <small class="setting-note">{$t('settings.integrations.plexManualTokenHelp')}</small>
         </div>
+        <Toggle enabled={plexManualTokenMode} onchange={(enabled) => plexManualTokenMode = enabled} />
+      </div>
 
-        {#if plexManualTokenMode}
-          <div class="setting-row plex-two-column-row">
-            <span class="setting-label">{$t('settings.integrations.plexToken')}</span>
-            <input
-              class="remote-control-input"
-              type="password"
-              bind:value={plexToken}
-              placeholder={$t('settings.integrations.plexTokenPlaceholder')}
-              onblur={handlePlexTokenBlur}
-            />
-          </div>
-        {/if}
+      {#if plexManualTokenMode}
+        <div class="setting-row plex-two-column-row">
+          <span class="setting-label">{$t('settings.integrations.plexToken')}</span>
+          <input
+            class="remote-control-input"
+            type="password"
+            bind:value={plexToken}
+            placeholder={$t('settings.integrations.plexTokenPlaceholder')}
+            onblur={handlePlexTokenBlur}
+          />
+        </div>
       {/if}
 
       <div class="setting-row plex-two-column-row">
@@ -3626,7 +3601,7 @@
           {/if}
         </div>
         <button
-          class="connect-btn"
+          class="connect-btn plex-action-btn"
           onclick={() => handlePlexPing()}
           disabled={plexBusy || !canUsePlexRequests()}
         >
@@ -3640,7 +3615,7 @@
           <small class="setting-note">{$t('settings.integrations.plexGetLibrariesHelp')}</small>
         </div>
         <button
-          class="connect-btn"
+          class="connect-btn plex-action-btn"
           onclick={() => handlePlexLoadSections({ autoSyncSelected: true })}
           disabled={plexBusy || !canUsePlexRequests()}
         >
@@ -3674,7 +3649,7 @@
       <div class="setting-row plex-two-column-row">
         <span class="setting-label">{$t('settings.integrations.plexDisconnectRowLabel')}</span>
         <button
-          class="connect-btn danger-btn"
+          class="connect-btn plex-action-btn"
           onclick={handlePlexDisconnect}
           disabled={plexBusy || plexAuthBusy || !plexToken.trim()}
         >
@@ -3688,7 +3663,7 @@
           <small class="setting-note">{$t('settings.integrations.plexClearCacheRowHelp')}</small>
         </div>
         <button
-          class="connect-btn danger-btn"
+          class="connect-btn plex-action-btn"
           onclick={handlePlexClearCache}
           disabled={plexBusy || plexAuthBusy}
         >
@@ -5367,38 +5342,27 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     word-break: break-all;
   }
 
-  .plex-server-row {
-    align-items: end;
-    gap: 10px;
+  .setting-row-controls {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    align-self: center;
   }
 
-  .plex-server-field {
-    flex: 1;
-    min-width: 0;
-    display: grid;
-    gap: 6px;
+  .section-collapse-btn {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
   }
 
-  .plex-port-field {
-    width: 130px;
-    display: grid;
-    gap: 6px;
-  }
-
-  .plex-port-input::-webkit-outer-spin-button,
-  .plex-port-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  .plex-port-input {
-    -moz-appearance: textfield;
-    appearance: textfield;
-  }
-
-  .plex-collapse-trigger {
-    width: 100%;
-    justify-content: space-between;
+  .plex-server-url-input {
+    width: 210px;
+    max-width: 210px;
   }
 
   .plex-two-column-row {
@@ -5416,6 +5380,7 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     display: flex;
     align-items: center;
     gap: 8px;
+    justify-content: flex-end;
   }
 
   .plex-code-input {
@@ -5424,41 +5389,34 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     letter-spacing: 0.06em;
   }
 
-  .copy-icon-btn {
-    width: 34px;
-    height: 34px;
+  .plex-action-btn {
+    min-width: 170px;
+    background: none;
     border: 1px solid var(--border-subtle);
-    border-radius: 8px;
-    background: var(--bg-tertiary);
     color: var(--text-secondary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.15s ease;
   }
 
-  .copy-icon-btn:hover:not(:disabled) {
+  .plex-action-btn:hover:not(:disabled) {
     color: var(--text-primary);
     border-color: var(--border-default);
-  }
-
-  .copy-icon-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .plex-manual-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
+    background: var(--bg-hover);
   }
 
   .plex-libraries-block {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     align-items: start;
+    width: 100%;
+    height: auto;
+    min-height: unset;
+  }
+
+  .setting-row.plex-libraries-block {
+    height: auto;
+    min-height: 48px;
+    align-items: stretch;
+    padding-bottom: 14px;
   }
 
   .plex-libraries-grid {
@@ -5469,6 +5427,8 @@ flatpak override --user --filesystem=/home/USUARIO/Música com.blitzfc.qbz</pre>
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px 16px;
+    width: 100%;
+    margin: 0 auto;
     max-height: 130px;
     overflow-y: auto;
   }
