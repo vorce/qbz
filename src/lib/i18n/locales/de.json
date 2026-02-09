@@ -427,7 +427,13 @@
     "bitDepth": "{depth}-Bit",
     "sampleRate": "{rate} kHz",
     "lossless": "Lossless",
-    "max": "Max"
+    "max": "Max",
+    "tooltip": {
+      "source": "Quelle",
+      "output": "Ausgabe",
+      "resampled": "Vom System resampled",
+      "fix": "Aktiviere DAC Passthrough oder Exklusivmodus in den Einstellungen"
+    }
   },
   "actions": {
     "play": "Abspielen",
@@ -435,6 +441,7 @@
     "playNow": "Jetzt abspielen",
     "shuffle": "Mischen",
     "shuffleAll": "Alle mischen",
+    "playNext": "Als Nächstes abspielen",
     "addToQueue": "Zur Warteschlange hinzufügen",
     "addToPlaylist": "Zur Playlist hinzufügen",
     "addToFavorites": "Zu Favoriten hinzufügen",
@@ -520,17 +527,6 @@
       "flatpakWarningDesc": "PipeWire kann aufgrund von Dämonzugriffsbeschränkungen in Sandbox-Umgebungen keine bitperfekte Wiedergabe garantieren.",
       "flatpakRecommended": "Empfohlen:",
       "flatpakRecommendedDesc": "Wechsle zum ALSA-Direct-Backend für echte bitperfekte Audioausgabe.",
-      "streamUncached": "Nicht zwischengespeicherte Titel streamen",
-      "streamUncachedDesc": "Startet die Wiedergabe schneller, wenn der Titel nicht im Cache ist. Vorspulen kann während der initialen Pufferung eingeschränkt sein.",
-      "initialBuffer": "Initiale Puffergröße",
-      "initialBufferDesc": "Sekunden zum Puffern vor dem Start der Wiedergabe ({seconds}s)",
-      "streamingOnly": "Nur Streaming",
-      "streamingOnlyDesc": "Deaktiviert den temporären Cache. Nicht empfohlen ohne schnelle Verbindung. Offline-Bibliothekstitel werden immer zuerst abgespielt.",
-      "streamBuffer": "Stream-Pufferung",
-      "streamBufferDesc": "Startet die Wiedergabe schneller, wenn der Titel nicht im Cache ist. Vorspulen kann während der initialen Pufferung eingeschränkt sein.",
-      "streamBufferSeconds": "Sekunden zum Puffern vor dem Start der Wiedergabe ({seconds}s)",
-      "disableCache": "Wiedergabe-Cache deaktivieren",
-      "disableCacheDesc": "Deaktiviert den temporären Cache. Nicht empfohlen ohne schnelle Verbindung. Offline-Bibliothekstitel werden immer zuerst abgespielt.",
       "bitPerfectHelp": "Hilfe bei der bitperfekten Gerätedetektion",
       "bitPerfectDetection": "Bitperfekte Gerätedetektion",
       "isInstalled": "ist installiert",
@@ -538,7 +534,14 @@
       "alsaUtilsDesc": "Das Paket alsa-utils bietet Hardware-Aufzählungswerkzeuge, die QBZ verwendet, um bitperfekte Geräte zu erkennen (hw:X,Y).",
       "alsaUtilsNotInstalled": "Ohne es werden nur generische ALSA-Geräte angezeigt und Sie sehen das BP-Abzeichen für echte bitperfekte Ausgaben nicht.",
       "systemConfigured": "Ihr System ist korrekt für die bitperfekte Gerätedetektion konfiguriert.",
-      "deviceNotListed": "Wenn dein Gerät nicht als bitperfekt aufgeführt ist, stelle sicher, dass es angeschlossen und vom System erkannt wird."
+      "deviceNotListed": "Wenn dein Gerät nicht als bitperfekt aufgeführt ist, stelle sicher, dass es angeschlossen und vom System erkannt wird.",
+      "resetTitle": "Audio- & Wiedergabeeinstellungen zurücksetzen",
+      "resetDesc": "Setzt alle Audio- und Wiedergabeeinstellungen auf die Werkseinstellungen zurück. Nützlich bei Audioproblemen.",
+      "resetButton": "Einstellungen zurücksetzen",
+      "resetConfirmTitle": "Audio- & Wiedergabeeinstellungen zurücksetzen?",
+      "resetConfirmDesc": "Dies setzt alle Audioausgabe-, Backend- und Wiedergabeeinstellungen auf die Standardwerte zurück. Die Wiedergabe wird gestoppt.",
+      "resetSuccess": "Audio- und Wiedergabeeinstellungen wurden auf die Standardwerte zurückgesetzt.",
+      "resetError": "Fehler beim Zurücksetzen der Audioeinstellungen: {error}"
     },
     "playback": {
       "title": "Wiedergabe",
@@ -555,7 +558,18 @@
       "continueWithinSource": "Innerhalb der Quelle fortfahren",
       "playOnlySelectedTrack": "Nur ausgewählten Titel abspielen",
       "showContextIcon": "Kontext des abgespielten Titels im Player anzeigen",
-      "showContextIconTooltip": "Zeigt den Kontext, aus dem der aktuelle Titel abgespielt wird (Album, Künstler, Playlist usw.)"
+      "showContextIconTooltip": "Zeigt den Kontext, aus dem der aktuelle Titel abgespielt wird (Album, Künstler, Playlist usw.)",
+      "streamUncached": "Nicht zwischengespeicherte Titel streamen",
+      "streamUncachedDesc": "Startet die Wiedergabe schneller, wenn der Titel nicht im Cache ist. Vorspulen kann während der initialen Pufferung eingeschränkt sein.",
+      "initialBuffer": "Initiale Puffergröße",
+      "initialBufferDesc": "Sekunden zum Puffern vor dem Start der Wiedergabe ({seconds}s)",
+      "streamingOnly": "Nur Streaming",
+      "streamingOnlyDesc": "Deaktiviert den temporären Cache. Nicht empfohlen ohne schnelle Verbindung. Offline-Bibliothekstitel werden immer zuerst abgespielt.",
+      "streamBuffer": "Stream-Pufferung",
+      "streamBufferDesc": "Startet die Wiedergabe schneller, wenn der Titel nicht im Cache ist. Vorspulen kann während der initialen Pufferung eingeschränkt sein.",
+      "streamBufferSeconds": "Sekunden zum Puffern vor dem Start der Wiedergabe ({seconds}s)",
+      "disableCache": "Wiedergabe-Cache deaktivieren",
+      "disableCacheDesc": "Deaktiviert den temporären Cache. Nicht empfohlen ohne schnelle Verbindung. Offline-Bibliothekstitel werden immer zuerst abgespielt."
     },
     "appearance": {
       "title": "Darstellung",
@@ -705,7 +719,32 @@
       "cachedTracks": "Zwischengespeicherte Warteschlangentitel",
       "cacheSize": "Größe des Warteschlangen-Cache",
       "clearCache": "Warteschlangen-Cache löschen",
-      "clearing": "Löschen..."
+      "clearing": "Löschen...",
+      "factoryResetTitle": "Alle Anwendungsdaten löschen",
+      "factoryResetDesc": "Löscht dauerhaft alle Einstellungen, Caches, Anmeldedaten und Benutzerdaten. Sie werden abgemeldet und die App kehrt in ihren Ausgangszustand zurück.",
+      "factoryResetCheckbox": "Ich verstehe, dass alle Daten dauerhaft gelöscht werden und dies nicht rückgängig gemacht werden kann",
+      "factoryResetButton": "Alle Daten löschen",
+      "factoryResetFinalConfirm": "Sind Sie absolut sicher? Dies löscht alle Anwendungsdaten einschließlich Ihrer Anmeldedaten, Einstellungen, Caches und Offline-Bibliothek. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "factoryResetConfirmButton": "Ja, alles löschen",
+      "factoryResetError": "Fehler beim Löschen der Anwendungsdaten: {error}"
+    },
+    "developer": {
+      "title": "Entwicklermodus",
+      "summary": "Erweiterte Optionen für Fehlersuche und Entwicklung",
+      "forceDmabuf": "DMA-BUF-Renderer erzwingen",
+      "forceDmabufDesc": "Überschreibt den NVIDIA + Wayland DMA-BUF-Workaround. Nur aktivieren, wenn Ihr System nicht abstürzt. Zurücksetzen über Terminal: qbz --reset-dmabuf",
+      "restartRequired": "Starten Sie QBZ neu, damit die Änderung wirksam wird",
+      "viewLogs": "Logs anzeigen",
+      "viewLogsDesc": "Backend- und Konsolen-Logs zur Fehlersuche anzeigen",
+      "logsTitle": "Anwendungs-Logs",
+      "tabTerminal": "Terminal",
+      "tabConsole": "Konsole",
+      "uploadLogs": "Zu 0x0.st hochladen",
+      "uploadTab": "{tab} hochladen",
+      "uploadSuccess": "Log-URL in Zwischenablage kopiert",
+      "uploadError": "Fehler beim Hochladen der Logs",
+      "uploading": "Wird hochgeladen...",
+      "bugReportHint": "Fehler melden? Laden Sie beide Tabs hoch und teilen Sie beide URLs — das hilft uns, Probleme schneller zu beheben. Danke!"
     },
     "blacklist": {
       "title": "Künstler-Blacklist",

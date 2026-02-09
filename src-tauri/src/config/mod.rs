@@ -10,6 +10,7 @@
 //! - Cached favorites
 
 pub mod audio_settings;
+pub mod developer_settings;
 pub mod download_settings;
 pub mod playback_preferences;
 pub mod favorites_preferences;
@@ -27,6 +28,7 @@ pub use audio_settings::{
     set_audio_exclusive_mode,
     set_audio_dac_passthrough,
     set_audio_sample_rate,
+    reset_audio_settings,
 };
 
 pub use download_settings::{
@@ -101,4 +103,11 @@ pub use remote_control_settings::{
     RemoteControlSettingsState,
     AllowedOrigin,
     AllowedOriginsState,
+};
+
+pub use developer_settings::{
+    DeveloperSettings,
+    DeveloperSettingsState,
+    get_developer_settings,
+    set_developer_force_dmabuf,
 };

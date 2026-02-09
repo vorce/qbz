@@ -441,7 +441,13 @@
     "bitDepth": "{depth}-bit",
     "sampleRate": "{rate} kHz",
     "lossless": "Sin Pérdida",
-    "max": "Máx"
+    "max": "Máx",
+    "tooltip": {
+      "source": "Fuente",
+      "output": "Salida",
+      "resampled": "Remuestreado por el sistema",
+      "fix": "Activa DAC Passthrough o Modo Exclusivo en Ajustes"
+    }
   },
   "actions": {
     "play": "Reproducir",
@@ -449,6 +455,7 @@
     "playNow": "Reproducir Ahora",
     "shuffle": "Aleatorio",
     "shuffleAll": "Aleatorio Todo",
+    "playNext": "Reproducir Siguiente",
     "addToQueue": "Agregar a la Cola",
     "addToPlaylist": "Agregar a Lista",
     "addToFavorites": "Agregar a Favoritos",
@@ -538,17 +545,6 @@
       "flatpakWarningDesc": "PipeWire no puede garantizar reproducción bit-perfect en entornos sandbox debido a restricciones de acceso al daemon.",
       "flatpakRecommended": "Recomendado:",
       "flatpakRecommendedDesc": "Cambiar al backend ALSA Direct para audio bit-perfect verdadero.",
-      "streamUncached": "Transmitir Pistas Sin Caché",
-      "streamUncachedDesc": "Inicia la reproducción más rápido cuando la pista no está en caché. La búsqueda puede estar limitada durante el buffering inicial.",
-      "initialBuffer": "Tamaño del Buffer Inicial",
-      "initialBufferDesc": "Segundos a almacenar en buffer antes de iniciar reproducción ({seconds}s)",
-      "streamingOnly": "Solo Streaming",
-      "streamingOnlyDesc": "Desactiva el caché temporal. No recomendado sin una conexión rápida. Las pistas de la biblioteca offline siempre se reproducen primero.",
-      "streamBuffer": "Buffering de Stream",
-      "streamBufferDesc": "Inicia la reproducción más rápido cuando la pista no está en caché. La búsqueda puede estar limitada durante el buffering inicial.",
-      "streamBufferSeconds": "Segundos a almacenar antes de iniciar reproducción ({seconds}s)",
-      "disableCache": "Deshabilitar Caché de Reproducción",
-      "disableCacheDesc": "Deshabilita el caché temporal. No recomendado sin conexión rápida. Las pistas de biblioteca offline siempre se reproducen primero.",
       "bitPerfectHelp": "Ayuda con detección de dispositivos bit-perfect",
       "bitPerfectDetection": "Detección de Dispositivos Bit-perfect",
       "isInstalled": "está instalado",
@@ -556,7 +552,14 @@
       "alsaUtilsDesc": "El paquete alsa-utils proporciona herramientas de enumeración de hardware que QBZ usa para detectar dispositivos capaces de bit-perfect (hw:X,Y).",
       "alsaUtilsNotInstalled": "Sin él, solo se muestran dispositivos ALSA genéricos y no verás la insignia BP para salidas verdaderamente bit-perfect.",
       "systemConfigured": "Tu sistema está correctamente configurado para detección de dispositivos bit-perfect.",
-      "deviceNotListed": "Si no ves tu dispositivo listado como bit-perfect, asegúrate de que esté conectado y reconocido por tu sistema."
+      "deviceNotListed": "Si no ves tu dispositivo listado como bit-perfect, asegúrate de que esté conectado y reconocido por tu sistema.",
+      "resetTitle": "Restablecer Configuración de Audio y Reproducción",
+      "resetDesc": "Restaura toda la configuración de audio y reproducción a sus valores predeterminados de fábrica. Útil si experimentas problemas de audio.",
+      "resetButton": "Restablecer Configuración",
+      "resetConfirmTitle": "¿Restablecer Configuración de Audio y Reproducción?",
+      "resetConfirmDesc": "Esto restablecerá toda la configuración de salida de audio, backend y reproducción a los valores predeterminados. La reproducción se detendrá.",
+      "resetSuccess": "La configuración de audio y reproducción se ha restablecido a los valores predeterminados.",
+      "resetError": "Error al restablecer la configuración de audio: {error}"
     },
     "playback": {
       "title": "Reproducción",
@@ -573,7 +576,18 @@
       "continueWithinSource": "Continuar dentro del contexto",
       "playOnlySelectedTrack": "Reproducir solo la pista seleccionada",
       "showContextIcon": "Mostrar contexto de reproducción en el reproductor",
-      "showContextIconTooltip": "Muestra el contexto desde donde se reproduce la pista actual (álbum, artista, playlist, etc.)"
+      "showContextIconTooltip": "Muestra el contexto desde donde se reproduce la pista actual (álbum, artista, playlist, etc.)",
+      "streamUncached": "Transmitir Pistas Sin Caché",
+      "streamUncachedDesc": "Inicia la reproducción más rápido cuando la pista no está en caché. La búsqueda puede estar limitada durante el buffering inicial.",
+      "initialBuffer": "Tamaño del Buffer Inicial",
+      "initialBufferDesc": "Segundos a almacenar en buffer antes de iniciar reproducción ({seconds}s)",
+      "streamingOnly": "Solo Streaming",
+      "streamingOnlyDesc": "Desactiva el caché temporal. No recomendado sin una conexión rápida. Las pistas de la biblioteca offline siempre se reproducen primero.",
+      "streamBuffer": "Buffering de Stream",
+      "streamBufferDesc": "Inicia la reproducción más rápido cuando la pista no está en caché. La búsqueda puede estar limitada durante el buffering inicial.",
+      "streamBufferSeconds": "Segundos a almacenar antes de iniciar reproducción ({seconds}s)",
+      "disableCache": "Deshabilitar Caché de Reproducción",
+      "disableCacheDesc": "Deshabilita el caché temporal. No recomendado sin conexión rápida. Las pistas de biblioteca offline siempre se reproducen primero."
     },
     "appearance": {
       "title": "Apariencia",
@@ -748,7 +762,32 @@
       "cachedTracks": "Pistas de la cola en caché",
       "cacheSize": "Tamaño de caché de la cola",
       "clearCache": "Limpiar caché de la cola",
-      "clearing": "Limpiando..."
+      "clearing": "Limpiando...",
+      "factoryResetTitle": "Eliminar Todos los Datos de la Aplicación",
+      "factoryResetDesc": "Elimina permanentemente toda la configuración, cachés, credenciales y datos del usuario. Se cerrará la sesión y la aplicación volverá a su estado inicial.",
+      "factoryResetCheckbox": "Entiendo que todos los datos se eliminarán permanentemente y esto no se puede deshacer",
+      "factoryResetButton": "Eliminar Todos los Datos",
+      "factoryResetFinalConfirm": "¿Estás absolutamente seguro? Esto eliminará todos los datos de la aplicación, incluyendo credenciales, configuración, cachés y biblioteca offline. Esta acción no se puede deshacer.",
+      "factoryResetConfirmButton": "Sí, eliminar todo",
+      "factoryResetError": "Error al eliminar los datos de la aplicación: {error}"
+    },
+    "developer": {
+      "title": "Modo Desarrollador",
+      "summary": "Opciones avanzadas para depuración y desarrollo",
+      "forceDmabuf": "Forzar Renderizador DMA-BUF",
+      "forceDmabufDesc": "Anula el workaround de DMA-BUF para NVIDIA + Wayland. Solo actívalo si sabes que tu sistema no se cuelga. Resetear desde terminal: qbz --reset-dmabuf",
+      "restartRequired": "Reinicia QBZ para que este cambio surta efecto",
+      "viewLogs": "Ver Logs",
+      "viewLogsDesc": "Ver logs del backend y consola para depuración",
+      "logsTitle": "Logs de la Aplicación",
+      "tabTerminal": "Terminal",
+      "tabConsole": "Consola",
+      "uploadLogs": "Subir a 0x0.st",
+      "uploadTab": "Subir {tab}",
+      "uploadSuccess": "URL del log copiada al portapapeles",
+      "uploadError": "Error al subir los logs",
+      "uploading": "Subiendo...",
+      "bugReportHint": "Si vas a reportar un bug, sube ambas pestanas y comparte las dos URLs — nos ayuda a resolver el problema mas rapido. Gracias!"
     },
     "blacklist": {
       "title": "Lista Negra de Artistas",

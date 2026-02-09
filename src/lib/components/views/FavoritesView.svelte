@@ -3,11 +3,14 @@
   import { onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
   import { t } from '$lib/i18n';
-  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library, CloudDownload, Shuffle, MoreHorizontal, PanelLeftClose, Loader2 } from 'lucide-svelte';
+  import { Heart, Play, Disc3, Mic2, Music, Search, X, LayoutGrid, List, ChevronDown, ListMusic, Edit3, Star, Folder, Library, CloudDownload, Shuffle, MoreHorizontal, PanelLeftClose, Loader2, ArrowLeft } from 'lucide-svelte';
   import AlbumCard from '../AlbumCard.svelte';
   import TrackRow from '../TrackRow.svelte';
   import QualityBadge from '../QualityBadge.svelte';
   import VirtualizedTrackList from '../VirtualizedTrackList.svelte';
+  import VirtualizedFavoritesArtistGrid from '../VirtualizedFavoritesArtistGrid.svelte';
+  import VirtualizedFavoritesArtistList from '../VirtualizedFavoritesArtistList.svelte';
+  import VirtualizedFavoritesAlbumGrid from '../VirtualizedFavoritesAlbumGrid.svelte';
   import FavoritePlaylistCard from '../FavoritePlaylistCard.svelte';
   import FavoritesEditModal from '../FavoritesEditModal.svelte';
   import ViewTransition from '../ViewTransition.svelte';
@@ -26,6 +29,7 @@
     type GenreFilterContext
   } from '$lib/stores/genreFilterStore';
   import type { FavoritesPreferences, QobuzAlbum } from '$lib/types';
+  import { saveScrollPosition, getSavedScrollPosition, getActiveView } from '$lib/stores/navigationStore';
 
   const GENRE_CONTEXT: GenreFilterContext = 'favorites';
 
@@ -71,6 +75,7 @@
   }
 
   interface Props {
+    onBack?: () => void;
     onAlbumClick?: (albumId: string) => void;
     onAlbumPlay?: (albumId: string) => void;
     onAlbumPlayNext?: (albumId: string) => void;
@@ -127,6 +132,7 @@
   }
 
   let {
+    onBack,
     onAlbumClick,
     onAlbumPlay,
     onAlbumPlayNext,
@@ -208,7 +214,11 @@
 
   async function loadAllAlbumOfflineCacheStatuses(albums: { id: string }[]) {
     if (!checkAlbumFullyDownloaded || albums.length === 0) return;
-    await Promise.all(albums.map(album => loadAlbumOfflineCacheStatus(album.id)));
+    const BATCH = 10;
+    for (let i = 0; i < albums.length; i += BATCH) {
+      await Promise.all(albums.slice(i, i + BATCH).map(album => loadAlbumOfflineCacheStatus(album.id)));
+      if (i + BATCH < albums.length) await new Promise(r => setTimeout(r, 0));
+    }
   }
 
   function isAlbumDownloaded(albumId: string): boolean {
@@ -354,31 +364,6 @@
       case 'title-asc': return translate('sort.titleAsc');
       case 'title-desc': return translate('sort.titleDesc');
     }
-  }
-
-  // Ticker animation for long artist names in sidepanel
-  let hoveredArtistId = $state<number | null>(null);
-  let artistNameOverflows = $state<Map<number, number>>(new Map());
-  const tickerSpeed = 40; // px per second
-
-  function measureArtistNameOverflow(artistId: number, element: HTMLElement | null) {
-    if (!element) return;
-    const textSpan = element.querySelector('.artist-name-text') as HTMLElement | null;
-    if (!textSpan) return;
-    const overflow = textSpan.scrollWidth - element.clientWidth;
-    if (overflow > 0) {
-      artistNameOverflows.set(artistId, overflow);
-    } else {
-      artistNameOverflows.delete(artistId);
-    }
-  }
-
-  function getArtistNameTickerStyle(artistId: number): string {
-    if (hoveredArtistId !== artistId) return '';
-    const overflow = artistNameOverflows.get(artistId);
-    if (!overflow || overflow <= 0) return '';
-    const duration = (overflow + 16) / tickerSpeed;
-    return `--ticker-offset: -${overflow + 16}px; --ticker-duration: ${duration}s;`;
   }
 
   let showTracksContextMenu = $state(false);
@@ -560,7 +545,7 @@
     trackGroupingEnabled = loadStoredBool('qbz-favorites-track-group-enabled', false);
     artistGroupingEnabled = loadStoredBool('qbz-favorites-artist-group-enabled', false);
     artistViewMode = loadStoredString('qbz-favorites-artist-view-mode', 'grid', ['grid', 'sidepanel']) as ArtistViewMode;
-    loadFavoritesPreferences().then(() => {
+    loadFavoritesPreferences().then(async () => {
       preferencesLoaded = true;
       if (selectedTab) {
         activeTab = selectedTab;
@@ -568,8 +553,21 @@
         activeTab = favoritesPreferences.tab_order[0] as TabType;
       }
       loadTabIfNeeded(activeTab);
+      // Restore scroll position after content loads
+      await tick();
+      requestAnimationFrame(() => {
+        const saved = getSavedScrollPosition(getActiveView());
+        if (scrollContainer && saved > 0) {
+          scrollContainer.scrollTop = saved;
+        }
+      });
     });
   });
+
+  function handleFavoritesScroll(e: Event) {
+    const target = e.target as HTMLElement;
+    saveScrollPosition(getActiveView(), target.scrollTop);
+  }
 
   async function loadFavoritesPreferences() {
     try {
@@ -679,7 +677,7 @@
       if (type === 'tracks') {
         favoriteTracks = items as FavoriteTrack[];
         // Sync to local cache for other views
-        const trackIds = favoriteTracks.map(t => t.id);
+        const trackIds = favoriteTracks.map(trk => trk.id);
         void syncTrackCache(trackIds);
       } else if (type === 'albums') {
         favoriteAlbums = items as FavoriteAlbum[];
@@ -1025,32 +1023,32 @@
   }
 
   function buildFavoritesQueueTracks(tracks: FavoriteTrack[]) {
-    return tracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.performer?.name || 'Unknown Artist',
-      album: t.album?.title || 'Favorites',
-      duration_secs: t.duration,
-      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small || '',
-      hires: t.hires ?? false,
-      bit_depth: t.maximum_bit_depth ?? null,
-      sample_rate: t.maximum_sampling_rate ?? null,
+    return tracks.map(trk => ({
+      id: trk.id,
+      title: trk.title,
+      artist: trk.performer?.name || 'Unknown Artist',
+      album: trk.album?.title || 'Favorites',
+      duration_secs: trk.duration,
+      artwork_url: trk.album?.image?.large || trk.album?.image?.thumbnail || trk.album?.image?.small || '',
+      hires: trk.hires ?? false,
+      bit_depth: trk.maximum_bit_depth ?? null,
+      sample_rate: trk.maximum_sampling_rate ?? null,
       is_local: false,
-      album_id: t.album?.id || null,
-      artist_id: t.performer?.id ?? null,
+      album_id: trk.album?.id || null,
+      artist_id: trk.performer?.id ?? null,
     }));
   }
 
   // Accessor functions for VirtualizedTrackList (adapts FavoriteTrack to expected interface)
-  const getFavoriteTrackId = (t: FavoriteTrack) => t.id;
-  const getFavoriteTrackNumber = (t: FavoriteTrack, idx: number) => t.track_number || idx + 1;
-  const getFavoriteTrackTitle = (t: FavoriteTrack) => t.title;
-  const getFavoriteTrackArtist = (t: FavoriteTrack) => t.performer?.name;
-  const getFavoriteTrackDuration = (t: FavoriteTrack) => t.duration;
-  const getFavoriteTrackAlbumKey = (t: FavoriteTrack) => t.album?.id;
-  const getFavoriteTrackAlbum = (t: FavoriteTrack) => t.album?.title;
-  const getFavoriteArtistId = (t: FavoriteTrack) => t.performer?.id;
-  const getFavoriteAlbumId = (t: FavoriteTrack) => t.album?.id;
+  const getFavoriteTrackId = (trk: FavoriteTrack) => trk.id;
+  const getFavoriteTrackNumber = (trk: FavoriteTrack, idx: number) => trk.track_number || idx + 1;
+  const getFavoriteTrackTitle = (trk: FavoriteTrack) => trk.title;
+  const getFavoriteTrackArtist = (trk: FavoriteTrack) => trk.performer?.name;
+  const getFavoriteTrackDuration = (trk: FavoriteTrack) => trk.duration;
+  const getFavoriteTrackAlbumKey = (trk: FavoriteTrack) => trk.album?.id;
+  const getFavoriteTrackAlbum = (trk: FavoriteTrack) => trk.album?.title;
+  const getFavoriteArtistId = (trk: FavoriteTrack) => trk.performer?.id;
+  const getFavoriteAlbumId = (trk: FavoriteTrack) => trk.album?.id;
 
   // VirtualizedTrackList requires this but we don't have disc info in favorites
   function buildFavoritesAlbumSections(tracks: FavoriteTrack[]) {
@@ -1088,7 +1086,7 @@
   }
 
   async function handleTrackClick(track: FavoriteTrack, index: number) {
-    const trackIds = filteredTracks.map(t => t.id);
+    const trackIds = filteredTracks.map(trk => trk.id);
     await setFavoritesContext(trackIds, index);
 
     try {
@@ -1107,7 +1105,7 @@
 
     try {
       await setFavoritesQueue(0);
-      await setFavoritesContext(filteredTracks.map(t => t.id), 0);
+      await setFavoritesContext(filteredTracks.map(trk => trk.id), 0);
       onTrackPlay(buildDisplayTrack(filteredTracks[0], 0));
     } catch (err) {
       console.error('Failed to set queue:', err);
@@ -1122,7 +1120,7 @@
       const shuffled = [...filteredTracks].sort(() => Math.random() - 0.5);
       const queueTracks = buildFavoritesQueueTracks(shuffled);
       await invoke('set_queue', { tracks: queueTracks, startIndex: 0 });
-      await setFavoritesContext(shuffled.map(t => t.id), 0);
+      await setFavoritesContext(shuffled.map(trk => trk.id), 0);
       onTrackPlay(buildDisplayTrack(shuffled[0], 0));
     } catch (err) {
       console.error('Failed to shuffle queue:', err);
@@ -1154,7 +1152,18 @@
 </script>
 
 <ViewTransition duration={200} distance={12} direction="down">
-<div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'artists' && artistViewMode === 'sidepanel')} bind:this={scrollContainer}>
+<div class="favorites-view" class:no-outer-scroll={(activeTab === 'tracks' && !loading && filteredTracks.length > 0) || (activeTab === 'albums' && !loading && filteredAlbums.length > 0) || (activeTab === 'artists' && !loading && filteredArtists.length > 0)} bind:this={scrollContainer} onscroll={handleFavoritesScroll}>
+  <div class="top-bar">
+    {#if onBack}
+      <button class="back-btn" onclick={onBack}>
+        <ArrowLeft size={16} />
+        <span>{$t('actions.back')}</span>
+      </button>
+    {/if}
+    <button class="edit-btn" onclick={() => editModalOpen = true} title={$t('favorites.editSettings')}>
+      <Edit3 size={16} />
+    </button>
+  </div>
   <!-- Header -->
   <div class="header">
     <div
@@ -1218,9 +1227,6 @@
         </div>
       {/if}
     </div>
-    <button class="edit-btn" onclick={() => editModalOpen = true} title={$t('favorites.editSettings')}>
-      <Edit3 size={16} />
-    </button>
   </div>
 
   <!-- Navigation Bar (Artist-style) -->
@@ -1549,8 +1555,8 @@
               getQualityBadge={getQualityLabel}
               buildAlbumSections={buildFavoritesAlbumSections}
               onTrackPlay={handleVirtualizedTrackPlay}
-              onTrackPlayNext={onTrackPlayNext ? (t) => onTrackPlayNext(buildDisplayTrackFromFavorite(t)) : undefined}
-              onTrackPlayLater={onTrackPlayLater ? (t) => onTrackPlayLater(buildDisplayTrackFromFavorite(t)) : undefined}
+              onTrackPlayNext={onTrackPlayNext ? (trk) => onTrackPlayNext(buildDisplayTrackFromFavorite(trk)) : undefined}
+              onTrackPlayLater={onTrackPlayLater ? (trk) => onTrackPlayLater(buildDisplayTrackFromFavorite(trk)) : undefined}
               onTrackAddToPlaylist={onTrackAddToPlaylist}
               getTrackId={getFavoriteTrackId}
               getTrackNumber={getFavoriteTrackNumber}
@@ -1567,14 +1573,14 @@
               hideFavorite={false}
               isFavoriteOverride={true}
               getOfflineCacheStatus={getTrackOfflineCacheStatus}
-              onDownload={onTrackDownload ? (t) => onTrackDownload(buildDisplayTrackFromFavorite(t)) : undefined}
+              onDownload={onTrackDownload ? (trk) => onTrackDownload(buildDisplayTrackFromFavorite(trk)) : undefined}
               onRemoveDownload={onTrackRemoveDownload}
               onShareQobuz={onTrackShareQobuz}
-              onShareSonglink={onTrackShareSonglink ? (t) => onTrackShareSonglink(buildDisplayTrackFromFavorite(t)) : undefined}
+              onShareSonglink={onTrackShareSonglink ? (trk) => onTrackShareSonglink(buildDisplayTrackFromFavorite(trk)) : undefined}
               onGoToAlbum={onTrackGoToAlbum}
               onGoToArtist={onTrackGoToArtist}
               onShowInfo={onTrackShowInfo}
-              onReDownload={onTrackReDownload ? (t) => onTrackReDownload(buildDisplayTrackFromFavorite(t)) : undefined}
+              onReDownload={onTrackReDownload ? (trk) => onTrackReDownload(buildDisplayTrackFromFavorite(trk)) : undefined}
             />
           </div>
         </div>
@@ -1593,82 +1599,40 @@
           <Search size={48} />
           <p>{$t('favorites.noAlbumsMatch', { values: { query: albumSearch } })}</p>
         </div>
-      {:else if albumGroupingEnabled}
-        {@const groupedAlbums = groupAlbums(filteredAlbums, albumGroupMode)}
-        {@const alphaGroups = albumGroupMode === 'alpha'
-          ? new Set(groupedAlbums.map(group => group.key))
+      {:else}
+        <!-- Virtualized album grid/list (grouped or ungrouped) -->
+        {@const albumGridGroups = albumGroupingEnabled
+          ? groupAlbums(filteredAlbums, albumGroupMode)
+          : [{ key: '', id: 'all', albums: filteredAlbums }]}
+        {@const alphaGroups = albumGroupingEnabled && albumGroupMode === 'alpha'
+          ? new Set(albumGridGroups.map(grp => grp.key))
           : new Set<string>()}
 
         <div class="album-sections">
-          <div class="album-group-list">
-            {#each groupedAlbums as group (group.id)}
-              <div class="album-group" id={group.id}>
-                <div class="album-group-header">
-                  <span class="album-group-title">{group.key}</span>
-                  <span class="album-group-count">{group.albums.length}</span>
-                </div>
-                {#if albumViewMode === 'grid'}
-                  <div class="album-grid">
-                    {#each group.albums as album (album.id)}
-                      <AlbumCard
-                        albumId={album.id}
-                        artwork={album.image?.large || album.image?.thumbnail || ''}
-                        title={album.title}
-                        artist={album.artist.name}
-                        genre={getGenreLabel(album)}
-                        releaseDate={album.release_date_original}
-                        size="large"
-                        quality={getQualityLabel(album)}
-                        onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
-                        onPlayNext={onAlbumPlayNext ? () => onAlbumPlayNext(album.id) : undefined}
-                        onPlayLater={onAlbumPlayLater ? () => onAlbumPlayLater(album.id) : undefined}
-                        onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
-                        onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
-                        onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                        isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
-                        onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
-                        onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
-                        {downloadStateVersion}
-                        onclick={() => { onAlbumClick?.(album.id); loadAlbumOfflineCacheStatus(album.id); }}
-                      />
-                    {/each}
-                  </div>
-                {:else}
-                  <div class="album-list">
-                    {#each group.albums as album (album.id)}
-                      <div class="album-row" role="button" tabindex="0" onclick={() => onAlbumClick?.(album.id)}>
-                        <div class="album-row-art">
-                          {#if album.image?.thumbnail || album.image?.small || album.image?.large}
-                            <img src={album.image?.thumbnail || album.image?.small || album.image?.large} alt={album.title} loading="lazy" decoding="async" />
-                          {:else}
-                            <div class="artwork-placeholder">
-                              <Disc3 size={28} />
-                            </div>
-                          {/if}
-                        </div>
-                        <div class="album-row-info">
-                          <div class="album-row-title truncate">{album.title}</div>
-                          <div class="album-row-meta">
-                            <span>{album.artist.name}</span>
-                            {#if getAlbumYear(album)}<span>{getAlbumYear(album)}</span>{/if}
-                          </div>
-                        </div>
-                        <div class="album-row-quality">
-                          <QualityBadge
-                            bitDepth={album.maximum_bit_depth}
-                            samplingRate={album.maximum_sampling_rate}
-                            compact
-                          />
-                        </div>
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            {/each}
+          <div class="virtualized-album-grid-container">
+            <VirtualizedFavoritesAlbumGrid
+              groups={albumGridGroups}
+              showGroupHeaders={albumGroupingEnabled}
+              viewMode={albumViewMode}
+              {onAlbumPlay}
+              {onAlbumPlayNext}
+              {onAlbumPlayLater}
+              {onAlbumShareQobuz}
+              {onAlbumShareSonglink}
+              {onAlbumDownload}
+              {onOpenAlbumFolder}
+              {onReDownloadAlbum}
+              {downloadStateVersion}
+              {isAlbumDownloaded}
+              onAlbumClick={onAlbumClick}
+              onAlbumClicked={(albumId) => loadAlbumOfflineCacheStatus(albumId)}
+              {getQualityLabel}
+              {getGenreLabel}
+              {getAlbumYear}
+            />
           </div>
 
-          {#if albumGroupMode === 'alpha'}
+          {#if albumGroupingEnabled && albumGroupMode === 'alpha'}
             <div class="alpha-index">
               {#each alphaIndexLetters as letter}
                 <button
@@ -1682,64 +1646,6 @@
             </div>
           {/if}
         </div>
-      {:else}
-        {#if albumViewMode === 'grid'}
-          <div class="album-grid">
-            {#each filteredAlbums as album (album.id)}
-              <AlbumCard
-                albumId={album.id}
-                artwork={album.image?.large || album.image?.thumbnail || ''}
-                title={album.title}
-                artist={album.artist.name}
-                genre={getGenreLabel(album)}
-                releaseDate={album.release_date_original}
-                size="large"
-                quality={getQualityLabel(album)}
-                onPlay={onAlbumPlay ? () => onAlbumPlay(album.id) : undefined}
-                onPlayNext={onAlbumPlayNext ? () => onAlbumPlayNext(album.id) : undefined}
-                onPlayLater={onAlbumPlayLater ? () => onAlbumPlayLater(album.id) : undefined}
-                onShareQobuz={onAlbumShareQobuz ? () => onAlbumShareQobuz(album.id) : undefined}
-                onShareSonglink={onAlbumShareSonglink ? () => onAlbumShareSonglink(album.id) : undefined}
-                onDownload={onAlbumDownload ? () => onAlbumDownload(album.id) : undefined}
-                isAlbumFullyDownloaded={isAlbumDownloaded(album.id)}
-                onOpenContainingFolder={onOpenAlbumFolder ? () => onOpenAlbumFolder(album.id) : undefined}
-                onReDownloadAlbum={onReDownloadAlbum ? () => onReDownloadAlbum(album.id) : undefined}
-                        {downloadStateVersion}
-                onclick={() => { onAlbumClick?.(album.id); loadAlbumOfflineCacheStatus(album.id); }}
-              />
-            {/each}
-          </div>
-        {:else}
-          <div class="album-list">
-            {#each filteredAlbums as album (album.id)}
-              <div class="album-row" role="button" tabindex="0" onclick={() => onAlbumClick?.(album.id)}>
-                <div class="album-row-art">
-                  {#if album.image?.thumbnail || album.image?.small || album.image?.large}
-                    <img src={album.image?.thumbnail || album.image?.small || album.image?.large} alt={album.title} loading="lazy" decoding="async" />
-                  {:else}
-                    <div class="artwork-placeholder">
-                      <Disc3 size={28} />
-                    </div>
-                  {/if}
-                </div>
-                <div class="album-row-info">
-                  <div class="album-row-title truncate">{album.title}</div>
-                  <div class="album-row-meta">
-                    <span>{album.artist.name}</span>
-                    {#if getAlbumYear(album)}<span>{getAlbumYear(album)}</span>{/if}
-                  </div>
-                </div>
-                <div class="album-row-quality">
-                  <QualityBadge
-                    bitDepth={album.maximum_bit_depth}
-                    samplingRate={album.maximum_sampling_rate}
-                    compact
-                  />
-                </div>
-              </div>
-            {/each}
-          </div>
-        {/if}
       {/if}
       </ViewTransition>
     {:else if activeTab === 'artists'}
@@ -1759,50 +1665,14 @@
         <!-- Two-column sidepanel view -->
         {@const groupedArtistsSidepanel = groupArtists(filteredArtists)}
         <div class="artist-two-column-layout">
-          <!-- Left column: Artists list grouped A-Z -->
+          <!-- Left column: Artists list grouped A-Z (virtualized) -->
           <div class="artist-column">
-            <div class="artist-list-scroll">
-              {#each groupedArtistsSidepanel as group (group.id)}
-                <div class="artist-list-group-header" id={group.id}>{group.key}</div>
-                {#each group.artists as artist (artist.id)}
-                  {@const hasOverflow = artistNameOverflows.has(artist.id)}
-                  {@const isHovered = hoveredArtistId === artist.id}
-                  <button
-                    class="artist-list-item"
-                    class:selected={selectedFavoriteArtist?.id === artist.id}
-                    onclick={() => handleArtistSelect(artist)}
-                    onmouseenter={(e) => {
-                      hoveredArtistId = artist.id;
-                      const info = (e.currentTarget as HTMLElement).querySelector('.artist-list-name');
-                      measureArtistNameOverflow(artist.id, info as HTMLElement);
-                    }}
-                    onmouseleave={() => { hoveredArtistId = null; }}
-                  >
-                    <div class="artist-list-image">
-                      {#if artist.image?.thumbnail || artist.image?.small}
-                        <img src={artist.image?.thumbnail || artist.image?.small} alt={artist.name} />
-                      {:else}
-                        <div class="artist-list-placeholder">
-                          <Mic2 size={20} />
-                        </div>
-                      {/if}
-                    </div>
-                    <div class="artist-list-info">
-                      <div
-                        class="artist-list-name"
-                        class:scrollable={hasOverflow}
-                        style={getArtistNameTickerStyle(artist.id)}
-                      >
-                        <span class="artist-name-text" class:animating={isHovered && hasOverflow}>{artist.name}</span>
-                      </div>
-                      {#if artist.albums_count}
-                        <div class="artist-list-meta">{$t('library.albumCount', { values: { count: artist.albums_count } })}</div>
-                      {/if}
-                    </div>
-                  </button>
-                {/each}
-              {/each}
-            </div>
+            <VirtualizedFavoritesArtistList
+              groups={groupedArtistsSidepanel}
+              showGroupHeaders={true}
+              selectedArtistId={selectedFavoriteArtist?.id ?? null}
+              onArtistSelect={handleArtistSelect}
+            />
           </div>
 
           <!-- Right column: Selected artist's albums from Qobuz -->
@@ -1865,6 +1735,8 @@
                           artwork={getQobuzImage(album.image)}
                           title={album.title}
                           artist={album.artist.name}
+                          artistId={album.artist.id}
+                          onArtistClick={onArtistClick}
                           genre={album.genre?.name}
                           releaseDate={album.release_date_original}
                           quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
@@ -1917,6 +1789,8 @@
                           artwork={getQobuzImage(album.image)}
                           title={album.title}
                           artist={album.artist.name}
+                          artistId={album.artist.id}
+                          onArtistClick={onArtistClick}
                           genre={album.genre?.name}
                           releaseDate={album.release_date_original}
                           quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
@@ -1969,6 +1843,8 @@
                           artwork={getQobuzImage(album.image)}
                           title={album.title}
                           artist={album.artist.name}
+                          artistId={album.artist.id}
+                          onArtistClick={onArtistClick}
                           genre={album.genre?.name}
                           releaseDate={album.release_date_original}
                           quality={formatQuality(album.hires_streamable, album.maximum_bit_depth, album.maximum_sampling_rate)}
@@ -1998,74 +1874,37 @@
             {/if}
           </div>
         </div>
-      {:else if artistGroupingEnabled}
-        <!-- Grid view with grouping -->
-        {@const groupedArtists = groupArtists(filteredArtists)}
-        {@const artistAlphaGroups = new Set(groupedArtists.map(group => group.key))}
+      {:else}
+        <!-- Virtualized artist grid (grouped or ungrouped) -->
+        {@const artistGridGroups = artistGroupingEnabled
+          ? groupArtists(filteredArtists)
+          : [{ key: '', id: 'all', artists: filteredArtists }]}
+        {@const artistAlphaGroups = artistGroupingEnabled
+          ? new Set(artistGridGroups.map(grp => grp.key))
+          : new Set<string>()}
 
         <div class="artist-sections">
-          <div class="artist-group-list">
-            {#each groupedArtists as group (group.id)}
-              <div class="artist-group" id={group.id}>
-                <div class="artist-group-header">
-                  <span class="artist-group-title">{group.key}</span>
-                  <span class="artist-group-count">{group.artists.length}</span>
-                </div>
-                <div class="artist-grid">
-                  {#each group.artists as artist (artist.id)}
-                    <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
-                      <div class="artist-image">
-                        {#if artist.image?.large || artist.image?.thumbnail}
-                          <img src={artist.image?.large || artist.image?.thumbnail} alt={artist.name} />
-                        {:else}
-                          <div class="artist-placeholder">
-                            <Mic2 size={32} />
-                          </div>
-                        {/if}
-                      </div>
-                      <div class="artist-name">{artist.name}</div>
-                      {#if artist.albums_count}
-                        <div class="artist-albums">{artist.albums_count} albums</div>
-                      {/if}
-                    </button>
-                  {/each}
-                </div>
-              </div>
-            {/each}
+          <div class="virtualized-artist-grid-container">
+            <VirtualizedFavoritesArtistGrid
+              groups={artistGridGroups}
+              showGroupHeaders={artistGroupingEnabled}
+              onArtistClick={(id) => onArtistClick?.(id)}
+            />
           </div>
 
-          <div class="alpha-index">
-            {#each alphaIndexLetters as letter}
-              <button
-                class="alpha-letter"
-                class:disabled={!artistAlphaGroups.has(letter)}
-                onclick={() => scrollToGroup('artist-alpha', letter, artistAlphaGroups)}
-              >
-                {letter}
-              </button>
-            {/each}
-          </div>
-        </div>
-      {:else}
-        <!-- Grid view without grouping -->
-        <div class="artist-grid">
-          {#each filteredArtists as artist (artist.id)}
-            <button class="artist-card" onclick={() => onArtistClick?.(artist.id)}>
-              <div class="artist-image">
-                {#if artist.image?.large || artist.image?.thumbnail}
-                  <img src={artist.image?.large || artist.image?.thumbnail} alt={artist.name} />
-                {:else}
-                  <div class="artist-placeholder">
-                    <Mic2 size={32} />
-                  </div>
-                {/if}
-              </div>
-              <div class="artist-name">{artist.name}</div>
-              {#if artist.albums_count}
-                <div class="artist-albums">{artist.albums_count} albums</div>
-              {/if}
-            </button>
-          {/each}
+          {#if artistGroupingEnabled}
+            <div class="alpha-index">
+              {#each alphaIndexLetters as letter}
+                <button
+                  class="alpha-letter"
+                  class:disabled={!artistAlphaGroups.has(letter)}
+                  onclick={() => scrollToGroup('artist-alpha', letter, artistAlphaGroups)}
+                >
+                  {letter}
+                </button>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/if}
       </ViewTransition>
@@ -2131,6 +1970,30 @@
     height: 100%;
   }
 
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .back-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: color 150ms ease;
+  }
+
+  .back-btn:hover {
+    color: var(--text-secondary);
+  }
+
   /* Custom scrollbar */
   .favorites-view::-webkit-scrollbar {
     width: 6px;
@@ -2175,7 +2038,6 @@
     align-items: center;
     gap: 20px;
     margin-bottom: 16px;
-    position: relative;
   }
 
   .header-icon {
@@ -2214,9 +2076,6 @@
   }
 
   .edit-btn {
-    position: absolute;
-    top: 0;
-    right: 0;
     width: 36px;
     height: 36px;
     display: flex;
@@ -2226,6 +2085,7 @@
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
+    margin-left: auto;
     transition: all 150ms ease;
   }
 
@@ -2599,118 +2459,10 @@
     overflow: hidden;
   }
 
-  .album-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 24px 14px;
-  }
-
   .album-sections {
     display: flex;
     gap: 12px;
     align-items: flex-start;
-  }
-
-  .album-group-list {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  .album-group-header {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-
-  .album-group-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .album-group-count {
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .album-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .album-row {
-    display: grid;
-    grid-template-columns: 56px 1fr auto;
-    gap: 12px;
-    align-items: center;
-    padding: 10px 12px;
-    background: var(--bg-secondary);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: background 150ms ease;
-  }
-
-  .album-row:hover {
-    background: var(--bg-tertiary);
-  }
-
-  .album-row-art {
-    width: 52px;
-    height: 52px;
-    border-radius: 8px;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-
-  .album-row-art img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .artwork-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-tertiary);
-    color: var(--text-muted);
-  }
-
-  .album-row-info {
-    min-width: 0;
-  }
-
-  .album-row-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-primary);
-    margin-bottom: 4px;
-  }
-
-  .album-row-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .album-row-meta span + span::before {
-    content: "\2022";
-    margin: 0 8px;
-    color: var(--text-muted);
-  }
-
-  .album-row-quality {
-    display: flex;
-    justify-content: flex-end;
   }
 
   .artist-grid {
@@ -2723,6 +2475,15 @@
     display: flex;
     gap: 12px;
     align-items: flex-start;
+  }
+
+  .virtualized-artist-grid-container,
+  .virtualized-album-grid-container {
+    flex: 1;
+    height: calc(100vh - 380px);
+    min-height: 400px;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .artist-group-list {
@@ -2807,6 +2568,7 @@
   .alpha-index {
     position: sticky;
     top: 120px;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -2879,111 +2641,6 @@
     border-right: 1px solid var(--bg-tertiary);
     overflow: hidden;
     padding-left: 18px;
-  }
-
-  .artist-list-scroll {
-    flex: 1;
-    overflow-y: auto;
-    padding: 4px 12px 4px 0;
-    /* Smooth scrolling optimizations */
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-    overscroll-behavior: contain;
-    will-change: scroll-position;
-    contain: strict;
-  }
-
-  .artist-list-group-header {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    padding: 12px 8px 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .artist-list-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    padding: 8px;
-    border: none;
-    background: transparent;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 150ms ease;
-    text-align: left;
-  }
-
-  .artist-list-item:hover {
-    background: var(--bg-hover);
-  }
-
-  .artist-list-item.selected {
-    background: var(--bg-tertiary);
-  }
-
-  .artist-list-image {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    overflow: hidden;
-    flex-shrink: 0;
-    background: var(--bg-tertiary);
-  }
-
-  .artist-list-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .artist-list-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-  }
-
-  .artist-list-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .artist-list-name {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .artist-list-name.scrollable {
-    text-overflow: clip;
-  }
-
-  .artist-list-name .artist-name-text {
-    display: inline-block;
-  }
-
-  .artist-list-name .artist-name-text.animating {
-    animation: artist-name-ticker var(--ticker-duration, 0s) linear infinite;
-  }
-
-  @keyframes artist-name-ticker {
-    0%, 20% { transform: translateX(0); }
-    70%, 80% { transform: translateX(var(--ticker-offset, 0)); }
-    90%, 100% { transform: translateX(0); }
-  }
-
-  .artist-list-meta {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 2px;
   }
 
   .artist-albums-column {

@@ -441,7 +441,13 @@
     "bitDepth": "{depth}-bit",
     "sampleRate": "{rate} kHz",
     "lossless": "Lossless",
-    "max": "Max"
+    "max": "Max",
+    "tooltip": {
+      "source": "Source",
+      "output": "Output",
+      "resampled": "Resampled by system",
+      "fix": "Enable DAC Passthrough or Exclusive Mode in Settings"
+    }
   },
   "actions": {
     "play": "Play",
@@ -449,6 +455,7 @@
     "playNow": "Play Now",
     "shuffle": "Shuffle",
     "shuffleAll": "Shuffle All",
+    "playNext": "Play Next",
     "addToQueue": "Add to Queue",
     "addToPlaylist": "Add to Playlist",
     "addToFavorites": "Add to Favorites",
@@ -538,17 +545,6 @@
       "flatpakWarningDesc": "PipeWire cannot guarantee bit-perfect playback in sandboxed environments due to daemon access restrictions.",
       "flatpakRecommended": "Recommended:",
       "flatpakRecommendedDesc": "Switch to ALSA Direct backend for true bit-perfect audio.",
-      "streamUncached": "Stream Uncached Tracks",
-      "streamUncachedDesc": "Start playback faster when track is not in cache. Seeking may be limited during initial buffering.",
-      "initialBuffer": "Initial Buffer Size",
-      "initialBufferDesc": "Seconds to buffer before starting playback ({seconds}s)",
-      "streamingOnly": "Streaming Only",
-      "streamingOnlyDesc": "Disables temporary cache. Not recommended without a fast connection. Offline library tracks always play first.",
-      "streamBuffer": "Stream Buffering",
-      "streamBufferDesc": "Start playback faster when track is not in cache. Seeking may be limited during initial buffering.",
-      "streamBufferSeconds": "Seconds to buffer before starting playback ({seconds}s)",
-      "disableCache": "Disable Playback Cache",
-      "disableCacheDesc": "Disables temporary cache. Not recommended without a fast connection. Offline library tracks always play first.",
       "bitPerfectHelp": "Help with bit-perfect device detection",
       "bitPerfectDetection": "Bit-perfect Device Detection",
       "isInstalled": "is installed",
@@ -556,7 +552,14 @@
       "alsaUtilsDesc": "The alsa-utils package provides hardware enumeration tools that QBZ uses to detect bit-perfect capable devices (hw:X,Y).",
       "alsaUtilsNotInstalled": "Without it, only generic ALSA devices are shown, and you won't see the BP badge for true bit-perfect outputs.",
       "systemConfigured": "Your system is properly configured for bit-perfect device detection.",
-      "deviceNotListed": "If you don't see your device listed as bit-perfect, ensure it's connected and recognized by your system."
+      "deviceNotListed": "If you don't see your device listed as bit-perfect, ensure it's connected and recognized by your system.",
+      "resetTitle": "Reset Audio & Playback Settings",
+      "resetDesc": "Restores all audio and playback settings to their factory defaults. Useful if you experience audio issues.",
+      "resetButton": "Reset Settings",
+      "resetConfirmTitle": "Reset Audio & Playback Settings?",
+      "resetConfirmDesc": "This will reset all audio output, backend, and playback settings to defaults. Playback will be stopped.",
+      "resetSuccess": "Audio and playback settings have been reset to defaults.",
+      "resetError": "Failed to reset audio settings: {error}"
     },
     "playback": {
       "title": "Playback",
@@ -573,7 +576,18 @@
       "continueWithinSource": "Continue within source",
       "playOnlySelectedTrack": "Play only selected track",
       "showContextIcon": "Show track playing context in player",
-      "showContextIconTooltip": "Shows the context from which the current track is being played (album, artist, playlist, etc.)"
+      "showContextIconTooltip": "Shows the context from which the current track is being played (album, artist, playlist, etc.)",
+      "streamUncached": "Stream Uncached Tracks",
+      "streamUncachedDesc": "Start playback faster when track is not in cache. Seeking may be limited during initial buffering.",
+      "initialBuffer": "Initial Buffer Size",
+      "initialBufferDesc": "Seconds to buffer before starting playback ({seconds}s)",
+      "streamingOnly": "Streaming Only",
+      "streamingOnlyDesc": "Disables temporary cache. Not recommended without a fast connection. Offline library tracks always play first.",
+      "streamBuffer": "Stream Buffering",
+      "streamBufferDesc": "Start playback faster when track is not in cache. Seeking may be limited during initial buffering.",
+      "streamBufferSeconds": "Seconds to buffer before starting playback ({seconds}s)",
+      "disableCache": "Disable Playback Cache",
+      "disableCacheDesc": "Disables temporary cache. Not recommended without a fast connection. Offline library tracks always play first."
     },
     "appearance": {
       "title": "Appearance",
@@ -748,7 +762,32 @@
       "cachedTracks": "Cached Queue Tracks",
       "cacheSize": "Queue Cache Size",
       "clearCache": "Clear queue cache",
-      "clearing": "Clearing..."
+      "clearing": "Clearing...",
+      "factoryResetTitle": "Delete All Application Data",
+      "factoryResetDesc": "Permanently deletes all settings, caches, credentials, and user data. You will be logged out and the app will return to its initial state.",
+      "factoryResetCheckbox": "I understand all data will be permanently deleted and this cannot be undone",
+      "factoryResetButton": "Delete All Data",
+      "factoryResetFinalConfirm": "Are you absolutely sure? This will delete all application data including your credentials, settings, caches, and offline library. This action cannot be undone.",
+      "factoryResetConfirmButton": "Yes, delete everything",
+      "factoryResetError": "Failed to delete application data: {error}"
+    },
+    "developer": {
+      "title": "Developer Mode",
+      "summary": "Advanced options for debugging and development",
+      "forceDmabuf": "Force DMA-BUF Renderer",
+      "forceDmabufDesc": "Override the NVIDIA + Wayland DMA-BUF workaround. Only enable if you know your system doesn't crash. Reset from terminal: qbz --reset-dmabuf",
+      "restartRequired": "Restart QBZ for this change to take effect",
+      "viewLogs": "View Logs",
+      "viewLogsDesc": "View backend and console logs for debugging",
+      "logsTitle": "Application Logs",
+      "tabTerminal": "Terminal",
+      "tabConsole": "Console",
+      "uploadLogs": "Upload to 0x0.st",
+      "uploadTab": "Upload {tab}",
+      "uploadSuccess": "Log URL copied to clipboard",
+      "uploadError": "Failed to upload logs",
+      "uploading": "Uploading...",
+      "bugReportHint": "Reporting a bug? Upload both tabs and share both URLs — it helps us fix things faster. Thanks!"
     },
     "blacklist": {
       "title": "Artist Blacklist",

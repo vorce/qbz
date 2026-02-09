@@ -113,7 +113,7 @@
       // Extract tracks for recommendations
       let tracks: Track[] = [];
       if (artist.tracks_appears_on?.items) {
-        const filtered = artist.tracks_appears_on.items.filter(t => t.id !== trackId);
+        const filtered = artist.tracks_appears_on.items.filter(trk => trk.id !== trackId);
         tracks = dedupeByExactTitle(filtered);
       }
 
@@ -127,13 +127,13 @@
             offset: 0
           });
           if (artistTracks.items) {
-            const filtered = artistTracks.items.filter(t => t.id !== trackId);
+            const filtered = artistTracks.items.filter(trk => trk.id !== trackId);
             const deduped = dedupeByExactTitle(filtered);
             // Merge with existing, prioritizing new tracks
-            const existingIds = new Set(tracks.map(t => t.id));
-            for (const t of deduped) {
-              if (!existingIds.has(t.id)) {
-                tracks.push(t);
+            const existingIds = new Set(tracks.map(trk => trk.id));
+            for (const trk of deduped) {
+              if (!existingIds.has(trk.id)) {
+                tracks.push(trk);
               }
             }
           }

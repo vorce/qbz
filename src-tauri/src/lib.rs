@@ -19,6 +19,7 @@ pub mod flatpak;
 pub mod lastfm;
 pub mod library;
 pub mod listenbrainz;
+pub mod logging;
 pub mod lyrics;
 pub mod media_controls;
 pub mod migration;
@@ -144,9 +145,10 @@ pub fn run() {
     // Silently ignore if not found (production builds use compile-time env vars)
     dotenvy::dotenv().ok();
 
-    // Initialize logging
+    // Initialize logging with TeeWriter (captures to ring buffer + stderr)
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis()
+        .target(env_logger::Target::Pipe(Box::new(logging::TeeWriter)))
         .init();
 
     log::info!("QBZ starting...");
@@ -235,6 +237,11 @@ pub fn run() {
     let artist_vectors_state = artist_vectors::ArtistVectorStoreState::new_empty();
     let blacklist_state = artist_blacklist::BlacklistState::new_empty();
     let listenbrainz_state = listenbrainz::ListenBrainzSharedState::new_empty();
+    let developer_settings_state = config::developer_settings::DeveloperSettingsState::new()
+        .unwrap_or_else(|e| {
+            log::warn!("Failed to initialize developer settings: {}. Using empty state.", e);
+            config::developer_settings::DeveloperSettingsState::new_empty()
+        });
 
     // Clone settings for use in closures
     let enable_tray = tray_settings.enable_tray;
@@ -411,6 +418,7 @@ pub fn run() {
         .manage(remote_metadata_state)
         .manage(artist_vectors_state)
         .manage(blacklist_state)
+        .manage(developer_settings_state)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
             commands::init_client,
@@ -428,6 +436,7 @@ pub fn run() {
             commands::get_last_user_id,
             commands::activate_user_session,
             commands::deactivate_user_session,
+            commands::factory_reset,
             // Search commands
             commands::search_albums,
             commands::search_tracks,
@@ -760,6 +769,7 @@ pub fn run() {
             config::audio_settings::set_audio_normalization_enabled,
             config::audio_settings::set_audio_normalization_target,
             config::audio_settings::set_audio_gapless_enabled,
+            config::audio_settings::reset_audio_settings,
             // Audio backend commands
             commands::get_available_backends,
             commands::get_devices_for_backend,
@@ -909,6 +919,12 @@ pub fn run() {
             commands::get_blacklist_settings,
             commands::get_blacklist_count,
             commands::clear_artist_blacklist,
+            // Developer settings commands
+            config::developer_settings::get_developer_settings,
+            config::developer_settings::set_developer_force_dmabuf,
+            // Log capture commands
+            logging::get_backend_logs,
+            logging::upload_logs_to_paste,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

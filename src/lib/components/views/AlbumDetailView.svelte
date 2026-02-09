@@ -8,6 +8,7 @@
   import ViewTransition from '../ViewTransition.svelte';
   import { getOfflineCacheState, type OfflineCacheStatus, isAlbumFullyCached } from '$lib/stores/offlineCacheState';
   import { consumeContextTrackFocus } from '$lib/stores/playbackContextStore';
+  import { saveScrollPosition, getSavedScrollPosition } from '$lib/stores/navigationStore';
   import {
     subscribe as subscribeAlbumFavorites,
     isAlbumFavorite,
@@ -260,6 +261,14 @@
       }
     })();
 
+    // Restore scroll position
+    requestAnimationFrame(() => {
+      const saved = getSavedScrollPosition('album');
+      if (scrollContainer && saved > 0) {
+        scrollContainer.scrollTop = saved;
+      }
+    });
+
     return () => {
       unsubscribe?.();
     };
@@ -304,7 +313,7 @@
 </script>
 
 <ViewTransition duration={200} distance={12} direction="up">
-<div class="album-detail" bind:this={scrollContainer}>
+<div class="album-detail" bind:this={scrollContainer} onscroll={(e) => saveScrollPosition('album', (e.target as HTMLElement).scrollTop)}>
   <!-- Back Navigation -->
   <button class="back-btn" onclick={onBack}>
     <ArrowLeft size={16} />
@@ -506,6 +515,8 @@
                 artwork={relatedAlbum.artwork}
                 title={relatedAlbum.title}
                 artist={album.artist}
+                artistId={album.artistId}
+                onArtistClick={onTrackGoToArtist}
                 genre={relatedAlbum.genre}
                 releaseDate={relatedAlbum.releaseDate}
                 size="large"
