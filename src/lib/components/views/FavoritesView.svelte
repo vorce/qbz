@@ -2862,6 +2862,7 @@
   .alpha-index {
     position: sticky;
     top: 120px;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     gap: 6px;
