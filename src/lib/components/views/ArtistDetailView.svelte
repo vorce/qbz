@@ -817,26 +817,26 @@
   }
 
   function buildTopTracksQueue(tracks: Track[]) {
-    return tracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.performer?.name || artist.name,
-      album: t.album?.title || '',
-      duration_secs: t.duration,
-      artwork_url: t.album?.image?.large || t.album?.image?.thumbnail || '',
-      hires: t.hires_streamable ?? false,
-      bit_depth: t.maximum_bit_depth ?? null,
-      sample_rate: t.maximum_sampling_rate ?? null,
+    return tracks.map((track) => ({
+      id: track.id,
+      title: track.title,
+      artist: track.performer?.name || artist.name,
+      album: track.album?.title || '',
+      duration_secs: track.duration,
+      artwork_url: track.album?.image?.large || track.album?.image?.thumbnail || '',
+      hires: track.hires_streamable ?? false,
+      bit_depth: track.maximum_bit_depth ?? null,
+      sample_rate: track.maximum_sampling_rate ?? null,
       is_local: false,
-      album_id: t.album?.id || null,
-      artist_id: t.performer?.id ?? null,
+      album_id: track.album?.id || null,
+      artist_id: track.performer?.id ?? null,
     }));
   }
 
   async function handleTrackPlay(track: Track, trackIndex?: number) {
     // Create artist top tracks context
     if (topTracks.length > 0) {
-      const trackIds = topTracks.map(t => t.id);
+      const trackIds = topTracks.map((track) => track.id);
       const index = trackIndex !== undefined ? trackIndex : trackIds.indexOf(track.id);
       
       if (index >= 0) {

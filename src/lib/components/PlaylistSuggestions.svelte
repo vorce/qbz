@@ -243,8 +243,8 @@
         { max_pool_size: EXPANDED_POOL }
       );
       // Merge new tracks, avoiding duplicates
-      const existingIds = new Set(pool.map(t => t.track_id));
-      const newTracks = moreResult.tracks.filter(t => !existingIds.has(t.track_id));
+      const existingIds = new Set(pool.map((track) => track.track_id));
+      const newTracks = moreResult.tracks.filter((track) => !existingIds.has(track.track_id));
       pool = [...pool, ...newTracks];
       result = moreResult;
     } catch (err) {
@@ -286,8 +286,8 @@
       );
 
       // Merge new tracks, avoiding duplicates
-      const existingIds = new Set(pool.map(t => t.track_id));
-      const newTracks = moreResult.tracks.filter(t => !existingIds.has(t.track_id));
+      const existingIds = new Set(pool.map((track) => track.track_id));
+      const newTracks = moreResult.tracks.filter((track) => !existingIds.has(track.track_id));
       pool = [...pool, ...newTracks];
       result = moreResult;
       completedCycles = 0; // Reset cycle counter
@@ -318,7 +318,7 @@
 
       // After a short delay, remove from pool (triggers exit animation)
       setTimeout(() => {
-        pool = pool.filter(t => t.track_id !== track.track_id);
+        pool = pool.filter((suggestedTrack) => suggestedTrack.track_id !== track.track_id);
         addedTrackIds = new Set([...addedTrackIds].filter(id => id !== track.track_id));
       }, 600);
 
@@ -334,7 +334,7 @@
   function handleDismiss(track: SuggestedTrack) {
     dismissTrack(playlistId, track.track_id);
     // Remove from pool immediately (triggers exit animation)
-    pool = pool.filter(t => t.track_id !== track.track_id);
+    pool = pool.filter((suggestedTrack) => suggestedTrack.track_id !== track.track_id);
   }
 
 </script>

@@ -1881,7 +1881,7 @@
     try {
       const trackSource = track.source === 'plex' ? 'plex' : 'local';
       if (selectedAlbum && albumTracks.length > 0) {
-        const trackIndex = albumTracks.findIndex(t => t.id === track.id);
+        const trackIndex = albumTracks.findIndex((albumTrack) => albumTrack.id === track.id);
         const trackIds = albumTracks.map(track => track.id);
 
         // Set playback context for Local Library album

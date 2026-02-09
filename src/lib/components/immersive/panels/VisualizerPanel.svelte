@@ -200,12 +200,12 @@
 
       for (let j = 0; j < numCubes; j++) {
         const cubeY = baseY - (j + 1) * (cubeHeight + cubeGap);
-        const t = Math.min(j / 20, 1); // Normalized 0-1
+        const gradientRatio = Math.min(j / 20, 1); // Normalized 0-1
 
         // Interpolate between primary (bottom) and secondary (top)
-        const r = Math.floor(colorPrimary.r + t * (colorSecondary.r - colorPrimary.r));
-        const g = Math.floor(colorPrimary.g + t * (colorSecondary.g - colorPrimary.g));
-        const b = Math.floor(colorPrimary.b + t * (colorSecondary.b - colorPrimary.b));
+        const r = Math.floor(colorPrimary.r + gradientRatio * (colorSecondary.r - colorPrimary.r));
+        const g = Math.floor(colorPrimary.g + gradientRatio * (colorSecondary.g - colorPrimary.g));
+        const b = Math.floor(colorPrimary.b + gradientRatio * (colorSecondary.b - colorPrimary.b));
 
         ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
         ctx.fillRect(xLeft, cubeY, barWidth, cubeHeight);

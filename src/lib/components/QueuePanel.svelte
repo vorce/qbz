@@ -294,7 +294,7 @@
             </div>
             <div class="tracks-list">
               {#each filteredTracks as track, index}
-                {@const originalIndex = upcomingTracks.findIndex(t => t.id === track.id)}
+                {@const originalIndex = upcomingTracks.findIndex((queueTrack) => queueTrack.id === track.id)}
                 {@const isUnavailable = track.available === false}
                 <div
                   class="queue-track"
