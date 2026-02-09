@@ -616,6 +616,8 @@
       "uiScale": "Escala de UI",
       "inAppToasts": "Notificaciones en App",
       "systemNotifications": "Notificaciones del Sistema",
+      "useSystemTitleBar": "Usar barra de título del sistema",
+      "useSystemTitleBarDesc": "Reemplazar la barra de título personalizada de QBZ con las decoraciones nativas de tu sistema",
       "hideTitleBar": "Ocultar barra de título",
       "hideTitleBarDesc": "Ocultar completamente la barra de título (para usuarios de gestores de ventanas en mosaico)",
       "immersiveDefaultView": "Vista predeterminada del modo inmersivo",

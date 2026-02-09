@@ -59,7 +59,9 @@
   import {
     subscribe as subscribeTitleBar,
     getHideTitleBar,
-    setHideTitleBar
+    setHideTitleBar,
+    getUseSystemTitleBar,
+    setUseSystemTitleBar
   } from '$lib/stores/titleBarStore';
   import {
     getPlaybackPreferences,
@@ -666,6 +668,7 @@
 
   // Title bar settings
   let hideTitleBar = $state(getHideTitleBar());
+  let useSystemTitleBar = $state(getUseSystemTitleBar());
 
   // Immersive default view
   const IMMERSIVE_VIEW_KEYS = [
@@ -900,6 +903,7 @@
     // Subscribe to title bar state changes
     const unsubscribeTitleBar = subscribeTitleBar(() => {
       hideTitleBar = getHideTitleBar();
+      useSystemTitleBar = getUseSystemTitleBar();
     });
 
     // Subscribe to blacklist state changes
@@ -3192,10 +3196,17 @@
     </div>
     <div class="setting-row">
       <div class="setting-info">
+        <span class="setting-label">{$t('settings.appearance.useSystemTitleBar')}</span>
+        <span class="setting-desc">{$t('settings.appearance.useSystemTitleBarDesc')}</span>
+      </div>
+      <Toggle enabled={useSystemTitleBar} onchange={(v) => setUseSystemTitleBar(v)} />
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
         <span class="setting-label">{$t('settings.appearance.hideTitleBar')}</span>
         <span class="setting-desc">{$t('settings.appearance.hideTitleBarDesc')}</span>
       </div>
-      <Toggle enabled={hideTitleBar} onchange={(v) => setHideTitleBar(v)} />
+      <Toggle enabled={hideTitleBar} onchange={(v) => setHideTitleBar(v)} disabled={useSystemTitleBar} />
     </div>
     <div class="setting-row">
       <span class="setting-label">{$t('settings.appearance.immersiveDefaultView')}</span>

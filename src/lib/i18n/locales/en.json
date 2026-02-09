@@ -616,6 +616,8 @@
       "uiScale": "UI Scale",
       "inAppToasts": "In-app toasts notifications",
       "systemNotifications": "System Notifications",
+      "useSystemTitleBar": "Use system title bar",
+      "useSystemTitleBarDesc": "Replace QBZ custom title bar with your system's native window decorations",
       "hideTitleBar": "Hide title bar",
       "hideTitleBarDesc": "Hide the title bar completely (for tiling window manager users)",
       "immersiveDefaultView": "Immersive default view",
