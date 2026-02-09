@@ -686,6 +686,7 @@ pub fn run() {
             plex::plex_cache_save_sections,
             plex::plex_cache_get_tracks,
             plex::plex_cache_save_tracks,
+            plex::plex_cache_update_track_quality,
             plex::plex_cache_get_albums,
             plex::plex_cache_get_album_tracks,
             plex::plex_cache_search_tracks,

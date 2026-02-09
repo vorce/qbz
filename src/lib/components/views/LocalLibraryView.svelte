@@ -149,6 +149,13 @@
     bitDepth?: number;
   }
 
+  interface PlexTrackQualityUpdate {
+    ratingKey: string;
+    container?: string;
+    samplingRateHz?: number;
+    bitDepth?: number;
+  }
+
   interface LocalArtist {
     name: string;
     album_count: number;
@@ -1961,11 +1968,24 @@
     );
 
     const metadataByRatingKey = new Map<string, PlexTrackMetadata>();
+    const qualityUpdates: PlexTrackQualityUpdate[] = [];
     for (const entry of metadataEntries) {
       if (!entry) continue;
       metadataByRatingKey.set(entry[0], entry[1]);
+      qualityUpdates.push({
+        ratingKey: entry[0],
+        container: entry[1].container ?? entry[1].codec,
+        samplingRateHz: entry[1].samplingRateHz,
+        bitDepth: entry[1].bitDepth
+      });
     }
     if (metadataByRatingKey.size === 0) return tracks;
+
+    if (qualityUpdates.length > 0) {
+      invoke<number>('plex_cache_update_track_quality', { updates: qualityUpdates }).catch((error) => {
+        console.warn('[LocalLibrary] Failed to persist Plex track quality updates:', error);
+      });
+    }
 
     return tracks.map((track) => {
       const metadata = metadataByRatingKey.get(track.file_path);

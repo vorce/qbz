@@ -113,6 +113,15 @@ pub struct PlexCachedTrack {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PlexTrackQualityUpdate {
+    pub rating_key: String,
+    pub container: Option<String>,
+    pub sampling_rate_hz: Option<u32>,
+    pub bit_depth: Option<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct PlexPinResponse {
     id: u64,
     code: String,
@@ -1165,6 +1174,46 @@ pub fn plex_cache_save_tracks(
     tx.commit()
         .map_err(|e| format!("Failed to commit Plex cache tracks transaction: {}", e))?;
     Ok(tracks.len())
+}
+
+#[tauri::command]
+pub fn plex_cache_update_track_quality(updates: Vec<PlexTrackQualityUpdate>) -> Result<usize, String> {
+    if updates.is_empty() {
+        return Ok(0);
+    }
+
+    let mut conn = open_plex_cache_db()?;
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start Plex cache quality update transaction: {}", e))?;
+
+    let now = now_epoch_secs();
+    let mut updated_rows = 0usize;
+    for update in &updates {
+        let affected = tx
+            .execute(
+                "UPDATE plex_cache_tracks
+                 SET container = COALESCE(?2, container),
+                     sampling_rate_hz = COALESCE(?3, sampling_rate_hz),
+                     bit_depth = COALESCE(?4, bit_depth),
+                     updated_at = ?5
+                 WHERE rating_key = ?1",
+                params![
+                    update.rating_key,
+                    update.container,
+                    update.sampling_rate_hz.map(|v| v as i64),
+                    update.bit_depth.map(|v| v as i64),
+                    now,
+                ],
+            )
+            .map_err(|e| format!("Failed to update Plex cache track quality: {}", e))?;
+        updated_rows += affected;
+    }
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit Plex cache quality update transaction: {}", e))?;
+
+    Ok(updated_rows)
 }
 
 #[tauri::command]
