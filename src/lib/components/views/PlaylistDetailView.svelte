@@ -202,20 +202,47 @@
   let localTracksDuration = $derived(localTracks.reduce((sum, track) => sum + track.duration_secs, 0));
   let totalDuration = $derived((playlist?.duration ?? 0) + localTracksDuration);
 
+  // Suggestions computation gating: avoid expensive work for large playlists.
+  // >=2000 tracks: never compute (Qobuz limit, can't add more)
+  // >500 tracks: compute only when user manually activates suggestions
+  // <=500 tracks: compute immediately
+  const SUGGESTIONS_AUTO_THRESHOLD = 500;
+  const SUGGESTIONS_MAX_TRACKS = 2000;
+  let suggestionsActivated = $state(false);
+
+  // Whether suggestions should compute at all for this playlist
+  const suggestionsEnabled = $derived(
+    (playlist?.tracks_count ?? 0) < SUGGESTIONS_MAX_TRACKS
+  );
+  // Whether the computation should run now
+  const suggestionsReady = $derived(
+    suggestionsEnabled && (
+      (playlist?.tracks_count ?? 0) <= SUGGESTIONS_AUTO_THRESHOLD || suggestionsActivated
+    )
+  );
+
   // Playlist suggestions: adaptive artist selection (quantity scales with playlist size,
   // mix of top artists for coherence + random artists for discovery)
+  // Only computed when suggestionsReady is true to avoid blocking large playlist loads
   const playlistArtists = $derived(
-    extractAdaptiveArtists(tracks.filter(track => !track.isLocal))
+    suggestionsReady ? extractAdaptiveArtists(tracks.filter(track => !track.isLocal)) : []
   );
   // Track IDs to exclude from suggestions (already in playlist)
   const excludeTrackIds = $derived(
-    tracks.filter(track => !track.isLocal).map(track => track.id)
+    suggestionsReady ? tracks.filter(track => !track.isLocal).map(track => track.id) : []
   );
 
   let loading = $state(true);
   let spinnerFading = $state(false);
   let error = $state<string | null>(null);
   let scrollContainer: HTMLDivElement | null = $state(null);
+
+  // Virtual scrolling for track list
+  const TRACK_ROW_HEIGHT = 56; // px, matches TrackRow component
+  const VIRTUAL_BUFFER = 5; // extra rows above/below viewport
+  let trackListEl: HTMLDivElement | null = $state(null);
+  let trackListScrollTop = $state(0); // scroll position relative to track list top
+  let trackListViewHeight = $state(800); // visible height of scroll container
 
   // Offline mode state
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
@@ -286,8 +313,14 @@
 
   async function scrollToTrack(trackId: number) {
     await tick();
-    const target = scrollContainer?.querySelector<HTMLElement>(`[data-track-id="${trackId}"]`);
-    target?.scrollIntoView({ block: 'center' });
+    // With virtualized list, find track index and scroll to its computed position
+    const trackIndex = displayTracks.findIndex(trk => trk.id === trackId);
+    if (trackIndex >= 0 && scrollContainer && trackListEl) {
+      const trackOffset = trackIndex * TRACK_ROW_HEIGHT;
+      const trackListTop = trackListEl.offsetTop;
+      const targetScroll = trackListTop + trackOffset - (scrollContainer.clientHeight / 2) + (TRACK_ROW_HEIGHT / 2);
+      scrollContainer.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
+    }
   }
 
   // Subscribe to offline status changes and fetch current user ID
@@ -312,17 +345,32 @@
       unavailableVersion++;
     });
 
-    // Restore scroll position
+    // Restore scroll position and initialize virtual scroll dimensions
     requestAnimationFrame(() => {
-      const saved = getSavedScrollPosition('playlist');
-      if (scrollContainer && saved > 0) {
-        scrollContainer.scrollTop = saved;
+      if (scrollContainer) {
+        trackListViewHeight = scrollContainer.clientHeight;
+        const saved = getSavedScrollPosition('playlist');
+        if (saved > 0) {
+          scrollContainer.scrollTop = saved;
+        }
       }
     });
+
+    // Track scroll container resize for virtual scrolling
+    let resizeObserver: ResizeObserver | null = null;
+    if (scrollContainer) {
+      resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          trackListViewHeight = entry.contentRect.height;
+        }
+      });
+      resizeObserver.observe(scrollContainer);
+    }
 
     return () => {
       unsubscribeOffline();
       unsubscribeUnavailable();
+      resizeObserver?.disconnect();
     };
   });
 
@@ -399,6 +447,8 @@
   $effect(() => {
     // Access playlistId to create dependency
     const id = playlistId;
+    // Reset suggestions state for new playlist
+    suggestionsActivated = false;
     // Load all data and notify parent when done
     (async () => {
       await Promise.all([loadPlaylist(), loadLocalTracks()]);
@@ -1092,6 +1142,43 @@
     return filtered;
   });
 
+  // Virtual scrolling: total height of the track list
+  const trackListTotalHeight = $derived(displayTracks.length * TRACK_ROW_HEIGHT);
+
+  // Virtual scrolling: compute visible track index range
+  const visibleTrackRange = $derived.by(() => {
+    const count = displayTracks.length;
+    if (count === 0) return { start: 0, end: 0 };
+
+    // Calculate which tracks are visible based on scroll position relative to track list
+    const firstVisible = Math.floor(trackListScrollTop / TRACK_ROW_HEIGHT);
+    const visibleCount = Math.ceil(trackListViewHeight / TRACK_ROW_HEIGHT);
+    const lastVisible = firstVisible + visibleCount;
+
+    const start = Math.max(0, firstVisible - VIRTUAL_BUFFER);
+    const end = Math.min(count, lastVisible + VIRTUAL_BUFFER);
+
+    return { start, end };
+  });
+
+  // The slice of tracks to actually render
+  const visibleDisplayTracks = $derived(
+    displayTracks.slice(visibleTrackRange.start, visibleTrackRange.end)
+  );
+
+  // Handle scroll from the parent .playlist-detail container
+  function handlePlaylistScroll(e: Event) {
+    const container = e.target as HTMLElement;
+    // Save scroll position for navigation restoration
+    saveScrollPosition('playlist', container.scrollTop);
+    // Update virtual scroll state relative to the track list position
+    if (trackListEl) {
+      const trackListTop = trackListEl.offsetTop;
+      trackListScrollTop = Math.max(0, container.scrollTop - trackListTop);
+      trackListViewHeight = container.clientHeight;
+    }
+  }
+
   const sortOptions: { field: SortField; label: string }[] = [
     { field: 'default', label: 'Default' },
     { field: 'title', label: 'Title' },
@@ -1590,7 +1677,7 @@
 </script>
 
 <ViewTransition duration={200} distance={12} direction="down">
-<div class="playlist-detail" bind:this={scrollContainer} onscroll={(e) => saveScrollPosition('playlist', (e.target as HTMLElement).scrollTop)}>
+<div class="playlist-detail" bind:this={scrollContainer} onscroll={handlePlaylistScroll}>
   <!-- Navigation Row -->
   <div class="nav-row">
     <button class="back-btn" onclick={onBack}>
@@ -1759,8 +1846,8 @@
 
     </div>
 
-    <!-- Track List -->
-    <div class="track-list">
+    <!-- Track List (virtualized) -->
+    <div class="track-list" bind:this={trackListEl}>
       {#if isCustomOrderMode}
         <div class="batch-controls">
           <div class="batch-left">
@@ -1797,115 +1884,118 @@
         <div class="col-spacer"></div>
       </div>
 
-      {#each displayTracks as track, idx (`${idx}-${track.id}-${downloadStateVersion}`)}
-        {@const downloadInfo = track.isLocal ? { status: 'none' as const, progress: 0 } : (getTrackOfflineCacheStatus?.(track.id) ?? { status: 'none' as const, progress: 0 })}
-        {@const isActiveTrack = (
-          track.isLocal
-            ? (track.localTrackId !== undefined && activeTrackId === track.localTrackId)
-            : activeTrackId === track.id
-        )}
-        {@const isTrackPlaying = isActiveTrack && isPlaybackActive}
-        {@const available = isTrackAvailable(track)}
-        {@const removedFromQobuz = isTrackRemovedFromQobuz(track)}
-        {@const trackBlacklisted = !track.isLocal && track.artistId ? isArtistBlacklisted(track.artistId) : false}
-        <div
-          class="track-row-wrapper"
-          class:unavailable={!available}
-          class:removed-from-qobuz={removedFromQobuz}
-          class:custom-order-mode={isCustomOrderMode}
-          class:dragging={draggedTrackIdx === idx}
-          class:drag-over={dragOverIdx === idx && draggedTrackIdx !== idx}
-          title={removedFromQobuz ? $t('player.trackUnavailable') : (!available ? $t('offline.trackNotAvailable') : undefined)}
-          draggable={isCustomOrderMode && !removedFromQobuz}
-          ondragstart={(e) => handleDragStart(e, idx)}
-          ondragover={(e) => handleDragOver(e, idx)}
-          ondragleave={handleDragLeave}
-          ondragend={handleDragEnd}
-          ondrop={(e) => handleDrop(e, idx)}
-        >
-          {#if isCustomOrderMode}
-            {@const trackKey = getTrackKey(track)}
-            <label class="track-checkbox" onclick={(e) => e.stopPropagation()}>
-              <input
-                type="checkbox"
-                checked={selectedTrackKeys.has(trackKey)}
-                onchange={() => toggleTrackSelection(track)}
-              />
-            </label>
-            <div class="reorder-controls">
-              <button
-                class="reorder-btn"
-                onclick={() => moveTrackUp(track, idx)}
-                disabled={idx === 0}
-                title="Move up"
-              >
-                <ChevronUp size={16} />
-              </button>
-              <div class="drag-handle" title="Drag to reorder">
-                <GripVertical size={16} />
+      <div class="virtual-track-content" style="height: {trackListTotalHeight}px;">
+        {#each visibleDisplayTracks as track, loopIdx (`${visibleTrackRange.start + loopIdx}-${track.id}-${downloadStateVersion}`)}
+          {@const idx = visibleTrackRange.start + loopIdx}
+          {@const downloadInfo = track.isLocal ? { status: 'none' as const, progress: 0 } : (getTrackOfflineCacheStatus?.(track.id) ?? { status: 'none' as const, progress: 0 })}
+          {@const isActiveTrack = (
+            track.isLocal
+              ? (track.localTrackId !== undefined && activeTrackId === track.localTrackId)
+              : activeTrackId === track.id
+          )}
+          {@const isTrackPlaying = isActiveTrack && isPlaybackActive}
+          {@const available = isTrackAvailable(track)}
+          {@const removedFromQobuz = isTrackRemovedFromQobuz(track)}
+          {@const trackBlacklisted = !track.isLocal && track.artistId ? isArtistBlacklisted(track.artistId) : false}
+          <div
+            class="track-row-wrapper virtual-track-item"
+            class:unavailable={!available}
+            class:removed-from-qobuz={removedFromQobuz}
+            class:custom-order-mode={isCustomOrderMode}
+            class:dragging={draggedTrackIdx === idx}
+            class:drag-over={dragOverIdx === idx && draggedTrackIdx !== idx}
+            style="transform: translateY({idx * TRACK_ROW_HEIGHT}px); height: {TRACK_ROW_HEIGHT}px;"
+            data-track-id={track.isLocal ? undefined : track.id}
+            title={removedFromQobuz ? $t('player.trackUnavailable') : (!available ? $t('offline.trackNotAvailable') : undefined)}
+            draggable={isCustomOrderMode && !removedFromQobuz}
+            ondragstart={(e) => handleDragStart(e, idx)}
+            ondragover={(e) => handleDragOver(e, idx)}
+            ondragleave={handleDragLeave}
+            ondragend={handleDragEnd}
+            ondrop={(e) => handleDrop(e, idx)}
+          >
+            {#if isCustomOrderMode}
+              {@const trackKey = getTrackKey(track)}
+              <label class="track-checkbox" onclick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selectedTrackKeys.has(trackKey)}
+                  onchange={() => toggleTrackSelection(track)}
+                />
+              </label>
+              <div class="reorder-controls">
+                <button
+                  class="reorder-btn"
+                  onclick={() => moveTrackUp(track, idx)}
+                  disabled={idx === 0}
+                  title="Move up"
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <div class="drag-handle" title="Drag to reorder">
+                  <GripVertical size={16} />
+                </div>
+                <button
+                  class="reorder-btn"
+                  onclick={() => moveTrackDown(track, idx)}
+                  disabled={idx === displayTracks.length - 1}
+                  title="Move down"
+                >
+                  <ChevronDown size={16} />
+                </button>
               </div>
-              <button
-                class="reorder-btn"
-                onclick={() => moveTrackDown(track, idx)}
-                disabled={idx === displayTracks.length - 1}
-                title="Move down"
-              >
-                <ChevronDown size={16} />
-              </button>
-            </div>
-          {/if}
-          <TrackRow
-            trackId={track.isLocal ? undefined : track.id}
-            number={idx + 1}
-            title={track.title}
-            artist={track.artist}
-            album={track.album}
-            duration={track.duration}
-            quality={track.bitDepth && track.samplingRate
-              ? `${track.bitDepth}bit/${track.samplingRate}kHz`
-              : track.hires
-                ? 'Hi-Res'
-                : '-'}
-            isPlaying={isTrackPlaying}
-            isLocal={track.isLocal}
-            isUnavailable={removedFromQobuz && isOwnPlaylist}
-            unavailableTooltip={removedFromQobuz ? $t('player.trackUnavailable') : undefined}
-            isBlacklisted={trackBlacklisted}
-            hideFavorite={track.isLocal || removedFromQobuz || trackBlacklisted}
-            hideDownload={track.isLocal || removedFromQobuz || trackBlacklisted}
-            downloadStatus={downloadInfo.status}
-            downloadProgress={downloadInfo.progress}
-            onPlay={available && !trackBlacklisted ? () => handleTrackClick(track, idx) : undefined}
-            onDownload={available && !track.isLocal && !trackBlacklisted && onTrackDownload ? () => onTrackDownload(track) : undefined}
-            onRemoveDownload={available && !track.isLocal && !trackBlacklisted && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
-            menuActions={removedFromQobuz ? (isOwnPlaylist ? {
-              // Only allow remove from playlist and find replacement for tracks removed from Qobuz (owned playlists only)
-              onRemoveFromPlaylist: () => removeTrackFromPlaylist(track),
-              onFindReplacement: () => openReplacementModal(track)
-            } : {}) : trackBlacklisted ? {
-              // Blacklisted: only allow navigation and info, no playback
-              onGoToAlbum: !track.isLocal && track.albumId && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.albumId!) : undefined,
-              onGoToArtist: !track.isLocal && track.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(track.artistId!) : undefined,
-              onShowInfo: !track.isLocal && onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined
-            } : available ? {
-              onPlayNow: () => handleTrackClick(track, idx),
-              onPlayNext: track.isLocal ? () => handleTrackPlayNext(track) : (onTrackPlayNext ? () => onTrackPlayNext(track) : undefined),
-              onPlayLater: track.isLocal ? () => handleTrackPlayLater(track) : (onTrackPlayLater ? () => onTrackPlayLater(track) : undefined),
-              onAddToPlaylist: !track.isLocal && onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined,
-              onRemoveFromPlaylist: () => removeTrackFromPlaylist(track),
-              onShareQobuz: !track.isLocal && onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
-              onShareSonglink: !track.isLocal && onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined,
-              onGoToAlbum: !track.isLocal && track.albumId && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.albumId!) : undefined,
-              onGoToArtist: !track.isLocal && track.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(track.artistId!) : undefined,
-              onShowInfo: !track.isLocal && onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined,
-              onDownload: !track.isLocal && onTrackDownload ? () => onTrackDownload(track) : undefined,
-              isTrackDownloaded: !track.isLocal ? downloadInfo.status === 'ready' : false,
-              onReDownload: !track.isLocal && downloadInfo.status === 'ready' && onTrackReDownload ? () => onTrackReDownload(track) : undefined,
-              onRemoveDownload: !track.isLocal && downloadInfo.status === 'ready' && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined
-            } : {}}
-          />
-        </div>
-      {/each}
+            {/if}
+            <TrackRow
+              trackId={track.isLocal ? undefined : track.id}
+              number={idx + 1}
+              title={track.title}
+              artist={track.artist}
+              album={track.album}
+              duration={track.duration}
+              quality={track.bitDepth && track.samplingRate
+                ? `${track.bitDepth}bit/${track.samplingRate}kHz`
+                : track.hires
+                  ? 'Hi-Res'
+                  : '-'}
+              isPlaying={isTrackPlaying}
+              isLocal={track.isLocal}
+              isUnavailable={removedFromQobuz && isOwnPlaylist}
+              unavailableTooltip={removedFromQobuz ? $t('player.trackUnavailable') : undefined}
+              isBlacklisted={trackBlacklisted}
+              hideFavorite={track.isLocal || removedFromQobuz || trackBlacklisted}
+              hideDownload={track.isLocal || removedFromQobuz || trackBlacklisted}
+              downloadStatus={downloadInfo.status}
+              downloadProgress={downloadInfo.progress}
+              onPlay={available && !trackBlacklisted ? () => handleTrackClick(track, idx) : undefined}
+              onDownload={available && !track.isLocal && !trackBlacklisted && onTrackDownload ? () => onTrackDownload(track) : undefined}
+              onRemoveDownload={available && !track.isLocal && !trackBlacklisted && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined}
+              menuActions={removedFromQobuz ? (isOwnPlaylist ? {
+                onRemoveFromPlaylist: () => removeTrackFromPlaylist(track),
+                onFindReplacement: () => openReplacementModal(track)
+              } : {}) : trackBlacklisted ? {
+                onGoToAlbum: !track.isLocal && track.albumId && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.albumId!) : undefined,
+                onGoToArtist: !track.isLocal && track.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(track.artistId!) : undefined,
+                onShowInfo: !track.isLocal && onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined
+              } : available ? {
+                onPlayNow: () => handleTrackClick(track, idx),
+                onPlayNext: track.isLocal ? () => handleTrackPlayNext(track) : (onTrackPlayNext ? () => onTrackPlayNext(track) : undefined),
+                onPlayLater: track.isLocal ? () => handleTrackPlayLater(track) : (onTrackPlayLater ? () => onTrackPlayLater(track) : undefined),
+                onAddToPlaylist: !track.isLocal && onTrackAddToPlaylist ? () => onTrackAddToPlaylist(track.id) : undefined,
+                onRemoveFromPlaylist: () => removeTrackFromPlaylist(track),
+                onShareQobuz: !track.isLocal && onTrackShareQobuz ? () => onTrackShareQobuz(track.id) : undefined,
+                onShareSonglink: !track.isLocal && onTrackShareSonglink ? () => onTrackShareSonglink(track) : undefined,
+                onGoToAlbum: !track.isLocal && track.albumId && onTrackGoToAlbum ? () => onTrackGoToAlbum(track.albumId!) : undefined,
+                onGoToArtist: !track.isLocal && track.artistId && onTrackGoToArtist ? () => onTrackGoToArtist(track.artistId!) : undefined,
+                onShowInfo: !track.isLocal && onTrackShowInfo ? () => onTrackShowInfo(track.id) : undefined,
+                onDownload: !track.isLocal && onTrackDownload ? () => onTrackDownload(track) : undefined,
+                isTrackDownloaded: !track.isLocal ? downloadInfo.status === 'ready' : false,
+                onReDownload: !track.isLocal && downloadInfo.status === 'ready' && onTrackReDownload ? () => onTrackReDownload(track) : undefined,
+                onRemoveDownload: !track.isLocal && downloadInfo.status === 'ready' && onTrackRemoveDownload ? () => onTrackRemoveDownload(track.id) : undefined
+              } : {}}
+            />
+          </div>
+        {/each}
+      </div>
 
       {#if displayTracks.length === 0 && searchQuery}
         <div class="no-results">
@@ -1914,20 +2004,32 @@
       {/if}
     </div>
 
-    <!-- Playlist Suggestions (only for owned playlists under Qobuz 2000-track limit) -->
-    {#if playlist && !searchQuery && playlistArtists.length > 0 && isOwnPlaylist && (playlist.tracks_count ?? 0) < 2000}
-      <PlaylistSuggestions
-        playlistId={playlistId}
-        artists={playlistArtists}
-        excludeTrackIds={excludeTrackIds}
-        trackCount={playlist.tracks_count ?? 0}
-        existingTracks={tracks.filter(trk => !trk.isLocal).map(trk => ({ title: trk.title, artist: trk.artist }))}
-        onAddTrack={handleAddSuggestedTrack}
-        onGoToAlbum={onTrackGoToAlbum}
-        onGoToArtist={onTrackGoToArtist}
-        onPreviewTrack={handlePreviewSuggestedTrack}
-        showReasons={false}
-      />
+    <!-- Playlist Suggestions -->
+    <!-- >=2000 tracks: hidden (Qobuz limit reached) -->
+    <!-- >500 tracks: manual launch button shown here, computation deferred -->
+    <!-- <=500 tracks: auto-loaded -->
+    {#if playlist && !searchQuery && isOwnPlaylist && suggestionsEnabled}
+      {#if suggestionsReady && playlistArtists.length > 0}
+        <PlaylistSuggestions
+          playlistId={playlistId}
+          artists={playlistArtists}
+          excludeTrackIds={excludeTrackIds}
+          trackCount={playlist.tracks_count ?? 0}
+          existingTracks={tracks.filter(trk => !trk.isLocal).map(trk => ({ title: trk.title, artist: trk.artist }))}
+          onAddTrack={handleAddSuggestedTrack}
+          onGoToAlbum={onTrackGoToAlbum}
+          onGoToArtist={onTrackGoToArtist}
+          onPreviewTrack={handlePreviewSuggestedTrack}
+          showReasons={false}
+        />
+      {:else if !suggestionsReady}
+        <div class="suggestions-manual-launch">
+          <p class="suggestions-manual-hint">{$t('playlist.suggestionsLargePlaylist')}</p>
+          <button class="suggestions-manual-btn" onclick={() => suggestionsActivated = true}>
+            {$t('playlist.suggestSongs')}
+          </button>
+        </div>
+      {/if}
     {/if}
     </ViewTransition>
   {/if}
@@ -2462,10 +2564,21 @@
   }
 
 
+  .virtual-track-content {
+    position: relative;
+    width: 100%;
+  }
+
+  .virtual-track-item {
+    position: absolute;
+    left: 0;
+    right: 0;
+    will-change: transform;
+  }
+
   .track-row-wrapper {
     display: flex;
     align-items: center;
-    position: relative;
   }
 
   .track-row-wrapper :global(.track-row) {
@@ -2629,6 +2742,40 @@
     height: 16px;
     cursor: pointer;
     accent-color: var(--accent-color, #6366f1);
+  }
+
+  .suggestions-manual-launch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 16px;
+    margin-top: 32px;
+    border-top: 1px solid var(--bg-tertiary);
+  }
+
+  .suggestions-manual-hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    margin: 0;
+  }
+
+  .suggestions-manual-btn {
+    padding: 10px 20px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--alpha-8);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease;
+  }
+
+  .suggestions-manual-btn:hover {
+    background: var(--alpha-12);
+    border-color: var(--alpha-20);
   }
 
 </style>
