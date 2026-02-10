@@ -742,9 +742,11 @@
       }
       loadingQobuzPlaylists = false;
 
-      // Extract playlist tags
-      if (c.playlists_tags?.data?.items) {
-        playlistTags = c.playlists_tags.data.items;
+      // Fetch localized playlist tags from dedicated endpoint
+      if (playlistTags.length === 0) {
+        invoke<PlaylistTag[]>('get_playlist_tags')
+          .then(tags => { playlistTags = tags; })
+          .catch(err => console.error('Failed to fetch playlist tags:', err));
       }
 
       // Extract essential discography (limited)
@@ -1153,19 +1155,21 @@
       {:else if qobuzPlaylists.length > 0}
         <HorizontalScrollRow>
           {#snippet header()}
-            <div class="section-header-group">
-              <h2 class="section-title">{$t('home.qobuzPlaylists')}</h2>
-              {#if onNavigateQobuzPlaylists}
-                <button class="see-all-link" onclick={onNavigateQobuzPlaylists}>{$t('home.seeAll')}<ArrowRight size={14} /></button>
+            <div class="section-header-with-tags">
+              <div class="section-header-group">
+                <h2 class="section-title">{$t('home.qobuzPlaylists')}</h2>
+                {#if onNavigateQobuzPlaylists}
+                  <button class="see-all-link" onclick={onNavigateQobuzPlaylists}>{$t('home.seeAll')}<ArrowRight size={14} /></button>
+                {/if}
+              </div>
+              {#if playlistTags.length > 0}
+                <PlaylistTagFilter
+                  tags={playlistTags}
+                  selectedTag={selectedTagSlug}
+                  onTagChange={handleTagChange}
+                />
               {/if}
             </div>
-            {#if playlistTags.length > 0}
-              <PlaylistTagFilter
-                tags={playlistTags}
-                selectedTag={selectedTagSlug}
-                onTagChange={handleTagChange}
-              />
-            {/if}
           {/snippet}
           {#snippet children()}
             {#if loadingQobuzPlaylists}
@@ -1783,6 +1787,12 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+
+  .section-header-with-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .see-all-link {
