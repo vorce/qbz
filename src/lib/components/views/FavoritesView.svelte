@@ -2096,7 +2096,6 @@
   .favorites-nav {
     position: sticky;
     top: -24px;
-    z-index: 1;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -2228,7 +2227,6 @@
 
   .dropdown-container {
     position: relative;
-    z-index: 1000;
   }
 
   .control-btn {
