@@ -38,28 +38,22 @@ pub fn parse_playlist_id(url: &str) -> Option<String> {
 pub async fn fetch_playlist(
     playlist_id: &str,
 ) -> Result<ImportPlaylist, PlaylistImportError> {
-    match get_app_token().await {
-        Ok(token) => {
-            log::info!("Spotify: obtained API token, fetching via API");
-            match fetch_playlist_with_token(playlist_id, &token).await {
-                Ok(playlist) => {
-                    log::info!("Spotify: API returned {} tracks", playlist.tracks.len());
-                    return Ok(playlist);
-                }
-                Err(e) => {
-                    // Token was valid but API fetch failed — propagate the error
-                    // rather than falling through to embed which caps at ~100 tracks
-                    log::error!("Spotify: API fetch failed: {}", e);
-                    return Err(e);
-                }
+    if let Ok(token) = get_app_token().await {
+        log::info!("Spotify: obtained API token, fetching via API");
+        match fetch_playlist_with_token(playlist_id, &token).await {
+            Ok(playlist) => {
+                log::info!("Spotify: API returned {} tracks", playlist.tracks.len());
+                return Ok(playlist);
+            }
+            Err(e) => {
+                log::warn!("Spotify: API fetch failed ({}), falling back to embed", e);
             }
         }
-        Err(e) => {
-            log::warn!("Spotify: token unavailable ({}), falling back to embed scraping", e);
-        }
+    } else {
+        log::warn!("Spotify: token unavailable, falling back to embed scraping");
     }
 
-    log::info!("Spotify: using embed fallback (limited to ~100 tracks)");
+    log::info!("Spotify: using embed fallback (may be limited to ~100 tracks)");
     fetch_playlist_from_embed(playlist_id).await
 }
 
