@@ -2978,10 +2978,9 @@
 
   /* Back to top floating button */
   .back-to-top {
-    position: sticky;
-    bottom: 24px;
-    float: right;
-    margin-right: 8px;
+    position: fixed;
+    bottom: 114px; /* 104px player + 10px gap */
+    right: 24px;
     width: 40px;
     height: 40px;
     border-radius: 50%;
