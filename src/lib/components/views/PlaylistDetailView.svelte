@@ -651,33 +651,10 @@
           tracks = (fullPlaylist.tracks?.items ?? []).map((track, idx) => mapPlaylistTrack(track, idx));
           tracksLoadedCount = tracks.length;
         } else {
-          // --- Large playlist: progressive loading with placeholders ---
+          // --- Large playlist: progressive loading ---
+          // Spinner stays up until first viewport batch is ready (no placeholder flash).
           console.log(`[Perf] large playlist (${allTrackIds.length} > ${PROGRESSIVE_THRESHOLD}), progressive load`);
 
-          // Create placeholder entries
-          tracks = allTrackIds.map((trackId, idx) => ({
-            id: trackId,
-            number: idx + 1,
-            title: '',
-            duration: '',
-            durationSeconds: 0,
-            addedIndex: idx,
-          }));
-
-          // Show header + placeholders immediately
-          spinnerFading = true;
-          setTimeout(() => {
-            loading = false;
-            spinnerFading = false;
-            requestAnimationFrame(() => {
-              if (scrollContainer) {
-                trackListViewHeight = scrollContainer.clientHeight;
-              }
-              trackListScrollTop = 0;
-            });
-          }, 100);
-
-          // Fetch full track data in batches of 50, 4 concurrent
           const BATCH_SIZE = 50;
           const CONCURRENCY = 4;
           const batches: number[][] = [];
@@ -687,32 +664,75 @@
 
           console.log(`[Perf] progressive: ${batches.length} batches of ${BATCH_SIZE} (+${(performance.now() - _t0).toFixed(1)}ms)`);
 
-          for (let g = 0; g < batches.length; g += CONCURRENCY) {
-            const group = batches.slice(g, g + CONCURRENCY);
-            const groupStartIdx = g * BATCH_SIZE;
+          // Load first group (up to 4×50 = 200 tracks) under the spinner
+          const firstGroup = batches.slice(0, CONCURRENCY);
+          const firstResults = await Promise.all(
+            firstGroup.map(batch =>
+              invoke<PlaylistTrack[]>('get_tracks_batch', { trackIds: batch })
+                .catch(err => {
+                  console.warn('[Perf] batch fetch failed:', err);
+                  return [] as PlaylistTrack[];
+                })
+            )
+          );
 
-            const results = await Promise.all(
-              group.map(batch =>
-                invoke<PlaylistTrack[]>('get_tracks_batch', { trackIds: batch })
-                  .catch(err => {
-                    console.warn('[Perf] batch fetch failed:', err);
-                    return [] as PlaylistTrack[];
-                  })
-              )
-            );
-
-            let offset = groupStartIdx;
-            for (const batchTracks of results) {
-              for (const apiTrack of batchTracks) {
-                if (offset < tracks.length) {
-                  tracks[offset] = mapPlaylistTrack(apiTrack, offset);
-                }
-                offset++;
-              }
+          // Build the full tracks array: real data for first group, placeholders for the rest
+          const firstTracks: DisplayTrack[] = [];
+          for (const batchTracks of firstResults) {
+            for (const apiTrack of batchTracks) {
+              firstTracks.push(mapPlaylistTrack(apiTrack, firstTracks.length));
             }
+          }
 
-            tracksLoadedCount = Math.min(offset, allTrackIds.length);
-            console.log(`[Perf] loaded ${tracksLoadedCount}/${allTrackIds.length} tracks (+${(performance.now() - _t0).toFixed(1)}ms)`);
+          const placeholders: DisplayTrack[] = allTrackIds.slice(firstTracks.length).map((trackId, i) => ({
+            id: trackId,
+            number: firstTracks.length + i + 1,
+            title: '',
+            duration: '',
+            durationSeconds: 0,
+            addedIndex: firstTracks.length + i,
+          }));
+
+          tracks = [...firstTracks, ...placeholders];
+          tracksLoadedCount = firstTracks.length;
+          console.log(`[Perf] first group loaded: ${firstTracks.length}/${allTrackIds.length} tracks (+${(performance.now() - _t0).toFixed(1)}ms)`);
+
+          // NOW dismiss spinner — viewport has real data
+          // (loading=false handled by the finally block)
+
+          // Load remaining batches in background
+          if (batches.length > CONCURRENCY) {
+            const remaining = batches.slice(CONCURRENCY);
+            // Don't await — let it fill in after spinner is gone
+            (async () => {
+              for (let g = 0; g < remaining.length; g += CONCURRENCY) {
+                const group = remaining.slice(g, g + CONCURRENCY);
+                const groupStartIdx = (CONCURRENCY + g) * BATCH_SIZE;
+
+                const results = await Promise.all(
+                  group.map(batch =>
+                    invoke<PlaylistTrack[]>('get_tracks_batch', { trackIds: batch })
+                      .catch(err => {
+                        console.warn('[Perf] batch fetch failed:', err);
+                        return [] as PlaylistTrack[];
+                      })
+                  )
+                );
+
+                let offset = groupStartIdx;
+                for (const batchTracks of results) {
+                  for (const apiTrack of batchTracks) {
+                    if (offset < tracks.length) {
+                      tracks[offset] = mapPlaylistTrack(apiTrack, offset);
+                    }
+                    offset++;
+                  }
+                }
+
+                tracksLoadedCount = Math.min(offset, allTrackIds.length);
+                console.log(`[Perf] loaded ${tracksLoadedCount}/${allTrackIds.length} tracks (+${(performance.now() - _t0).toFixed(1)}ms)`);
+              }
+            })();
           }
         }
       }
