@@ -38,7 +38,10 @@ struct LrclibItem {
     pub synced_lyrics: Option<String>,
 }
 
-/// Fetch lyrics from LRCLIB (GET then search).
+/// Fetch lyrics from LRCLIB (search-first, GET as fallback).
+///
+/// Search returns multiple candidates so we can pick the one with synced
+/// lyrics. GET is only used as fallback when search returns nothing.
 ///
 /// Returns:
 /// - `Ok(Some(data))` — lyrics found
@@ -53,45 +56,29 @@ pub async fn fetch_lrclib(
 
     let mut had_network_error = false;
 
-    // Try direct GET first; network errors fall through to search
-    let mut best = match fetch_lrclib_get(&client, title, artist).await {
-        Ok(item) => item,
+    // Search first — returns multiple candidates, pick_best_match prioritises synced
+    let results = match fetch_lrclib_search(&client, title, artist).await {
+        Ok(items) => items,
         Err(e) => {
-            eprintln!("[Lyrics] LRCLIB GET failed (will try search): {}", e);
+            eprintln!("[Lyrics] LRCLIB search failed (will try GET): {}", e);
             had_network_error = true;
-            None
+            Vec::new()
         }
     };
 
-    // Check if GET result has synced lyrics
-    let get_has_synced = best.as_ref()
-        .and_then(|item| item.synced_lyrics.as_ref())
-        .map(|s| !s.trim().is_empty())
-        .unwrap_or(false);
+    let mut best = pick_best_match(&results, title, artist, duration_secs);
 
-    // If no result OR no synced lyrics, try search for a better match
-    if best.is_none() || !get_has_synced {
-        let results = match fetch_lrclib_search(&client, title, artist).await {
-            Ok(items) => items,
+    // Fall back to exact-match GET only when search yielded nothing
+    if best.is_none() {
+        match fetch_lrclib_get(&client, title, artist).await {
+            Ok(item) => best = item,
             Err(e) => {
-                eprintln!("[Lyrics] LRCLIB search failed: {}", e);
+                eprintln!("[Lyrics] LRCLIB GET fallback failed: {}", e);
                 had_network_error = true;
-                Vec::new()
-            }
-        };
-        if let Some(search_result) = pick_best_match(&results, title, artist, duration_secs) {
-            let search_has_synced = search_result.synced_lyrics.as_ref()
-                .map(|s| !s.trim().is_empty())
-                .unwrap_or(false);
-
-            if search_has_synced || best.is_none() {
-                best = Some(search_result);
             }
         }
     }
 
-    // If we got a result despite errors, return it
-    // If no result AND we had network errors, signal error so caller can retry
     let Some(item) = best else {
         if had_network_error {
             return Err("LRCLIB requests failed due to network errors".to_string());
@@ -209,11 +196,13 @@ async fn fetch_lrclib_search(
     title: &str,
     artist: &str,
 ) -> Result<Vec<LrclibItem>, String> {
-    let query = format!("{} {}", artist, title);
     let response = client
         .get("https://lrclib.net/api/search")
         .header("User-Agent", "QBZ-Nix/1.0 (https://github.com/qbz-nix)")
-        .query(&[("q", &query)])
+        .query(&[
+            ("track_name", title),
+            ("artist_name", artist),
+        ])
         .send()
         .await
         .map_err(|e| format!("LRCLIB search request failed: {}", e))?;
