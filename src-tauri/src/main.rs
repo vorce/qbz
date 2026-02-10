@@ -126,11 +126,10 @@ fn main() {
         // Graphics settings: hardware acceleration opt-in (from Settings > Appearance)
         // Default is OFF — safest for AppImage across heterogeneous hardware.
         // Env var QBZ_HARDWARE_ACCEL=1|0 ALWAYS overrides the DB value (crash recovery).
-        let hw_accel_db = qbz_nix_lib::config::graphics_settings::GraphicsSettingsStore::new()
+        let graphics_db = qbz_nix_lib::config::graphics_settings::GraphicsSettingsStore::new()
             .ok()
-            .and_then(|store| store.get_settings().ok())
-            .map(|s| s.hardware_acceleration)
-            .unwrap_or(false);
+            .and_then(|store| store.get_settings().ok());
+        let hw_accel_db = graphics_db.as_ref().map(|s| s.hardware_acceleration).unwrap_or(false);
         let hardware_accel = match std::env::var("QBZ_HARDWARE_ACCEL").as_deref() {
             Ok("1") => {
                 qbz_nix_lib::logging::log_startup("[QBZ] Env override: QBZ_HARDWARE_ACCEL=1 (GPU rendering forced on)");
@@ -159,7 +158,20 @@ fn main() {
         // User overrides
         let force_dmabuf = std::env::var("QBZ_FORCE_DMABUF").as_deref() == Ok("1");
         let disable_dmabuf = std::env::var("QBZ_DISABLE_DMABUF").as_deref() == Ok("1");
-        let force_x11 = std::env::var("QBZ_FORCE_X11").as_deref() == Ok("1");
+
+        // Force X11: persistent setting from DB, env var overrides (crash recovery)
+        let force_x11_db = graphics_db.as_ref().map(|s| s.force_x11).unwrap_or(false);
+        let force_x11 = match std::env::var("QBZ_FORCE_X11").as_deref() {
+            Ok("1") => {
+                qbz_nix_lib::logging::log_startup("[QBZ] Env override: QBZ_FORCE_X11=1");
+                true
+            }
+            Ok("0") => {
+                qbz_nix_lib::logging::log_startup("[QBZ] Env override: QBZ_FORCE_X11=0");
+                false
+            }
+            _ => force_x11_db,
+        };
 
         // Diagnostic logging (display server logged after GDK backend selection below)
         if has_nvidia {
