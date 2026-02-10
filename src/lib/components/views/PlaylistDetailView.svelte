@@ -257,7 +257,6 @@
   let trackListEl: HTMLDivElement | null = $state(null);
   let trackListScrollTop = $state(0); // scroll position relative to track list top
   let trackListViewHeight = $state(800); // visible height of scroll container
-  let containerScrollTop = $state(0); // raw scroll position of .playlist-detail
 
   // Offline mode state
   let offlineStatus = $state<OfflineStatus>(getOfflineStatus());
@@ -1328,7 +1327,6 @@
   // Handle scroll from the parent .playlist-detail container
   function handlePlaylistScroll(e: Event) {
     const container = e.target as HTMLElement;
-    containerScrollTop = container.scrollTop;
     // Save scroll position for navigation restoration
     saveScrollPosition('playlist', container.scrollTop);
     // Update virtual scroll state relative to the track list position
@@ -1338,12 +1336,6 @@
       trackListViewHeight = container.clientHeight;
     }
   }
-
-  function scrollToTop() {
-    scrollContainer?.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  const showBackToTop = $derived(containerScrollTop > 600 && displayTracks.length > 100);
 
   const sortOptions: { field: SortField; label: string }[] = [
     { field: 'default', label: 'Default' },
@@ -2224,11 +2216,6 @@
     </ViewTransition>
   {/if}
 
-  {#if showBackToTop}
-    <button class="back-to-top" onclick={scrollToTop} title="Back to top">
-      <ChevronUp size={20} />
-    </button>
-  {/if}
 </div>
 </ViewTransition>
 
@@ -2985,29 +2972,5 @@
     height: 64px;
   }
 
-  /* Back to top floating button */
-  .back-to-top {
-    position: fixed;
-    bottom: 114px; /* 104px player + 10px gap */
-    right: 24px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--bg-secondary);
-    border: 1px solid var(--alpha-12);
-    color: var(--text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: opacity 200ms ease, background 150ms ease, color 150ms ease;
-    z-index: 10;
-  }
-
-  .back-to-top:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
 
 </style>

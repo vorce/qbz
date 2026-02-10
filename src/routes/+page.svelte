@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from 'svelte';
+  import { ChevronUp } from 'lucide-svelte';
   import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import { listen, emitTo, type UnlistenFn } from '@tauri-apps/api/event';
   import { writeText } from '@tauri-apps/plugin-clipboard-manager';
@@ -382,6 +383,36 @@
   // Sequential modal queue: Flatpak → What's new → Update available
   let pendingWhatsNewRelease = $state<ReleaseInfo | null>(null);
   let pendingUpdateRelease = $state<ReleaseInfo | null>(null);
+
+  // Global back-to-top button
+  let mainContentEl: HTMLElement | null = $state(null);
+  let globalScrollTop = $state(0);
+  let activeScrollTarget: HTMLElement | null = null;
+  const showGlobalBackToTop = $derived(globalScrollTop > 800);
+
+  $effect(() => {
+    if (!mainContentEl) return;
+    const handler = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target !== mainContentEl) {
+        globalScrollTop = target.scrollTop;
+        activeScrollTarget = target;
+      }
+    };
+    mainContentEl.addEventListener('scroll', handler, true);
+    return () => mainContentEl!.removeEventListener('scroll', handler, true);
+  });
+
+  // Reset scroll state on view change
+  $effect(() => {
+    void activeView;
+    globalScrollTop = 0;
+    activeScrollTarget = null;
+  });
+
+  function globalScrollToTop() {
+    activeScrollTarget?.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   // Album, Artist and Label data are fetched, so kept local
   let selectedAlbum = $state<AlbumDetail | null>(null);
@@ -3038,7 +3069,7 @@
     <!-- Content Area (main + lyrics sidebar) -->
     <div class="content-area">
     <!-- Main Content -->
-    <main class="main-content">
+    <main class="main-content" bind:this={mainContentEl}>
       {#if activeView === 'home'}
         {#if offlineStatus.isOffline}
           <OfflinePlaceholder
@@ -3366,6 +3397,12 @@
         />
       {/if}
     </main>
+
+    {#if showGlobalBackToTop}
+      <button class="back-to-top-global" onclick={globalScrollToTop} title="Back to top">
+        <ChevronUp size={20} />
+      </button>
+    {/if}
 
     <!-- Lyrics Sidebar -->
     {#if lyricsSidebarVisible}
@@ -3745,6 +3782,31 @@
 
   .view-error-back:hover {
     background: var(--bg-hover);
+  }
+
+  /* Global back-to-top button */
+  .back-to-top-global {
+    position: fixed;
+    bottom: 114px; /* 104px player + 10px gap */
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--alpha-12);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: background 150ms ease, color 150ms ease;
+    z-index: 50;
+  }
+
+  .back-to-top-global:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
   }
 
 </style>
