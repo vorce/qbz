@@ -2,7 +2,7 @@
 
 use tauri::State;
 
-use crate::api::{endpoints, endpoints::paths, Album, Artist, ArtistAlbums, DiscoverAlbum, DiscoverData, DiscoverResponse, DiscoverPlaylistsResponse, LabelDetail, PageArtistResponse, Playlist, ReleasesGridResponse, SearchResultsPage, Track, TracksContainer};
+use crate::api::{endpoints, endpoints::paths, Album, Artist, ArtistAlbums, DiscoverAlbum, DiscoverData, DiscoverResponse, DiscoverPlaylistsResponse, LabelDetail, PageArtistResponse, Playlist, PlaylistTag, ReleasesGridResponse, SearchResultsPage, Track, TracksContainer};
 use crate::api_cache::ApiCacheState;
 use crate::artist_blacklist::BlacklistState;
 use crate::AppState;
@@ -690,6 +690,18 @@ pub async fn get_discover_playlists(
     let client = state.client.read().await;
     client
         .get_discover_playlists(tag, genre_ids, limit, offset)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get playlist tags (localized names from /playlist/getTags)
+#[tauri::command]
+pub async fn get_playlist_tags(
+    state: State<'_, AppState>,
+) -> Result<Vec<PlaylistTag>, String> {
+    let client = state.client.read().await;
+    client
+        .get_playlist_tags()
         .await
         .map_err(|e| e.to_string())
 }

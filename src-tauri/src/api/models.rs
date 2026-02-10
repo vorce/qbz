@@ -449,6 +449,22 @@ pub struct PlaylistTag {
     pub name: String,
 }
 
+/// Raw playlist tag from /playlist/getTags (has localized name_json)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RawPlaylistTag {
+    pub slug: String,
+    pub name_json: String,
+    pub position: Option<String>,
+    pub is_discover: Option<String>,
+    pub featured_tag_id: Option<String>,
+}
+
+/// Response from /playlist/getTags
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistTagsResponse {
+    pub tags: Vec<RawPlaylistTag>,
+}
+
 /// Response from discover/playlists endpoint
 /// Note: This endpoint returns items directly at root level (not wrapped in "playlists")
 #[derive(Debug, Clone, Serialize, Deserialize)]

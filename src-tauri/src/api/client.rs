@@ -644,6 +644,50 @@ impl QobuzClient {
         Ok(response)
     }
 
+    /// Get playlist tags with localized names
+    pub async fn get_playlist_tags(&self) -> Result<Vec<PlaylistTag>> {
+        let url = endpoints::build_url(paths::PLAYLIST_GET_TAGS);
+
+        let http_response = self
+            .http
+            .get(&url)
+            .headers(self.authenticated_headers().await?)
+            .send()
+            .await?;
+        log::info!("[API] get_playlist_tags status={}", http_response.status());
+
+        let raw: PlaylistTagsResponse = http_response.json().await?;
+
+        // Get current locale (e.g., "en", "es", "fr", "de")
+        let locale = self.locale().await;
+        let lang = locale.split('-').next().unwrap_or("en");
+
+        // Convert raw tags to PlaylistTag with localized name
+        let tags: Vec<PlaylistTag> = raw
+            .tags
+            .into_iter()
+            .filter(|tag| tag.is_discover.as_deref() == Some("true"))
+            .filter_map(|tag| {
+                // Parse name_json to get localized name
+                let name_map: serde_json::Value =
+                    serde_json::from_str(&tag.name_json).ok()?;
+                let name = name_map
+                    .get(lang)
+                    .or_else(|| name_map.get("en"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())?;
+                let id = tag.featured_tag_id
+                    .as_ref()
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(0);
+                Some(PlaylistTag { id, slug: tag.slug, name })
+            })
+            .collect();
+
+        log::debug!("[API] get_playlist_tags: {} tags", tags.len());
+        Ok(tags)
+    }
+
     /// Get track by ID
     pub async fn get_track(&self, track_id: u64) -> Result<Track> {
         let url = endpoints::build_url(paths::TRACK_GET);
