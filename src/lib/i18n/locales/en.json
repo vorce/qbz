@@ -282,7 +282,9 @@
       "addAll": "Add all tracks",
       "addNew": "Add only new tracks",
       "adding": "Adding..."
-    }
+    },
+    "suggestSongs": "Suggest songs for this playlist",
+    "suggestionsLargePlaylist": "This playlist has many tracks. Tap the button to generate suggestions."
   },
   "sort": {
     "nameAZ": "Name (A-Z)",

@@ -13,11 +13,14 @@
     formatDuration
   } from '$lib/services/playlistSuggestionsService';
   import TrackInfoModal from './TrackInfoModal.svelte';
+  import { t } from '$lib/i18n';
 
   interface Props {
     playlistId: number;
     artists: PlaylistArtist[];
     excludeTrackIds: number[];
+    /** Number of tracks in the playlist (used to gate auto-launch) */
+    trackCount?: number;
     /** Existing tracks in playlist for title+artist deduplication */
     existingTracks?: Array<{ title: string; artist?: string }>;
     /** Callback when track is added - receives full track data for local state update */
@@ -32,6 +35,7 @@
     playlistId,
     artists,
     excludeTrackIds,
+    trackCount = 0,
     existingTracks = [],
     onAddTrack,
     onGoToAlbum,
@@ -39,6 +43,9 @@
     onPreviewTrack,
     showReasons = false
   }: Props = $props();
+
+  /** Large playlists (>500 tracks) require manual launch */
+  const MANUAL_LAUNCH_THRESHOLD = 500;
 
   /**
    * Normalize a string for comparison (lowercase, trim, remove extra whitespace)
@@ -151,6 +158,7 @@
   const canLoadMoreVariety = $derived(hasLoadedOnce && pool.length >= EXPANDED_POOL && pool.length < MAX_POOL && !loadingMore);
   const isEmpty = $derived(filteredPool.length === 0 && !loading && hasLoadedOnce);
   const showVarietyPrompt = $derived(completedCycles >= 1 && canLoadMoreVariety);
+  const needsManualLaunch = $derived(trackCount > MANUAL_LAUNCH_THRESHOLD && !hasLoadedOnce && !loading);
 
   // Track the last playlist we loaded for
   let lastLoadedPlaylistId = $state<number | null>(null);
@@ -161,20 +169,24 @@
     console.log(`[${ts}] [Suggestions]`, ...args);
   }
 
-  // Load suggestions when playlist/artists change
+  // Load suggestions when playlist/artists change (auto-launch only for small playlists)
   $effect(() => {
     const artistCount = artists.length;
     const currentPlaylistId = playlistId;
 
     // Only load if we have artists and haven't loaded for this playlist yet
     if (artistCount > 0 && currentPlaylistId !== lastLoadedPlaylistId && !loading) {
-      log('Effect triggered, playlist:', currentPlaylistId, 'artists:', artistCount);
+      log('Effect triggered, playlist:', currentPlaylistId, 'artists:', artistCount, 'trackCount:', trackCount);
       lastLoadedPlaylistId = currentPlaylistId;
       hasLoadedOnce = false;
       pool = [];
       completedCycles = 0;
       lastAddedAt = 0;
-      void loadSuggestions(false);
+
+      // Large playlists require manual launch
+      if (trackCount <= MANUAL_LAUNCH_THRESHOLD) {
+        void loadSuggestions(false);
+      }
     }
   });
 
@@ -347,25 +359,35 @@
   onArtistClick={onGoToArtist}
 />
 
-{#if artists.length > 0 && !isEmpty}
+{#if artists.length > 0 && (!isEmpty || needsManualLaunch)}
   <div class="suggestions-section" id="suggestions-anchor">
     <div class="suggestions-header">
       <div class="header-left">
         <Sparkles size={18} class="sparkle-icon" />
         <h3>Suggested songs</h3>
       </div>
-      <button
-        class="refresh-btn"
-        class:spinning={loading || loadingMore}
-        onclick={handleRefresh}
-        disabled={loading || loadingMore}
-        title={hasMorePages ? 'Show more' : canLoadMore ? 'Load more suggestions' : 'Refresh suggestions'}
-      >
-        <RefreshCw size={16} />
-      </button>
+      {#if !needsManualLaunch}
+        <button
+          class="refresh-btn"
+          class:spinning={loading || loadingMore}
+          onclick={handleRefresh}
+          disabled={loading || loadingMore}
+          title={hasMorePages ? 'Show more' : canLoadMore ? 'Load more suggestions' : 'Refresh suggestions'}
+        >
+          <RefreshCw size={16} />
+        </button>
+      {/if}
     </div>
 
-    {#if loading && pool.length === 0}
+    {#if needsManualLaunch}
+      <div class="manual-launch">
+        <p class="manual-launch-hint">{$t('playlist.suggestionsLargePlaylist')}</p>
+        <button class="manual-launch-btn" onclick={() => loadSuggestions(false)}>
+          <Sparkles size={16} />
+          {$t('playlist.suggestSongs')}
+        </button>
+      </div>
+    {:else if loading && pool.length === 0}
       <div class="loading-state">
         <div class="spinner"></div>
         <p>Finding similar artists...</p>
@@ -799,5 +821,40 @@
     border-top-color: currentColor;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
+  }
+
+  .manual-launch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 16px;
+  }
+
+  .manual-launch-hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    margin: 0;
+  }
+
+  .manual-launch-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--alpha-8);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease;
+  }
+
+  .manual-launch-btn:hover {
+    background: var(--alpha-12);
+    border-color: var(--alpha-20);
   }
 </style>

@@ -282,7 +282,9 @@
       "addAll": "Agregar todas",
       "addNew": "Agregar solo nuevas",
       "adding": "Agregando..."
-    }
+    },
+    "suggestSongs": "Sugerir canciones para esta lista",
+    "suggestionsLargePlaylist": "Esta lista tiene muchas pistas. Presiona el botón para generar sugerencias."
   },
   "sort": {
     "nameAZ": "Nombre (A-Z)",

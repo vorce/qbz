@@ -1914,12 +1914,13 @@
       {/if}
     </div>
 
-    <!-- Playlist Suggestions (only for owned playlists) -->
-    {#if playlist && !searchQuery && playlistArtists.length > 0 && isOwnPlaylist}
+    <!-- Playlist Suggestions (only for owned playlists under Qobuz 2000-track limit) -->
+    {#if playlist && !searchQuery && playlistArtists.length > 0 && isOwnPlaylist && (playlist.tracks_count ?? 0) < 2000}
       <PlaylistSuggestions
         playlistId={playlistId}
         artists={playlistArtists}
         excludeTrackIds={excludeTrackIds}
+        trackCount={playlist.tracks_count ?? 0}
         existingTracks={tracks.filter(trk => !trk.isLocal).map(trk => ({ title: trk.title, artist: trk.artist }))}
         onAddTrack={handleAddSuggestedTrack}
         onGoToAlbum={onTrackGoToAlbum}
