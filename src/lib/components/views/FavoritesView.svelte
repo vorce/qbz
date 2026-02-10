@@ -2096,7 +2096,7 @@
   .favorites-nav {
     position: sticky;
     top: -24px;
-    z-index: 4;
+    z-index: 1;
     display: flex;
     justify-content: space-between;
     align-items: center;
