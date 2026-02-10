@@ -57,6 +57,20 @@
     tracks?: { items: PlaylistTrack[]; total: number };
   }
 
+  interface PlaylistWithTrackIds {
+    id: number;
+    name: string;
+    description?: string;
+    owner: { id: number; name: string };
+    images?: string[];
+    tracks_count: number;
+    duration: number;
+    is_public: boolean;
+    track_ids: number[];
+    images150?: string[];
+    images300?: string[];
+  }
+
   interface DisplayTrack {
     id: number;
     number: number;
@@ -234,6 +248,7 @@
   let loading = $state(true);
   let spinnerFading = $state(false);
   let error = $state<string | null>(null);
+  let tracksLoadedCount = $state(0); // Progressive loading: how many tracks have full data
   let scrollContainer: HTMLDivElement | null = $state(null);
 
   // Virtual scrolling for track list
@@ -523,11 +538,43 @@
     }
   }
 
+  /** Convert a raw PlaylistTrack from the API into a DisplayTrack */
+  function mapPlaylistTrack(track: PlaylistTrack, idx: number): DisplayTrack {
+    return {
+      id: track.id,
+      number: idx + 1,
+      title: track.title,
+      artist: track.performer?.name,
+      album: track.album?.title,
+      albumArt: track.album?.image?.large || track.album?.image?.thumbnail || track.album?.image?.small,
+      albumId: track.album?.id,
+      artistId: track.performer?.id,
+      duration: formatDuration(track.duration),
+      durationSeconds: track.duration,
+      hires: track.hires,
+      bitDepth: track.maximum_bit_depth,
+      samplingRate: track.maximum_sampling_rate,
+      isrc: track.isrc,
+      playlistTrackId: track.playlist_track_id,
+      label: track.album?.label?.name,
+      addedIndex: idx,
+      streamable: track.streamable,
+    };
+  }
+
+  /**
+   * Progressive playlist loading:
+   * Phase 1: get_playlist_track_ids → metadata + ordered track ID array (instant, ~50KB)
+   * Phase 2: get_tracks_batch × N → full track details in batches of 50
+   *
+   * For pending playlists (negative ID), the old single-call path is kept.
+   */
   async function loadPlaylist() {
     const _t0 = performance.now();
     console.log(`[Perf] loadPlaylist() START`);
     loading = true;
     error = null;
+    tracksLoadedCount = 0;
     try {
       // Check if this is a pending playlist (negative ID)
       if (playlistId < 0) {
@@ -560,24 +607,8 @@
               trackIds: pending.trackIds
             });
 
-            tracks = qobuzTracks.map((t, idx) => ({
-              id: t.id,
-              number: idx + 1,
-              title: t.title,
-              artist: t.performer?.name,
-              album: t.album?.title,
-              albumArt: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small,
-              albumId: t.album?.id,
-              artistId: t.performer?.id,
-              duration: formatDuration(t.duration),
-              durationSeconds: t.duration,
-              hires: t.hires,
-              bitDepth: t.maximum_bit_depth,
-              samplingRate: t.maximum_sampling_rate,
-              isrc: t.isrc,
-              label: t.album?.label?.name,
-              addedIndex: idx,
-            }));
+            tracks = qobuzTracks.map((track, idx) => mapPlaylistTrack(track, idx));
+            tracksLoadedCount = tracks.length;
 
             // Update duration
             playlist.duration = qobuzTracks.reduce((sum, track) => sum + track.duration, 0);
@@ -589,35 +620,88 @@
           tracks = [];
         }
       } else {
-        // Regular playlist - use existing command
-        console.log(`[Perf] invoke get_playlist START (+${(performance.now() - _t0).toFixed(1)}ms)`);
-        const result = await invoke<Playlist>('get_playlist', { playlistId });
-        console.log(`[Perf] invoke get_playlist DONE (+${(performance.now() - _t0).toFixed(1)}ms) — ${result.tracks?.items?.length ?? 0} items from API`);
-        playlist = result;
+        // === Progressive loading for regular playlists ===
 
-        if (result.tracks?.items) {
-          const mapStart = performance.now();
-          tracks = result.tracks.items.map((t, idx) => ({
-            id: t.id,
-            number: idx + 1,
-            title: t.title,
-            artist: t.performer?.name,
-            album: t.album?.title,
-            albumArt: t.album?.image?.large || t.album?.image?.thumbnail || t.album?.image?.small,
-            albumId: t.album?.id,
-            artistId: t.performer?.id,
-            duration: formatDuration(t.duration),
-            durationSeconds: t.duration,
-            hires: t.hires,
-            bitDepth: t.maximum_bit_depth,
-            samplingRate: t.maximum_sampling_rate,
-            isrc: t.isrc,
-            playlistTrackId: t.playlist_track_id,
-            label: t.album?.label?.name,
-            addedIndex: idx,
-            streamable: t.streamable,
-          }));
-          console.log(`[Perf] tracks.map() ${tracks.length} items: ${(performance.now() - mapStart).toFixed(1)}ms`);
+        // Phase 1: Get metadata + track IDs (lightweight, ~50KB even for 2000 tracks)
+        console.log(`[Perf] invoke get_playlist_track_ids START (+${(performance.now() - _t0).toFixed(1)}ms)`);
+        const meta = await invoke<PlaylistWithTrackIds>('get_playlist_track_ids', { playlistId });
+        console.log(`[Perf] invoke get_playlist_track_ids DONE (+${(performance.now() - _t0).toFixed(1)}ms) — ${meta.track_ids.length} IDs`);
+
+        // Set playlist metadata immediately (header renders instantly)
+        playlist = {
+          id: meta.id,
+          name: meta.name,
+          description: meta.description || undefined,
+          owner: meta.owner,
+          images: meta.images300 ?? meta.images150 ?? meta.images,
+          tracks_count: meta.tracks_count,
+          duration: meta.duration,
+          is_public: meta.is_public,
+        };
+
+        const allTrackIds = meta.track_ids;
+
+        // Create placeholder DisplayTrack entries (minimal objects, low proxy cost)
+        tracks = allTrackIds.map((trackId, idx) => ({
+          id: trackId,
+          number: idx + 1,
+          title: '',  // Empty title = placeholder
+          duration: '',
+          durationSeconds: 0,
+          addedIndex: idx,
+        }));
+
+        // Show header + placeholders immediately (hide spinner before Phase 2)
+        spinnerFading = true;
+        setTimeout(() => {
+          loading = false;
+          spinnerFading = false;
+          requestAnimationFrame(() => {
+            if (scrollContainer) {
+              trackListViewHeight = scrollContainer.clientHeight;
+            }
+            trackListScrollTop = 0;
+          });
+        }, 100);
+
+        // Phase 2: Fetch full track data in batches of 50, 4 concurrent
+        const BATCH_SIZE = 50;
+        const CONCURRENCY = 4;
+        const batches: number[][] = [];
+        for (let i = 0; i < allTrackIds.length; i += BATCH_SIZE) {
+          batches.push(allTrackIds.slice(i, i + BATCH_SIZE));
+        }
+
+        console.log(`[Perf] progressive load: ${batches.length} batches of ${BATCH_SIZE} (+${(performance.now() - _t0).toFixed(1)}ms)`);
+
+        // Process batches in groups of CONCURRENCY
+        for (let g = 0; g < batches.length; g += CONCURRENCY) {
+          const group = batches.slice(g, g + CONCURRENCY);
+          const groupStartIdx = g * BATCH_SIZE;
+
+          const results = await Promise.all(
+            group.map(batch =>
+              invoke<PlaylistTrack[]>('get_tracks_batch', { trackIds: batch })
+                .catch(err => {
+                  console.warn('[Perf] batch fetch failed:', err);
+                  return [] as PlaylistTrack[];
+                })
+            )
+          );
+
+          // Merge results into tracks array (in-place update by index)
+          let offset = groupStartIdx;
+          for (const batchTracks of results) {
+            for (const apiTrack of batchTracks) {
+              if (offset < tracks.length) {
+                tracks[offset] = mapPlaylistTrack(apiTrack, offset);
+              }
+              offset++;
+            }
+          }
+
+          tracksLoadedCount = Math.min(offset, allTrackIds.length);
+          console.log(`[Perf] loaded ${tracksLoadedCount}/${allTrackIds.length} tracks (+${(performance.now() - _t0).toFixed(1)}ms)`);
         }
       }
     } catch (err) {
@@ -626,24 +710,28 @@
     } finally {
       console.log(`[Perf] loadPlaylist() try/catch done (+${(performance.now() - _t0).toFixed(1)}ms)`);
       if (playlist) {
-        console.log(`[Perf] "${playlist.name}" — ${tracks.length} tracks`);
+        console.log(`[Perf] "${playlist.name}" — ${tracks.length} tracks (${tracksLoadedCount} loaded)`);
       }
-      spinnerFading = true;
-      console.log(`[Perf] spinnerFading=true, scheduling loading=false in 200ms (+${(performance.now() - _t0).toFixed(1)}ms)`);
-      const finalT0 = _t0;
-      setTimeout(() => {
-        console.log(`[Perf] loading=false NOW (+${(performance.now() - finalT0).toFixed(1)}ms)`);
-        loading = false;
-        spinnerFading = false;
-        // After content mounts, ensure virtual scroll has correct dimensions
-        requestAnimationFrame(() => {
-          console.log(`[Perf] rAF after mount (+${(performance.now() - finalT0).toFixed(1)}ms) — RENDER COMPLETE`);
-          if (scrollContainer) {
-            trackListViewHeight = scrollContainer.clientHeight;
-          }
-          trackListScrollTop = 0;
-        });
-      }, 200);
+      // For progressive loading (positive ID), loading was already set to false
+      // after Phase 1. Only handle the spinner for pending playlists and errors.
+      if (loading) {
+        spinnerFading = true;
+        console.log(`[Perf] spinnerFading=true, scheduling loading=false in 200ms (+${(performance.now() - _t0).toFixed(1)}ms)`);
+        const finalT0 = _t0;
+        setTimeout(() => {
+          console.log(`[Perf] loading=false NOW (+${(performance.now() - finalT0).toFixed(1)}ms)`);
+          loading = false;
+          spinnerFading = false;
+          // After content mounts, ensure virtual scroll has correct dimensions
+          requestAnimationFrame(() => {
+            console.log(`[Perf] rAF after mount (+${(performance.now() - finalT0).toFixed(1)}ms) — RENDER COMPLETE`);
+            if (scrollContainer) {
+              trackListViewHeight = scrollContainer.clientHeight;
+            }
+            trackListScrollTop = 0;
+          });
+        }, 200);
+      }
     }
   }
 
@@ -1376,10 +1464,18 @@
         await loadLocalTracks();
         notifyParentOfCounts();
       } else if (track.playlistTrackId) {
-        // Remove Qobuz track using playlist_track_id
+        // Remove Qobuz track using playlist_track_id (available from full playlist load)
         await invoke('remove_tracks_from_playlist', {
           playlistId,
           playlistTrackIds: [track.playlistTrackId]
+        });
+        await loadPlaylist();
+        notifyParentOfCounts();
+      } else {
+        // Progressive loading path: no playlist_track_id available, resolve by track ID
+        await invoke('remove_tracks_from_playlist', {
+          playlistId,
+          trackIds: [track.id]
         });
         await loadPlaylist();
         notifyParentOfCounts();
@@ -1414,8 +1510,8 @@
   }
 
   async function handleTrackReplacement(newTrack: ReplacementTrack) {
-    if (!trackToReplace || !trackToReplace.playlistTrackId) {
-      console.error('No track to replace or missing playlist_track_id');
+    if (!trackToReplace) {
+      console.error('No track to replace');
       return;
     }
 
@@ -1423,11 +1519,18 @@
       // Get the current position of the track being replaced
       const currentIndex = displayTracks.findIndex(trk => trk.id === trackToReplace!.id);
 
-      // Remove the old track
-      await invoke('remove_tracks_from_playlist', {
-        playlistId,
-        playlistTrackIds: [trackToReplace.playlistTrackId]
-      });
+      // Remove the old track (supports both playlist_track_id and track_id resolution)
+      if (trackToReplace.playlistTrackId) {
+        await invoke('remove_tracks_from_playlist', {
+          playlistId,
+          playlistTrackIds: [trackToReplace.playlistTrackId]
+        });
+      } else {
+        await invoke('remove_tracks_from_playlist', {
+          playlistId,
+          trackIds: [trackToReplace.id]
+        });
+      }
 
       // Add the new track
       await invoke('add_tracks_to_playlist', {
@@ -1765,10 +1868,14 @@
           </div>
         {:else}
           <div class="collage-wrapper">
-            <PlaylistCollage
-              artworks={tracks.slice(0, 4).map(trk => trk.albumArt).filter((a): a is string => !!a)}
-              size={200}
-            />
+            {#if playlist.images && playlist.images.length > 0}
+              <img class="playlist-api-image" src={playlist.images[0]} alt={playlist.name} width="200" height="200" />
+            {:else}
+              <PlaylistCollage
+                artworks={tracks.slice(0, 4).map(trk => trk.albumArt).filter((a): a is string => !!a)}
+                size={200}
+              />
+            {/if}
             <div class="artwork-overlay">
               <button class="artwork-btn" onclick={selectCustomArtwork} title="Set custom artwork">
                 <ImagePlus size={24} />
@@ -1933,6 +2040,21 @@
       <div class="virtual-track-content" style="height: {trackListTotalHeight}px;">
         {#each visibleDisplayTracks as track, loopIdx (`${visibleTrackRange.start + loopIdx}-${track.id}-${downloadStateVersion}`)}
           {@const idx = visibleTrackRange.start + loopIdx}
+          {@const isPlaceholder = track.title === ''}
+          {#if isPlaceholder}
+            <div
+              class="track-row-wrapper virtual-track-item placeholder-track"
+              style="transform: translateY({idx * TRACK_ROW_HEIGHT}px); height: {TRACK_ROW_HEIGHT}px;"
+            >
+              <div class="placeholder-number">{idx + 1}</div>
+              <div class="placeholder-bars">
+                <div class="placeholder-bar title-bar"></div>
+                <div class="placeholder-bar artist-bar"></div>
+              </div>
+              <div class="placeholder-bar album-bar"></div>
+              <div class="placeholder-bar duration-bar"></div>
+            </div>
+          {:else}
           {@const downloadInfo = track.isLocal ? { status: 'none' as const, progress: 0 } : (getTrackOfflineCacheStatus?.(track.id) ?? { status: 'none' as const, progress: 0 })}
           {@const isActiveTrack = (
             track.isLocal
@@ -2040,6 +2162,7 @@
               } : {}}
             />
           </div>
+          {/if}
         {/each}
       </div>
 
@@ -2822,6 +2945,65 @@
   .suggestions-manual-btn:hover {
     background: var(--alpha-12);
     border-color: var(--alpha-20);
+  }
+
+  /* Playlist API image (pre-made collage from Qobuz) */
+  .playlist-api-image {
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Placeholder track rows (progressive loading) */
+  .placeholder-track {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    position: absolute;
+    left: 0;
+    right: 0;
+  }
+
+  .placeholder-number {
+    width: 32px;
+    text-align: right;
+    font-size: 13px;
+    color: var(--text-tertiary, rgba(255, 255, 255, 0.3));
+    flex-shrink: 0;
+  }
+
+  .placeholder-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .placeholder-bar {
+    height: 10px;
+    border-radius: 4px;
+    background: var(--alpha-08, rgba(255, 255, 255, 0.08));
+  }
+
+  .placeholder-bar.title-bar {
+    width: 45%;
+  }
+
+  .placeholder-bar.artist-bar {
+    width: 30%;
+    height: 8px;
+  }
+
+  .placeholder-bar.album-bar {
+    width: 120px;
+    flex-shrink: 0;
+  }
+
+  .placeholder-bar.duration-bar {
+    width: 40px;
+    flex-shrink: 0;
   }
 
 </style>

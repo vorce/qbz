@@ -746,6 +746,54 @@ impl QobuzClient {
         Ok(serde_json::from_value(response)?)
     }
 
+    /// Get playlist metadata + ordered track IDs (lightweight, no full Track objects).
+    /// Uses `playlist/get?extra=track_ids` which returns the playlist with a flat
+    /// array of track IDs instead of nested Track objects.
+    pub async fn get_playlist_track_ids(&self, playlist_id: u64) -> Result<PlaylistWithTrackIds> {
+        let url = endpoints::build_url(paths::PLAYLIST_GET);
+        let http_response = self
+            .http
+            .get(&url)
+            .headers(self.api_headers().await?)
+            .query(&[
+                ("playlist_id", playlist_id.to_string()),
+                ("extra", "track_ids".to_string()),
+            ])
+            .send()
+            .await?;
+        log::debug!("[API] get_playlist_track_ids({}) status={}", playlist_id, http_response.status());
+        let response: Value = http_response.json().await?;
+        let result: PlaylistWithTrackIds = serde_json::from_value(response)?;
+        log::info!(
+            "[API] get_playlist_track_ids({}) — {} track IDs",
+            playlist_id,
+            result.track_ids.len()
+        );
+        Ok(result)
+    }
+
+    /// Fetch full Track objects for a batch of track IDs (max 50 per call).
+    /// Uses the `track/getList` endpoint.
+    pub async fn get_tracks_batch(&self, track_ids: &[u64]) -> Result<Vec<Track>> {
+        let url = endpoints::build_url(paths::TRACK_GET_LIST);
+        let ids_csv = track_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
+        let http_response = self
+            .http
+            .get(&url)
+            .headers(self.api_headers().await?)
+            .query(&[("track_ids", ids_csv.as_str())])
+            .send()
+            .await?;
+        log::debug!("[API] get_tracks_batch({} IDs) status={}", track_ids.len(), http_response.status());
+        let value: Value = http_response.json().await?;
+        let items = value
+            .get("tracks")
+            .and_then(|t| t.get("items"))
+            .ok_or_else(|| ApiError::ApiResponse("Missing tracks.items in getList response".to_string()))?;
+        let tracks: Vec<Track> = serde_json::from_value(items.clone())?;
+        Ok(tracks)
+    }
+
     /// Get playlist by ID (paginates automatically to fetch all tracks)
     ///
     /// After the first page, remaining pages are fetched concurrently

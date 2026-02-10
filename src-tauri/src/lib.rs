@@ -565,6 +565,8 @@ pub fn run() {
             // Playlist commands
             commands::get_user_playlists,
             commands::get_playlist,
+            commands::get_playlist_track_ids,
+            commands::get_tracks_batch,
             commands::check_playlist_duplicates,
             commands::search_playlists,
             commands::create_playlist,

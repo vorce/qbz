@@ -3,7 +3,7 @@
 use serde::Serialize;
 use tauri::State;
 
-use crate::api::models::{Playlist, PlaylistDuplicateResult, SearchResultsPage, Track};
+use crate::api::models::{Playlist, PlaylistDuplicateResult, PlaylistWithTrackIds, SearchResultsPage, Track};
 use crate::api::performers::{parse_performers, Performer};
 use crate::AppState;
 
@@ -55,6 +55,47 @@ pub async fn get_playlist(
     );
 
     result
+}
+
+/// Get playlist metadata + ordered track IDs (lightweight, no full track data)
+#[tauri::command]
+pub async fn get_playlist_track_ids(
+    playlist_id: u64,
+    state: State<'_, AppState>,
+) -> Result<PlaylistWithTrackIds, String> {
+    let cmd_start = std::time::Instant::now();
+    log::debug!("Command: get_playlist_track_ids {}", playlist_id);
+
+    let client = state.client.lock().await;
+    let result = client
+        .get_playlist_track_ids(playlist_id)
+        .await
+        .map_err(|e| format!("Failed to get playlist track IDs: {}", e));
+
+    let elapsed = cmd_start.elapsed();
+    log::info!(
+        "Command: get_playlist_track_ids {} — {:.1}ms, {} IDs",
+        playlist_id,
+        elapsed.as_secs_f64() * 1000.0,
+        result.as_ref().map(|p| p.track_ids.len()).unwrap_or(0)
+    );
+
+    result
+}
+
+/// Fetch full track details for a batch of track IDs (max 50)
+#[tauri::command]
+pub async fn get_tracks_batch(
+    track_ids: Vec<u64>,
+    state: State<'_, AppState>,
+) -> Result<Vec<Track>, String> {
+    log::debug!("Command: get_tracks_batch ({} IDs)", track_ids.len());
+
+    let client = state.client.lock().await;
+    client
+        .get_tracks_batch(&track_ids)
+        .await
+        .map_err(|e| format!("Failed to get tracks batch: {}", e))
 }
 
 /// Check for duplicate tracks in a playlist
@@ -166,20 +207,65 @@ pub async fn add_tracks_to_playlist(
         .map_err(|e| format!("Failed to add tracks to playlist: {}", e))
 }
 
-/// Remove tracks from a playlist
+/// Remove tracks from a playlist.
+/// Accepts either playlist_track_ids (direct Qobuz IDs) or regular track_ids.
+/// When track_ids are provided (and playlist_track_ids is empty), resolves them
+/// by fetching the full playlist to find the corresponding playlist_track_ids.
 #[tauri::command]
 pub async fn remove_tracks_from_playlist(
     playlist_id: u64,
-    playlist_track_ids: Vec<u64>,
+    #[allow(unused_variables)]
+    playlist_track_ids: Option<Vec<u64>>,
+    track_ids: Option<Vec<u64>>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Command: remove_tracks_from_playlist {} ({} tracks)", playlist_id, playlist_track_ids.len());
+    let ptids = playlist_track_ids.unwrap_or_default();
+    let tids = track_ids.unwrap_or_default();
+    log::info!(
+        "Command: remove_tracks_from_playlist {} (playlist_track_ids={}, track_ids={})",
+        playlist_id, ptids.len(), tids.len()
+    );
 
     let client = state.client.lock().await;
-    client
-        .remove_tracks_from_playlist(playlist_id, &playlist_track_ids)
-        .await
-        .map_err(|e| format!("Failed to remove tracks from playlist: {}", e))
+
+    // If we have direct playlist_track_ids, use them
+    if !ptids.is_empty() {
+        return client
+            .remove_tracks_from_playlist(playlist_id, &ptids)
+            .await
+            .map_err(|e| format!("Failed to remove tracks from playlist: {}", e));
+    }
+
+    // Otherwise resolve track_ids → playlist_track_ids via full playlist fetch
+    if !tids.is_empty() {
+        let playlist = client
+            .get_playlist(playlist_id)
+            .await
+            .map_err(|e| format!("Failed to fetch playlist for track ID resolution: {}", e))?;
+
+        let track_id_set: std::collections::HashSet<u64> = tids.into_iter().collect();
+        let resolved_ptids: Vec<u64> = playlist
+            .tracks
+            .map(|tc| {
+                tc.items
+                    .into_iter()
+                    .filter(|track| track_id_set.contains(&track.id))
+                    .filter_map(|track| track.playlist_track_id)
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if resolved_ptids.is_empty() {
+            return Err("Could not resolve any track IDs to playlist track IDs".to_string());
+        }
+
+        return client
+            .remove_tracks_from_playlist(playlist_id, &resolved_ptids)
+            .await
+            .map_err(|e| format!("Failed to remove tracks from playlist: {}", e));
+    }
+
+    Err("Either playlist_track_ids or track_ids must be provided".to_string())
 }
 
 /// Update playlist metadata

@@ -9,6 +9,7 @@ pub mod paths {
 
     // Track
     pub const TRACK_GET: &str = "/track/get";
+    pub const TRACK_GET_LIST: &str = "/track/getList";
     pub const TRACK_SEARCH: &str = "/track/search";
     pub const TRACK_GET_FILE_URL: &str = "/track/getFileUrl";
 
