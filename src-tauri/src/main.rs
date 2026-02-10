@@ -161,8 +161,7 @@ fn main() {
         let disable_dmabuf = std::env::var("QBZ_DISABLE_DMABUF").as_deref() == Ok("1");
         let force_x11 = std::env::var("QBZ_FORCE_X11").as_deref() == Ok("1");
 
-        // Diagnostic logging
-        qbz_nix_lib::logging::log_startup(&format!("[QBZ] Display server: {}", if is_wayland { "Wayland" } else { "X11" }));
+        // Diagnostic logging (display server logged after GDK backend selection below)
         if has_nvidia {
             qbz_nix_lib::logging::log_startup("[QBZ] NVIDIA GPU detected");
         }
@@ -189,6 +188,17 @@ fn main() {
             std::env::set_var("GDK_BACKEND", "wayland");
             std::env::set_var("GTK_CSD", "1");
         }
+
+        // Log effective display server AFTER GDK backend selection so the
+        // message reflects what GDK will actually use (not just the session
+        // type). GDK_BACKEND=x11 on a Wayland session = XWayland.
+        let effective_display = match std::env::var("GDK_BACKEND").as_deref() {
+            Ok("x11") if is_wayland => "X11 (XWayland)",
+            Ok("x11") => "X11",
+            Ok("wayland") => "Wayland",
+            _ => if is_wayland { "Wayland" } else { "X11" },
+        };
+        qbz_nix_lib::logging::log_startup(&format!("[QBZ] Display server: {}", effective_display));
 
         // --- DMA-BUF renderer control ---
         // NVIDIA GPUs have known issues with WebKit's DMA-BUF renderer on
