@@ -50,7 +50,10 @@ passthrough:
       bind: $SNAP/usr/lib/x86_64-linux-gnu/alsa-lib
 
 architectures:
-  - build-on: amd64
+  - build-on: [amd64]
+    build-for: [amd64]
+  - build-on: [arm64]
+    build-for: [arm64]
 
 apps:
   qbz:
