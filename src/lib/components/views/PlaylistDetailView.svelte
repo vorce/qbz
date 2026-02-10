@@ -1363,10 +1363,17 @@
     return `${mins} min`;
   }
 
+  function resolveArtworkPath(path: string): string {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    return `asset://localhost/${encodeURIComponent(path)}`;
+  }
+
   function getPlaylistImage(): string {
-    // Use custom artwork if set (convert to tauri asset URL)
+    // Use custom artwork if set (URL or local file path)
     if (customArtworkPath) {
-      return `asset://localhost/${encodeURIComponent(customArtworkPath)}`;
+      return resolveArtworkPath(customArtworkPath);
     }
     if (playlist?.images && playlist.images.length > 0) {
       return playlist.images[0];
@@ -1883,7 +1890,7 @@
       <div class="artwork-container">
         {#if customArtworkPath}
           <div class="artwork custom-artwork">
-            <img src={`asset://localhost/${encodeURIComponent(customArtworkPath)}`} alt={playlist.name} />
+            <img src={resolveArtworkPath(customArtworkPath)} alt={playlist.name} />
             <div class="artwork-overlay">
               <button class="artwork-btn artwork-clear" onclick={clearCustomArtwork} title="Remove custom artwork">
                 <X size={20} />

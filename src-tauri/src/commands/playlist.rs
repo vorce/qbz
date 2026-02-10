@@ -5,6 +5,7 @@ use tauri::State;
 
 use crate::api::models::{Playlist, PlaylistDuplicateResult, PlaylistWithTrackIds, SearchResultsPage, Track};
 use crate::api::performers::{parse_performers, Performer};
+use crate::library::commands::LibraryState;
 use crate::AppState;
 
 /// Track info with parsed performers for display
@@ -325,6 +326,7 @@ pub async fn get_current_user_id(state: State<'_, AppState>) -> Result<Option<u6
 pub async fn subscribe_playlist(
     playlist_id: u64,
     state: State<'_, AppState>,
+    library_state: State<'_, LibraryState>,
 ) -> Result<Playlist, String> {
     log::info!("Command: subscribe_playlist {}", playlist_id);
 
@@ -366,7 +368,19 @@ pub async fn subscribe_playlist(
         .await
         .map_err(|e| format!("Failed to add tracks to new playlist: {}", e))?;
 
-    // 6. Return the new playlist with updated track count
+    // 6. Save the original playlist's image as custom artwork for the new playlist
+    if let Some(ref images) = source.images {
+        if let Some(image_url) = images.first() {
+            let db_guard = library_state.db.lock().await;
+            if let Some(ref db) = *db_guard {
+                if let Err(e) = db.update_playlist_artwork(new_playlist.id, Some(image_url)) {
+                    log::warn!("Failed to save original playlist artwork: {}", e);
+                }
+            }
+        }
+    }
+
+    // 7. Return the new playlist with updated track count
     Ok(Playlist {
         tracks_count: track_ids.len() as u32,
         ..new_playlist
