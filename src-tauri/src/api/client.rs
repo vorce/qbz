@@ -774,23 +774,88 @@ impl QobuzClient {
 
     /// Fetch full Track objects for a batch of track IDs (max 50 per call).
     /// Uses the `track/getList` endpoint.
+    ///
+    /// Tries multiple API call strategies:
+    /// 1. GET with `track_ids` (comma-separated)
+    /// 2. POST with `track_ids` form body (as seen in Qobuz web captures)
     pub async fn get_tracks_batch(&self, track_ids: &[u64]) -> Result<Vec<Track>> {
         let url = endpoints::build_url(paths::TRACK_GET_LIST);
         let ids_csv = track_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
+        let headers = self.api_headers().await?;
+
+        // Try GET first
         let http_response = self
             .http
             .get(&url)
-            .headers(self.api_headers().await?)
+            .headers(headers.clone())
             .query(&[("track_ids", ids_csv.as_str())])
             .send()
             .await?;
-        log::debug!("[API] get_tracks_batch({} IDs) status={}", track_ids.len(), http_response.status());
+        let status = http_response.status();
+        log::debug!("[API] get_tracks_batch GET ({} IDs) status={}", track_ids.len(), status);
+
         let value: Value = http_response.json().await?;
+
+        // Check if the GET response is an error (try POST as fallback)
+        let is_error = value.get("status").and_then(|s| s.as_str()) == Some("error")
+            || value.get("code").is_some()
+            || (!value.get("tracks").is_some() && !value.is_array());
+
+        let value = if is_error {
+            log::info!(
+                "[API] get_tracks_batch GET failed (response: {}), trying POST fallback",
+                serde_json::to_string(&value).unwrap_or_default().chars().take(200).collect::<String>()
+            );
+            // POST fallback with form body
+            let post_response = self
+                .http
+                .post(&url)
+                .headers(headers)
+                .form(&[("track_ids", ids_csv.as_str())])
+                .send()
+                .await?;
+            log::debug!("[API] get_tracks_batch POST ({} IDs) status={}", track_ids.len(), post_response.status());
+            post_response.json::<Value>().await?
+        } else {
+            value
+        };
+
+        // Log response structure
+        if let Some(obj) = value.as_object() {
+            log::info!(
+                "[API] get_tracks_batch response keys: {:?}",
+                obj.keys().collect::<Vec<_>>()
+            );
+        }
+
+        // Parse tracks from response — try multiple structures:
+        // 1. { "tracks": { "items": [...] } }
+        // 2. { "tracks": [...] }
+        // 3. { "items": [...] }
+        // 4. [...]
         let items = value
             .get("tracks")
-            .and_then(|t| t.get("items"))
-            .ok_or_else(|| ApiError::ApiResponse("Missing tracks.items in getList response".to_string()))?;
-        let tracks: Vec<Track> = serde_json::from_value(items.clone())?;
+            .and_then(|t| {
+                if t.is_array() {
+                    Some(t.clone())
+                } else {
+                    t.get("items").cloned()
+                }
+            })
+            .or_else(|| value.get("items").cloned())
+            .or_else(|| if value.is_array() { Some(value.clone()) } else { None })
+            .ok_or_else(|| {
+                let preview = serde_json::to_string(&value)
+                    .unwrap_or_default()
+                    .chars()
+                    .take(500)
+                    .collect::<String>();
+                ApiError::ApiResponse(format!(
+                    "Unexpected getList response: {}",
+                    preview
+                ))
+            })?;
+        let tracks: Vec<Track> = serde_json::from_value(items)?;
         Ok(tracks)
     }
 
