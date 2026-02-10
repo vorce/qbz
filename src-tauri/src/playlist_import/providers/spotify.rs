@@ -38,12 +38,28 @@ pub fn parse_playlist_id(url: &str) -> Option<String> {
 pub async fn fetch_playlist(
     playlist_id: &str,
 ) -> Result<ImportPlaylist, PlaylistImportError> {
-    if let Ok(token) = get_app_token().await {
-        if let Ok(playlist) = fetch_playlist_with_token(playlist_id, &token).await {
-            return Ok(playlist);
+    match get_app_token().await {
+        Ok(token) => {
+            log::info!("Spotify: obtained API token, fetching via API");
+            match fetch_playlist_with_token(playlist_id, &token).await {
+                Ok(playlist) => {
+                    log::info!("Spotify: API returned {} tracks", playlist.tracks.len());
+                    return Ok(playlist);
+                }
+                Err(e) => {
+                    // Token was valid but API fetch failed — propagate the error
+                    // rather than falling through to embed which caps at ~100 tracks
+                    log::error!("Spotify: API fetch failed: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!("Spotify: token unavailable ({}), falling back to embed scraping", e);
         }
     }
 
+    log::info!("Spotify: using embed fallback (limited to ~100 tracks)");
     fetch_playlist_from_embed(playlist_id).await
 }
 
@@ -75,6 +91,13 @@ async fn fetch_playlist_with_token(
         .and_then(|v| v.as_str())
         .map(|v| v.to_string())
         .filter(|v| !v.is_empty());
+    let expected_total = meta
+        .get("tracks")
+        .and_then(|v| v.get("total"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as usize;
+
+    log::info!("Spotify: playlist '{}' reports {} tracks", name, expected_total);
 
     let mut tracks = Vec::new();
     let mut offset = 0u32;
@@ -88,7 +111,7 @@ async fn fetch_playlist_with_token(
             .query(&[
                 ("limit", limit.to_string()),
                 ("offset", offset.to_string()),
-                ("fields", "items(track(name,artists(name),album(name),duration_ms,external_ids,id,external_urls)),next".to_string()),
+                ("fields", "items(track(name,artists(name),album(name),duration_ms,external_ids,id,external_urls)),next,total".to_string()),
             ])
             .send()
             .await
@@ -148,17 +171,47 @@ async fn fetch_playlist_with_token(
             });
         }
 
+        // Use both "next" field and total count to decide pagination
         let has_next = response
             .get("next")
-            .and_then(|v| v.as_str())
-            .map(|v| !v.is_empty())
+            .map(|v| !v.is_null())
             .unwrap_or(false);
 
-        if !has_next {
+        let response_total = response
+            .get("total")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
+
+        log::debug!(
+            "Spotify: page offset={}, got {} items, total so far={}, response.total={}, has_next={}",
+            offset, items.len(), tracks.len(), response_total, has_next
+        );
+
+        // Stop if: no next page AND we have all tracks (or response says no more)
+        if !has_next && tracks.len() >= response_total {
+            break;
+        }
+
+        // Safety: also stop if the page returned 0 items to prevent infinite loop
+        if items.is_empty() {
+            log::warn!("Spotify: empty page at offset {}, stopping pagination", offset);
+            break;
+        }
+
+        // Extra safety: if we already have enough tracks per the total, stop
+        if response_total > 0 && tracks.len() >= response_total {
             break;
         }
 
         offset += limit;
+    }
+
+    if expected_total > 0 && tracks.len() < expected_total {
+        log::warn!(
+            "Spotify: expected {} tracks but only fetched {} — possible pagination issue",
+            expected_total,
+            tracks.len()
+        );
     }
 
     Ok(ImportPlaylist {
