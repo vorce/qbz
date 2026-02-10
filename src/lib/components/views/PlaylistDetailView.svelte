@@ -599,6 +599,9 @@
       console.error('Failed to load playlist:', err);
       error = String(err);
     } finally {
+      if (playlist) {
+        console.log(`[Playlist] "${playlist.name}" loaded — ${tracks.length} tracks, virtualized`);
+      }
       spinnerFading = true;
       setTimeout(() => {
         loading = false;
