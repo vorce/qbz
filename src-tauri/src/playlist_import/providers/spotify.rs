@@ -38,22 +38,28 @@ pub fn parse_playlist_id(url: &str) -> Option<String> {
 pub async fn fetch_playlist(
     playlist_id: &str,
 ) -> Result<ImportPlaylist, PlaylistImportError> {
-    if let Ok(token) = get_app_token().await {
-        log::info!("Spotify: obtained API token, fetching via API");
-        match fetch_playlist_with_token(playlist_id, &token).await {
-            Ok(playlist) => {
-                log::info!("Spotify: API returned {} tracks", playlist.tracks.len());
-                return Ok(playlist);
+    // Try API with token, retry once with fresh token on failure
+    for attempt in 1..=2 {
+        match get_app_token().await {
+            Ok(token) => {
+                log::info!("Spotify: API attempt {}/2, token obtained", attempt);
+                match fetch_playlist_with_token(playlist_id, &token).await {
+                    Ok(playlist) => {
+                        log::info!("Spotify: API returned {} tracks", playlist.tracks.len());
+                        return Ok(playlist);
+                    }
+                    Err(e) => {
+                        log::warn!("Spotify: API attempt {}/2 failed: {}", attempt, e);
+                    }
+                }
             }
             Err(e) => {
-                log::warn!("Spotify: API fetch failed ({}), falling back to embed", e);
+                log::warn!("Spotify: token attempt {}/2 failed: {}", attempt, e);
             }
         }
-    } else {
-        log::warn!("Spotify: token unavailable, falling back to embed scraping");
     }
 
-    log::info!("Spotify: using embed fallback (may be limited to ~100 tracks)");
+    log::warn!("Spotify: API failed after 2 attempts, falling back to embed (limited to ~100 tracks)");
     fetch_playlist_from_embed(playlist_id).await
 }
 
@@ -71,6 +77,8 @@ async fn fetch_playlist_with_token(
         .send()
         .await
         .map_err(|e| PlaylistImportError::Http(e.to_string()))?
+        .error_for_status()
+        .map_err(|e| PlaylistImportError::Http(format!("Spotify metadata: {}", e)))?
         .json()
         .await
         .map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
@@ -110,6 +118,8 @@ async fn fetch_playlist_with_token(
             .send()
             .await
             .map_err(|e| PlaylistImportError::Http(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| PlaylistImportError::Http(format!("Spotify tracks page offset={}: {}", offset, e)))?
             .json()
             .await
             .map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
@@ -312,10 +322,12 @@ async fn get_app_token() -> Result<String, PlaylistImportError> {
         .get(&url)
         .send()
         .await
-        .map_err(|e| PlaylistImportError::Http(e.to_string()))?
+        .map_err(|e| PlaylistImportError::Http(format!("Spotify proxy: {}", e)))?
+        .error_for_status()
+        .map_err(|e| PlaylistImportError::Http(format!("Spotify proxy: {}", e)))?
         .json()
         .await
-        .map_err(|e| PlaylistImportError::Parse(e.to_string()))?;
+        .map_err(|e| PlaylistImportError::Parse(format!("Spotify proxy response: {}", e)))?;
 
     response
         .get("access_token")
