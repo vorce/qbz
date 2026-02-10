@@ -38,7 +38,8 @@
     total_tracks: number;
     matched_tracks: number;
     skipped_tracks: number;
-    qobuz_playlist_id?: number | null;
+    qobuz_playlist_ids: number[];
+    parts_created: number;
   }
 
   interface Props {
@@ -255,12 +256,21 @@
       lastImportedUrl = previewUrl;
       pushLog(`Imported ${result.matched_tracks} of ${result.total_tracks} tracks into QBZ.`, 'success');
 
-      if (result.qobuz_playlist_id) {
-        pushLog('Playlist created in Qobuz\u2122.', 'success');
+      if (result.qobuz_playlist_ids.length > 0) {
+        if (result.parts_created > 1) {
+          pushLog(
+            $t('playlistImport.partsCreated', { values: { count: result.parts_created } }),
+            'success'
+          );
+        } else {
+          pushLog('Playlist created in Qobuz\u2122.', 'success');
+        }
 
-        // Move to folder if selected
+        // Move all parts to folder if selected
         if (selectedFolderId) {
-          await movePlaylistToFolder(result.qobuz_playlist_id, selectedFolderId);
+          for (const playlistId of result.qobuz_playlist_ids) {
+            await movePlaylistToFolder(playlistId, selectedFolderId);
+          }
         }
       } else {
         pushLog('No matching tracks found.', 'error');
@@ -438,6 +448,9 @@
                 <div class="summary-row">{$t('playlistImport.playlistLabel', { values: { name: summary.playlist_name } })}</div>
                 <div class="summary-row">{$t('playlistImport.tracksMatched', { values: { matched: summary.matched_tracks, total: summary.total_tracks } })}</div>
                 <div class="summary-row">{$t('playlistImport.skipped', { values: { count: summary.skipped_tracks } })}</div>
+                {#if summary.parts_created > 1}
+                  <div class="summary-row">{$t('playlistImport.partsCreated', { values: { count: summary.parts_created } })}</div>
+                {/if}
               </div>
             {/if}
           </div>

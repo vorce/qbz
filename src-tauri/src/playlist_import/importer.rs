@@ -9,6 +9,7 @@ use crate::playlist_import::models::{ImportPlaylist, ImportProgress, ImportSumma
 use crate::playlist_import::providers::{detect_provider, fetch_playlist};
 
 const ADD_CHUNK_SIZE: usize = 50;
+const QOBUZ_PLAYLIST_TRACK_LIMIT: usize = 2000;
 
 pub async fn preview_public_playlist(
     url: &str,
@@ -44,49 +45,80 @@ pub async fn import_public_playlist(
     let total_tracks = playlist.tracks.len() as u32;
     let skipped_tracks = total_tracks.saturating_sub(matched_count);
 
-    let mut qobuz_playlist_id = None;
+    let mut qobuz_playlist_ids = Vec::new();
 
     if !matched_track_ids.is_empty() {
-        // Phase: creating
-        let _ = app.emit("import:phase", serde_json::json!({ "phase": "creating" }));
-
-        let name = name_override.unwrap_or(&playlist.name);
+        let base_name = name_override.unwrap_or(&playlist.name);
         let description = playlist
             .description
             .clone()
             .or_else(|| Some(format!("Imported from {}", playlist.provider.as_str())));
 
-        let created = client
-            .create_playlist(name, description.as_deref(), is_public)
-            .await
-            .map_err(|e| PlaylistImportError::Qobuz(e.to_string()))?;
+        // Split into parts if more than QOBUZ_PLAYLIST_TRACK_LIMIT tracks
+        let parts: Vec<&[u64]> = matched_track_ids
+            .chunks(QOBUZ_PLAYLIST_TRACK_LIMIT)
+            .collect();
+        let total_parts = parts.len();
 
-        qobuz_playlist_id = Some(created.id);
+        for (part_idx, part_tracks) in parts.iter().enumerate() {
+            // Phase: creating (per part)
+            let _ = app.emit("import:phase", serde_json::json!({ "phase": "creating" }));
 
-        // Phase: adding
-        let _ = app.emit("import:phase", serde_json::json!({ "phase": "adding" }));
+            let playlist_name = if total_parts == 1 {
+                base_name.to_string()
+            } else {
+                format!("{} (Part {})", base_name, part_idx + 1)
+            };
 
-        let chunks: Vec<&[u64]> = matched_track_ids.chunks(ADD_CHUNK_SIZE).collect();
-        let total_chunks = chunks.len() as u32;
+            let part_desc = if total_parts == 1 {
+                description.clone()
+            } else {
+                Some(format!(
+                    "Part {} of {} — {}",
+                    part_idx + 1,
+                    total_parts,
+                    description.as_deref().unwrap_or("")
+                ))
+            };
 
-        for (i, chunk) in chunks.iter().enumerate() {
-            client
-                .add_tracks_to_playlist(created.id, chunk)
+            let created = client
+                .create_playlist(&playlist_name, part_desc.as_deref(), is_public)
                 .await
                 .map_err(|e| PlaylistImportError::Qobuz(e.to_string()))?;
 
-            let _ = app.emit(
-                "import:progress",
-                ImportProgress {
-                    phase: "adding".to_string(),
-                    current: (i as u32) + 1,
-                    total: total_chunks,
-                    matched_so_far: matched_count,
-                    current_track: None,
-                },
-            );
+            qobuz_playlist_ids.push(created.id);
+
+            // Phase: adding
+            let _ = app.emit("import:phase", serde_json::json!({ "phase": "adding" }));
+
+            let chunks: Vec<&[u64]> = part_tracks.chunks(ADD_CHUNK_SIZE).collect();
+            let total_chunks = chunks.len() as u32;
+
+            for (i, chunk) in chunks.iter().enumerate() {
+                client
+                    .add_tracks_to_playlist(created.id, chunk)
+                    .await
+                    .map_err(|e| PlaylistImportError::Qobuz(e.to_string()))?;
+
+                let _ = app.emit(
+                    "import:progress",
+                    ImportProgress {
+                        phase: "adding".to_string(),
+                        current: (i as u32) + 1,
+                        total: total_chunks,
+                        matched_so_far: matched_count,
+                        current_track: if total_parts > 1 {
+                            Some(format!("Part {}/{}", part_idx + 1, total_parts))
+                        } else {
+                            None
+                        },
+                    },
+                );
+            }
         }
     }
+
+    let parts_created = qobuz_playlist_ids.len() as u32;
 
     Ok(ImportSummary {
         provider: playlist.provider,
@@ -94,7 +126,8 @@ pub async fn import_public_playlist(
         total_tracks,
         matched_tracks: matched_count,
         skipped_tracks,
-        qobuz_playlist_id,
+        qobuz_playlist_ids,
+        parts_created,
         matches,
     })
 }

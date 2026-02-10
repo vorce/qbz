@@ -57,7 +57,8 @@ pub struct ImportSummary {
     pub total_tracks: u32,
     pub matched_tracks: u32,
     pub skipped_tracks: u32,
-    pub qobuz_playlist_id: Option<u64>,
+    pub qobuz_playlist_ids: Vec<u64>,
+    pub parts_created: u32,
     pub matches: Vec<TrackMatch>,
 }
 

@@ -1323,6 +1323,7 @@
     "matchingPhase": "Qobuz-Katalog durchsuchen...",
     "creatingPhase": "Playlist erstellen...",
     "addingPhase": "Titel zur Playlist hinzufugen...",
-    "addingProgress": "Titel hinzufugen: {current} / {total}"
+    "addingProgress": "Titel hinzufugen: {current} / {total}",
+    "partsCreated": "Aufgeteilt in {count} Playlists (Qobuz-Limit: 2000 Titel)"
   }
 }

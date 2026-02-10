@@ -1525,6 +1525,7 @@
     "matchingPhase": "Buscando en el catalogo de Qobuz...",
     "creatingPhase": "Creando playlist...",
     "addingPhase": "Agregando tracks a la playlist...",
-    "addingProgress": "Agregando tracks: {current} / {total}"
+    "addingProgress": "Agregando tracks: {current} / {total}",
+    "partsCreated": "Dividida en {count} playlists (limite de 2000 tracks en Qobuz)"
   }
 }
