@@ -69,7 +69,6 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 15px;
     margin-bottom: 16px;
   }
 

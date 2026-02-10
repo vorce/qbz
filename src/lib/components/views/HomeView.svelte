@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { Music, User, Loader2, ChevronRight } from 'lucide-svelte';
+  import { Music, User, Loader2, ArrowRight } from 'lucide-svelte';
   import {
     getHomeCache,
     setHomeCache,
@@ -898,8 +898,7 @@
           {#snippet header()}
             <h2 class="section-title">{$t('home.newReleases')}</h2>
             {#if onNavigateNewReleases}
-              <button class="see-all-link" onclick={onNavigateNewReleases}>{$t('home.seeAll')}<ChevronRight size={14} /></button>
-              <span class="see-all-divider">|</span>
+              <button class="see-all-link" onclick={onNavigateNewReleases}>{$t('home.seeAll')}<ArrowRight size={14} /></button>
             {/if}
           {/snippet}
           {#snippet children()}
@@ -948,8 +947,7 @@
           {#snippet header()}
             <h2 class="section-title">{$t('home.pressAwards')}</h2>
             {#if onNavigatePressAccolades}
-              <button class="see-all-link" onclick={onNavigatePressAccolades}>{$t('home.seeAll')}<ChevronRight size={14} /></button>
-              <span class="see-all-divider">|</span>
+              <button class="see-all-link" onclick={onNavigatePressAccolades}>{$t('home.seeAll')}<ArrowRight size={14} /></button>
             {/if}
           {/snippet}
           {#snippet children()}
@@ -998,8 +996,7 @@
           {#snippet header()}
             <h2 class="section-title">{$t('home.popularAlbums')}</h2>
             {#if onNavigateTopAlbums}
-              <button class="see-all-link" onclick={onNavigateTopAlbums}>{$t('home.seeAll')}<ChevronRight size={14} /></button>
-              <span class="see-all-divider">|</span>
+              <button class="see-all-link" onclick={onNavigateTopAlbums}>{$t('home.seeAll')}<ArrowRight size={14} /></button>
             {/if}
           {/snippet}
           {#snippet children()}
@@ -1048,8 +1045,7 @@
           {#snippet header()}
             <h2 class="section-title">{$t('home.qobuzissimes')}</h2>
             {#if onNavigateQobuzissimes}
-              <button class="see-all-link" onclick={onNavigateQobuzissimes}>{$t('home.seeAll')}<ChevronRight size={14} /></button>
-              <span class="see-all-divider">|</span>
+              <button class="see-all-link" onclick={onNavigateQobuzissimes}>{$t('home.seeAll')}<ArrowRight size={14} /></button>
             {/if}
           {/snippet}
           {#snippet children()}
@@ -1098,8 +1094,7 @@
           {#snippet header()}
             <h2 class="section-title">{$t('home.editorPicks')}</h2>
             {#if onNavigateAlbumsOfTheWeek}
-              <button class="see-all-link" onclick={onNavigateAlbumsOfTheWeek}>{$t('home.seeAll')}<ChevronRight size={14} /></button>
-              <span class="see-all-divider">|</span>
+              <button class="see-all-link" onclick={onNavigateAlbumsOfTheWeek}>{$t('home.seeAll')}<ArrowRight size={14} /></button>
             {/if}
           {/snippet}
           {#snippet children()}
@@ -1198,8 +1193,7 @@
           {#snippet header()}
             <h2 class="section-title">{$t('home.essentialDiscography')}</h2>
             {#if onNavigateIdealDiscography}
-              <button class="see-all-link" onclick={onNavigateIdealDiscography}>{$t('home.seeAll')}<ChevronRight size={14} /></button>
-              <span class="see-all-divider">|</span>
+              <button class="see-all-link" onclick={onNavigateIdealDiscography}>{$t('home.seeAll')}<ArrowRight size={14} /></button>
             {/if}
           {/snippet}
           {#snippet children()}
@@ -1786,10 +1780,4 @@
     color: var(--text-primary);
   }
 
-  .see-all-divider {
-    color: #666666;
-    font-size: 16px;
-    margin-left: 12px;
-    user-select: none;
-  }
 </style>
