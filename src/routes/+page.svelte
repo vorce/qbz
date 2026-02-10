@@ -315,6 +315,7 @@
   import PlaylistManagerView from '$lib/components/views/PlaylistManagerView.svelte';
   import BlacklistManagerView from '$lib/components/views/BlacklistManagerView.svelte';
   import DiscoverBrowseView from '$lib/components/views/DiscoverBrowseView.svelte';
+  import DiscoverPlaylistsBrowseView from '$lib/components/views/DiscoverPlaylistsBrowseView.svelte';
 
   // Overlays
   import QueuePanel from '$lib/components/QueuePanel.svelte';
@@ -3121,6 +3122,7 @@
             onNavigateQobuzissimes={() => navigateTo('discover-qobuzissimes')}
             onNavigateAlbumsOfTheWeek={() => navigateTo('discover-albums-of-the-week')}
             onNavigatePressAccolades={() => navigateTo('discover-press-accolades')}
+            onNavigateQobuzPlaylists={() => navigateTo('discover-playlists')}
           />
         {/if}
       {:else if activeView === 'search'}
@@ -3516,6 +3518,16 @@
           checkAlbumFullyDownloaded={checkAlbumFullyDownloaded}
           {downloadStateVersion}
           onArtistClick={handleArtistClick}
+        />
+      {:else if activeView === 'discover-playlists'}
+        <DiscoverPlaylistsBrowseView
+          onBack={navGoBack}
+          onPlaylistClick={selectPlaylist}
+          onPlaylistPlay={playPlaylistById}
+          onPlaylistPlayNext={queuePlaylistNextById}
+          onPlaylistPlayLater={queuePlaylistLaterById}
+          onPlaylistCopyToLibrary={copyPlaylistToLibraryById}
+          onPlaylistShareQobuz={sharePlaylistQobuzLinkById}
         />
       {/if}
     </main>

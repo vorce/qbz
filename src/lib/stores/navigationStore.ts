@@ -28,7 +28,8 @@ export type ViewType =
   | 'discover-top-albums'
   | 'discover-qobuzissimes'
   | 'discover-albums-of-the-week'
-  | 'discover-press-accolades';
+  | 'discover-press-accolades'
+  | 'discover-playlists';
 export type FavoritesTab = 'tracks' | 'albums' | 'artists' | 'playlists';
 
 // Navigation state

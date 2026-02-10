@@ -59,7 +59,10 @@
     "backToHome": "Back to Home",
     "qobuzissimes": "Qobuzissimes",
     "albumsOfTheWeek": "Albums of the Week",
-    "pressAccolades": "Press Accolades"
+    "pressAccolades": "Press Accolades",
+    "qobuzPlaylists": "Qobuz Playlists",
+    "searchPlaylistsPlaceholder": "Search playlists...",
+    "noPlaylistResults": "No playlists found"
   },
   "search": {
     "title": "Search",

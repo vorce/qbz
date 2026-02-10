@@ -59,7 +59,10 @@
     "backToHome": "Volver al Inicio",
     "qobuzissimes": "Qobuzissimes",
     "albumsOfTheWeek": "Álbumes de la Semana",
-    "pressAccolades": "Reconocimientos de Prensa"
+    "pressAccolades": "Reconocimientos de Prensa",
+    "qobuzPlaylists": "Playlists de Qobuz",
+    "searchPlaylistsPlaceholder": "Buscar playlists...",
+    "noPlaylistResults": "No se encontraron playlists"
   },
   "search": {
     "title": "Buscar",

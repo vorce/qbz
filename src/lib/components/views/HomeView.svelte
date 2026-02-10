@@ -127,6 +127,7 @@
     onNavigateQobuzissimes?: () => void;
     onNavigateAlbumsOfTheWeek?: () => void;
     onNavigatePressAccolades?: () => void;
+    onNavigateQobuzPlaylists?: () => void;
   }
 
   let {
@@ -172,6 +173,7 @@
     onNavigateQobuzissimes,
     onNavigateAlbumsOfTheWeek,
     onNavigatePressAccolades,
+    onNavigateQobuzPlaylists,
   }: Props = $props();
 
   // Home settings state
@@ -1151,7 +1153,12 @@
       {:else if qobuzPlaylists.length > 0}
         <HorizontalScrollRow>
           {#snippet header()}
-            <h2 class="section-title">{$t('home.qobuzPlaylists')}</h2>
+            <div class="section-header-group">
+              <h2 class="section-title">{$t('home.qobuzPlaylists')}</h2>
+              {#if onNavigateQobuzPlaylists}
+                <button class="see-all-link" onclick={onNavigateQobuzPlaylists}>{$t('home.seeAll')}<ArrowRight size={14} /></button>
+              {/if}
+            </div>
             {#if playlistTags.length > 0}
               <PlaylistTagFilter
                 tags={playlistTags}
