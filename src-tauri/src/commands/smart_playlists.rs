@@ -105,7 +105,7 @@ async fn generate_band_members_playlist(
     let mut all_track_ids: Vec<u64> = Vec::new();
     let mut found_artists: Vec<String> = Vec::new();
 
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
 
     for member_name in &member_names {
         match search_artist_tracks(&client, member_name, config.max_tracks_per_artist).await {
@@ -193,7 +193,7 @@ async fn generate_artist_groups_playlist(
     let mut all_track_ids: Vec<u64> = Vec::new();
     let mut found_artists: Vec<String> = Vec::new();
 
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
 
     for group_name in &group_names {
         match search_artist_tracks(&client, group_name, config.max_tracks_per_artist).await {
@@ -276,7 +276,7 @@ async fn generate_collaborator_playlist(
     let mut all_track_ids: Vec<u64> = Vec::new();
     let mut found_artists: Vec<String> = Vec::new();
 
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
 
     for collab_name in &collaborator_names {
         match search_artist_tracks(&client, collab_name, config.max_tracks_per_artist).await {

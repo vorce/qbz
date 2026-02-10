@@ -4,7 +4,7 @@
 //! for similarity data to build sparse vectors for each artist.
 
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::api::QobuzClient;
 use crate::musicbrainz::models::{
@@ -25,7 +25,7 @@ pub struct ArtistVectorBuilder {
     /// MusicBrainz cache
     mb_cache: Arc<Mutex<Option<MusicBrainzCache>>>,
     /// Qobuz client for similar artists
-    qobuz_client: Arc<Mutex<QobuzClient>>,
+    qobuz_client: Arc<RwLock<QobuzClient>>,
     /// Configurable weights
     weights: RelationshipWeights,
 }
@@ -49,7 +49,7 @@ impl ArtistVectorBuilder {
         store: Arc<Mutex<Option<ArtistVectorStore>>>,
         mb_client: Arc<MusicBrainzClient>,
         mb_cache: Arc<Mutex<Option<MusicBrainzCache>>>,
-        qobuz_client: Arc<Mutex<QobuzClient>>,
+        qobuz_client: Arc<RwLock<QobuzClient>>,
         weights: RelationshipWeights,
     ) -> Self {
         Self {
@@ -237,7 +237,7 @@ impl ArtistVectorBuilder {
     /// Build vector component from Qobuz similar artists
     async fn build_from_qobuz(&self, qobuz_artist_id: u64) -> Result<(SparseVector, usize), String> {
         let similar = {
-            let client = self.qobuz_client.lock().await;
+            let client = self.qobuz_client.read().await;
             client
                 .get_similar_artists(qobuz_artist_id, 20, 0)
                 .await
@@ -310,14 +310,14 @@ impl ArtistVectorBuilder {
 ///
 /// This is a best-effort match based on artist name
 pub async fn resolve_qobuz_to_mbid(
-    qobuz_client: &Arc<Mutex<QobuzClient>>,
+    qobuz_client: &Arc<RwLock<QobuzClient>>,
     mb_client: &Arc<MusicBrainzClient>,
     _mb_cache: &Arc<Mutex<MusicBrainzCache>>,
     qobuz_artist_id: u64,
 ) -> Result<Option<String>, String> {
     // Get artist name from Qobuz
     let artist_name = {
-        let client = qobuz_client.lock().await;
+        let client = qobuz_client.read().await;
         let artist = client
             .get_artist(qobuz_artist_id, false)
             .await

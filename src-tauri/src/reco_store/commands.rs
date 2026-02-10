@@ -457,7 +457,7 @@ pub async fn reco_backfill_genres(
     for album_id in &album_ids {
         // Fetch album from Qobuz API (lock client, then drop before DB)
         let genre_info = {
-            let client = app_state.client.lock().await;
+            let client = app_state.client.read().await;
             match client.get_album(album_id).await {
                 Ok(album) => Some(album.genre.map(|g| (g.id, g.name))),
                 Err(e) => {
@@ -898,7 +898,7 @@ async fn resolve_albums(
             handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.ok()?;
                 let album = {
-                    let c = client.lock().await;
+                    let c = client.read().await;
                     c.get_album(&album_id).await.ok()?
                 };
                 let meta = album_to_card_meta(&album);
@@ -1021,7 +1021,7 @@ async fn resolve_tracks(
             handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.ok()?;
                 let track = {
-                    let c = client.lock().await;
+                    let c = client.read().await;
                     c.get_track(track_id).await.ok()?
                 };
                 let meta = track_to_display_meta(&track);
@@ -1093,7 +1093,7 @@ async fn resolve_artists(
 
     // Tier 2: API cache (locale-aware)
     let locale = {
-        let client = app_state.client.lock().await;
+        let client = app_state.client.read().await;
         client.get_locale().await
     };
 
@@ -1149,7 +1149,7 @@ async fn resolve_artists(
             handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.ok()?;
                 let artist = {
-                    let c = client.lock().await;
+                    let c = client.read().await;
                     c.get_artist_basic(artist_id).await.ok()?
                 };
                 let meta = artist_to_card_meta(&artist, None);

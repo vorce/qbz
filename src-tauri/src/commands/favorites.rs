@@ -17,7 +17,7 @@ pub async fn get_favorites(
 ) -> Result<Value, String> {
     log::debug!("Command: get_favorites type={} limit={:?} offset={:?}", fav_type, limit, offset);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .get_favorites(&fav_type, limit.unwrap_or(50), offset.unwrap_or(0))
         .await
@@ -35,7 +35,7 @@ pub async fn add_favorite(
 ) -> Result<(), String> {
     log::info!("Command: add_favorite type={} id={}", fav_type, item_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .add_favorite(&fav_type, &item_id)
         .await
@@ -76,7 +76,7 @@ pub async fn remove_favorite(
 ) -> Result<(), String> {
     log::info!("Command: remove_favorite type={} id={}", fav_type, item_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .remove_favorite(&fav_type, &item_id)
         .await

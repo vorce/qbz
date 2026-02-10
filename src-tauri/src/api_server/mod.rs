@@ -718,7 +718,7 @@ async fn search_tracks(
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<SearchResultsPage<Track>>, StatusCode> {
     let app_state = ctx.app_handle.state::<AppState>();
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
     let results = client
         .search_tracks(
             &query.q,
@@ -739,7 +739,7 @@ async fn search_all(
     let blacklist_state = ctx.app_handle.state::<BlacklistState>();
 
     // Call the existing search_all command logic inline
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
 
     // Parallel search for each type
     let (albums_result, tracks_result, artists_result) = tokio::join!(
@@ -865,7 +865,7 @@ async fn get_favorites(
     Query(query): Query<FavoritesQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let app_state = ctx.app_handle.state::<AppState>();
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
     let result = client
         .get_favorites(&query.fav_type, query.limit.unwrap_or(50), query.offset.unwrap_or(0))
         .await
@@ -878,7 +878,7 @@ async fn add_favorite(
     Json(payload): Json<FavoriteRequest>,
 ) -> Result<StatusCode, StatusCode> {
     let app_state = ctx.app_handle.state::<AppState>();
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
     client
         .add_favorite(&payload.fav_type, &payload.item_id)
         .await
@@ -891,7 +891,7 @@ async fn remove_favorite(
     Json(payload): Json<FavoriteRequest>,
 ) -> Result<StatusCode, StatusCode> {
     let app_state = ctx.app_handle.state::<AppState>();
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
     client
         .remove_favorite(&payload.fav_type, &payload.item_id)
         .await
@@ -907,7 +907,7 @@ async fn play_album(
 
     // Get album with tracks (scope the client lock)
     let album = {
-        let client = app_state.client.lock().await;
+        let client = app_state.client.read().await;
         client
             .get_album(&payload.album_id)
             .await
@@ -981,7 +981,7 @@ async fn get_album(
     Path(album_id): Path<String>,
 ) -> Result<Json<Album>, StatusCode> {
     let app_state = ctx.app_handle.state::<AppState>();
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
     let album = client
         .get_album(&album_id)
         .await
@@ -994,7 +994,7 @@ async fn get_artist(
     Path(artist_id): Path<String>,
 ) -> Result<Json<Artist>, StatusCode> {
     let app_state = ctx.app_handle.state::<AppState>();
-    let client = app_state.client.lock().await;
+    let client = app_state.client.read().await;
     let id: u64 = artist_id.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
     let artist = client
         .get_artist(id, true)  // Include albums

@@ -42,7 +42,7 @@ pub mod visualizer;
 
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use api::QobuzClient;
 use cache::{AudioCache, PlaybackCache};
@@ -56,7 +56,7 @@ use visualizer::Visualizer;
 
 /// Application state shared across commands
 pub struct AppState {
-    pub client: Arc<Mutex<QobuzClient>>,
+    pub client: Arc<RwLock<QobuzClient>>,
     pub player: Player,
     pub queue: QueueManager,
     pub context: ContextManager,
@@ -101,7 +101,7 @@ impl AppState {
         let viz_tap = visualizer.get_tap();
 
         Self {
-            client: Arc::new(Mutex::new(QobuzClient::default())),
+            client: Arc::new(RwLock::new(QobuzClient::default())),
             player: Player::new(device_name, audio_settings, Some(viz_tap), audio::AudioDiagnostic::new()),
             queue: QueueManager::new(),
             context: ContextManager::new(),

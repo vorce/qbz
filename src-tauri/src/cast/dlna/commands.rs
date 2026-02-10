@@ -123,7 +123,7 @@ pub async fn dlna_play_track(
     
     // Get stream URL from Qobuz
     let stream_url = {
-        let client = app_state.client.lock().await;
+        let client = app_state.client.read().await;
         client
             .get_stream_url_with_fallback(track_id, Quality::HiRes)
             .await

@@ -78,7 +78,7 @@ pub async fn login(
     cache_state: State<'_, OfflineCacheState>,
     library_state: State<'_, crate::library::commands::LibraryState>,
 ) -> Result<LoginResponse, String> {
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let now = now_unix_secs();
 
     match client.login(&email, &password).await {
@@ -135,13 +135,13 @@ pub async fn login(
 
 #[tauri::command]
 pub async fn is_logged_in(state: State<'_, AppState>) -> Result<bool, String> {
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     Ok(client.is_logged_in().await)
 }
 
 #[tauri::command]
 pub async fn init_client(state: State<'_, AppState>) -> Result<bool, String> {
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     match client.init().await {
         Ok(_) => Ok(true),
         Err(e) => Err(e.to_string()),
@@ -150,7 +150,7 @@ pub async fn init_client(state: State<'_, AppState>) -> Result<bool, String> {
 
 #[tauri::command]
 pub async fn logout(state: State<'_, AppState>) -> Result<(), String> {
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client.logout().await;
     Ok(())
 }
@@ -164,7 +164,7 @@ pub struct UserInfo {
 
 #[tauri::command]
 pub async fn get_user_info(state: State<'_, AppState>) -> Result<Option<UserInfo>, String> {
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     Ok(client.get_user_info().await.map(|(name, sub, until)| UserInfo {
         user_name: name,
         subscription: sub,
@@ -229,7 +229,7 @@ pub async fn auto_login(
     };
 
     // Try to login with saved credentials
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let now = now_unix_secs();
     match client.login(&creds.email, &creds.password).await {
         Ok(session) => {
@@ -291,7 +291,7 @@ pub async fn auto_login(
 #[tauri::command]
 pub async fn set_api_locale(locale: String, state: State<'_, AppState>) -> Result<(), String> {
     log::info!("Command: set_api_locale {}", locale);
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client.set_locale(locale).await;
     Ok(())
 }

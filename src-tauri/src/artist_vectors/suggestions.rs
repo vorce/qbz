@@ -10,7 +10,7 @@
 
 use std::collections::HashSet;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use serde::{Deserialize, Serialize};
 
@@ -98,7 +98,7 @@ pub struct SuggestionsEngine {
     /// Vector builder for lazy construction
     builder: Arc<ArtistVectorBuilder>,
     /// Qobuz client for track search
-    qobuz_client: Arc<Mutex<QobuzClient>>,
+    qobuz_client: Arc<RwLock<QobuzClient>>,
     /// Configuration
     config: SuggestionConfig,
 }
@@ -108,7 +108,7 @@ impl SuggestionsEngine {
     pub fn new(
         store: Arc<Mutex<Option<ArtistVectorStore>>>,
         builder: Arc<ArtistVectorBuilder>,
-        qobuz_client: Arc<Mutex<QobuzClient>>,
+        qobuz_client: Arc<RwLock<QobuzClient>>,
         config: SuggestionConfig,
     ) -> Self {
         Self {
@@ -289,7 +289,7 @@ impl SuggestionsEngine {
             let step4c_start = Instant::now();
 
             // Get client for Qobuz API calls
-            let client = self.qobuz_client.lock().await;
+            let client = self.qobuz_client.read().await;
 
             // For each playlist artist, get their Qobuz similar artists
             let mut qobuz_similar_ids: HashSet<u64> = HashSet::new();
@@ -519,7 +519,7 @@ impl SuggestionsEngine {
             }
         };
 
-        let client = self.qobuz_client.lock().await;
+        let client = self.qobuz_client.read().await;
 
         // Step 1: Validate artist exists in Qobuz with their own catalog
         // This prevents searching for session musicians who don't have artist pages

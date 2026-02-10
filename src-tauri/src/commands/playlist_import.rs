@@ -28,7 +28,7 @@ pub async fn playlist_import_execute(
 ) -> Result<ImportSummary, String> {
     log::info!("Command: playlist_import_execute {}", url);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     import_public_playlist(
         &url,
         &client,

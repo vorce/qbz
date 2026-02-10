@@ -107,7 +107,7 @@ async fn fetch_track_metadata(
     track_id: u64,
     state: &State<'_, AppState>,
 ) -> Option<(String, String)> {
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let track = client.get_track(track_id).await.ok()?;
     let title = track.title.trim().to_string();
     let artist = track

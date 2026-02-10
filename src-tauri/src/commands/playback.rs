@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 use tauri::State;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use crate::api::client::QobuzClient;
 use crate::api::models::Quality;
@@ -216,7 +216,7 @@ pub async fn play_track(
         stream_first_enabled, streaming_only, buffer_seconds
     );
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
 
     // Get the stream URL with preferred quality
     let stream_url = client
@@ -380,7 +380,7 @@ pub async fn prefetch_track(
             }
         }
 
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         let stream_url = client
             .get_stream_url_with_fallback(track_id, preferred_quality)
             .await
@@ -768,7 +768,7 @@ lazy_static::lazy_static! {
 /// Spawn background tasks to prefetch upcoming Qobuz tracks
 /// For mixed playlists, we look further ahead to find Qobuz tracks past local ones
 fn spawn_prefetch(
-    client: Arc<Mutex<QobuzClient>>,
+    client: Arc<RwLock<QobuzClient>>,
     cache: Arc<AudioCache>,
     queue: &QueueManager,
     quality: Quality,
@@ -841,7 +841,7 @@ fn spawn_prefetch(
             };
 
             let result = async {
-                let client_guard = client_clone.lock().await;
+                let client_guard = client_clone.read().await;
                 let stream_url = client_guard
                     .get_stream_url_with_fallback(track_id, quality)
                     .await

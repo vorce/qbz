@@ -125,7 +125,7 @@ pub async fn cast_play_track(
     app_state: State<'_, AppState>,
 ) -> Result<(), String> {
     let stream_url = {
-        let client = app_state.client.lock().await;
+        let client = app_state.client.read().await;
         client
             .get_stream_url_with_fallback(track_id, Quality::HiRes)
             .await

@@ -26,7 +26,7 @@ pub async fn create_artist_radio(
     log::info!("[Radio] Creating artist radio for: {} (ID: {})", artist_name, artist_id);
 
     // Clone client for use in builder
-    let client = state.client.lock().await.clone();
+    let client = state.client.read().await.clone();
 
     // Build radio pool in async context (RadioPoolBuilder needs client for API calls)
     let session_id = task::spawn_blocking(move || -> Result<String, String> {
@@ -44,7 +44,7 @@ pub async fn create_artist_radio(
     log::info!("[Radio] Artist radio session created: {}", session_id);
 
     // Get client again for fetching tracks
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
 
     // Generate track IDs from radio engine
     let track_ids = task::spawn_blocking({
@@ -164,7 +164,7 @@ pub async fn create_track_radio(
     );
 
     // Clone client for use in builder
-    let client = state.client.lock().await.clone();
+    let client = state.client.read().await.clone();
 
     // Build radio pool in async context (RadioPoolBuilder needs client for API calls)
     let session_id = task::spawn_blocking(move || -> Result<String, String> {
@@ -182,7 +182,7 @@ pub async fn create_track_radio(
     log::info!("[Radio] Track radio session created: {}", session_id);
 
     // Get client again for fetching tracks
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
 
     // Generate track IDs from radio engine
     let track_ids = task::spawn_blocking({
@@ -377,7 +377,7 @@ pub async fn refill_radio_queue(
     }
 
     // Fetch full track details from Qobuz, filtering blacklisted artists
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let mut tracks = Vec::new();
     let mut blacklist_skipped = 0;
     for track_id in track_ids.iter().take(20) {
@@ -460,7 +460,7 @@ pub async fn create_infinite_radio(
     );
 
     // Use the first track's artist as the primary seed (most recently played)
-    let client = state.client.lock().await.clone();
+    let client = state.client.read().await.clone();
 
     // Fetch the most recent track to get its artist
     let primary_track = client

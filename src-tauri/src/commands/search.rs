@@ -37,7 +37,7 @@ pub async fn search_albums(
     blacklist_state: State<'_, BlacklistState>,
 ) -> Result<SearchResultsPage<Album>, String> {
     let mut results = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client
             .search_albums(&query, limit.unwrap_or(20), offset.unwrap_or(0), search_type.as_deref())
             .await
@@ -67,7 +67,7 @@ pub async fn search_tracks(
     blacklist_state: State<'_, BlacklistState>,
 ) -> Result<SearchResultsPage<Track>, String> {
     let mut results = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client
             .search_tracks(&query, limit.unwrap_or(20), offset.unwrap_or(0), search_type.as_deref())
             .await
@@ -104,7 +104,7 @@ pub async fn search_artists(
     blacklist_state: State<'_, BlacklistState>,
 ) -> Result<SearchResultsPage<Artist>, String> {
     let mut results = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client
             .search_artists(&query, limit.unwrap_or(20), offset.unwrap_or(0), search_type.as_deref())
             .await
@@ -137,7 +137,7 @@ pub async fn search_all(
 
     // Acquire lock only for HTTP request, drop before parsing
     let response: Value = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client
             .get_http()
             .get(&url)
@@ -319,7 +319,7 @@ pub async fn get_album(
     // Cache miss - fetch from API
     log::debug!("Cache miss for album {}, fetching from API", album_id);
     let album = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client.get_album(&album_id).await.map_err(|e| e.to_string())?
     };
 
@@ -345,7 +345,7 @@ pub async fn get_featured_albums(
     state: State<'_, AppState>,
 ) -> Result<SearchResultsPage<Album>, String> {
     let result = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client
             .get_featured_albums(&featured_type, limit.unwrap_or(12), offset.unwrap_or(0), genre_id)
             .await
@@ -380,7 +380,7 @@ pub async fn get_track(
     // Cache miss - fetch from API
     log::debug!("Cache miss for track {}, fetching from API", track_id);
     let track = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client.get_track(track_id).await.map_err(|e| e.to_string())?
     };
 
@@ -407,7 +407,7 @@ pub async fn get_artist(
 
     // Get current locale
     let locale = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client.get_locale().await
     };
 
@@ -424,7 +424,7 @@ pub async fn get_artist(
 
     // Cache miss - fetch from API
     log::debug!("Cache miss for artist {} (locale: {}), fetching from API", artist_id, locale);
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let artist = client
         .get_artist(artist_id, true)
         .await
@@ -451,7 +451,7 @@ pub async fn get_artist_basic(
 ) -> Result<Artist, String> {
     // Get current locale
     let locale = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client.get_locale().await
     };
 
@@ -469,7 +469,7 @@ pub async fn get_artist_basic(
     // Cache miss - fetch from API (without albums - much faster)
     log::debug!("Cache miss for artist_basic {} (locale: {}), fetching from API", artist_id, locale);
     let artist = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client
             .get_artist_basic(artist_id)
             .await
@@ -498,7 +498,7 @@ pub async fn get_artist_detail(
 ) -> Result<Artist, String> {
     log::debug!("Command: get_artist_detail {}", artist_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .get_artist_detail(artist_id, Some(1000), Some(0))
         .await
@@ -520,7 +520,7 @@ pub async fn get_artist_tracks(
         offset
     );
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .get_artist_tracks(artist_id, limit.unwrap_or(50), offset.unwrap_or(0))
         .await
@@ -542,7 +542,7 @@ pub async fn get_artist_albums(
         offset
     );
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let artist = client
         .get_artist_with_pagination(artist_id, true, limit, offset)
         .await
@@ -569,7 +569,7 @@ pub async fn get_similar_artists(
         offset
     );
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let mut results = client
         .get_similar_artists(artist_id, limit.unwrap_or(5), offset.unwrap_or(0))
         .await
@@ -603,7 +603,7 @@ pub async fn get_label(
         offset
     );
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .get_label(label_id, limit.unwrap_or(100), offset.unwrap_or(0))
         .await
@@ -639,7 +639,7 @@ pub async fn get_genres(
 
     // Cache miss - fetch from API
     log::debug!("Cache miss for genres parent_id={:?}, fetching from API", parent_id);
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let genres = client
         .get_genres(parent_id)
         .await
@@ -667,7 +667,7 @@ pub async fn get_discover_index(
     state: State<'_, AppState>,
 ) -> Result<DiscoverResponse, String> {
     let result = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client
             .get_discover_index(genre_ids)
             .await
@@ -686,7 +686,7 @@ pub async fn get_discover_playlists(
 ) -> Result<DiscoverPlaylistsResponse, String> {
     log::debug!("Command: get_discover_playlists tag={:?} limit={:?} offset={:?}", tag, limit, offset);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .get_discover_playlists(tag, limit, offset)
         .await
@@ -702,7 +702,7 @@ pub async fn get_artist_page(
 ) -> Result<PageArtistResponse, String> {
     log::debug!("Command: get_artist_page {} sort={:?}", artist_id, sort);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .get_artist_page(artist_id, sort.as_deref())
         .await
@@ -724,7 +724,7 @@ pub async fn get_releases_grid(
         artist_id, release_type, limit, offset
     );
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .get_releases_grid(
             artist_id,

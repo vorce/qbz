@@ -196,7 +196,7 @@ pub async fn cache_track_for_offline(
 
         // Get stream URL with highest quality available
         let stream_url = {
-            let client_guard = client.lock().await;
+            let client_guard = client.read().await;
             client_guard
                 .get_stream_url_with_fallback(track_id, Quality::UltraHiRes)
                 .await
@@ -243,7 +243,7 @@ pub async fn cache_track_for_offline(
                 log::info!("Starting post-processing for cached track {}", track_id);
 
                 let file_path_str = file_path.to_string_lossy().to_string();
-                let qobuz_client = client.lock().await;
+                let qobuz_client = client.read().await;
                 match post_process_cached_track(
                     track_id,
                     &file_path_str,

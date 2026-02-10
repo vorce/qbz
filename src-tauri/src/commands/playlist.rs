@@ -21,7 +21,7 @@ pub async fn get_user_playlists(
 ) -> Result<Vec<Playlist>, String> {
     log::debug!("Command: get_user_playlists");
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .get_user_playlists()
         .await
@@ -37,7 +37,7 @@ pub async fn get_playlist(
     let cmd_start = std::time::Instant::now();
     log::debug!("Command: get_playlist {}", playlist_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let lock_elapsed = cmd_start.elapsed();
 
     let result = client
@@ -66,7 +66,7 @@ pub async fn get_playlist_track_ids(
     let cmd_start = std::time::Instant::now();
     log::debug!("Command: get_playlist_track_ids {}", playlist_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let result = client
         .get_playlist_track_ids(playlist_id)
         .await
@@ -91,7 +91,7 @@ pub async fn get_tracks_batch(
 ) -> Result<Vec<Track>, String> {
     log::debug!("Command: get_tracks_batch ({} IDs)", track_ids.len());
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .get_tracks_batch(&track_ids)
         .await
@@ -111,7 +111,7 @@ pub async fn check_playlist_duplicates(
         track_ids.len()
     );
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
 
     let playlist = client
         .get_playlist(playlist_id)
@@ -152,7 +152,7 @@ pub async fn search_playlists(
 ) -> Result<SearchResultsPage<Playlist>, String> {
     log::debug!("Command: search_playlists \"{}\" limit={:?} offset={:?}", query, limit, offset);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .search_playlists(&query, limit.unwrap_or(20), offset.unwrap_or(0))
         .await
@@ -169,7 +169,7 @@ pub async fn create_playlist(
 ) -> Result<Playlist, String> {
     log::info!("Command: create_playlist \"{}\"", name);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .create_playlist(&name, description.as_deref(), is_public.unwrap_or(false))
         .await
@@ -184,7 +184,7 @@ pub async fn delete_playlist(
 ) -> Result<(), String> {
     log::info!("Command: delete_playlist {}", playlist_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .delete_playlist(playlist_id)
         .await
@@ -200,7 +200,7 @@ pub async fn add_tracks_to_playlist(
 ) -> Result<(), String> {
     log::info!("Command: add_tracks_to_playlist {} ({} tracks)", playlist_id, track_ids.len());
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .add_tracks_to_playlist(playlist_id, &track_ids)
         .await
@@ -226,7 +226,7 @@ pub async fn remove_tracks_from_playlist(
         playlist_id, ptids.len(), tids.len()
     );
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
 
     // If we have direct playlist_track_ids, use them
     if !ptids.is_empty() {
@@ -279,7 +279,7 @@ pub async fn update_playlist(
 ) -> Result<Playlist, String> {
     log::info!("Command: update_playlist {}", playlist_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     client
         .update_playlist(playlist_id, name.as_deref(), description.as_deref(), is_public)
         .await
@@ -294,7 +294,7 @@ pub async fn get_tracks_by_ids(
 ) -> Result<Vec<crate::api::models::Track>, String> {
     log::debug!("Command: get_tracks_by_ids ({} tracks)", track_ids.len());
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let mut tracks = Vec::new();
 
     for track_id in track_ids {
@@ -315,7 +315,7 @@ pub async fn get_tracks_by_ids(
 pub async fn get_current_user_id(state: State<'_, AppState>) -> Result<Option<u64>, String> {
     log::debug!("Command: get_current_user_id");
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     Ok(client.get_user_id().await)
 }
 
@@ -328,7 +328,7 @@ pub async fn subscribe_playlist(
 ) -> Result<Playlist, String> {
     log::info!("Command: subscribe_playlist {}", playlist_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
 
     // 1. Get the source playlist with all its tracks
     let source = client
@@ -381,7 +381,7 @@ pub async fn get_track_info(
 ) -> Result<TrackInfo, String> {
     log::debug!("Command: get_track_info {}", track_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
     let track = client
         .get_track(track_id)
         .await

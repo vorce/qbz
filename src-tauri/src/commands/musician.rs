@@ -35,7 +35,7 @@ pub async fn resolve_musician(
     // Step 1: Search Qobuz for artist, handling "The" prefix variations
     // MusicBrainz often has "Beatles" but Qobuz has "The Beatles"
     let qobuz_artist = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         let name_lower = name.to_lowercase();
 
         // Search with original name
@@ -191,7 +191,7 @@ pub async fn get_musician_appearances(
 
     // Search for tracks by performer name
     let tracks = {
-        let client = state.client.lock().await;
+        let client = state.client.read().await;
         client
             .search_tracks(&name, 100, 0, None)
             .await
@@ -280,7 +280,7 @@ pub async fn get_musician_appearances(
 
 /// Count how many unique albums a musician appears on
 async fn count_track_appearances(state: &State<'_, AppState>, name: &str) -> usize {
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
 
     match client.search_tracks(name, 50, 0, None).await {
         Ok(results) => {

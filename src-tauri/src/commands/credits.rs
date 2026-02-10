@@ -120,7 +120,7 @@ pub async fn get_album_credits(
 ) -> Result<AlbumCredits, String> {
     log::info!("Command: get_album_credits {}", album_id);
 
-    let client = state.client.lock().await;
+    let client = state.client.read().await;
 
     // Fetch the album with tracks
     let album = client
