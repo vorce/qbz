@@ -4657,7 +4657,7 @@
   .jump-nav {
     position: sticky;
     top: 0;
-    z-index: 1; /* Keep low to not interfere with dropdown menus */
+    z-index: 10; /* Above content (z:1-2) but below dropdowns (z:50+) */
     display: flex;
     justify-content: space-between;
     align-items: center;
