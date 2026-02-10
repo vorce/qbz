@@ -24,18 +24,26 @@ pub async fn lyrics_get(
 
     let cache_key = build_cache_key(title_trimmed, artist_trimmed, duration_secs);
 
-    // Try cache by track_id first, then by key
+    // Try cache by track_id first, then by key.
+    // If cached entry has plain but no synced lyrics, treat as miss and re-fetch
+    // (search-first strategy is likely to find synced now).
     {
         let db_opt__ = state.db.lock().await;
         let db = db_opt__.as_ref().ok_or("No active session - please log in")?;
-        if let Some(id) = track_id {
-            if let Ok(Some(payload)) = db.get_by_track_id(id) {
+
+        let cached = if let Some(id) = track_id {
+            db.get_by_track_id(id).ok().flatten()
+        } else {
+            None
+        }
+        .or_else(|| db.get_by_cache_key(&cache_key).ok().flatten());
+
+        if let Some(payload) = cached {
+            let has_synced = payload.synced_lrc.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false);
+            if has_synced {
                 return Ok(Some(payload));
             }
-        }
-
-        if let Ok(Some(payload)) = db.get_by_cache_key(&cache_key) {
-            return Ok(Some(payload));
+            // plain-only cache: fall through to re-fetch for synced
         }
     }
 
