@@ -563,12 +563,13 @@
   }
 
   /**
-   * Progressive playlist loading:
-   * Phase 1: get_playlist_track_ids → metadata + ordered track ID array (instant, ~50KB)
-   * Phase 2: get_tracks_batch × N → full track details in batches of 50
-   *
-   * For pending playlists (negative ID), the old single-call path is kept.
+   * Playlist loading — adaptive strategy:
+   * - Small playlists (≤500 tracks): single get_playlist call (full data, no placeholders)
+   * - Large playlists (>500 tracks): progressive via get_playlist_track_ids + get_tracks_batch
+   * - Pending playlists (negative ID): offline path
    */
+  const PROGRESSIVE_THRESHOLD = 500;
+
   async function loadPlaylist() {
     const _t0 = performance.now();
     console.log(`[Perf] loadPlaylist() START`);
@@ -576,9 +577,8 @@
     error = null;
     tracksLoadedCount = 0;
     try {
-      // Check if this is a pending playlist (negative ID)
       if (playlistId < 0) {
-        // Load pending playlist data
+        // === Pending (offline) playlist ===
         const pendingId = -playlistId;
         const pendingPlaylists = await invoke<import('$lib/stores/offlineStore').PendingPlaylist[]>('get_pending_playlists');
         const pending = pendingPlaylists.find(p => p.id === pendingId);
@@ -587,9 +587,8 @@
           throw new Error('Pending playlist not found');
         }
 
-        // Build playlist object from pending data
         playlist = {
-          id: playlistId, // Keep negative ID
+          id: playlistId,
           name: pending.name,
           description: pending.description || undefined,
           owner: { id: 0, name: 'You (Offline)' },
@@ -600,17 +599,13 @@
           tracks: { items: [], total: 0 }
         };
 
-        // Load Qobuz tracks if any
         if (pending.trackIds.length > 0) {
           try {
             const qobuzTracks = await invoke<PlaylistTrack[]>('get_tracks_by_ids', {
               trackIds: pending.trackIds
             });
-
             tracks = qobuzTracks.map((track, idx) => mapPlaylistTrack(track, idx));
             tracksLoadedCount = tracks.length;
-
-            // Update duration
             playlist.duration = qobuzTracks.reduce((sum, track) => sum + track.duration, 0);
           } catch (err) {
             console.error('Failed to load Qobuz tracks for pending playlist:', err);
@@ -620,14 +615,14 @@
           tracks = [];
         }
       } else {
-        // === Progressive loading for regular playlists ===
+        // === Regular playlist — decide strategy based on track count ===
 
-        // Phase 1: Get metadata + track IDs (lightweight, ~50KB even for 2000 tracks)
+        // Phase 1: lightweight metadata + track IDs (always fast)
         console.log(`[Perf] invoke get_playlist_track_ids START (+${(performance.now() - _t0).toFixed(1)}ms)`);
         const meta = await invoke<PlaylistWithTrackIds>('get_playlist_track_ids', { playlistId });
         console.log(`[Perf] invoke get_playlist_track_ids DONE (+${(performance.now() - _t0).toFixed(1)}ms) — ${meta.track_ids.length} IDs`);
 
-        // Set playlist metadata immediately (header renders instantly)
+        // Set playlist metadata immediately
         playlist = {
           id: meta.id,
           name: meta.name,
@@ -641,90 +636,101 @@
 
         const allTrackIds = meta.track_ids;
 
-        // Create placeholder DisplayTrack entries (minimal objects, low proxy cost)
-        tracks = allTrackIds.map((trackId, idx) => ({
-          id: trackId,
-          number: idx + 1,
-          title: '',  // Empty title = placeholder
-          duration: '',
-          durationSeconds: 0,
-          addedIndex: idx,
-        }));
+        if (allTrackIds.length <= PROGRESSIVE_THRESHOLD) {
+          // --- Small playlist: single get_playlist call, no placeholders ---
+          console.log(`[Perf] small playlist (${allTrackIds.length} ≤ ${PROGRESSIVE_THRESHOLD}), using get_playlist`);
+          const fullPlaylist = await invoke<Playlist>('get_playlist', { playlistId });
+          console.log(`[Perf] get_playlist DONE (+${(performance.now() - _t0).toFixed(1)}ms)`);
 
-        // Show header + placeholders immediately (hide spinner before Phase 2)
-        spinnerFading = true;
-        setTimeout(() => {
-          loading = false;
-          spinnerFading = false;
-          requestAnimationFrame(() => {
-            if (scrollContainer) {
-              trackListViewHeight = scrollContainer.clientHeight;
-            }
-            trackListScrollTop = 0;
-          });
-        }, 100);
+          // Use images from meta (collage thumbnails) if the full playlist doesn't have them
+          playlist = {
+            ...fullPlaylist,
+            images: fullPlaylist.images?.length ? fullPlaylist.images : (meta.images300 ?? meta.images150 ?? meta.images),
+          };
 
-        // Phase 2: Fetch full track data in batches of 50, 4 concurrent
-        const BATCH_SIZE = 50;
-        const CONCURRENCY = 4;
-        const batches: number[][] = [];
-        for (let i = 0; i < allTrackIds.length; i += BATCH_SIZE) {
-          batches.push(allTrackIds.slice(i, i + BATCH_SIZE));
-        }
+          tracks = (fullPlaylist.tracks?.items ?? []).map((track, idx) => mapPlaylistTrack(track, idx));
+          tracksLoadedCount = tracks.length;
+        } else {
+          // --- Large playlist: progressive loading with placeholders ---
+          console.log(`[Perf] large playlist (${allTrackIds.length} > ${PROGRESSIVE_THRESHOLD}), progressive load`);
 
-        console.log(`[Perf] progressive load: ${batches.length} batches of ${BATCH_SIZE} (+${(performance.now() - _t0).toFixed(1)}ms)`);
+          // Create placeholder entries
+          tracks = allTrackIds.map((trackId, idx) => ({
+            id: trackId,
+            number: idx + 1,
+            title: '',
+            duration: '',
+            durationSeconds: 0,
+            addedIndex: idx,
+          }));
 
-        // Process batches in groups of CONCURRENCY
-        for (let g = 0; g < batches.length; g += CONCURRENCY) {
-          const group = batches.slice(g, g + CONCURRENCY);
-          const groupStartIdx = g * BATCH_SIZE;
-
-          const results = await Promise.all(
-            group.map(batch =>
-              invoke<PlaylistTrack[]>('get_tracks_batch', { trackIds: batch })
-                .catch(err => {
-                  console.warn('[Perf] batch fetch failed:', err);
-                  return [] as PlaylistTrack[];
-                })
-            )
-          );
-
-          // Merge results into tracks array (in-place update by index)
-          let offset = groupStartIdx;
-          for (const batchTracks of results) {
-            for (const apiTrack of batchTracks) {
-              if (offset < tracks.length) {
-                tracks[offset] = mapPlaylistTrack(apiTrack, offset);
+          // Show header + placeholders immediately
+          spinnerFading = true;
+          setTimeout(() => {
+            loading = false;
+            spinnerFading = false;
+            requestAnimationFrame(() => {
+              if (scrollContainer) {
+                trackListViewHeight = scrollContainer.clientHeight;
               }
-              offset++;
-            }
+              trackListScrollTop = 0;
+            });
+          }, 100);
+
+          // Fetch full track data in batches of 50, 4 concurrent
+          const BATCH_SIZE = 50;
+          const CONCURRENCY = 4;
+          const batches: number[][] = [];
+          for (let i = 0; i < allTrackIds.length; i += BATCH_SIZE) {
+            batches.push(allTrackIds.slice(i, i + BATCH_SIZE));
           }
 
-          tracksLoadedCount = Math.min(offset, allTrackIds.length);
-          console.log(`[Perf] loaded ${tracksLoadedCount}/${allTrackIds.length} tracks (+${(performance.now() - _t0).toFixed(1)}ms)`);
+          console.log(`[Perf] progressive: ${batches.length} batches of ${BATCH_SIZE} (+${(performance.now() - _t0).toFixed(1)}ms)`);
+
+          for (let g = 0; g < batches.length; g += CONCURRENCY) {
+            const group = batches.slice(g, g + CONCURRENCY);
+            const groupStartIdx = g * BATCH_SIZE;
+
+            const results = await Promise.all(
+              group.map(batch =>
+                invoke<PlaylistTrack[]>('get_tracks_batch', { trackIds: batch })
+                  .catch(err => {
+                    console.warn('[Perf] batch fetch failed:', err);
+                    return [] as PlaylistTrack[];
+                  })
+              )
+            );
+
+            let offset = groupStartIdx;
+            for (const batchTracks of results) {
+              for (const apiTrack of batchTracks) {
+                if (offset < tracks.length) {
+                  tracks[offset] = mapPlaylistTrack(apiTrack, offset);
+                }
+                offset++;
+              }
+            }
+
+            tracksLoadedCount = Math.min(offset, allTrackIds.length);
+            console.log(`[Perf] loaded ${tracksLoadedCount}/${allTrackIds.length} tracks (+${(performance.now() - _t0).toFixed(1)}ms)`);
+          }
         }
       }
     } catch (err) {
       console.error('Failed to load playlist:', err);
       error = String(err);
     } finally {
-      console.log(`[Perf] loadPlaylist() try/catch done (+${(performance.now() - _t0).toFixed(1)}ms)`);
+      console.log(`[Perf] loadPlaylist() done (+${(performance.now() - _t0).toFixed(1)}ms)`);
       if (playlist) {
         console.log(`[Perf] "${playlist.name}" — ${tracks.length} tracks (${tracksLoadedCount} loaded)`);
       }
-      // For progressive loading (positive ID), loading was already set to false
-      // after Phase 1. Only handle the spinner for pending playlists and errors.
       if (loading) {
         spinnerFading = true;
-        console.log(`[Perf] spinnerFading=true, scheduling loading=false in 200ms (+${(performance.now() - _t0).toFixed(1)}ms)`);
         const finalT0 = _t0;
         setTimeout(() => {
-          console.log(`[Perf] loading=false NOW (+${(performance.now() - finalT0).toFixed(1)}ms)`);
           loading = false;
           spinnerFading = false;
-          // After content mounts, ensure virtual scroll has correct dimensions
           requestAnimationFrame(() => {
-            console.log(`[Perf] rAF after mount (+${(performance.now() - finalT0).toFixed(1)}ms) — RENDER COMPLETE`);
             if (scrollContainer) {
               trackListViewHeight = scrollContainer.clientHeight;
             }
