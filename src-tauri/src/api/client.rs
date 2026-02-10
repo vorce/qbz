@@ -747,11 +747,16 @@ impl QobuzClient {
     }
 
     /// Get playlist by ID (paginates automatically to fetch all tracks)
+    ///
+    /// After the first page, remaining pages are fetched concurrently
+    /// since we know the total track count from the first response.
     pub async fn get_playlist(&self, playlist_id: u64) -> Result<Playlist> {
         let url = endpoints::build_url(paths::PLAYLIST_GET);
         const PAGE_SIZE: u32 = 500;
 
-        // First page
+        let start = std::time::Instant::now();
+
+        // First page — gives us metadata + total track count
         let http_response = self
             .http
             .get(&url)
@@ -768,39 +773,81 @@ impl QobuzClient {
         let response: Value = http_response.json().await?;
         let mut playlist: Playlist = serde_json::from_value(response)?;
 
-        // Paginate if there are more tracks
+        // Fetch remaining pages concurrently
         if let Some(ref mut container) = playlist.tracks {
             let total = container.total;
-            let mut fetched = container.items.len() as u32;
+            let fetched = container.items.len() as u32;
 
-            while fetched < total {
-                log::debug!("[API] get_playlist({}) fetching tracks {}/{}", playlist_id, fetched, total);
-                let page_response = self
-                    .http
-                    .get(&url)
-                    .headers(self.api_headers().await?)
-                    .query(&[
-                        ("playlist_id", playlist_id.to_string()),
-                        ("limit", PAGE_SIZE.to_string()),
-                        ("offset", fetched.to_string()),
-                        ("extra", "tracks".to_string()),
-                    ])
-                    .send()
-                    .await?;
-                let page_value: Value = page_response.json().await?;
-                let page_playlist: Playlist = serde_json::from_value(page_value)?;
+            if fetched < total {
+                // Build all remaining page offsets
+                let offsets: Vec<u32> = (fetched..total).step_by(PAGE_SIZE as usize).collect();
+                log::debug!(
+                    "[API] get_playlist({}) fetching {} remaining pages concurrently ({}/{})",
+                    playlist_id, offsets.len(), fetched, total
+                );
 
-                if let Some(page_tracks) = page_playlist.tracks {
-                    if page_tracks.items.is_empty() {
-                        break; // No more tracks
+                // Prepare headers once for all concurrent requests
+                let headers = self.api_headers().await?;
+
+                // Launch all page requests concurrently
+                let futures: Vec<_> = offsets.iter().map(|&offset| {
+                    let http = &self.http;
+                    let url = &url;
+                    let headers = headers.clone();
+                    let pid = playlist_id.to_string();
+                    let limit = PAGE_SIZE.to_string();
+                    let offset_str = offset.to_string();
+                    async move {
+                        let resp = http
+                            .get(url)
+                            .headers(headers)
+                            .query(&[
+                                ("playlist_id", pid.as_str()),
+                                ("limit", limit.as_str()),
+                                ("offset", offset_str.as_str()),
+                                ("extra", "tracks"),
+                            ])
+                            .send()
+                            .await?;
+                        let value: Value = resp.json().await?;
+                        let page: Playlist = serde_json::from_value(value)?;
+                        Ok::<_, anyhow::Error>((offset, page))
                     }
-                    fetched += page_tracks.items.len() as u32;
-                    container.items.extend(page_tracks.items);
-                } else {
-                    break;
+                }).collect();
+
+                let results = futures_util::future::join_all(futures).await;
+
+                // Collect results sorted by offset to maintain track order
+                let mut pages: Vec<(u32, Playlist)> = Vec::new();
+                for result in results {
+                    match result {
+                        Ok(page) => pages.push(page),
+                        Err(e) => {
+                            log::warn!("[API] get_playlist({}) page fetch failed: {}", playlist_id, e);
+                            // Continue with what we have
+                        }
+                    }
+                }
+                pages.sort_by_key(|(offset, _)| *offset);
+
+                // Append tracks in order
+                for (_, page_playlist) in pages {
+                    if let Some(page_tracks) = page_playlist.tracks {
+                        if !page_tracks.items.is_empty() {
+                            container.items.extend(page_tracks.items);
+                        }
+                    }
                 }
             }
         }
+
+        let elapsed = start.elapsed();
+        log::info!(
+            "[API] get_playlist({}) complete: {} tracks in {:.2}s",
+            playlist_id,
+            playlist.tracks.as_ref().map(|t| t.items.len()).unwrap_or(0),
+            elapsed.as_secs_f64()
+        );
 
         Ok(playlist)
     }
