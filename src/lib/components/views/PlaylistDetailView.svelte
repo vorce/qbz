@@ -446,6 +446,11 @@
   $effect(() => {
     // Access playlistId to create dependency
     const id = playlistId;
+    // FIRST: clear old data so no $derived recomputes against stale 800+ item arrays
+    tracks = [];
+    localTracks = [];
+    localTracksMap = new Map();
+    playlist = null;
     // Reset suggestions state for new playlist
     suggestionsActivated = false;
     // Reset virtual scroll state so new playlist renders from the top
