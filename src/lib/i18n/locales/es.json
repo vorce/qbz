@@ -868,7 +868,11 @@
       "uploadSuccess": "URL del log copiada al portapapeles",
       "uploadError": "Error al subir los logs",
       "uploading": "Subiendo...",
-      "bugReportHint": "Si vas a reportar un bug, sube ambas pestanas y comparte las dos URLs — nos ayuda a resolver el problema mas rapido. Gracias!"
+      "bugReportHint": "Si vas a reportar un bug, sube ambas pestanas y comparte las dos URLs — nos ayuda a resolver el problema mas rapido. Gracias!",
+      "verboseLogCapture": "Captura de logs detallada",
+      "verboseLogCaptureDesc": "Captura todos los logs de consola (log/info), no solo errores. Usa mas memoria.",
+      "verboseLogEnabled": "Captura de logs detallada activada",
+      "verboseLogDisabled": "Captura de logs detallada desactivada"
     },
     "blacklist": {
       "title": "Lista Negra de Artistas",

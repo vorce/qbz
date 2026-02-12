@@ -868,7 +868,11 @@
       "uploadSuccess": "Log URL copied to clipboard",
       "uploadError": "Failed to upload logs",
       "uploading": "Uploading...",
-      "bugReportHint": "Reporting a bug? Upload both tabs and share both URLs — it helps us fix things faster. Thanks!"
+      "bugReportHint": "Reporting a bug? Upload both tabs and share both URLs — it helps us fix things faster. Thanks!",
+      "verboseLogCapture": "Verbose Log Capture",
+      "verboseLogCaptureDesc": "Capture all console logs (log/info), not just errors. Uses more memory.",
+      "verboseLogEnabled": "Verbose log capture enabled",
+      "verboseLogDisabled": "Verbose log capture disabled"
     },
     "blacklist": {
       "title": "Artist Blacklist",

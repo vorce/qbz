@@ -835,7 +835,11 @@
       "uploadSuccess": "Log-URL in Zwischenablage kopiert",
       "uploadError": "Fehler beim Hochladen der Logs",
       "uploading": "Wird hochgeladen...",
-      "bugReportHint": "Fehler melden? Laden Sie beide Tabs hoch und teilen Sie beide URLs — das hilft uns, Probleme schneller zu beheben. Danke!"
+      "bugReportHint": "Fehler melden? Laden Sie beide Tabs hoch und teilen Sie beide URLs — das hilft uns, Probleme schneller zu beheben. Danke!",
+      "verboseLogCapture": "Ausführliche Log-Erfassung",
+      "verboseLogCaptureDesc": "Alle Konsolen-Logs erfassen (log/info), nicht nur Fehler. Verwendet mehr Speicher.",
+      "verboseLogEnabled": "Ausführliche Log-Erfassung aktiviert",
+      "verboseLogDisabled": "Ausführliche Log-Erfassung deaktiviert"
     },
     "blacklist": {
       "title": "Künstler-Blacklist",

@@ -835,7 +835,11 @@
       "uploadSuccess": "URL du log copiée dans le presse-papiers",
       "uploadError": "Échec du téléversement des logs",
       "uploading": "Téléversement...",
-      "bugReportHint": "Vous signalez un bug ? Téléversez les deux onglets et partagez les deux URLs — cela nous aide a résoudre les problèmes plus vite. Merci !"
+      "bugReportHint": "Vous signalez un bug ? Téléversez les deux onglets et partagez les deux URLs — cela nous aide a résoudre les problèmes plus vite. Merci !",
+      "verboseLogCapture": "Capture de logs detaillee",
+      "verboseLogCaptureDesc": "Capturer tous les logs de console (log/info), pas seulement les erreurs. Utilise plus de memoire.",
+      "verboseLogEnabled": "Capture de logs detaillee activee",
+      "verboseLogDisabled": "Capture de logs detaillee desactivee"
     },
     "blacklist": {
       "title": "Liste noire des artistes",

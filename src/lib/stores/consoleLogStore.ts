@@ -4,6 +4,11 @@
  * Wraps console.log/warn/error/info to capture browser-side logs
  * for the Developer Mode "View Logs" modal. Original console methods
  * are still called — no breakage.
+ *
+ * Performance optimization:
+ * - error/warn: Always captured (low frequency, high value for bug reports)
+ * - log/info: Only captured in dev builds OR when verbose mode is enabled
+ *   (reduces GC/CPU overhead in production)
  */
 
 interface ConsoleEntry {
@@ -15,6 +20,10 @@ interface ConsoleEntry {
 const MAX_ENTRIES = 2000;
 let entries: ConsoleEntry[] = [];
 let initialized = false;
+
+// Verbose capture mode - when true, captures log/info even in production
+// Can be enabled via Developer Mode for debugging production issues
+let verboseCapture = false;
 
 // Keep references to the real console methods
 const originalConsole = {
@@ -48,14 +57,32 @@ function capture(level: ConsoleEntry['level'], args: unknown[]) {
   }
 }
 
+// Check if we should capture log/info (verbose levels)
+// In dev builds: always capture everything
+// In production: only capture if verbose mode is explicitly enabled
+function shouldCaptureVerbose(): boolean {
+  return import.meta.env.DEV || verboseCapture;
+}
+
 export function initConsoleCapture() {
   if (initialized) return;
   initialized = true;
 
+  // log/info: Only capture in dev OR when verbose mode is enabled
   console.log = (...args: unknown[]) => {
-    capture('log', args);
+    if (shouldCaptureVerbose()) {
+      capture('log', args);
+    }
     originalConsole.log(...args);
   };
+  console.info = (...args: unknown[]) => {
+    if (shouldCaptureVerbose()) {
+      capture('info', args);
+    }
+    originalConsole.info(...args);
+  };
+
+  // warn/error: Always capture (valuable for bug reports)
   console.warn = (...args: unknown[]) => {
     capture('warn', args);
     originalConsole.warn(...args);
@@ -64,10 +91,23 @@ export function initConsoleCapture() {
     capture('error', args);
     originalConsole.error(...args);
   };
-  console.info = (...args: unknown[]) => {
-    capture('info', args);
-    originalConsole.info(...args);
-  };
+}
+
+/** Enable verbose capture (log/info) in production - for debugging */
+export function enableVerboseCapture() {
+  verboseCapture = true;
+  originalConsole.info('[ConsoleCapture] Verbose capture enabled');
+}
+
+/** Disable verbose capture (log/info) in production */
+export function disableVerboseCapture() {
+  verboseCapture = false;
+  originalConsole.info('[ConsoleCapture] Verbose capture disabled');
+}
+
+/** Check if verbose capture is currently enabled */
+export function isVerboseCaptureEnabled(): boolean {
+  return verboseCapture;
 }
 
 export function getConsoleLogs(): ConsoleEntry[] {

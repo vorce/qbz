@@ -57,6 +57,11 @@
   } from '$lib/stores/offlineStore';
   import { showToast } from '$lib/stores/toastStore';
   import {
+    enableVerboseCapture,
+    disableVerboseCapture,
+    isVerboseCaptureEnabled
+  } from '$lib/stores/consoleLogStore';
+  import {
     subscribe as subscribeTitleBar,
     getHideTitleBar,
     setHideTitleBar,
@@ -264,6 +269,7 @@
   let storageCollapsed = $state(true);
   let developerCollapsed = $state(true);
   let forceDmabuf = $state(false);
+  let verboseLogCapture = $state(false);
   let forceX11 = $state(false);
   let gdkScale = $state('');
   let gdkDpiScale = $state('');
@@ -897,6 +903,9 @@
     invoke('get_developer_settings').then((settings: any) => {
       forceDmabuf = settings.force_dmabuf;
     }).catch(() => {});
+
+    // Initialize verbose log capture state (runtime only, not persisted)
+    verboseLogCapture = isVerboseCaptureEnabled();
 
     // Load graphics settings
     invoke('get_graphics_settings').then((settings: any) => {
@@ -2775,6 +2784,21 @@
     }
   }
 
+  function handleVerboseLogCaptureChange(enabled: boolean) {
+    if (enabled) {
+      enableVerboseCapture();
+    } else {
+      disableVerboseCapture();
+    }
+    verboseLogCapture = enabled;
+    showToast(
+      enabled
+        ? $t('settings.developer.verboseLogEnabled')
+        : $t('settings.developer.verboseLogDisabled'),
+      'info'
+    );
+  }
+
   function formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -4288,6 +4312,13 @@
         <small class="setting-note">{$t('settings.developer.forceDmabufDesc')}</small>
       </div>
       <Toggle enabled={forceDmabuf} onchange={handleForceDmabufChange} />
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">{$t('settings.developer.verboseLogCapture')}</span>
+        <small class="setting-note">{$t('settings.developer.verboseLogCaptureDesc')}</small>
+      </div>
+      <Toggle enabled={verboseLogCapture} onchange={handleVerboseLogCaptureChange} />
     </div>
     <div class="setting-row">
       <div class="setting-info">
