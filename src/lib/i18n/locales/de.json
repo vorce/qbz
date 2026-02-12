@@ -1020,6 +1020,8 @@
     "queueEmpty": "Warteschlange ist leer",
     "queueEnded": "Warteschlange beendet",
     "failedClearQueue": "Leeren der Warteschlange fehlgeschlagen",
+    "removedFromQueue": "Aus Warteschlange entfernt",
+    "failedRemoveFromQueue": "Entfernen aus Warteschlange fehlgeschlagen",
     "shuffleEnabled": "Shuffle-Wiedergabe aktiviert",
     "shuffleDisabled": "Mischfunktion deaktiviert",
     "repeatOff": "Wiederholen: Aus",

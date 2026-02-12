@@ -1078,6 +1078,8 @@
     "queueEmpty": "Queue is empty",
     "queueEnded": "Queue ended",
     "failedClearQueue": "Failed to clear queue",
+    "removedFromQueue": "Removed from queue",
+    "failedRemoveFromQueue": "Failed to remove from queue",
     "shuffleEnabled": "Shuffle play enabled",
     "shuffleDisabled": "Shuffle disabled",
     "repeatOff": "Repeat: Off",

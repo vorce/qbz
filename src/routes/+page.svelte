@@ -1630,6 +1630,33 @@
     }
   }
 
+  // Remove a track from the queue by index
+  async function handleRemoveFromQueue(index: number) {
+    try {
+      await invoke('remove_from_queue', { index });
+      showToast($t('toast.removedFromQueue'), 'info');
+    } catch (err) {
+      console.error('Failed to remove from queue:', err);
+      showToast($t('toast.failedRemoveFromQueue'), 'error');
+    }
+  }
+
+  // Add a queue track to playlist
+  function handleQueueTrackAddToPlaylist(trackId: string) {
+    const numericId = parseInt(trackId, 10);
+    if (isNaN(numericId)) return;
+    userPlaylists = sidebarRef?.getPlaylists() ?? [];
+    openPlaylistModal('addTrack', [numericId]);
+  }
+
+  // Show track info for a queue track
+  function handleQueueTrackInfo(trackId: string) {
+    const numericId = parseInt(trackId, 10);
+    if (isNaN(numericId)) return;
+    trackInfoTrackId = numericId;
+    isTrackInfoOpen = true;
+  }
+
   // Save current queue as a new playlist
   function handleSaveQueueAsPlaylist() {
     // Collect all track IDs from queue (current track + upcoming)
@@ -3649,6 +3676,9 @@
       onToggleInfinitePlay={handleToggleInfinitePlay}
       {infinitePlayEnabled}
       {isPlaying}
+      onRemoveFromQueue={handleRemoveFromQueue}
+      onAddToPlaylist={handleQueueTrackAddToPlaylist}
+      onShowTrackInfo={handleQueueTrackInfo}
     />
 
     <!-- Immersive Player (replaces ExpandedPlayer + FocusMode) -->

@@ -1078,6 +1078,8 @@
     "queueEmpty": "La cola está vacía",
     "queueEnded": "Cola terminada",
     "failedClearQueue": "Error al limpiar cola",
+    "removedFromQueue": "Eliminado de la cola",
+    "failedRemoveFromQueue": "Error al eliminar de la cola",
     "shuffleEnabled": "Reproducción aleatoria activada",
     "shuffleDisabled": "Reproducción aleatoria desactivada",
     "repeatOff": "Repetir: Desactivado",

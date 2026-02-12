@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X, Search, Heart, MoreVertical, Trash2 } from 'lucide-svelte';
+  import { X, Search, Heart, MoreVertical, Trash2, ListPlus, Info } from 'lucide-svelte';
   import { t } from '$lib/i18n';
   import { invoke } from '@tauri-apps/api/core';
   import { getUserItem, setUserItem } from '$lib/utils/userStorage';
@@ -31,6 +31,9 @@
     onToggleInfinitePlay?: () => void;
     infinitePlayEnabled?: boolean;
     isPlaying?: boolean;
+    onRemoveFromQueue?: (index: number) => void;
+    onAddToPlaylist?: (trackId: string) => void;
+    onShowTrackInfo?: (trackId: string) => void;
   }
 
   let {
@@ -49,7 +52,10 @@
     onReorderTrack,
     onToggleInfinitePlay,
     infinitePlayEnabled = false,
-    isPlaying = false
+    isPlaying = false,
+    onRemoveFromQueue,
+    onAddToPlaylist,
+    onShowTrackInfo
   }: Props = $props();
 
   // Tab state
@@ -68,6 +74,9 @@
   // Drag state for queue
   let draggedIndex = $state<number | null>(null);
   let dragOverIndex = $state<number | null>(null);
+
+  // Context menu state for queue tracks
+  let openMenuIndex = $state<number | null>(null);
 
   // Display limit
   const DISPLAY_LIMIT = 20;
@@ -216,6 +225,41 @@
   function handleClose() {
     onClose();
   }
+
+  // Context menu handlers
+  function toggleTrackMenu(e: MouseEvent, index: number) {
+    e.stopPropagation();
+    openMenuIndex = openMenuIndex === index ? null : index;
+  }
+
+  function closeMenu() {
+    openMenuIndex = null;
+  }
+
+  function handleRemoveFromQueue(e: MouseEvent, index: number) {
+    e.stopPropagation();
+    onRemoveFromQueue?.(index);
+    closeMenu();
+  }
+
+  function handleAddToPlaylist(e: MouseEvent, trackId: string) {
+    e.stopPropagation();
+    onAddToPlaylist?.(trackId);
+    closeMenu();
+  }
+
+  function handleShowTrackInfo(e: MouseEvent, trackId: string) {
+    e.stopPropagation();
+    onShowTrackInfo?.(trackId);
+    closeMenu();
+  }
+
+  // Close menu when clicking outside
+  function handlePanelClick() {
+    if (openMenuIndex !== null) {
+      closeMenu();
+    }
+  }
 </script>
 
 {#if isOpen}
@@ -317,6 +361,31 @@
                     <div class="track-artist">{track.artist}</div>
                   </div>
                   <span class="track-duration">{track.duration}</span>
+                  <div class="track-menu-container">
+                    <button
+                      class="track-menu-btn"
+                      onclick={(e) => toggleTrackMenu(e, originalIndex)}
+                      title={$t('actions.more')}
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                    {#if openMenuIndex === originalIndex}
+                      <div class="track-context-menu">
+                        <button class="menu-item" onclick={(e) => handleRemoveFromQueue(e, originalIndex)}>
+                          <Trash2 size={14} />
+                          <span>{$t('player.removeFromQueue')}</span>
+                        </button>
+                        <button class="menu-item" onclick={(e) => handleAddToPlaylist(e, track.id)}>
+                          <ListPlus size={14} />
+                          <span>{$t('actions.addToPlaylist')}</span>
+                        </button>
+                        <button class="menu-item" onclick={(e) => handleShowTrackInfo(e, track.id)}>
+                          <Info size={14} />
+                          <span>{$t('player.trackInfo')}</span>
+                        </button>
+                      </div>
+                    {/if}
+                  </div>
                 </div>
               {/each}
               {#if searchQuery && filteredTracks.length === 0}
@@ -758,6 +827,80 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     flex-shrink: 0;
+  }
+
+  /* Track Context Menu */
+  .track-menu-container {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .track-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 150ms ease;
+  }
+
+  .queue-track:hover .track-menu-btn {
+    opacity: 1;
+  }
+
+  .track-menu-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .track-context-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 100;
+    min-width: 180px;
+    padding: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .menu-item:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .menu-item :global(svg) {
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  .menu-item:hover :global(svg) {
+    color: var(--text-secondary);
   }
 
   .load-more {

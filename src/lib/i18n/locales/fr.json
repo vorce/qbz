@@ -1020,6 +1020,8 @@
     "queueEmpty": "La file d'attente est vide",
     "queueEnded": "Fin de la file d'attente",
     "failedClearQueue": "Échec du vidage de la file d'attente",
+    "removedFromQueue": "Retiré de la file d'attente",
+    "failedRemoveFromQueue": "Échec du retrait de la file d'attente",
     "shuffleEnabled": "Lecture aléatoire activée",
     "shuffleDisabled": "Lecture aléatoire désactivée",
     "repeatOff": "Répéter : Désactivé",
