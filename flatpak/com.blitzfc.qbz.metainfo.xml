@@ -59,6 +59,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="1.1.13" date="2026-02-12">
+      <description>
+        <p>Flathub submission release with upstream metadata files.</p>
+      </description>
+    </release>
     <release version="1.1.12" date="2026-02-12">
       <description>
         <p>Bug fix release addressing graphics rendering regressions and performance improvements.</p>
