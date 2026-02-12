@@ -2875,26 +2875,36 @@
     });
 
     // Set up tray icon event listeners
+    // Using disposed flag pattern to prevent listener leaks on fast unmount/HMR
+    let disposed = false;
     let unlistenTrayPlayPause: UnlistenFn | null = null;
     let unlistenTrayNext: UnlistenFn | null = null;
     let unlistenTrayPrevious: UnlistenFn | null = null;
     let unlistenMediaControls: UnlistenFn | null = null;
 
     (async () => {
-      unlistenTrayPlayPause = await listen('tray:play_pause', () => {
+      const unlisten1 = await listen('tray:play_pause', () => {
         console.log('[Tray] Play/Pause');
         togglePlay();
       });
-      unlistenTrayNext = await listen('tray:next', async () => {
+      if (disposed) { unlisten1(); return; }
+      unlistenTrayPlayPause = unlisten1;
+
+      const unlisten2 = await listen('tray:next', async () => {
         console.log('[Tray] Next');
         await handleSkipForward();
       });
-      unlistenTrayPrevious = await listen('tray:previous', async () => {
+      if (disposed) { unlisten2(); return; }
+      unlistenTrayNext = unlisten2;
+
+      const unlisten3 = await listen('tray:previous', async () => {
         console.log('[Tray] Previous');
         await handleSkipBack();
       });
+      if (disposed) { unlisten3(); return; }
+      unlistenTrayPrevious = unlisten3;
 
-      unlistenMediaControls = await listen('media:control', async (event) => {
+      const unlisten4 = await listen('media:control', async (event) => {
         const payload = event.payload as MediaControlPayload;
         if (!payload?.action) return;
 
@@ -2956,9 +2966,13 @@
             break;
         }
       });
+      if (disposed) { unlisten4(); return; }
+      unlistenMediaControls = unlisten4;
     })();
 
     return () => {
+      // Mark as disposed to prevent listener leaks from pending async registrations
+      disposed = true;
       // Clean up tray event listeners
       unlistenTrayPlayPause?.();
       unlistenTrayNext?.();

@@ -45,6 +45,8 @@ const listeners = new Set<() => void>();
 
 // Event unsubscribe functions
 let unlisteners: UnlistenFn[] = [];
+// Flag to prevent listener leaks on fast stop/start cycles
+let listenersDisposed = false;
 
 export function getOfflineCacheState(trackId: number): OfflineCacheInfo {
   return offlineCacheStates.get(trackId) || { status: 'none', progress: 0 };
@@ -100,11 +102,16 @@ export async function startOfflineCacheEventListeners(): Promise<void> {
     return;
   }
 
+  // Reset disposed flag when starting
+  listenersDisposed = false;
+
   try {
     const unlistenStarted = await listen<{ trackId: number }>('offline:caching_started', (event) => {
       console.log('Offline caching started:', event.payload.trackId);
       setOfflineCacheState(event.payload.trackId, { status: 'downloading', progress: 0 });
     });
+    // Check if stop was called while we were awaiting
+    if (listenersDisposed) { unlistenStarted(); return; }
 
     const unlistenProgress = await listen<{
       trackId: number;
@@ -116,11 +123,13 @@ export async function startOfflineCacheEventListeners(): Promise<void> {
       const { trackId, progressPercent } = event.payload;
       setOfflineCacheState(trackId, { status: 'downloading', progress: progressPercent });
     });
+    if (listenersDisposed) { unlistenStarted(); unlistenProgress(); return; }
 
     const unlistenCompleted = await listen<{ trackId: number; size: number }>('offline:caching_completed', (event) => {
       console.log('Offline caching completed:', event.payload.trackId);
       setOfflineCacheState(event.payload.trackId, { status: 'ready', progress: 100 });
     });
+    if (listenersDisposed) { unlistenStarted(); unlistenProgress(); unlistenCompleted(); return; }
 
     const unlistenFailed = await listen<{ trackId: number; error: string }>('offline:caching_failed', (event) => {
       console.error('Offline caching failed:', event.payload.trackId, event.payload.error);
@@ -130,6 +139,7 @@ export async function startOfflineCacheEventListeners(): Promise<void> {
         error: event.payload.error,
       });
     });
+    if (listenersDisposed) { unlistenStarted(); unlistenProgress(); unlistenCompleted(); unlistenFailed(); return; }
 
     unlisteners = [unlistenStarted, unlistenProgress, unlistenCompleted, unlistenFailed];
   } catch (err) {
@@ -139,6 +149,8 @@ export async function startOfflineCacheEventListeners(): Promise<void> {
 
 // Stop listening for events
 export function stopOfflineCacheEventListeners(): void {
+  // Set disposed flag to prevent leaks from pending async registrations
+  listenersDisposed = true;
   for (const unlisten of unlisteners) {
     unlisten();
   }
