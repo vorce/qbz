@@ -267,8 +267,8 @@
     type PersistedQueueTrack
   } from '$lib/services/sessionService';
 
-  // MiniPlayer
-  import { enterMiniplayerMode } from '$lib/services/miniplayerService';
+  // MiniPlayer - DISABLED: incomplete feature, re-enable when ready
+  // import { enterMiniplayerMode } from '$lib/services/miniplayerService';
 
   // Sidebar mutual exclusion
   import { closeContentSidebar, subscribeContentSidebar, type ContentSidebarType } from '$lib/stores/sidebarStore';
@@ -2733,21 +2733,21 @@
         flushPositionSave(Math.floor(currentTime));
       }
 
-      // Sync state to MiniPlayer window (if open)
-      if (currentTrack) {
-        emitTo('miniplayer', 'miniplayer:track', {
-          id: currentTrack.id,
-          title: currentTrack.title,
-          artist: currentTrack.artist,
-          artwork: currentTrack.artwork,
-          isPlaying,
-        }).catch(() => {}); // Ignore if miniplayer not open
-      }
-      emitTo('miniplayer', 'miniplayer:playback', {
-        isPlaying,
-        currentTime,
-        duration,
-      }).catch(() => {}); // Ignore if miniplayer not open
+      // MiniPlayer IPC - DISABLED: incomplete feature, causes unnecessary IPC overhead
+      // if (currentTrack) {
+      //   emitTo('miniplayer', 'miniplayer:track', {
+      //     id: currentTrack.id,
+      //     title: currentTrack.title,
+      //     artist: currentTrack.artist,
+      //     artwork: currentTrack.artwork,
+      //     isPlaying,
+      //   }).catch(() => {}); // Ignore if miniplayer not open
+      // }
+      // emitTo('miniplayer', 'miniplayer:playback', {
+      //   isPlaying,
+      //   currentTime,
+      //   duration,
+      // }).catch(() => {}); // Ignore if miniplayer not open
     });
 
     // Subscribe to queue state changes
@@ -3589,7 +3589,6 @@
         onAddToPlaylist={openAddToPlaylistModal}
         onOpenQueue={toggleQueue}
         onOpenFullScreen={openFullScreen}
-        onOpenMiniPlayer={enterMiniplayerMode}
         onCast={openCastPicker}
         {isCastConnected}
         onToggleLyrics={toggleLyricsSidebar}
@@ -3624,7 +3623,6 @@
       <NowPlayingBar
         onOpenQueue={toggleQueue}
         onOpenFullScreen={openFullScreen}
-        onOpenMiniPlayer={enterMiniplayerMode}
         onCast={openCastPicker}
         {isCastConnected}
         queueOpen={isQueueOpen}

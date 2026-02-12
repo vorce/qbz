@@ -380,9 +380,11 @@
         <Mic2 size={16} aria-hidden="true" />
       </button>
 
-      <button class="control-btn" onclick={onOpenMiniPlayer} title={$t('player.miniPlayer')}>
-        <PictureInPicture2 size={16} />
-      </button>
+      {#if onOpenMiniPlayer}
+        <button class="control-btn" onclick={onOpenMiniPlayer} title={$t('player.miniPlayer')}>
+          <PictureInPicture2 size={16} />
+        </button>
+      {/if}
 
       <button class="control-btn" onclick={onOpenFullScreen} title={$t('player.fullScreen')}>
         <Maximize2 size={16} />
