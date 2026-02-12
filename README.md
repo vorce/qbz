@@ -409,10 +409,14 @@ QBZ uses WebKit for rendering. Some hardware/driver combinations may cause crash
 If QBZ crashes on startup after changing graphics settings:
 
 ```bash
+# Nuclear option: reset ALL graphics settings to defaults
+qbz --reset-graphics
+
+# Alternative: disable GPU rendering for this session only
 QBZ_HARDWARE_ACCEL=0 qbz
 ```
 
-This disables all GPU rendering and lets you access settings to fix the configuration.
+The `--reset-graphics` flag resets force_x11, gdk_scale, gdk_dpi_scale, and force_dmabuf to their defaults, then exits. Start QBZ normally afterwards.
 
 #### Environment Variables
 

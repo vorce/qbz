@@ -58,6 +58,53 @@ fn is_nvidia_gpu() -> bool {
 }
 
 fn main() {
+    // CLI flag: --reset-graphics — resets ALL graphics/composition settings to defaults
+    if std::env::args().any(|a| a == "--reset-graphics") {
+        eprintln!("[QBZ] Resetting all graphics settings to defaults...");
+        let mut errors = Vec::new();
+
+        // Reset graphics settings (force_x11, gdk_scale, gdk_dpi_scale)
+        match qbz_nix_lib::config::graphics_settings::GraphicsSettingsStore::new() {
+            Ok(store) => {
+                if let Err(e) = store.set_force_x11(false) {
+                    errors.push(format!("force_x11: {}", e));
+                }
+                if let Err(e) = store.set_gdk_scale(None) {
+                    errors.push(format!("gdk_scale: {}", e));
+                }
+                if let Err(e) = store.set_gdk_dpi_scale(None) {
+                    errors.push(format!("gdk_dpi_scale: {}", e));
+                }
+            }
+            Err(e) => errors.push(format!("graphics settings store: {}", e)),
+        }
+
+        // Reset developer settings (force_dmabuf)
+        match qbz_nix_lib::config::developer_settings::DeveloperSettingsStore::new() {
+            Ok(store) => {
+                if let Err(e) = store.set_force_dmabuf(false) {
+                    errors.push(format!("force_dmabuf: {}", e));
+                }
+            }
+            Err(e) => errors.push(format!("developer settings store: {}", e)),
+        }
+
+        if errors.is_empty() {
+            eprintln!("[QBZ] All graphics settings have been reset:");
+            eprintln!("[QBZ]   - force_x11: false");
+            eprintln!("[QBZ]   - gdk_scale: auto");
+            eprintln!("[QBZ]   - gdk_dpi_scale: auto");
+            eprintln!("[QBZ]   - force_dmabuf: false");
+            eprintln!("[QBZ] You can now start QBZ normally.");
+        } else {
+            eprintln!("[QBZ] Some settings could not be reset:");
+            for e in &errors {
+                eprintln!("[QBZ]   - {}", e);
+            }
+        }
+        return;
+    }
+
     // CLI flag: --reset-dmabuf — resets the developer force_dmabuf setting and exits
     if std::env::args().any(|a| a == "--reset-dmabuf") {
         match qbz_nix_lib::config::developer_settings::DeveloperSettingsStore::new() {
