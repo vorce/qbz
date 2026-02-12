@@ -172,12 +172,9 @@
     }
   });
 
-  // Reload status when playback starts
-  $effect(() => {
-    if (outputStatus?.is_playing) {
-      loadStatus();
-    }
-  });
+  // Note: Removed the $effect that reloaded status when is_playing changed.
+  // It caused an infinite loop because loadStatus() updates outputStatus,
+  // which re-triggers the effect. The mouseenter handler and polling are sufficient.
 
   onMount(() => {
     loadStatus();
