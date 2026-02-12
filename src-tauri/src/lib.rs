@@ -354,11 +354,11 @@ pub fn run() {
                     let track_id = player_state.current_track_id();
 
                     // Adaptive polling:
-                    // - fast (250ms) when playing
+                    // - fast (500ms) when playing - balances UI responsiveness vs CPU
                     // - slow (1000ms) when paused/stopped with a track loaded
                     // - very slow (5000ms) when no track is loaded (idle)
                     let sleep_duration = if is_playing {
-                        std::time::Duration::from_millis(250)
+                        std::time::Duration::from_millis(500)
                     } else if track_id == 0 {
                         std::time::Duration::from_millis(5000)
                     } else {
