@@ -4,7 +4,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
 
   export type ImmersiveTab = 'lyrics' | 'trackInfo' | 'suggestions' | 'queue';
-  export type FocusTab = 'coverflow' | 'static' | 'vinyl' | 'visualizer' | 'lyrics-focus' | 'queue-focus';
+  export type FocusTab = 'coverflow' | 'static' | 'visualizer' | 'lyrics-focus' | 'queue-focus';
   export type ViewMode = 'focus' | 'split';
 
   interface Props {
@@ -87,7 +87,6 @@
   const focusTabs: { id: FocusTab; label: string; icon: typeof Disc3 }[] = [
     { id: 'coverflow', label: 'Coverflow', icon: Disc3 },
     { id: 'static', label: 'Static', icon: Image },
-    { id: 'vinyl', label: 'Vinyl', icon: Disc },
     { id: 'visualizer', label: 'Visualizer', icon: Activity },
     { id: 'lyrics-focus', label: 'Lyrics', icon: Mic2 },
     { id: 'queue-focus', label: 'Queue', icon: ListMusic },

@@ -11,7 +11,6 @@
   import QueuePanel from './panels/QueuePanel.svelte';
   import CoverflowPanel from './panels/CoverflowPanel.svelte';
   import StaticPanel from './panels/StaticPanel.svelte';
-  import VinylPanel from './panels/VinylPanel.svelte';
   import VisualizerPanel from './panels/VisualizerPanel.svelte';
   import LyricsFocusPanel from './panels/LyricsFocusPanel.svelte';
   import QualityBadge from '$lib/components/QualityBadge.svelte';
@@ -148,7 +147,7 @@
   const AUTO_HIDE_DELAY = 4000;
 
   // Immersive view persistence
-  type ImmersiveViewKey = 'coverflow' | 'static' | 'vinyl' | 'visualizer' | 'lyrics-focus' | 'queue-focus' | 'split-lyrics' | 'split-trackInfo' | 'split-suggestions' | 'split-queue';
+  type ImmersiveViewKey = 'coverflow' | 'static' | 'visualizer' | 'lyrics-focus' | 'queue-focus' | 'split-lyrics' | 'split-trackInfo' | 'split-suggestions' | 'split-queue';
 
   function applyStoredView(key: ImmersiveViewKey) {
     if (key.startsWith('split-')) {
@@ -398,21 +397,6 @@
       {:else if activeFocusTab === 'static'}
         <!-- Static: Single centered artwork -->
         <StaticPanel
-          {artwork}
-          {trackTitle}
-          {artist}
-          {album}
-          {isPlaying}
-          {quality}
-          {bitDepth}
-          {samplingRate}
-          {originalBitDepth}
-          {originalSamplingRate}
-          {format}
-        />
-      {:else if activeFocusTab === 'vinyl'}
-        <!-- Vinyl: Spinning record with album cover -->
-        <VinylPanel
           {artwork}
           {trackTitle}
           {artist}
