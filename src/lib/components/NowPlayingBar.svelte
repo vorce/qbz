@@ -9,6 +9,7 @@
     Repeat1,
     Heart,
     Plus,
+    Minus,
     Volume2,
     VolumeX,
     Volume1,
@@ -440,10 +441,23 @@
           </div>
           <div class="volume-thumb" style="left: {volume}%"></div>
         </div>
-      </div>
 
-      <!-- Separator -->
-      <div class="section-separator"></div>
+        <button
+          class="control-btn volume-step-btn"
+          onclick={() => onVolumeChange?.(Math.max(0, volume - 5))}
+          title={$t('player.volumeDown')}
+        >
+          <Minus size={14} />
+        </button>
+
+        <button
+          class="control-btn volume-step-btn"
+          onclick={() => onVolumeChange?.(Math.min(100, volume + 5))}
+          title={$t('player.volumeUp')}
+        >
+          <Plus size={14} />
+        </button>
+      </div>
 
       <!-- Queue Button (far right) -->
       <button
@@ -721,7 +735,7 @@
     padding: 2px;
     background: var(--bg-tertiary);
     border-radius: 8px;
-    min-width: 508px;
+    min-width: 436px;
     flex: 1;
     max-width: 800px;
   }
@@ -913,6 +927,12 @@
 
   .volume-slider:hover .volume-thumb {
     opacity: 1;
+  }
+
+  .volume-step-btn {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
   }
 
   .volume-value {

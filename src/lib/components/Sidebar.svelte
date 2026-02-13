@@ -130,6 +130,11 @@
   let showCreateFolderModal = $state(false);
   let newFolderName = $state('');
 
+  // Playlist search state
+  let showPlaylistSearch = $state(false);
+  let playlistSearchQuery = $state('');
+  let playlistSearchInput = $state<HTMLInputElement | null>(null);
+
   // Virtual scroll state for playlists
   type VirtualPlaylistItem =
     | { type: 'folder-header'; folder: PlaylistFolder; folderId: string; top: number; height: number }
@@ -378,6 +383,12 @@
       return !settings?.hidden;
     });
 
+    // Filter by playlist search query
+    if (playlistSearchQuery.trim()) {
+      const query = playlistSearchQuery.toLowerCase();
+      visible = visible.filter(p => p.name.toLowerCase().includes(query));
+    }
+
     // Filter by local content when offline
     if (offlineStatus.isOffline) {
       visible = visible.filter(p => {
@@ -613,6 +624,7 @@
   let virtualPlaylistItems = $derived.by(() => {
     const items: VirtualPlaylistItem[] = [];
     let currentTop = 0;
+    const isSearching = playlistSearchQuery.trim().length > 0;
 
     // Reference folderExpandState to trigger re-derivation when folders are toggled
     // (isFolderExpanded reads from a non-reactive Set, so we need this dependency)
@@ -622,7 +634,12 @@
       // Expanded sidebar: folders with headers + playlists, then root playlists
       for (const folder of folders) {
         const folderPlaylists = getPlaylistsInFolder(folder.id);
-        const expanded = isFolderExpanded(folder.id);
+
+        // When searching, skip folders with no matching playlists
+        if (isSearching && folderPlaylists.length === 0) continue;
+
+        // When searching, force expand; otherwise use normal expand state
+        const expanded = isSearching || isFolderExpanded(folder.id);
 
         // Folder header
         items.push({
@@ -1363,8 +1380,49 @@
     <div class="section playlists-section">
       {#if isExpanded}
         <div class="playlists-header">
-          <div class="section-header">{$t('nav.playlists')}</div>
+          {#if showPlaylistSearch}
+            <div class="playlist-search-container">
+              <Search size={12} />
+              <input
+                type="text"
+                class="playlist-search-input"
+                placeholder={$t('playlist.searchPlaylists')}
+                bind:value={playlistSearchQuery}
+                bind:this={playlistSearchInput}
+                onkeydown={(e) => {
+                  if (e.key === 'Escape') {
+                    showPlaylistSearch = false;
+                    playlistSearchQuery = '';
+                  }
+                }}
+              />
+              <button
+                class="playlist-search-close"
+                onclick={() => { showPlaylistSearch = false; playlistSearchQuery = ''; }}
+                title={$t('actions.close')}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          {:else}
+            <div class="section-header">{$t('nav.playlists')}</div>
+          {/if}
           <div class="header-actions" bind:this={menuRef}>
+            <button
+              class="icon-btn"
+              class:active={showPlaylistSearch}
+              onclick={() => {
+                showPlaylistSearch = !showPlaylistSearch;
+                if (showPlaylistSearch) {
+                  setTimeout(() => playlistSearchInput?.focus(), 0);
+                } else {
+                  playlistSearchQuery = '';
+                }
+              }}
+              title={$t('playlist.searchPlaylists')}
+            >
+              <Search size={14} />
+            </button>
             <button class="icon-btn" onclick={onCreatePlaylist} title={$t('playlist.createNew')}>
               <Plus size={14} />
             </button>
@@ -1940,6 +1998,60 @@
   .playlists-header .section-header {
     margin-bottom: 0;
     padding: 0;
+  }
+
+  .playlist-search-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    padding: 0 8px;
+    margin-right: 4px;
+    margin-top: -2px;
+    margin-bottom: -2px;
+    color: var(--text-muted);
+  }
+
+  .playlist-search-input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 11px;
+    color: var(--text-primary);
+    padding: 0;
+  }
+
+  .playlist-search-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .playlist-search-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  .playlist-search-close:hover {
+    color: var(--text-primary);
+  }
+
+  .icon-btn.active {
+    color: var(--accent-primary);
   }
 
   .header-actions {
