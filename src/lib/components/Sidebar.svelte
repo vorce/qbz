@@ -624,6 +624,7 @@
   let virtualPlaylistItems = $derived.by(() => {
     const items: VirtualPlaylistItem[] = [];
     let currentTop = 0;
+    const isSearching = playlistSearchQuery.trim().length > 0;
 
     // Reference folderExpandState to trigger re-derivation when folders are toggled
     // (isFolderExpanded reads from a non-reactive Set, so we need this dependency)
@@ -633,7 +634,12 @@
       // Expanded sidebar: folders with headers + playlists, then root playlists
       for (const folder of folders) {
         const folderPlaylists = getPlaylistsInFolder(folder.id);
-        const expanded = isFolderExpanded(folder.id);
+
+        // When searching, skip folders with no matching playlists
+        if (isSearching && folderPlaylists.length === 0) continue;
+
+        // When searching, force expand; otherwise use normal expand state
+        const expanded = isSearching || isFolderExpanded(folder.id);
 
         // Folder header
         items.push({
@@ -2000,11 +2006,13 @@
     gap: 6px;
     flex: 1;
     min-width: 0;
-    height: 20px;
+    height: 24px;
     background: var(--bg-tertiary);
     border-radius: 4px;
-    padding: 0 6px;
+    padding: 0 8px;
     margin-right: 4px;
+    margin-top: -2px;
+    margin-bottom: -2px;
     color: var(--text-muted);
   }
 

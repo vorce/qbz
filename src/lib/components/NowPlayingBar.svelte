@@ -459,9 +459,6 @@
         </button>
       </div>
 
-      <!-- Separator -->
-      <div class="section-separator"></div>
-
       <!-- Queue Button (far right) -->
       <button
         class="control-btn queue-btn"
@@ -935,14 +932,7 @@
   .volume-step-btn {
     width: 24px;
     height: 24px;
-    border-radius: 50%;
-    border: 1px solid var(--border-subtle);
-    background: transparent;
     flex-shrink: 0;
-  }
-
-  .volume-step-btn:hover {
-    border-color: var(--text-muted);
   }
 
   .volume-value {
