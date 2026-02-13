@@ -1950,14 +1950,10 @@
           </div>
         {:else}
           <div class="collage-wrapper">
-            {#if playlist.images && playlist.images.length > 0}
-              <img class="playlist-api-image" src={playlist.images[0]} alt={playlist.name} width="200" height="200" />
-            {:else}
-              <PlaylistCollage
-                artworks={tracks.slice(0, 4).map(trk => trk.albumArt).filter((a): a is string => !!a)}
-                size={200}
-              />
-            {/if}
+            <PlaylistCollage
+              artworks={tracks.slice(0, 4).map(trk => trk.albumArt).filter((a): a is string => !!a)}
+              size={200}
+            />
             <div class="artwork-overlay">
               <button class="artwork-btn" onclick={selectCustomArtwork} title="Set custom artwork">
                 <ImagePlus size={24} />

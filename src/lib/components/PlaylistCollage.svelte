@@ -64,10 +64,11 @@
     <img src={uniqueArtworks[1]} alt="" class="cover quarter top-right" />
     <img src={uniqueArtworks[2]} alt="" class="cover quarter bottom-right" />
   {:else}
-    <img src={uniqueArtworks[0]} alt="" class="cover quarter top-left" />
-    <img src={uniqueArtworks[1]} alt="" class="cover quarter top-right" />
-    <img src={uniqueArtworks[2]} alt="" class="cover quarter bottom-left" />
-    <img src={uniqueArtworks[3]} alt="" class="cover quarter bottom-right" />
+    <!-- 4 covers: 3 small stacked left, 1 large right -->
+    <img src={uniqueArtworks[0]} alt="" class="cover small-top" />
+    <img src={uniqueArtworks[1]} alt="" class="cover small-mid" />
+    <img src={uniqueArtworks[2]} alt="" class="cover small-bot" />
+    <img src={uniqueArtworks[3]} alt="" class="cover large-right" />
   {/if}
 </div>
 
@@ -142,17 +143,34 @@
     height: 100%;
   }
 
-  /* 4 covers - 2x2 grid */
+  /* 4 covers - 3 small left stacked, 1 large right */
   .collage.quad {
-    grid-template: 1fr 1fr / 1fr 1fr;
-    gap: 1px;
+    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 2fr;
+    gap: 2px;
   }
-  .cover.quarter {
+  .small-top {
+    grid-row: 1;
+    grid-column: 1;
     width: 100%;
     height: 100%;
   }
-  .quarter.top-left { grid-area: 1 / 1; }
-  .quarter.top-right { grid-area: 1 / 2; }
-  .quarter.bottom-left { grid-area: 2 / 1; }
-  .quarter.bottom-right { grid-area: 2 / 2; }
+  .small-mid {
+    grid-row: 2;
+    grid-column: 1;
+    width: 100%;
+    height: 100%;
+  }
+  .small-bot {
+    grid-row: 3;
+    grid-column: 1;
+    width: 100%;
+    height: 100%;
+  }
+  .large-right {
+    grid-row: 1 / 4;
+    grid-column: 2;
+    width: 100%;
+    height: 100%;
+  }
 </style>
